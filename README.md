@@ -1,11 +1,9 @@
 # Stata Outline / Stata 大纲扩展
 
 **版本 / Version:** 0.0.1  
-**作者 / Author:** yourname
+**作者 / Author:** Zihao Viston Wang
 
 ---
-
-## English Version
 
 ### Introduction
 This VS Code extension adds **Outline support for Stata `.do` files**.  
