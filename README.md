@@ -20,26 +20,15 @@ It automatically recognizes comment lines with multiple `%` symbols as section h
 - and so on…
 
 ### Features / 特点
-- Display hierarchical sections in Outline view based on comment markers.  
-- Supports unlimited levels by adding more `%`.  
-- Easy to navigate large `.do` files.  
-- Works entirely offline; no external dependencies.
-
-- 在大纲视图中根据注释标记显示层次结构部分。  
-- 通过添加更多的“%”支持无限级别。  
-- 便于浏览大型 `.do` 文件。  
-- 完全离线工作；没有外部依赖。
+- Display hierarchical sections in Outline view based on comment markers.  在大纲视图中根据注释标记显示层次结构部分。
+- Supports unlimited levels by adding more `%`.  通过添加更多的“%”支持无限级别。
+- Easy to navigate large `.do` files.  便于浏览大型 `.do` 文件。  
 
 ### Installation / 安装
-1. Download the `.vsix` file from this repository.  
-2. Open VS Code → Extensions panel → Click `...` → `Install from VSIX...`  
-3. Select the downloaded `.vsix` file.  
-4. Open any `.do` file and open the Outline panel (Explorer → Outline) to see the hierarchical sections.
-
-1. 从此仓库下载 `.vsix` 文件。  
-2. 打开 VS Code → 扩展面板 → 点击 `...` → `从 VSIX 安装...`  
-3. 选择下载的 `.vsix` 文件。  
-4. 打开任何 `.do` 文件并打开大纲面板（资源管理器 → 大纲）以查看层次结构部分。
+1. Download the `.vsix` file from this repository.   从此仓库下载 `.vsix` 文件。  
+2. Open VS Code → Extensions panel → Click `...` → `Install from VSIX...`  打开 VS Code → 扩展面板 → 点击 `...` → `从 VSIX 安装...` 
+3. Select the downloaded `.vsix` file.  选择下载的 `.vsix` 文件。  
+4. Open any `.do` file and open the Outline panel (Explorer → Outline) to see the hierarchical sections.  打开任何 `.do` 文件并打开大纲面板（资源管理器 → 大纲）以查看层次结构部分。
 
 ### Usage Example / 使用案例
 ```stata
