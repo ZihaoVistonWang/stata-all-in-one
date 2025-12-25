@@ -2,4 +2,6 @@ node_modules
 .vscode
 *.log
 ./history
-.pptx
+*.pptx
+*.do
+*.do.stswp
