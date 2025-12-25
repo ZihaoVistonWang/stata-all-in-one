@@ -1,6 +1,6 @@
 # Stata Outline / Stata 大纲扩展
 
-**版本 / Version:** 0.0.6
+**版本 / Version:** 0.0.7
 **作者 / Author:** Zihao Viston Wang
 
 ---
@@ -23,7 +23,7 @@ It automatically recognizes comment lines with multiple `#` symbols as section h
 ### Features / 特点
 
 - Display hierarchical sections in Outline view based on comment markers.  在大纲视图中根据注释标记显示层次结构部分。
-- Supports unlimited levels by adding more `%`.  通过添加更多的“%”支持无限级别。
+- Supports unlimited levels by adding more `#`.  通过添加更多的“#”支持无限级别。
 - Easy to navigate large `.do` files.  便于浏览大型 `.do` 文件。
 
 ### Installation / 安装
