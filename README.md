@@ -1,6 +1,6 @@
 # Stata Outline / Stata 大纲扩展
 
-**版本 / Version:** 0.0.5
+**版本 / Version:** 0.0.6
 **作者 / Author:** Zihao Viston Wang
 
 ---
