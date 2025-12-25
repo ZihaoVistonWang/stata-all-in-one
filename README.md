@@ -1,7 +1,8 @@
 # Stata Outline / Stata 大纲
 
 **Version / 版本:** 0.1.0
-**Author / 作用:** Zihao Viston Wang / 王梓豪
+
+**Author / 作者:** Zihao Viston Wang / 王梓豪
 
 ---
 
