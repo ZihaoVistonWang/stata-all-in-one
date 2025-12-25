@@ -1,9 +1,24 @@
 const vscode = require('vscode');
 
+// function symbolKindByLevel(level) {
+//     switch (level) {
+//         case 1:
+//             return vscode.SymbolKind.Method;      // 一级标题
+//         case 2:
+//             return vscode.SymbolKind.Interface;   // 二级标题
+//         case 3:
+//             return vscode.SymbolKind.Field;       // 三级标题
+//         case 4:
+//             return vscode.SymbolKind.Property;      // 四级标题
+//         default:
+//             return vscode.SymbolKind.Class;    // 更深层
+//     }
+// }
+
 function activate(context) {
     const provider = {
         provideDocumentSymbols(document) {
-            const regex = /^\s*\*\s*(#+)\s+(.*)$/;  // * ## title
+            const regex = /^\*{1,2}\s*(#+)\s+(.*)$/;  // * ## title
             const items = [];
 
             // Step 1: 收集所有标题项
@@ -32,8 +47,9 @@ function activate(context) {
             for (const item of items) {
                 const symbol = new vscode.DocumentSymbol(
                     item.title,
-                    "",
-                    vscode.SymbolKind.Namespace,
+                    `H${item.level}`,
+                    // symbolKindByLevel(item.level),
+                    vscode.SymbolKind.Method,
                     item.range,
                     item.range
                 );
