@@ -2,7 +2,7 @@
   "name": "stata-outline",
   "displayName": "Stata Outline",
   "description": "Adds hierarchical Outline support for Stata .do files using comment headings like '**#', '**##', etc.",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "publisher": "ZihaoVistonWang",
   "icon": "icon.png",
   "engines": {
@@ -21,6 +21,80 @@
         "id": "stata",
         "aliases": ["Stata", "stata"],
         "extensions": [".do"]
+      }
+    ],
+    "commands": [
+      {
+        "command": "stata-outline.setLevel1",
+        "title": "Set as Level 1 Heading"
+      },
+      {
+        "command": "stata-outline.setLevel2",
+        "title": "Set as Level 2 Heading"
+      },
+      {
+        "command": "stata-outline.setLevel3",
+        "title": "Set as Level 3 Heading"
+      },
+      {
+        "command": "stata-outline.setLevel4",
+        "title": "Set as Level 4 Heading"
+      },
+      {
+        "command": "stata-outline.setLevel5",
+        "title": "Set as Level 5 Heading"
+      },
+      {
+        "command": "stata-outline.setLevel6",
+        "title": "Set as Level 6 Heading"
+      },
+      {
+        "command": "stata-outline.clearHeading",
+        "title": "Clear Heading"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "stata-outline.setLevel1",
+        "key": "ctrl+1",
+        "mac": "cmd+1",
+        "when": "editorTextFocus && editorLangId == stata"
+      },
+      {
+        "command": "stata-outline.setLevel2",
+        "key": "ctrl+2",
+        "mac": "cmd+2",
+        "when": "editorTextFocus && editorLangId == stata"
+      },
+      {
+        "command": "stata-outline.setLevel3",
+        "key": "ctrl+3",
+        "mac": "cmd+3",
+        "when": "editorTextFocus && editorLangId == stata"
+      },
+      {
+        "command": "stata-outline.setLevel4",
+        "key": "ctrl+4",
+        "mac": "cmd+4",
+        "when": "editorTextFocus && editorLangId == stata"
+      },
+      {
+        "command": "stata-outline.setLevel5",
+        "key": "ctrl+5",
+        "mac": "cmd+5",
+        "when": "editorTextFocus && editorLangId == stata"
+      },
+      {
+        "command": "stata-outline.setLevel6",
+        "key": "ctrl+6",
+        "mac": "cmd+6",
+        "when": "editorTextFocus && editorLangId == stata"
+      },
+      {
+        "command": "stata-outline.clearHeading",
+        "key": "ctrl+0",
+        "mac": "cmd+0",
+        "when": "editorTextFocus && editorLangId == stata"
       }
     ]
   },

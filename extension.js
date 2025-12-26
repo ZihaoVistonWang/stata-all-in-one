@@ -15,7 +15,71 @@ const vscode = require('vscode');
 //     }
 // }
 
+// 设置标题级别的函数
+function setHeadingLevel(level) {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) {
+        return;
+    }
+
+    const document = editor.document;
+    const selection = editor.selection;
+    
+    // 获取选中的行，如果没有选中则使用当前行
+    let startLine = selection.start.line;
+    let endLine = selection.end.line;
+    
+    // 如果没有选中任何内容，只处理当前行
+    if (selection.isEmpty) {
+        endLine = startLine;
+    }
+
+    editor.edit(editBuilder => {
+        for (let lineNum = startLine; lineNum <= endLine; lineNum++) {
+            const line = document.lineAt(lineNum);
+            const lineText = line.text;
+            
+            // 删除行首的所有标题标记（**#、**##、***### 等）
+            // 匹配模式：行首的任意数量的星号，后跟任意数量的#，再跟空格
+            const cleanedText = lineText.replace(/^(\*+\s*#+\s*)+/, '');
+            
+            let newText;
+            if (level === 0) {
+                // level 0 表示清除标题，只保留清理后的文本
+                newText = cleanedText;
+            } else {
+                // 添加 level 个 # 和一个空格
+                const hashes = '#'.repeat(level);
+                newText = `**${hashes} ${cleanedText}`;
+            }
+            
+            // 替换整行
+            const range = new vscode.Range(lineNum, 0, lineNum, lineText.length);
+            editBuilder.replace(range, newText);
+        }
+    });
+}
+
 function activate(context) {
+    // 注册命令
+    const commands = [
+        { id: 'stata-outline.setLevel1', level: 1 },
+        { id: 'stata-outline.setLevel2', level: 2 },
+        { id: 'stata-outline.setLevel3', level: 3 },
+        { id: 'stata-outline.setLevel4', level: 4 },
+        { id: 'stata-outline.setLevel5', level: 5 },
+        { id: 'stata-outline.setLevel6', level: 6 },
+        { id: 'stata-outline.clearHeading', level: 0 }
+    ];
+
+    commands.forEach(cmd => {
+        const disposable = vscode.commands.registerCommand(cmd.id, () => {
+            setHeadingLevel(cmd.level);
+        });
+        context.subscriptions.push(disposable);
+    });
+
+    // 原有的 DocumentSymbolProvider
     const provider = {
         provideDocumentSymbols(document) {
             const regex = /^\*{1,2}\s*(#+)\s+(.*)$/;  // * ## title
