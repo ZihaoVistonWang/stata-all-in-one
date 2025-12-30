@@ -41,7 +41,7 @@ function setHeadingLevel(level) {
             
             // 删除行首的所有标题标记（**#、**##、***### 等）
             // 匹配模式：行首的任意数量的星号，后跟任意数量的#，再跟空格
-            const cleanedText = lineText.replace(/^(\*+\s*#+\s*)+/, '');
+            const cleanedText = lineText.replace(/^(\*+\s*#+\s?)+/, '');
             
             let newText;
             if (level === 0) {
@@ -82,7 +82,7 @@ function activate(context) {
     // 原有的 DocumentSymbolProvider
     const provider = {
         provideDocumentSymbols(document) {
-            const regex = /^\*{1,2}\s*(#+)\s+(.*)$/;  // * ## title
+            const regex = /^\*{1,2}\s*(#+)\s?(.*)$/;  // * ## title
             const items = [];
 
             // Step 1: 收集所有标题项
