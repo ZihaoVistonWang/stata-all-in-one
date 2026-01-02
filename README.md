@@ -95,8 +95,8 @@
 
 ## 版本记录
 
-| Version<br />版本 | Note<br />内容                                                                                                                                                                          | Date<br />发布时间 |
-| :---------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------- |
-| 0.1.3             | Fixed the problem that `**#`,`**#`(that is, there is no space between `**` and `#`) are not displayed in the outline<br />修复 `**#`、`**##`（即 `**`与 `#`之间没空格） | 2025-12-30         |
-| 0.1.2             | Add shortcut key function.<br />添加快捷键功能。                                                                                                                                        | 2025-12-26         |
-| 0.1.0 - 0.1.1     | Matches Stata's bookmark style, with comment lines starting with `**#`, etc. as section titles.<br />匹配Stata的书签风格，以 `**#`等开头的注释行作为节标题。                        | 2025-12-25         |
+| Version<br />版本 | Note<br />内容                                                                                                                                                                           | Date<br />发布时间 |
+| :---------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------- |
+| 0.1.3             | Fixed the problem that `**#`,`**##`(that is, there is no space between `**` and `#`) are not displayed in the outline<br />修复 `**#`、`**##`（即 `**`与 `#`之间没空格） | 2025-12-30         |
+| 0.1.2             | Add shortcut key function.<br />添加快捷键功能。                                                                                                                                         | 2025-12-26         |
+| 0.1.0 - 0.1.1     | Matches Stata's bookmark style, with comment lines starting with `**#`, etc. as section titles.<br />匹配Stata的书签风格，以 `**#`等开头的注释行作为节标题。                         | 2025-12-25         |
