@@ -2,7 +2,7 @@
   "name": "stata-outline",
   "displayName": "Stata Outline",
   "description": "Adds hierarchical Outline support for Stata .do files using comment headings like '**#', '**##', etc.",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "publisher": "ZihaoVistonWang",
   "icon": "icon.png",
   "engines": {
@@ -28,6 +28,11 @@
           "type": "boolean",
           "default": false,
           "markdownDescription": "Automatically update section titles in .do files to include numbering when numbering is enabled. **Requires reopening .do files** | 当启用序号时，自动更新.do文件中的section标题以包含序号。**需要重新打开 .do 文件**"
+        },
+        "stata-outline.showRunButton": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Show the run button in the editor title bar to run the current section. **Requires `Stata Run` extension** | 是否在编辑器标题栏显示运行当前 section 的按钮。 **需要安装`Stata Run`扩展**"
         }
       }
     },
@@ -121,7 +126,7 @@
       "editor/title": [
         {
           "command": "stata-outline.runSection",
-          "when": "editorLangId == stata",
+          "when": "editorLangId == stata && config.stata-outline.showRunButton",
           "group": "navigation"
         }
       ]

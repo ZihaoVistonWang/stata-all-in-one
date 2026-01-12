@@ -1,6 +1,6 @@
 # Stata Outline / Stata 大纲
 
-**Version / 版本:** 0.1.4
+**Version / 版本:** 0.1.5
 
 **Author / 作者:** Zihao Viston Wang / 王梓豪
 
@@ -8,7 +8,8 @@
 
 - Add shortcut key function. 添加快捷键功能。
 - Support for showing multi-level numbering in outline (e.g., 1.1, 1.2.1). Can be toggled in settings. 支持在大纲中显示多级序号（如 1.1, 1.2.1），可在设置中开关。
-- Automatic file content update - automatically adds/removes numbering in .do files when enabled. 自动文件内容更新 - 启用时自动在.do文件中添加/删除序号。
+- Automatic file content update - automatically adds/removes numbering in `.do` files when enabled. 自动文件内容更新 - 启用时自动在 `.do`文件中添加/删除序号。
+- Run current section - click the play button in editor title bar to run code in current section. Requires [stataRun extension](https://marketplace.visualstudio.com/items?itemName=yeaoh.statarun). 运行当前 section - 点击编辑器标题栏的运行按钮可运行从当前 section 的代码。需要安装 [stataRun 扩展](https://marketplace.visualstudio.com/items?itemName=yeaoh.statarun)。
 
 ---
 
@@ -104,6 +105,10 @@ You can configure the numbering display in VS Code settings:
 
    - `true`: Automatically update .do file content to add/remove numbering to section titles
    - `false` (default): Only show numbering in outline, don't modify file content
+3. **"Show the run button in the editor title bar"** (stata-outline.showRunButton)
+
+   - `true` (default): Show the play button in editor title bar to run current section
+   - `false`: Hide the run button
 
 **Important Note:** The second option only works when the first option is enabled. When enabled:
 
@@ -133,6 +138,10 @@ You can configure the numbering display in VS Code settings:
 
    - `true`: 自动更新.do文件内容，添加/删除标题中的序号
    - `false` (默认): 只在大纲中显示序号，不修改文件内容
+3. **"在编辑器标题栏显示运行按钮"** (stata-outline.showRunButton)
+
+   - `true` (默认): 在编辑器标题栏显示播放按钮，用于运行当前 section
+   - `false`: 隐藏运行按钮
 
 **重要提示：** 第二个选项只有在第一个选项启用时才有效。启用时：
 
@@ -186,6 +195,7 @@ You can configure the numbering display in VS Code settings:
 
 | Version<br />版本 | Note<br />内容                                                                                                                                                                                                                       | Date<br />发布时间 |
 | :---------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------- |
+| 0.1.5             | Added run current section feature with play button in editor title bar. Requires stataRun extension. Can be toggled in settings.<br />添加运行当前 section 功能，在编辑器标题栏显示播放按钮。需要 stataRun 扩展。可在设置中开关。    | 2026-01-12         |
 | 0.1.4             | Added multi-level numbering display in outline and automatic file content update feature. Can toggle numbering display and auto-update .do files.<br />添加大纲多级序号显示和自动文件内容更新功能，可切换序号显示和自动更新.do文件。 | 2026-01-12         |
 | 0.1.3             | Fixed the problem that `**#`,`**##`(that is, there is no space between `**` and `#`) are not displayed in the outline<br />修复 `**#`、`**##`（即 `**`与 `#`之间没空格）                                             | 2025-12-30         |
 | 0.1.2             | Add shortcut key function.<br />添加快捷键功能。                                                                                                                                                                                     | 2025-12-26         |
