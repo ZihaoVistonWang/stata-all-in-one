@@ -60,6 +60,120 @@ function setHeadingLevel(level) {
     });
 }
 
+// 自动更新文件内容，添加或删除序号
+function updateFileContentWithNumbering(document, items, counters) {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor || editor.document !== document) {
+        return;
+    }
+
+    const config = vscode.workspace.getConfiguration('stata-outline');
+    const showNumbering = config.get('showNumbering', true);
+    const updateFileContent = config.get('updateFileContent', false);
+
+    // 只在启用文件更新时执行
+    if (!updateFileContent) {
+        return;
+    }
+
+    const editBuilder = new vscode.WorkspaceEdit();
+    
+    for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        const line = document.lineAt(item.range.start.line);
+        const lineText = line.text;
+        
+        let newText;
+        
+        if (showNumbering) {
+            // 生成序号
+            const numbering = counters.slice(0, item.level).join('.');
+            
+            // 检查当前行是否已经包含序号（避免重复添加）
+            const regex = /^\*{1,2}\s*(#+)\s+(\d+(?:\.\d+)*)\s+(.*)$/;
+            const match = regex.exec(lineText);
+            
+            if (match) {
+                // 已有序号，替换为新的序号（确保序号正确）
+                const hashes = match[1];
+                const title = match[3];
+                newText = `**${hashes} ${numbering} ${title}`;
+            } else {
+                // 没有序号，添加序号
+                const regexNoNumber = /^\*{1,2}\s*(#+)\s+(.*)$/;
+                const matchNoNumber = regexNoNumber.exec(lineText);
+                if (matchNoNumber) {
+                    const hashes = matchNoNumber[1];
+                    const title = matchNoNumber[2];
+                    newText = `**${hashes} ${numbering} ${title}`;
+                } else {
+                    continue; // 不是标题行，跳过
+                }
+            }
+        } else {
+            // 关闭序号显示，删除所有序号
+            const regexWithNumber = /^\*{1,2}\s*(#+)\s+(?:\d+(?:\.\d+)*)\s+(.*)$/;
+            const match = regexWithNumber.exec(lineText);
+            
+            if (match) {
+                // 有序号，删除序号
+                const hashes = match[1];
+                const title = match[2];
+                newText = `**${hashes} ${title}`;
+            } else {
+                // 没有序号，保持不变
+                continue;
+            }
+        }
+        
+        if (newText && newText !== lineText) {
+            const range = new vscode.Range(item.range.start.line, 0, item.range.start.line, lineText.length);
+            editBuilder.replace(document.uri, range, newText);
+        }
+    }
+
+    // 应用编辑
+    if (editBuilder.size > 0) {
+        vscode.workspace.applyEdit(editBuilder).then(success => {
+            if (!success) {
+                console.error('Failed to update file content with numbering');
+            }
+        });
+    }
+}
+
+// 删除指定行的序号
+function removeNumberingFromLine(document, item) {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor || editor.document !== document) {
+        return;
+    }
+
+    const line = document.lineAt(item.range.start.line);
+    const lineText = line.text;
+    
+    // 检查是否包含序号
+    const regexWithNumber = /^\*{1,2}\s*(#+)\s+(?:\d+(?:\.\d+)*)\s+(.*)$/;
+    const match = regexWithNumber.exec(lineText);
+    
+    if (match) {
+        // 有序号，删除序号
+        const hashes = match[1];
+        const title = match[2];
+        const newText = `**${hashes} ${title}`;
+        
+        const range = new vscode.Range(item.range.start.line, 0, item.range.start.line, lineText.length);
+        const editBuilder = new vscode.WorkspaceEdit();
+        editBuilder.replace(document.uri, range, newText);
+        
+        vscode.workspace.applyEdit(editBuilder).then(success => {
+            if (!success) {
+                console.error('Failed to remove numbering from line');
+            }
+        });
+    }
+}
+
 function activate(context) {
     // 注册命令
     const commands = [
@@ -96,8 +210,15 @@ function activate(context) {
 
                     const range = new vscode.Range(i, 0, i, line.length);
 
+                    // 如果标题已经包含序号，提取原始标题（去掉序号）
+                    let originalTitle = title;
+                    const numberingMatch = /^(\d+(?:\.\d+)*)\s+(.*)$/.exec(title);
+                    if (numberingMatch) {
+                        originalTitle = numberingMatch[2];
+                    }
+
                     items.push({
-                        title: title,
+                        title: originalTitle,  // 始终使用原始标题
                         level: level,
                         range: range
                     });
@@ -168,6 +289,37 @@ function activate(context) {
 
                 // 压栈
                 stack.push({ level: item.level, symbol: symbol });
+            }
+
+            // 根据配置决定是否更新文件内容
+            const updateFileContent = config.get('updateFileContent', false);
+            
+            if (items.length > 0) {
+                if (updateFileContent) {
+                    // 启用文件内容更新：添加或更新序号
+                    const fileCounters = [];
+                    for (let i = 0; i < items.length; i++) {
+                        const item = items[i];
+                        while (fileCounters.length < item.level) {
+                            fileCounters.push(0);
+                        }
+                        for (let j = item.level; j < fileCounters.length; j++) {
+                            fileCounters[j] = 0;
+                        }
+                        fileCounters[item.level - 1]++;
+                        
+                        // 为当前项创建临时计数器数组
+                        const tempCounters = [...fileCounters].slice(0, item.level);
+                        
+                        // 调用文件更新函数（添加/更新序号）
+                        updateFileContentWithNumbering(document, [item], tempCounters);
+                    }
+                } else {
+                    // 关闭文件内容更新：删除所有序号
+                    for (const item of items) {
+                        removeNumberingFromLine(document, item);
+                    }
+                }
             }
 
             return rootSymbols;
