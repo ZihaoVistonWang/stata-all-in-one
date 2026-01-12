@@ -1,6 +1,6 @@
 # Stata Outline / Stata 大纲
 
-**Version / 版本:** 0.1.5
+**Version / 版本:** 0.1.6
 
 **Author / 作者:** Zihao Viston Wang / 王梓豪
 
@@ -8,8 +8,8 @@
 
 - Add shortcut key function. 添加快捷键功能。
 - Support for showing multi-level numbering in outline (e.g., 1.1, 1.2.1). Can be toggled in settings. 支持在大纲中显示多级序号（如 1.1, 1.2.1），可在设置中开关。
-- Automatic file content update - automatically adds/removes numbering in `.do` files when enabled. 自动文件内容更新 - 启用时自动在 `.do`文件中添加/删除序号。
-- Run current section - click the play button in editor title bar to run code in current section. Requires [stataRun extension](https://marketplace.visualstudio.com/items?itemName=yeaoh.statarun). 运行当前 section - 点击编辑器标题栏的运行按钮可运行从当前 section 的代码。需要安装 [stataRun 扩展](https://marketplace.visualstudio.com/items?itemName=yeaoh.statarun)。
+- Automatic file content update - Automatically adds/removes numbering in `.do` files when enabled. 自动文件内容更新 - 启用时自动在 `.do`文件中添加/删除序号。
+- Run current section - Click the "Run" button in the editor or outline title bar to execute code from the current section. Requires [stataRun extension](https://marketplace.visualstudio.com/items?itemName=yeaoh.statarun). 运行当前 section - 点击编辑器或大纲标题栏中的“运行”按钮即可执行。需要安装 [stataRun 扩展](https://marketplace.visualstudio.com/items?itemName=yeaoh.statarun)。
 
 ---
 
@@ -193,10 +193,10 @@ You can configure the numbering display in VS Code settings:
 
 ## 版本记录
 
-| Version<br />版本 | Note<br />内容                                                                                                                                                                                                                       | Date<br />发布时间 |
-| :---------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------- |
-| 0.1.5             | Added run current section feature with play button in editor title bar. Requires stataRun extension. Can be toggled in settings.<br />添加运行当前 section 功能，在编辑器标题栏显示播放按钮。需要 stataRun 扩展。可在设置中开关。    | 2026-01-12         |
-| 0.1.4             | Added multi-level numbering display in outline and automatic file content update feature. Can toggle numbering display and auto-update .do files.<br />添加大纲多级序号显示和自动文件内容更新功能，可切换序号显示和自动更新.do文件。 | 2026-01-12         |
-| 0.1.3             | Fixed the problem that `**#`,`**##`(that is, there is no space between `**` and `#`) are not displayed in the outline<br />修复 `**#`、`**##`（即 `**`与 `#`之间没空格）                                             | 2025-12-30         |
-| 0.1.2             | Add shortcut key function.<br />添加快捷键功能。                                                                                                                                                                                     | 2025-12-26         |
-| 0.1.0 - 0.1.1     | Matches Stata's bookmark style, with comment lines starting with `**#`, etc. as section titles.<br />匹配Stata的书签风格，以 `**#`等开头的注释行作为节标题。                                                                     | 2025-12-25         |
+| Version<br />版本 | Note<br />内容                                                                                                                                                                                                                                                                                                                                                                                | Date<br />发布时间 |
+| :---------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------- |
+| 0.1.5 - 0.1.6     | Run current section - Click the "Run" button in the editor or outline title bar to execute code from the current section. Requires[stataRun extension](https://marketplace.visualstudio.com/items?itemName=yeaoh.statarun). <br />运行当前 section - 点击编辑器或大纲标题栏中的“运行”按钮即可执行。需要安装 [stataRun 扩展](https://marketplace.visualstudio.com/items?itemName=yeaoh.statarun)。 | 2026-01-12         |
+| 0.1.4             | Added multi-level numbering display in outline and automatic file content update feature. Can toggle numbering display and auto-update .do files.<br />添加大纲多级序号显示和自动文件内容更新功能，可切换序号显示和自动更新.do文件。                                                                                                                                                          | 2026-01-12         |
+| 0.1.3             | Fixed the problem that `**#`,`**##`(that is, there is no space between `**` and `#`) are not displayed in the outline<br />修复 `**#`、`**##`（即 `**`与 `#`之间没空格）                                                                                                                                                                                                      | 2025-12-30         |
+| 0.1.2             | Add shortcut key function.<br />添加快捷键功能。                                                                                                                                                                                                                                                                                                                                              | 2025-12-26         |
+| 0.1.0 - 0.1.1     | Matches Stata's bookmark style, with comment lines starting with `**#`, etc. as section titles.<br />匹配Stata的书签风格，以 `**#`等开头的注释行作为节标题。                                                                                                                                                                                                                              | 2025-12-25         |

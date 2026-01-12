@@ -2,7 +2,7 @@
   "name": "stata-outline",
   "displayName": "Stata Outline",
   "description": "Adds hierarchical Outline support for Stata .do files using comment headings like '**#', '**##', etc.",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "publisher": "ZihaoVistonWang",
   "icon": "icon.png",
   "engines": {
@@ -127,6 +127,13 @@
         {
           "command": "stata-outline.runSection",
           "when": "editorLangId == stata && config.stata-outline.showRunButton",
+          "group": "navigation"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "stata-outline.runSection",
+          "when": "view == outline && config.stata-outline.showRunButton",
           "group": "navigation"
         }
       ]
