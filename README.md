@@ -98,8 +98,8 @@ You can configure the numbering display in VS Code settings:
 
 1. **"Display multi-level title numbers in the outline view"** (stata-outline.showNumbering)
 
-   - `true` (default): Show numbered headings like "1.1", "1.2.1" in outline
-   - `false`: Show original headings without numbers in outline
+   - `true`: Show numbered headings like "1.1", "1.2.1" in outline
+   - `false` (default): Show original headings without numbers in outline
 2. **"Automatically update section titles in .do files to include numbering"** (stata-outline.updateFileContent)
 
    - `true`: Automatically update .do file content to add/remove numbering to section titles
@@ -127,8 +127,8 @@ You can configure the numbering display in VS Code settings:
 
 1. **"在大纲视图中显示多级标题序号"** (stata-outline.showNumbering)
 
-   - `true` (默认): 在大纲中显示带序号的标题，如 "1.1", "1.2.1"
-   - `false`: 在大纲中显示原始标题，不带序号
+   - `true`: 在大纲中显示带序号的标题，如 "1.1", "1.2.1"
+   - `false`(默认): 在大纲中显示原始标题，不带序号
 2. **"自动更新.do文件中的section标题以包含序号"** (stata-outline.updateFileContent)
 
    - `true`: 自动更新.do文件内容，添加/删除标题中的序号

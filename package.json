@@ -66,6 +66,11 @@
       {
         "command": "stata-outline.clearHeading",
         "title": "Clear Heading"
+      },
+      {
+        "command": "stata-outline.runSection",
+        "title": "Run Current Section",
+        "icon": "$(play)"
       }
     ],
     "keybindings": [
@@ -111,7 +116,16 @@
         "mac": "cmd+0",
         "when": "editorTextFocus && editorLangId == stata"
       }
-    ]
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "stata-outline.runSection",
+          "when": "editorLangId == stata",
+          "group": "navigation"
+        }
+      ]
+    }
   },
   "repository": {
     "type": "git",
