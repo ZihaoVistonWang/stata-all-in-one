@@ -174,6 +174,97 @@ function removeNumberingFromLine(document, item) {
     }
 }
 
+// 检查是否安装了 stataRun 扩展
+function isStataRunInstalled() {
+    const stataRunExtension = vscode.extensions.getExtension('yeaoh.statarun');
+    return stataRunExtension !== undefined;
+}
+
+// 获取当前光标所在的 section 范围并运行
+async function runCurrentSection() {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) {
+        vscode.window.showErrorMessage('No active editor found');
+        return;
+    }
+
+    const document = editor.document;
+    
+    // 检查是否安装了 stataRun
+    if (!isStataRunInstalled()) {
+        const answer = await vscode.window.showErrorMessage(
+            'stataRun extension is not installed. Would you like to install it?',
+            'Install',
+            'Cancel'
+        );
+        if (answer === 'Install') {
+            vscode.commands.executeCommand('workbench.extensions.search', 'yeaoh.statarun');
+            vscode.window.showInformationMessage('Please complete the `Stata Run` extension configuration if needed.');
+
+        }
+        return;
+    }
+
+    const currentLine = editor.selection.active.line;
+    const regex = /^\*{1,2}\s*(#+)\s?(.*)$/;
+    
+    // 找到当前光标所在的 section 起始行和级别
+    let sectionStart = -1;
+    let sectionLevel = -1;
+    
+    // 向上查找最近的标题
+    for (let i = currentLine; i >= 0; i--) {
+        const line = document.lineAt(i).text;
+        const match = regex.exec(line);
+        if (match) {
+            sectionStart = i;
+            sectionLevel = match[1].length; // # 的数量
+            break;
+        }
+    }
+    
+    // 如果没找到标题，从文件开始处开始
+    if (sectionStart === -1) {
+        sectionStart = 0;
+        sectionLevel = 0; // 表示在第一个标题之前
+    }
+    
+    // 向下查找下一个同级或更高级的标题
+    let sectionEnd = document.lineCount - 1;
+    
+    for (let i = sectionStart + 1; i < document.lineCount; i++) {
+        const line = document.lineAt(i).text;
+        const match = regex.exec(line);
+        if (match) {
+            const currentLevel = match[1].length;
+            // 如果找到同级或更高级的标题（level 更小），结束当前 section
+            if (currentLevel <= sectionLevel && sectionLevel > 0) {
+                sectionEnd = i - 1;
+                break;
+            }
+            // 如果我们在第一个标题之前（sectionLevel === 0），遇到第一个标题就结束
+            if (sectionLevel === 0) {
+                sectionEnd = i - 1;
+                break;
+            }
+        }
+    }
+    
+    // 选择要运行的代码范围
+    const startPos = new vscode.Position(sectionStart, 0);
+    const endLine = document.lineAt(sectionEnd);
+    const endPos = new vscode.Position(sectionEnd, endLine.text.length);
+    
+    editor.selection = new vscode.Selection(startPos, endPos);
+    
+    // 使用 stataRun.runSelection 命令运行选中的代码
+    try {
+        await vscode.commands.executeCommand('stataRun.runSelection');
+    } catch (error) {
+        vscode.window.showErrorMessage(`Failed to run section: ${error.message}`);
+    }
+}
+
 function activate(context) {
     // 注册命令
     const commands = [
@@ -192,6 +283,10 @@ function activate(context) {
         });
         context.subscriptions.push(disposable);
     });
+
+    // 注册运行 section 的命令
+    const runSectionCommand = vscode.commands.registerCommand('stata-outline.runSection', runCurrentSection);
+    context.subscriptions.push(runSectionCommand);
 
     // 原有的 DocumentSymbolProvider
     const provider = {
