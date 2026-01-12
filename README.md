@@ -97,18 +97,23 @@ You can configure the numbering display in VS Code settings:
 **Options:**
 
 1. **"Display multi-level title numbers in the outline view"** (stata-outline.showNumbering)
-      - `true` (default): Show numbered headings like "1.1", "1.2.1" in outline
-      - `false`: Show original headings without numbers in outline
 
+   - `true` (default): Show numbered headings like "1.1", "1.2.1" in outline
+   - `false`: Show original headings without numbers in outline
 2. **"Automatically update section titles in .do files to include numbering"** (stata-outline.updateFileContent)
-      - `true`: Automatically update .do file content to add/remove numbering to section titles
-      - `false` (default): Only show numbering in outline, don't modify file content
+
+   - `true`: Automatically update .do file content to add/remove numbering to section titles
+   - `false` (default): Only show numbering in outline, don't modify file content
 
 **Important Note:** The second option only works when the first option is enabled. When enabled:
+
 - If `showNumbering` is `true`: Automatically adds numbering to section titles
 - If `showNumbering` is `false`: Automatically removes numbering from section titles
 
-**Note:** When `updateFileContent` is disabled, any existing numbering in the .do files will be automatically removed.
+**Note:**
+
+- **After changing the above settings, you need to reopen the `.do` file for the changes to take effect.**
+- When `updateFileContent` is disabled, any existing numbering in the .do files will be automatically removed.
 
 ---
 
@@ -121,18 +126,23 @@ You can configure the numbering display in VS Code settings:
 **选项：**
 
 1. **"在大纲视图中显示多级标题序号"** (stata-outline.showNumbering)
+
    - `true` (默认): 在大纲中显示带序号的标题，如 "1.1", "1.2.1"
    - `false`: 在大纲中显示原始标题，不带序号
-
 2. **"自动更新.do文件中的section标题以包含序号"** (stata-outline.updateFileContent)
+
    - `true`: 自动更新.do文件内容，添加/删除标题中的序号
    - `false` (默认): 只在大纲中显示序号，不修改文件内容
 
 **重要提示：** 第二个选项只有在第一个选项启用时才有效。启用时：
+
 - 如果 `showNumbering` 为 `true`: 自动向section标题添加序号
 - 如果 `showNumbering` 为 `false`: 自动从section标题删除序号
 
-**注意：** 当 `updateFileContent` 被禁用时，文件中现有的序号会被自动删除。
+**注意：**
+
+- **上述设置调整后，需要重新打开 `.do` 文件以应用更改。**
+- 当 `updateFileContent` 被禁用时，文件中现有的序号会被自动删除。
 
 ## Usage Example / 使用案例
 
@@ -174,9 +184,9 @@ You can configure the numbering display in VS Code settings:
 
 ## 版本记录
 
-| Version<br />版本 | Note<br />内容                                                                                                                                                                           | Date<br />发布时间 |
-| :---------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------- |
+| Version<br />版本 | Note<br />内容                                                                                                                                                                                                                       | Date<br />发布时间 |
+| :---------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------- |
 | 0.1.4             | Added multi-level numbering display in outline and automatic file content update feature. Can toggle numbering display and auto-update .do files.<br />添加大纲多级序号显示和自动文件内容更新功能，可切换序号显示和自动更新.do文件。 | 2026-01-12         |
-| 0.1.3             | Fixed the problem that `**#`,`**##`(that is, there is no space between `**` and `#`) are not displayed in the outline<br />修复 `**#`、`**##`（即 `**`与 `#`之间没空格） | 2025-12-30         |
-| 0.1.2             | Add shortcut key function.<br />添加快捷键功能。                                                                                                                                         | 2025-12-26         |
-| 0.1.0 - 0.1.1     | Matches Stata's bookmark style, with comment lines starting with `**#`, etc. as section titles.<br />匹配Stata的书签风格，以 `**#`等开头的注释行作为节标题。                         | 2025-12-25         |
+| 0.1.3             | Fixed the problem that `**#`,`**##`(that is, there is no space between `**` and `#`) are not displayed in the outline<br />修复 `**#`、`**##`（即 `**`与 `#`之间没空格）                                             | 2025-12-30         |
+| 0.1.2             | Add shortcut key function.<br />添加快捷键功能。                                                                                                                                                                                     | 2025-12-26         |
+| 0.1.0 - 0.1.1     | Matches Stata's bookmark style, with comment lines starting with `**#`, etc. as section titles.<br />匹配Stata的书签风格，以 `**#`等开头的注释行作为节标题。                                                                     | 2025-12-25         |
