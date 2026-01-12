@@ -21,8 +21,13 @@
       "properties": {
         "stata-outline.showNumbering": {
           "type": "boolean",
-          "default": true,
+          "default": false,
           "description": "Display multi-level title numbers in the outline view (e.g. 1.1, 1.2.1) | 是否在大纲视图中显示多级标题序号（如 1.1, 1.2.1）"
+        },
+        "stata-outline.updateFileContent": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically update section titles in .do files to include numbering when numbering is enabled | 当启用序号时，自动更新.do文件中的section标题以包含序号"
         }
       }
     },
