@@ -1,12 +1,13 @@
 # Stata Outline / Stata 大纲
 
-**Version / 版本:** 0.1.3
+**Version / 版本:** 0.1.4
 
 **Author / 作者:** Zihao Viston Wang / 王梓豪
 
 ## New Features / 新功能
 
 - Add shortcut key function. 添加快捷键功能。
+- Support for showing multi-level numbering in outline (e.g., 1.1, 1.2.1). Can be toggled in settings. 支持在大纲中显示多级序号（如 1.1, 1.2.1），可在设置中开关。
 
 ---
 
@@ -82,6 +83,23 @@
 3. 选择下载的 `stata-outline-x.x.x.vsix` 文件。
 4. 打开任何 `.do` 文件并打开大纲面板（资源管理器 → 大纲）以查看层次结构部分。
 
+## Configuration / 配置
+
+### Settings / 设置
+
+You can configure the numbering display in VS Code settings:
+
+可以在 VS Code 设置中配置序号显示：
+
+1. Open Settings (Ctrl+, or Cmd+,)
+2. Search for "Stata Outline"
+3. Toggle **"Display multi-level title numbers in the outline view"**
+
+**Options / 选项:**
+
+- `true` (default): Show numbered headings like "1.1", "1.2.1" in outline
+- `false`: Show original headings without numbers in outline
+
 ## Usage Example / 使用案例
 
 ```stata
@@ -93,10 +111,19 @@
 ...
 ```
 
+**With numbering enabled (showNumbering: true):**
+
+- Outline shows: "1. Data Processing", "1.1 Cleaning", "1.1.1 Remove duplicates", "2. Model Estimation", "2.1 Regression Analysis"
+
+**With numbering disabled (showNumbering: false):**
+
+- Outline shows: "Data Processing", "Cleaning", "Remove duplicates", "Model Estimation", "Regression Analysis"
+
 ## 版本记录
 
 | Version<br />版本 | Note<br />内容                                                                                                                                                                           | Date<br />发布时间 |
 | :---------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------- |
+| 0.1.4             | Support for showing multi-level numbering in outline (e.g., 1.1, 1.2.1). Can be toggled in settings.<br />支持在大纲中显示多级序号（如 1.1, 1.2.1），可在设置中开关。                    | 2026-01-12         |
 | 0.1.3             | Fixed the problem that `**#`,`**##`(that is, there is no space between `**` and `#`) are not displayed in the outline<br />修复 `**#`、`**##`（即 `**`与 `#`之间没空格） | 2025-12-30         |
 | 0.1.2             | Add shortcut key function.<br />添加快捷键功能。                                                                                                                                         | 2025-12-26         |
 | 0.1.0 - 0.1.1     | Matches Stata's bookmark style, with comment lines starting with `**#`, etc. as section titles.<br />匹配Stata的书签风格，以 `**#`等开头的注释行作为节标题。                         | 2025-12-25         |

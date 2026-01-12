@@ -2,7 +2,7 @@
   "name": "stata-outline",
   "displayName": "Stata Outline",
   "description": "Adds hierarchical Outline support for Stata .do files using comment headings like '**#', '**##', etc.",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "publisher": "ZihaoVistonWang",
   "icon": "icon.png",
   "engines": {
@@ -16,6 +16,16 @@
     "Programming Languages"
   ],
   "contributes": {
+    "configuration": {
+      "title": "Stata Outline",
+      "properties": {
+        "stata-outline.showNumbering": {
+          "type": "boolean",
+          "default": true,
+          "description": "Display multi-level title numbers in the outline view (e.g. 1.1, 1.2.1) | 是否在大纲视图中显示多级标题序号（如 1.1, 1.2.1）"
+        }
+      }
+    },
     "languages": [
       {
         "id": "stata",

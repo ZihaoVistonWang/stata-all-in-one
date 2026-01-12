@@ -104,33 +104,44 @@ function activate(context) {
                 }
             }
 
-            // Step 2: 生成序号并构建 Outline 树结构
+            // 获取配置：是否显示序号
+            const config = vscode.workspace.getConfiguration('stata-outline');
+            const showNumbering = config.get('showNumbering', true);
+
+            // Step 2: 构建 Outline 树结构
             const rootSymbols = [];
             const stack = [];   // { level, symbol }
             const counters = []; // 用于跟踪每级标题的计数器
 
             for (const item of items) {
-                // 生成多级序号
-                let numbering = '';
+                let displayTitle;
                 
-                // 确保计数器数组足够长，初始化为0
-                while (counters.length < item.level) {
-                    counters.push(0);
+                if (showNumbering) {
+                    // 生成多级序号
+                    let numbering = '';
+                    
+                    // 确保计数器数组足够长，初始化为0
+                    while (counters.length < item.level) {
+                        counters.push(0);
+                    }
+
+                    // 重置当前级别之后的所有计数器
+                    for (let i = item.level; i < counters.length; i++) {
+                        counters[i] = 0;
+                    }
+
+                    // 当前级别计数器加1
+                    counters[item.level - 1]++;
+
+                    // 构建序号字符串（如 "1.2.3"）
+                    numbering = counters.slice(0, item.level).join('.');
+
+                    // 带序号的显示标题
+                    displayTitle = `${numbering} ${item.title}`;
+                } else {
+                    // 不显示序号，使用原始标题
+                    displayTitle = item.title;
                 }
-
-                // 重置当前级别之后的所有计数器
-                for (let i = item.level; i < counters.length; i++) {
-                    counters[i] = 0;
-                }
-
-                // 当前级别计数器加1
-                counters[item.level - 1]++;
-
-                // 构建序号字符串（如 "1.2.3"）
-                numbering = counters.slice(0, item.level).join('.');
-
-                // 带序号的显示标题
-                const displayTitle = `${numbering} ${item.title}`;
 
                 const symbol = new vscode.DocumentSymbol(
                     displayTitle,
