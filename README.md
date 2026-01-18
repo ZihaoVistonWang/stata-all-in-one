@@ -1,6 +1,6 @@
 # Stata Outline
 
-**Version:** 0.1.6  
+**Version:** 0.1.7  
 **Author:** Zihao Viston Wang
 
 [中文版本](README_CN.md)
@@ -14,6 +14,7 @@
 - **Multi-level Numbering**: Optional display of `1.1`, `1.2.1` style numbering in outline (toggle in settings).
 - **Auto-sync Numbering**: Automatically adds/removes numbering in `.do` files when enabled (requires numbering display).
 - **Run Current Section**: Click the "Run" button in editor title bar to execute current section code (requires [stataRun extension](https://marketplace.visualstudio.com/items?itemName=yeaoh.statarun)).
+- **Toggle Comments**: `Ctrl/Cmd + /` toggles comments on selected lines with customizable comment style (settings).
 
 > ![fig](./example.png)  
 > *Hierarchical outline view in Stata `.do` files (Left: VS Code, Right: Stata)*
@@ -49,6 +50,11 @@ Search for "Stata Outline" in VS Code settings and configure:
 3. **Show Run Button** (`stata-outline.showRunButton`)  
    - `true` (default): Shows play button in editor title bar.  
    - `false`: Hides button.
+
+4. **Comment Style** (`stata-outline.commentStyle`)
+   - `// ` (default): Line comments with double slash.
+   - `* `: Stata single-line comments.
+   - `/* ... */`: Block-style comments.
 
 > **Note**: Changes take effect after reopening `.do` files. When `updateFileContent` is disabled, existing numbering in `.do` files will be automatically removed.
 

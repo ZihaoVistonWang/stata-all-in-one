@@ -174,6 +174,60 @@ function removeNumberingFromLine(document, item) {
     }
 }
 
+// 切换注释功能
+function toggleComment() {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) {
+        return;
+    }
+
+    const document = editor.document;
+    const selection = editor.selection;
+    
+    // 获取配置的注释样式
+    const config = vscode.workspace.getConfiguration('stata-outline');
+    const commentStyle = config.get('commentStyle', '// ');
+
+    const startLine = selection.start.line;
+    const endLine = selection.end.line;
+
+    // 获取选中的所有行
+    editor.edit(editBuilder => {
+        for (let lineNum = startLine; lineNum <= endLine; lineNum++) {
+            const line = document.lineAt(lineNum);
+            const lineText = line.text.trim();
+
+            if (commentStyle === '/* ... */') {
+                // 处理块注释
+                if (lineText.startsWith('/*') && lineText.endsWith('*/')) {
+                    // 移除块注释
+                    const uncommentedText = lineText.replace(/^\/\*/, '').replace(/\*\/$/, '').trim();
+                    const range = new vscode.Range(lineNum, 0, lineNum, line.text.length);
+                    editBuilder.replace(range, uncommentedText);
+                } else {
+                    // 添加块注释
+                    const commentedText = `/* ${lineText} */`;
+                    const range = new vscode.Range(lineNum, 0, lineNum, line.text.length);
+                    editBuilder.replace(range, commentedText);
+                }
+            } else {
+                // 处理行注释
+                if (lineText.startsWith(commentStyle)) {
+                    // 移除注释
+                    const uncommentedText = lineText.substring(commentStyle.length).trim();
+                    const range = new vscode.Range(lineNum, 0, lineNum, line.text.length);
+                    editBuilder.replace(range, uncommentedText);
+                } else {
+                    // 添加注释
+                    const commentedText = `${commentStyle}${lineText}`;
+                    const range = new vscode.Range(lineNum, 0, lineNum, line.text.length);
+                    editBuilder.replace(range, commentedText);
+                }
+            }
+        }
+    });
+}
+
 // 检查是否安装了 stataRun 扩展
 function isStataRunInstalled() {
     const stataRunExtension = vscode.extensions.getExtension('yeaoh.statarun');
@@ -274,12 +328,17 @@ function activate(context) {
         { id: 'stata-outline.setLevel4', level: 4 },
         { id: 'stata-outline.setLevel5', level: 5 },
         { id: 'stata-outline.setLevel6', level: 6 },
-        { id: 'stata-outline.clearHeading', level: 0 }
+        { id: 'stata-outline.clearHeading', level: 0 },
+        { id: 'stata-outline.toggleComment' }  // 添加注释切换命令
     ];
 
     commands.forEach(cmd => {
         const disposable = vscode.commands.registerCommand(cmd.id, () => {
-            setHeadingLevel(cmd.level);
+            if (cmd.id === 'stata-outline.toggleComment') {
+                toggleComment();  // 特殊处理注释命令
+            } else {
+                setHeadingLevel(cmd.level);
+            }
         });
         context.subscriptions.push(disposable);
     });
