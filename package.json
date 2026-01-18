@@ -31,7 +31,7 @@
         },
         "stata-outline.showRunButton": {
           "type": "boolean",
-          "default": true,
+          "default": false,
           "markdownDescription": "Show the run button in the editor title bar to run the current section. **Requires `Stata Run` extension** | 是否在编辑器标题栏显示运行当前 section 的按钮。 **需要安装`Stata Run`扩展**"
         }
       }
