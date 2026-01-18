@@ -81,6 +81,7 @@ Search for "Stata Outline" in VS Code settings and configure:
 
 | Version | Changes | Release Date |
 |---------|---------|--------------|
+| 0.1.7 | Added toggle comments functionality with customizable comment styles | 2026-01-18 |
 | 0.1.5-0.1.6 | Added "Run Current Section" feature (requires stataRun extension) | 2026-01-12 |
 | 0.1.4 | Added multi-level numbering display and auto-update file content | 2026-01-12 |
 | 0.1.3 | Fixed display issue with `**#` without spaces | 2025-12-30 |
