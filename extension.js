@@ -212,14 +212,21 @@ function toggleComment() {
                 }
             } else {
                 // 处理行注释
-                if (lineText.startsWith(commentStyle)) {
-                    // 移除注释
-                    const uncommentedText = lineText.substring(commentStyle.length).trim();
+                // 创建一个正则表达式，匹配注释符号（忽略其后是否有空格）
+                const baseCommentStyle = commentStyle.trim(); // 获取基础注释符号，如 "//"
+                const escapedBaseStyle = baseCommentStyle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                
+                // 匹配基础注释符号，后面可跟任意数量的空格
+                const commentPattern = new RegExp(`^${escapedBaseStyle}\\s*`);
+                
+                if (commentPattern.test(lineText)) {
+                    // 如果行以注释符号开头（可能后面有空格），则移除注释符号和其后的所有空格
+                    const uncommentedText = lineText.replace(commentPattern, '');
                     const range = new vscode.Range(lineNum, 0, lineNum, line.text.length);
                     editBuilder.replace(range, uncommentedText);
                 } else {
-                    // 添加注释
-                    const commentedText = `${commentStyle}${lineText}`;
+                    // 如果行不是注释，则添加注释（使用用户配置的完整样式）
+                    const commentedText = commentStyle + lineText;
                     const range = new vscode.Range(lineNum, 0, lineNum, line.text.length);
                     editBuilder.replace(range, commentedText);
                 }
