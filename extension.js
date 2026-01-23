@@ -235,10 +235,9 @@ function toggleComment() {
     });
 }
 
-// 检查是否安装了 stataRun 扩展
-function isStataRunInstalled() {
-    const stataRunExtension = vscode.extensions.getExtension('yeaoh.statarun');
-    return stataRunExtension !== undefined;
+// 检查是否是macOS系统
+function isMacOS() {
+    return process.platform === 'darwin';
 }
 
 // 获取当前光标所在的 section 范围并运行
@@ -249,80 +248,119 @@ async function runCurrentSection() {
         return;
     }
 
-    const document = editor.document;
-    
-    // 检查是否安装了 stataRun
-    if (!isStataRunInstalled()) {
-        const answer = await vscode.window.showErrorMessage(
-            'stataRun extension is not installed. Would you like to install it?',
-            'Install',
-            'Cancel'
-        );
-        if (answer === 'Install') {
-            vscode.commands.executeCommand('workbench.extensions.search', 'yeaoh.statarun');
-            vscode.window.showInformationMessage('Please complete the `Stata Run` extension configuration if needed.');
-
-        }
+    // 检查是否是macOS
+    if (!isMacOS()) {
+        vscode.window.showErrorMessage('Running Stata code is only supported on macOS');
         return;
     }
 
-    const currentLine = editor.selection.active.line;
-    const regex = /^\*{1,2}\s*(#+)\s?(.*)$/;
+    const document = editor.document;
+    const config = vscode.workspace.getConfiguration('stata-outline');
+    const stataVersion = config.get('stataVersion', 'StataMP');
     
-    // 找到当前光标所在的 section 起始行和级别
-    let sectionStart = -1;
-    let sectionLevel = -1;
+    let codeToRun;
     
-    // 向上查找最近的标题
-    for (let i = currentLine; i >= 0; i--) {
-        const line = document.lineAt(i).text;
-        const match = regex.exec(line);
-        if (match) {
-            sectionStart = i;
-            sectionLevel = match[1].length; // # 的数量
-            break;
-        }
-    }
-    
-    // 如果没找到标题，从文件开始处开始
-    if (sectionStart === -1) {
-        sectionStart = 0;
-        sectionLevel = 0; // 表示在第一个标题之前
-    }
-    
-    // 向下查找下一个同级或更高级的标题
-    let sectionEnd = document.lineCount - 1;
-    
-    for (let i = sectionStart + 1; i < document.lineCount; i++) {
-        const line = document.lineAt(i).text;
-        const match = regex.exec(line);
-        if (match) {
-            const currentLevel = match[1].length;
-            // 如果找到同级或更高级的标题（level 更小），结束当前 section
-            if (currentLevel <= sectionLevel && sectionLevel > 0) {
-                sectionEnd = i - 1;
-                break;
-            }
-            // 如果我们在第一个标题之前（sectionLevel === 0），遇到第一个标题就结束
-            if (sectionLevel === 0) {
-                sectionEnd = i - 1;
+    // 检查是否有选中的代码
+    const selection = editor.selection;
+    if (!selection.isEmpty) {
+        // 有选中代码，运行选中的完整行
+        const startLine = selection.start.line;
+        const endLine = selection.end.line;
+        
+        const startPos = new vscode.Position(startLine, 0);
+        const endLineText = document.lineAt(endLine);
+        const endPos = new vscode.Position(endLine, endLineText.text.length);
+        
+        codeToRun = document.getText(new vscode.Range(startPos, endPos));
+    } else {
+        // 没有选中代码，运行当前 section
+        const currentLine = editor.selection.active.line;
+        const regex = /^\*{1,2}\s*(#+)\s?(.*)$/;
+        
+        // 找到当前光标所在的 section 起始行和级别
+        let sectionStart = -1;
+        let sectionLevel = -1;
+        
+        // 向上查找最近的标题
+        for (let i = currentLine; i >= 0; i--) {
+            const line = document.lineAt(i).text;
+            const match = regex.exec(line);
+            if (match) {
+                sectionStart = i;
+                sectionLevel = match[1].length; // # 的数量
                 break;
             }
         }
+        
+        // 如果没找到标题，从文件开始处开始
+        if (sectionStart === -1) {
+            sectionStart = 0;
+            sectionLevel = 0; // 表示在第一个标题之前
+        }
+        
+        // 向下查找下一个同级或更高级的标题
+        let sectionEnd = document.lineCount - 1;
+        
+        for (let i = sectionStart + 1; i < document.lineCount; i++) {
+            const line = document.lineAt(i).text;
+            const match = regex.exec(line);
+            if (match) {
+                const currentLevel = match[1].length;
+                // 如果找到同级或更高级的标题（level 更小），结束当前 section
+                if (currentLevel <= sectionLevel && sectionLevel > 0) {
+                    sectionEnd = i - 1;
+                    break;
+                }
+                // 如果我们在第一个标题之前（sectionLevel === 0），遇到第一个标题就结束
+                if (sectionLevel === 0) {
+                    sectionEnd = i - 1;
+                    break;
+                }
+            }
+        }
+        
+        // 获取要运行的代码范围
+        const startPos = new vscode.Position(sectionStart, 0);
+        const endLine = document.lineAt(sectionEnd);
+        const endPos = new vscode.Position(sectionEnd, endLine.text.length);
+        
+        codeToRun = document.getText(new vscode.Range(startPos, endPos));
     }
     
-    // 选择要运行的代码范围
-    const startPos = new vscode.Position(sectionStart, 0);
-    const endLine = document.lineAt(sectionEnd);
-    const endPos = new vscode.Position(sectionEnd, endLine.text.length);
+    // 创建临时文件
+    const fs = require('fs');
+    const path = require('path');
+    const os = require('os');
     
-    editor.selection = new vscode.Selection(startPos, endPos);
+    const tmpDir = os.tmpdir();
+    const tmpFilePath = path.join(tmpDir, `stata_outline_temp_${Date.now()}.do`);
     
-    // 使用 stataRun.runSelection 命令运行选中的代码
     try {
-        await vscode.commands.executeCommand('stataRun.runSelection');
+        // 写入临时文件
+        fs.writeFileSync(tmpFilePath, codeToRun, 'utf8');
+        
+        // 构建Stata命令
+        const stataCommand = `pgrep -x "${stataVersion}" > /dev/null || (open -a ${stataVersion} && while ! pgrep -x "${stataVersion}" > /dev/null; do sleep 0.2; done && sleep 0.5); osascript -e 'tell application "${stataVersion}" to DoCommand "do \\"${tmpFilePath}\\""'`;
+        
+        // 执行命令
+        const { exec } = require('child_process');
+        exec(stataCommand, (error, stdout, stderr) => {
+            // 清理临时文件
+            try {
+                fs.unlinkSync(tmpFilePath);
+            } catch (e) {
+                console.error('Failed to delete temporary file:', e);
+            }
+            
+            if (error) {
+                vscode.window.showErrorMessage(`Failed to run Stata code: ${error.message}`);
+                return;
+            }
+            
+            vscode.window.showInformationMessage('Code sent to Stata');
+        });
     } catch (error) {
-        vscode.window.showErrorMessage(`Failed to run section: ${error.message}`);
+        vscode.window.showErrorMessage(`Failed to create temporary file: ${error.message}`);
     }
 }
 

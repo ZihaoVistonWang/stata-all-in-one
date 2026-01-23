@@ -2,7 +2,7 @@
   "name": "stata-outline",
   "displayName": "Stata Outline",
   "description": "Adds hierarchical Outline support for Stata .do files using comment headings like '**#', '**##', etc.",
-  "version": "0.1.9",
+  "version": "0.2.0",
   "publisher": "ZihaoVistonWang",
   "icon": "icon.png",
   "engines": {
@@ -32,7 +32,17 @@
         "stata-outline.showRunButton": {
           "type": "boolean",
           "default": false,
-          "markdownDescription": "Show the run button in the editor title bar to run the current section. **Requires `Stata Run` extension** | 是否在编辑器标题栏显示运行当前 section 的按钮。 **需要安装`Stata Run`扩展**"
+          "markdownDescription": "Show the run button in the editor title bar to run the current section. **Only available on macOS** | 是否在编辑器标题栏显示运行当前 section 的按钮。**仅 macOS 可用**"
+        },
+        "stata-outline.stataVersion": {
+          "type": "string",
+          "enum": [
+            "StataMP",
+            "StataIC",
+            "StataSE"
+          ],
+          "default": "StataMP",
+          "markdownDescription": "The version of Stata to use when running code. **Only available on macOS** | 运行代码时使用的 Stata 版本。**仅 macOS 可用**"
         },
         "stata-outline.commentStyle": {
           "type": "string",
@@ -89,6 +99,12 @@
       }
     ],
     "keybindings": [
+      {
+        "command": "stata-outline.runSection",
+        "key": "ctrl+d",
+        "mac": "cmd+d",
+        "when": "editorTextFocus && editorLangId == stata"
+      },
       {
         "command": "stata-outline.toggleComment",
         "key": "ctrl+/",
