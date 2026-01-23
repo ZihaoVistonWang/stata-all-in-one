@@ -369,7 +369,7 @@ function activate(context) {
                     const title = m[2].trim();
                     const level = marks.length;  // # → 1, ## → 2, etc.
 
-                    const range = new vscode.Range(i, 0, i, line.length);
+                    const titleRange = new vscode.Range(i, 0, i, line.length);
 
                     // 如果标题已经包含序号，提取原始标题（去掉序号）
                     let originalTitle = title;
@@ -381,9 +381,33 @@ function activate(context) {
                     items.push({
                         title: originalTitle,  // 始终使用原始标题
                         level: level,
-                        range: range
+                        titleRange: titleRange,  // 标题行的范围
+                        lineNumber: i  // 标题所在的行号
                     });
                 }
+            }
+            
+            // Step 1.5: 计算每个标题的完整范围（包括其下的所有内容直到下一个同级或更高级标题）
+            for (let i = 0; i < items.length; i++) {
+                const item = items[i];
+                let endLine = document.lineCount - 1;  // 默认到文件末尾
+                
+                // 查找下一个同级或更高级的标题
+                for (let j = i + 1; j < items.length; j++) {
+                    if (items[j].level <= item.level) {
+                        endLine = items[j].lineNumber - 1;  // 到下一个标题的前一行
+                        break;
+                    }
+                }
+                
+                // 设置完整范围：从标题行开始到 endLine 结束
+                const endLineText = document.lineAt(endLine);
+                item.fullRange = new vscode.Range(
+                    item.lineNumber, 
+                    0, 
+                    endLine, 
+                    endLineText.text.length
+                );
             }
 
             // 获取配置：是否显示序号
@@ -392,10 +416,11 @@ function activate(context) {
 
             // Step 2: 构建 Outline 树结构
             const rootSymbols = [];
-            const stack = [];   // { level, symbol }
+            const stack = [];   // { level, symbol, itemIndex }
             const counters = []; // 用于跟踪每级标题的计数器
 
-            for (const item of items) {
+            for (let itemIndex = 0; itemIndex < items.length; itemIndex++) {
+                const item = items[itemIndex];
                 let displayTitle;
                 
                 if (showNumbering) {
@@ -425,15 +450,32 @@ function activate(context) {
                     displayTitle = item.title;
                 }
 
-                const symbol = new vscode.DocumentSymbol(
-                    displayTitle,
-                    `H${item.level}`,
-                    vscode.SymbolKind.Method,
-                    item.range,
-                    item.range
+                // 计算该项的范围：从当前标题开始到下一个同级或更高级标题之前
+                let endLine = document.lineCount - 1;  // 默认到文件末尾
+                for (let j = itemIndex + 1; j < items.length; j++) {
+                    if (items[j].level <= item.level) {
+                        endLine = items[j].lineNumber - 1;
+                        break;
+                    }
+                }
+                
+                const endLineText = document.lineAt(endLine);
+                const fullRange = new vscode.Range(
+                    item.lineNumber, 
+                    0, 
+                    endLine, 
+                    endLineText.text.length
                 );
 
-                symbol.children = [];   // 重要！！必须先初始化 children
+                const symbol = new vscode.DocumentSymbol(
+                    displayTitle,
+                    '',
+                    vscode.SymbolKind.Method,
+                    fullRange,           // 使用完整范围
+                    item.titleRange      // 选择范围（标题行）
+                );
+
+                symbol.children = [];
 
                 // 维持层级关系：栈顶必须比当前 level 小
                 while (stack.length > 0 && stack[stack.length - 1].level >= item.level) {
@@ -449,7 +491,7 @@ function activate(context) {
                 }
 
                 // 压栈
-                stack.push({ level: item.level, symbol: symbol });
+                stack.push({ level: item.level, symbol: symbol, itemIndex: itemIndex });
             }
 
             // 根据配置决定是否更新文件内容
@@ -472,13 +514,25 @@ function activate(context) {
                         // 为当前项创建临时计数器数组
                         const tempCounters = [...fileCounters].slice(0, item.level);
                         
+                        // 创建一个临时对象用于更新文件内容
+                        const tempItem = {
+                            title: item.title,
+                            level: item.level,
+                            range: item.titleRange  // 使用标题范围进行文件更新
+                        };
+                        
                         // 调用文件更新函数（添加/更新序号）
-                        updateFileContentWithNumbering(document, [item], tempCounters);
+                        updateFileContentWithNumbering(document, [tempItem], tempCounters);
                     }
                 } else {
                     // 关闭文件内容更新：删除所有序号
                     for (const item of items) {
-                        removeNumberingFromLine(document, item);
+                        const tempItem = {
+                            title: item.title,
+                            level: item.level,
+                            range: item.titleRange  // 使用标题范围进行文件更新
+                        };
+                        removeNumberingFromLine(document, tempItem);
                     }
                 }
             }
