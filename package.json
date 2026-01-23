@@ -53,6 +53,12 @@
           ],
           "default": "// ",
           "markdownDescription": "Comment style used for toggling comments. Options are '// ', '* ', or '/* ... */' | 用于切换注释的样式。选项包括 '// '、'* ' 或 '/* ... */'"
+        },
+        "stata-outline.separatorLength": {
+          "type": "number",
+          "default": 60,
+          "minimum": 10,
+          "markdownDescription": "Total character length of the divider line (including the '** #' prefix and separators). | 分割线所在行的字符总长度（包括前缀 '** #' 和分隔符）。"
         }
       }
     },
@@ -96,6 +102,26 @@
         "command": "stata-outline.runSection",
         "title": "Run Current Section",
         "icon": "$(play)"
+      },
+      {
+        "command": "stata-outline.insertSeparatorDash",
+        "title": "Insert Dash Separator"
+      },
+      {
+        "command": "stata-outline.insertSeparatorEqual",
+        "title": "Insert Equal Separator"
+      },
+      {
+        "command": "stata-outline.insertSeparatorStar",
+        "title": "Insert Star Separator"
+      },
+      {
+        "command": "stata-outline.insertSeparatorHash",
+        "title": "Insert Hash Separator"
+      },
+      {
+        "command": "stata-outline.insertSeparatorPercent",
+        "title": "Insert Percent Separator"
       }
     ],
     "keybindings": [
@@ -103,6 +129,36 @@
         "command": "stata-outline.runSection",
         "key": "ctrl+d",
         "mac": "cmd+d",
+        "when": "editorTextFocus && editorLangId == stata"
+      },
+      {
+        "command": "stata-outline.insertSeparatorDash",
+        "key": "ctrl+-",
+        "mac": "cmd+-",
+        "when": "editorTextFocus && editorLangId == stata"
+      },
+      {
+        "command": "stata-outline.insertSeparatorEqual",
+        "key": "ctrl+=",
+        "mac": "cmd+=",
+        "when": "editorTextFocus && editorLangId == stata"
+      },
+      {
+        "command": "stata-outline.insertSeparatorStar",
+        "key": "ctrl+shift+8",
+        "mac": "cmd+shift+8",
+        "when": "editorTextFocus && editorLangId == stata"
+      },
+      {
+        "command": "stata-outline.insertSeparatorHash",
+        "key": "ctrl+shift+3",
+        "mac": "cmd+shift+3",
+        "when": "editorTextFocus && editorLangId == stata"
+      },
+      {
+        "command": "stata-outline.insertSeparatorPercent",
+        "key": "ctrl+shift+5",
+        "mac": "cmd+shift+5",
         "when": "editorTextFocus && editorLangId == stata"
       },
       {

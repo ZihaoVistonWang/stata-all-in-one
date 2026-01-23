@@ -174,6 +174,109 @@ function removeNumberingFromLine(document, item) {
     }
 }
 
+// 判断是否为分割线行
+function isSeparatorLine(lineText) {
+    const trimmed = lineText.trim();
+    const m = /^\*\*\s([=\-*#%])\1{2,}\s*$/.exec(trimmed);
+    return !!m;
+}
+
+// 获取分割线总长度（来自配置，默认 60，最小为 10）
+function getSeparatorLength() {
+    const config = vscode.workspace.getConfiguration('stata-outline');
+    const len = config.get('separatorLength', 60);
+    if (typeof len !== 'number' || !isFinite(len) || len < 10) {
+        return 60;
+    }
+    return Math.floor(len);
+}
+
+// 插入分割线，char 为分隔符字符
+function insertSeparator(char) {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) {
+        return;
+    }
+
+    const document = editor.document;
+    const selection = editor.selection;
+    const totalLength = getSeparatorLength();
+
+    // 先判断是否在单行标题内有选区，如果是，则将该行替换为带分隔符的标题
+    if (!selection.isEmpty && selection.start.line === selection.end.line) {
+        const line = document.lineAt(selection.start.line);
+        const text = line.text;
+        // 修改正则：# 后面的空格改为可选
+        const headingMatch = /^\*\*\s*(#+)\s*(.*)$/.exec(text.trim());
+        if (headingMatch) {
+            const level = headingMatch[1]; // # 或 ## 等
+            let titleText = headingMatch[2].trim();
+            
+            // 如果已经是分隔符格式，先提取纯标题
+            const existingSepMatch = /^([=\-*#%]+)\s+(.+?)\s+[=\-*#%]+$/.exec(titleText);
+            if (existingSepMatch) {
+                titleText = existingSepMatch[2].trim();
+            }
+            
+            // 计算前缀长度：`**` + `#...` + ` ` = 2 + level.length + 1
+            const prefixLength = 2 + level.length + 1; // `**# `
+            // 标题文本长度
+            const titleLength = titleText.length;
+            // 剩余给分隔符和空格的长度
+            const remaining = totalLength - prefixLength - titleLength;
+            
+            if (remaining < 4) {
+                // 剩余空间不足，至少需要 ` sep ` + ` sep ` = 4个字符
+                vscode.window.showWarningMessage('Line would be too long. Increase separator length setting.');
+                return;
+            }
+            
+            // 左右各一个空格，剩余的分给分隔符
+            // ` <sep> title <sep> ` 
+            const sepTotal = remaining - 2; // 减去左右空格
+            const leftSepLen = Math.floor(sepTotal / 2);
+            const rightSepLen = sepTotal - leftSepLen;
+            
+            const leftSep = char.repeat(leftSepLen);
+            const rightSep = char.repeat(rightSepLen);
+            
+            const newLine = `**${level} ${leftSep} ${titleText} ${rightSep}`;
+            
+            editor.edit(editBuilder => {
+                const range = line.range;
+                editBuilder.replace(range, newLine);
+            });
+            return;
+        }
+    }
+
+    // 否则按原逻辑插入独立分割线（占用整行）
+    const separatorLine = `** ${char.repeat(totalLength - 3)}`; // 减去 `** ` 的3个字符
+    
+    let targetLine = selection.start.line;
+    const currentLineText = document.lineAt(targetLine).text;
+    const isCurrentEmpty = currentLineText.trim().length === 0;
+
+    if (!isCurrentEmpty) {
+        const prevLine = targetLine - 1;
+        if (prevLine >= 0 && isSeparatorLine(document.lineAt(prevLine).text)) {
+            // 上一行已是分割线，则在当前行下方插入
+            targetLine = targetLine + 1;
+        } else {
+            // 在当前行上方插入
+            // targetLine 保持不变
+        }
+    }
+
+    // 如果目标行超出文件末尾，则追加
+    const insertLine = Math.min(targetLine, document.lineCount);
+    const position = new vscode.Position(insertLine, 0);
+
+    editor.edit(editBuilder => {
+        editBuilder.insert(position, separatorLine + "\n");
+    });
+}
+
 // 切换注释功能
 function toggleComment() {
     const editor = vscode.window.activeTextEditor;
@@ -374,12 +477,19 @@ function activate(context) {
         { id: 'stata-outline.setLevel5', level: 5 },
         { id: 'stata-outline.setLevel6', level: 6 },
         { id: 'stata-outline.clearHeading', level: 0 },
-        { id: 'stata-outline.toggleComment' }  // 添加注释切换命令
+        { id: 'stata-outline.toggleComment' },  // 添加注释切换命令
+        { id: 'stata-outline.insertSeparatorDash', separatorChar: '-' },
+        { id: 'stata-outline.insertSeparatorEqual', separatorChar: '=' },
+        { id: 'stata-outline.insertSeparatorStar', separatorChar: '*' },
+        { id: 'stata-outline.insertSeparatorHash', separatorChar: '#' },
+        { id: 'stata-outline.insertSeparatorPercent', separatorChar: '%' }
     ];
 
     commands.forEach(cmd => {
         const disposable = vscode.commands.registerCommand(cmd.id, () => {
-            if (cmd.id === 'stata-outline.toggleComment') {
+            if (cmd.separatorChar) {
+                insertSeparator(cmd.separatorChar);
+            } else if (cmd.id === 'stata-outline.toggleComment') {
                 toggleComment();  // 特殊处理注释命令
             } else {
                 setHeadingLevel(cmd.level);
@@ -395,7 +505,7 @@ function activate(context) {
     // 原有的 DocumentSymbolProvider
     const provider = {
         provideDocumentSymbols(document) {
-            const regex = /^\*{1,2}\s*(#+)\s?(.*)$/;  // * ## title
+            const regex = /^\*\*\s*(#+)\s*(.*)$/;  // * ## title (空格可选)
             const items = [];
 
             // Step 1: 收集所有标题项
@@ -409,9 +519,15 @@ function activate(context) {
 
                     const titleRange = new vscode.Range(i, 0, i, line.length);
 
-                    // 如果标题已经包含序号，提取原始标题（去掉序号）
+                    // 去除分隔符：检查是否为带分隔符的标题格式 `=== title ===`
                     let originalTitle = title;
-                    const numberingMatch = /^(\d+(?:\.\d+)*)\s+(.*)$/.exec(title);
+                    const separatorMatch = /^([=\-*#%]+)\s+(.+?)\s+[=\-*#%]+$/.exec(originalTitle);
+                    if (separatorMatch) {
+                        originalTitle = separatorMatch[2].trim();
+                    }
+                    
+                    // 如果标题已经包含序号，提取原始标题（去掉序号）
+                    const numberingMatch = /^(\d+(?:\.\d+)*)\s+(.*)$/.exec(originalTitle);
                     if (numberingMatch) {
                         originalTitle = numberingMatch[2];
                     }
