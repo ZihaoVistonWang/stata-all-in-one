@@ -52,7 +52,7 @@
             "/* ... */"
           ],
           "default": "// ",
-          "markdownDescription": "Comment style used for toggling comments. Options are '// ', '* ', or '/* ... */' | 用于切换注释的样式。选项包括 '// '、'* ' 或 '/* ... */'"
+          "markdownDescription": "Comment style used for toggling comments. Options are `//`, `*`, or `/* ... */` | 用于切换注释的样式。选项包括 `//`、`*` 或 `/* ... */`"
         },
         "stata-outline.separatorLength": {
           "type": "number",
