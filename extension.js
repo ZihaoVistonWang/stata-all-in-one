@@ -1,5 +1,10 @@
 const vscode = require('vscode');
 
+const EXT_LABEL = 'Stata Outline';
+const showInfo = (msg, ...items) => vscode.window.showInformationMessage(`${EXT_LABEL}: ${msg}`, ...items);
+const showWarn = (msg, ...items) => vscode.window.showWarningMessage(`${EXT_LABEL}: ${msg}`, ...items);
+const showError = (msg, ...items) => vscode.window.showErrorMessage(`${EXT_LABEL}: ${msg}`, ...items);
+
 // function symbolKindByLevel(level) {
 //     switch (level) {
 //         case 1:
@@ -174,11 +179,36 @@ function removeNumberingFromLine(document, item) {
     }
 }
 
-// 判断是否为分割线行
+// 判断是否为分割线行：以 '** ' 开头，后面是重复的模式（单位长度1-6 code points）且总长度≥3
 function isSeparatorLine(lineText) {
     const trimmed = lineText.trim();
-    const m = /^\*\*\s([=\-*#%])\1{2,}\s*$/.exec(trimmed);
-    return !!m;
+    if (!trimmed.startsWith('** ')) {
+        return false;
+    }
+    const body = trimmed.slice(3);
+    if (!body) {
+        return false;
+    }
+
+    const cps = Array.from(body);
+    if (cps.length < 3) {
+        return false;
+    }
+
+    for (let k = 1; k <= Math.min(6, cps.length); k++) {
+        const unit = cps.slice(0, k);
+        let ok = true;
+        for (let i = 0; i < cps.length; i++) {
+            if (cps[i] !== unit[i % k]) {
+                ok = false;
+                break;
+            }
+        }
+        if (ok) {
+            return true;
+        }
+    }
+    return false;
 }
 
 // 获取分割线总长度（来自配置，默认 60，最小为 10）
@@ -191,7 +221,33 @@ function getSeparatorLength() {
     return Math.floor(len);
 }
 
-// 插入分割线，char 为分隔符字符
+// 将分隔符单位重复/截断到指定长度（按 code point 数量，避免截断 emoji）
+function buildSeparatorSegment(unit, length) {
+    if (!unit || length <= 0) {
+        return '';
+    }
+    const codepoints = Array.from(unit);
+    if (codepoints.length === 0) {
+        return '';
+    }
+    const result = [];
+    while (result.length < length) {
+        for (const cp of codepoints) {
+            if (result.length >= length) {
+                break;
+            }
+            result.push(cp);
+        }
+    }
+    return result.join('');
+}
+
+function hasNonAsciiCodePoint(text) {
+    if (!text) return false;
+    return Array.from(text).some(ch => ch.codePointAt(0) > 0x7f);
+}
+
+// 插入分割线，char 为分隔符字符（可以是单个字符或短字符串）
 function insertSeparator(char) {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
@@ -201,6 +257,7 @@ function insertSeparator(char) {
     const document = editor.document;
     const selection = editor.selection;
     const totalLength = getSeparatorLength();
+    const effectiveTotalLength = hasNonAsciiCodePoint(char) ? Math.max(10, Math.floor(totalLength * 2 / 3)) : totalLength;
 
     // 先判断是否在单行标题内有选区，如果是，则将该行替换为带分隔符的标题
     if (!selection.isEmpty && selection.start.line === selection.end.line) {
@@ -221,13 +278,13 @@ function insertSeparator(char) {
             // 计算前缀长度：`**` + `#...` + ` ` = 2 + level.length + 1
             const prefixLength = 2 + level.length + 1; // `**# `
             // 标题文本长度
-            const titleLength = titleText.length;
+            const titleLength = Array.from(titleText).length;
             // 剩余给分隔符和空格的长度
-            const remaining = totalLength - prefixLength - titleLength;
+            const remaining = effectiveTotalLength - prefixLength - titleLength;
             
             if (remaining < 4) {
                 // 剩余空间不足，至少需要 ` sep ` + ` sep ` = 4个字符
-                vscode.window.showWarningMessage('Line would be too long. Increase separator length setting.');
+                showWarn('Line would be too long. Increase separator length setting.');
                 return;
             }
             
@@ -237,8 +294,8 @@ function insertSeparator(char) {
             const leftSepLen = Math.floor(sepTotal / 2);
             const rightSepLen = sepTotal - leftSepLen;
             
-            const leftSep = char.repeat(leftSepLen);
-            const rightSep = char.repeat(rightSepLen);
+            const leftSep = buildSeparatorSegment(char, leftSepLen);
+            const rightSep = buildSeparatorSegment(char, rightSepLen);
             
             const newLine = `**${level} ${leftSep} ${titleText} ${rightSep}`;
             
@@ -251,16 +308,29 @@ function insertSeparator(char) {
     }
 
     // 否则按原逻辑插入独立分割线（占用整行）
-    const separatorLine = `** ${char.repeat(totalLength - 3)}`; // 减去 `** ` 的3个字符
+    const separatorBody = buildSeparatorSegment(char, effectiveTotalLength - 3); // 减去 `** ` 的3个字符
+    const separatorLine = `** ${separatorBody}`;
     
     let targetLine = selection.start.line;
     const currentLineText = document.lineAt(targetLine).text;
     const isCurrentEmpty = currentLineText.trim().length === 0;
+    const currentIsSep = isSeparatorLine(currentLineText);
+    const prevIsSep = targetLine > 0 && isSeparatorLine(document.lineAt(targetLine - 1).text);
+    const nextIsSep = (targetLine + 1 < document.lineCount) && isSeparatorLine(document.lineAt(targetLine + 1).text);
+
+    // 如果当前行本身是分割线，或上下都有分割线，则提醒并退出
+    if (currentIsSep || (prevIsSep && nextIsSep)) {
+        showInfo('Separator already present here.');
+        return;
+    }
 
     if (!isCurrentEmpty) {
-        const prevLine = targetLine - 1;
-        if (prevLine >= 0 && isSeparatorLine(document.lineAt(prevLine).text)) {
-            // 上一行已是分割线，则在当前行下方插入
+        if (prevIsSep) {
+            // 上一行已是分割线，则在当前行下方插入，但若下方也是分割线就提示
+            if (nextIsSep) {
+                showInfo('Separator already present above and below.');
+                return;
+            }
             targetLine = targetLine + 1;
         } else {
             // 在当前行上方插入
@@ -343,23 +413,78 @@ function isMacOS() {
     return process.platform === 'darwin';
 }
 
+// 查找可用的 Stata 应用（优先使用用户选择的版本），若未找到则回退到已安装的第一个
+function findStataApp(preferredName) {
+    const fs = require('fs');
+
+    const checkPaths = (appName) => {
+        const candidates = [
+            `/Applications/${appName}.app`,
+            `/Applications/Stata/${appName}.app`
+        ];
+        for (const p of candidates) {
+            if (fs.existsSync(p)) {
+                return p;
+            }
+        }
+        return null;
+    };
+
+    const orderedNames = Array.from(new Set([
+        preferredName,
+        'StataMP',
+        'StataSE',
+        'StataIC',
+        'Stata'
+    ].filter(Boolean)));
+
+    const installed = [];
+    let chosenName = null;
+    let chosenPath = null;
+
+    for (const name of orderedNames) {
+        const p = checkPaths(name);
+        if (p) {
+            installed.push(name);
+            if (!chosenPath) {
+                chosenName = name;
+                chosenPath = p;
+            }
+        }
+    }
+
+    return { name: chosenName, path: chosenPath, installed };
+}
+
 // 获取当前光标所在的 section 范围并运行
 async function runCurrentSection() {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
-        vscode.window.showErrorMessage('No active editor found');
+        showError('No active editor found');
         return;
     }
 
     // 检查是否是macOS
     if (!isMacOS()) {
-        vscode.window.showErrorMessage('Running Stata code is only supported on macOS');
+        showError('Running Stata code is only supported on macOS');
         return;
     }
 
     const document = editor.document;
     const config = vscode.workspace.getConfiguration('stata-outline');
     const stataVersion = config.get('stataVersion', 'StataMP');
+    
+        // 查找可用的 Stata 应用：优先用户设置，若未安装则自动回退到已安装版本
+        const foundApp = findStataApp(stataVersion);
+        if (!foundApp.path) {
+            const installedList = (foundApp.installed && foundApp.installed.length > 0)
+                ? foundApp.installed.join(', ')
+                : 'none detected';
+            showError(`No Stata installation detected. Please install Stata or set an existing version. Installed: ${installedList}.`);
+            return;
+        }
+        const appName = foundApp.name;
+        const appPath = foundApp.path;
     
     let codeToRun;
     
@@ -442,8 +567,8 @@ async function runCurrentSection() {
         // 写入临时文件
         fs.writeFileSync(tmpFilePath, codeToRun, 'utf8');
         
-        // 构建Stata命令
-        const stataCommand = `pgrep -x "${stataVersion}" > /dev/null || (open -a ${stataVersion} && while ! pgrep -x "${stataVersion}" > /dev/null; do sleep 0.2; done && sleep 0.5); osascript -e 'tell application "${stataVersion}" to DoCommand "do \\"${tmpFilePath}\\""'`;
+            // 构建Stata命令（使用已检测到的应用名和路径）
+            const stataCommand = `pgrep -x "${appName}" > /dev/null || (open -a "${appPath}" && while ! pgrep -x "${appName}" > /dev/null; do sleep 0.2; done && sleep 0.5); osascript -e 'tell application "${appName}" to DoCommand "do \\"${tmpFilePath}\\""'`;
         
         // 执行命令
         const { exec } = require('child_process');
@@ -456,14 +581,14 @@ async function runCurrentSection() {
             }
             
             if (error) {
-                vscode.window.showErrorMessage(`Failed to run Stata code: ${error.message}`);
+                showError(`Failed to run Stata code: ${error.message}`);
                 return;
             }
             
-            vscode.window.showInformationMessage('Code sent to Stata');
+            showInfo(`Code sent to ${appName}`);
         });
     } catch (error) {
-        vscode.window.showErrorMessage(`Failed to create temporary file: ${error.message}`);
+        showError(`Failed to create temporary file: ${error.message}`);
     }
 }
 
@@ -497,6 +622,30 @@ function activate(context) {
         });
         context.subscriptions.push(disposable);
     });
+
+    // 注册自定义分隔符命令（通过输入框）
+    const customSeparatorCommand = vscode.commands.registerCommand('stata-outline.insertCustomSeparator', async () => {
+        const input = await vscode.window.showInputBox({
+            prompt: 'Enter separator character (symbols / letters / emoji, defaults to "=")',
+            placeHolder: '='
+        });
+
+        if (input) {
+            const cps = Array.from(input);
+            if (cps.length > 6) {
+                showWarn('Please enter at most 6 symbols/letters/emoji.');
+                return;
+            }
+            if (/\s/.test(input) || /[\x00-\x1F\x7F]/.test(input)) {
+                showWarn('Only symbols, letters, or emoji are supported (no spaces).');
+                return;
+            }
+        }
+
+        const char = (input && input.length > 0) ? input : '=';
+        insertSeparator(char);
+    });
+    context.subscriptions.push(customSeparatorCommand);
 
     // 注册运行 section 的命令
     const runSectionCommand = vscode.commands.registerCommand('stata-outline.runSection', runCurrentSection);

@@ -104,6 +104,10 @@
         "icon": "$(play)"
       },
       {
+        "command": "stata-outline.insertCustomSeparator",
+        "title": "Insert Custom Separator"
+      },
+      {
         "command": "stata-outline.insertSeparatorDash",
         "title": "Insert Dash Separator"
       },
@@ -150,15 +154,9 @@
         "when": "editorTextFocus && editorLangId == stata"
       },
       {
-        "command": "stata-outline.insertSeparatorHash",
-        "key": "ctrl+shift+3",
-        "mac": "cmd+shift+3",
-        "when": "editorTextFocus && editorLangId == stata"
-      },
-      {
-        "command": "stata-outline.insertSeparatorPercent",
-        "key": "ctrl+shift+5",
-        "mac": "cmd+shift+5",
+        "command": "stata-outline.insertCustomSeparator",
+        "key": "ctrl+s",
+        "mac": "cmd+s",
         "when": "editorTextFocus && editorLangId == stata"
       },
       {
