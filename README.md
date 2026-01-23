@@ -1,6 +1,6 @@
 # Stata Outline
 
-**Version:** 0.1.7
+**Version:** 0.1.8
 **Author:** Zihao Viston Wang
 
 [中文版本](README_CN.md)
@@ -10,6 +10,7 @@
 ## Features
 
 - **Outline Support**: Automatically recognizes `**#` formatted comment lines as hierarchical headings, supporting unlimited nesting levels.
+- **Outline Follows Cursor**: When the cursor moves in the editor, the outline view automatically highlights and follows the corresponding section without manual clicking.
 - **Keyboard Shortcuts**: `Ctrl/Cmd + 1-6` converts current line to corresponding heading level, `Ctrl/Cmd + 0` converts to normal line.
 - **Multi-level Numbering**: Optional display of `1.1`, `1.2.1` style numbering in outline (toggle in settings).
 - **Auto-sync Numbering**: Automatically adds/removes numbering in `.do` files when enabled (requires numbering display).
@@ -83,6 +84,7 @@ Search for "Stata Outline" in VS Code settings and configure:
 
 | Version     | Changes                                                              | Release Date |
 | ----------- | -------------------------------------------------------------------- | ------------ |
+| 0.1.9       | Outline now follows cursor, highlighting corresponding sections in real-time | 2026-01-24   |
 | 0.1.7-0.1.8 | Added toggle comments functionality with customizable comment styles | 2026-01-22   |
 | 0.1.5-0.1.6 | Added "Run Current Section" feature (requires stataRun extension)    | 2026-01-12   |
 | 0.1.4       | Added multi-level numbering display and auto-update file content     | 2026-01-12   |
