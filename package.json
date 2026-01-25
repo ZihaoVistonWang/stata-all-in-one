@@ -118,14 +118,6 @@
       {
         "command": "stata-outline.insertSeparatorStar",
         "title": "Insert Star Separator"
-      },
-      {
-        "command": "stata-outline.insertSeparatorHash",
-        "title": "Insert Hash Separator"
-      },
-      {
-        "command": "stata-outline.insertSeparatorPercent",
-        "title": "Insert Percent Separator"
       }
     ],
     "keybindings": [

@@ -1,6 +1,6 @@
 # Stata Outline
 
-**Version:** 0.1.8
+**Version:** 0.2.0
 **Author:** Zihao Viston Wang
 
 [中文版本](README_CN.md)
@@ -9,13 +9,36 @@
 
 ## Features
 
-- **Outline Support**: Automatically recognizes `**#` formatted comment lines as hierarchical headings, supporting unlimited nesting levels.
-- **Outline Follows Cursor**: When the cursor moves in the editor, the outline view automatically highlights and follows the corresponding section without manual clicking.
-- **Keyboard Shortcuts**: `Ctrl/Cmd + 1-6` converts current line to corresponding heading level, `Ctrl/Cmd + 0` converts to normal line.
-- **Multi-level Numbering**: Optional display of `1.1`, `1.2.1` style numbering in outline (toggle in settings).
-- **Auto-sync Numbering**: Automatically adds/removes numbering in `.do` files when enabled (requires numbering display).
-- **Run Current Section**: Click the "Run" button in editor title bar to execute current section code (requires [stataRun extension](https://marketplace.visualstudio.com/items?itemName=yeaoh.statarun)).
-- **Toggle Comments**: `Ctrl/Cmd + /` toggles comments on selected lines with customizable comment style (settings).
+### 1. Smart Outline & Structural Navigation
+
+- **Multi-level Outline Recognition**: Automatically detects comment lines from `**#` to `**######` as hierarchical headers, supporting up to **6 levels**.
+  - **Shortcuts**: `Ctrl/Cmd + 1-6` to quickly convert to the corresponding header level; `Ctrl/Cmd + 0` to revert to a standard code line.
+- **Cursor Sync (Auto-Reveal)**: The outline view automatically highlights and navigates to the corresponding section as the cursor moves in the editor.
+  - *Setup: Click the "···" button in the top-right of the Outline view and check "Follow Cursor".* (Note: This is a VS Code GUI setting and cannot be configured via code).
+- **Multi-level Numbering**: Optional display of logical numbering (e.g., `1.1`, `1.2.1`) within the outline (must be enabled in settings).
+- **Auto-Sync Numbering**: When enabled, the extension automatically adds or removes numbering directly within the `.do` file based on the outline structure.
+
+### 2. Code Execution (Stata Interaction)
+
+- **Native Support (macOS)**: Communicates directly with Stata without requiring additional extensions. *Note: Windows is currently not supported.*
+- **Flexible Execution Modes**:
+  - **Global Execution**: Click the ▶️ button in the editor title bar or Outline view header to run the current script.
+  - **Smart Section Run**: When **no code is selected**, pressing `Ctrl/Cmd + D` automatically detects the current section and executes from that header down to (but not including) the next header of the same or higher level.
+  - **Precision Selection Run**: Press `Ctrl/Cmd + D` to run the selected block. Supports **fuzzy selection**, executing complete lines even if not fully highlighted.
+
+### 3. Efficient Dividers & Styling
+
+- **Quick Insertion**: Supports multiple symbols to enhance code readability.
+  - `Ctrl/Cmd + -` (Hyphen) | `Ctrl/Cmd + =` (Equal) | `Ctrl/Cmd + Shift + 8` (Asterisk) | `Ctrl/Cmd + S` (Custom).
+- **Intelligent Wrap Mode**:
+  - **Blank Line Insertion**: Generates a full-width divider (length adjustable in settings).
+  - **Non-blank Line Insertion**: Pressing the shortcut once inserts a divider above the line; pressing it again inserts one below, creating a "wrapped" header effect.
+  - **Header Decoration**: Select header text and press the shortcut to generate a title with balanced decorative symbols (e.g., `**# === Title ===`). These decorations do not interfere with outline recognition.
+
+### 4. Enhanced Commenting
+
+- **Toggle Comments**: Quickly toggle line comments using `Ctrl/Cmd + /`.
+- **Custom Styles**: Defaults to `//`, with support for switching to other valid Stata comment delimiters in settings.
 
 > ![fig](./example.png)
 > *Hierarchical outline view in Stata `.do` files (Left: VS Code, Right: Stata)*
@@ -24,7 +47,7 @@
 
 ## Installation
 
-### Via Extension Marketplace
+### Extension Marketplace
 
 1. Search for "Stata Outline" in VS Code extensions and install.
 2. Open any `.do` file and navigate to Outline panel (Explorer → Outline) to view hierarchical structure.
@@ -52,13 +75,22 @@ Search for "Stata Outline" in VS Code settings and configure:
    - `false` (default): Only displays numbering in outline, doesn't modify file.
 3. **Show Run Button** (`stata-outline.showRunButton`)
 
-   - `true` (default): Shows play button in editor title bar.
-   - `false`: Hides button.
+   - `true`: Shows play button in editor title bar and Outline view.
+   - `false` (default): Hides button (macOS-only feature).
+
 4. **Comment Style** (`stata-outline.commentStyle`)
 
    - `// ` (default): Line comments with double slash.
    - `* `: Stata single-line comments.
    - `/* ... */`: Block-style comments.
+
+5. **Separator Length** (`stata-outline.separatorLength`)
+
+   - Numeric length used to size divider lines (including prefixes). Larger values produce longer separators.
+
+6. **Stata Version (macOS)** (`stata-outline.stataVersion`)
+
+   - Select between `StataMP`, `StataIC`, `StataSE` when running on macOS.
 
 > **Note**: Changes take effect after reopening `.do` files. When `updateFileContent` is disabled, existing numbering in `.do` files will be automatically removed.
 
@@ -82,12 +114,13 @@ Search for "Stata Outline" in VS Code settings and configure:
 
 ## Changelog
 
-| Version     | Changes                                                              | Release Date |
-| ----------- | -------------------------------------------------------------------- | ------------ |
-| 0.1.9       | Outline now follows cursor, highlighting corresponding sections in real-time | 2026-01-24   |
-| 0.1.7-0.1.8 | Added toggle comments functionality with customizable comment styles | 2026-01-22   |
-| 0.1.5-0.1.6 | Added "Run Current Section" feature (requires stataRun extension)    | 2026-01-12   |
-| 0.1.4       | Added multi-level numbering display and auto-update file content     | 2026-01-12   |
-| 0.1.3       | Fixed display issue with `**#` without spaces                      | 2025-12-30   |
-| 0.1.2       | Added keyboard shortcut functionality                                | 2025-12-26   |
-| 0.1.0-0.1.1 | Initial release matching Stata bookmark style                        | 2025-12-25   |
+| Version     | Changes                                                                                       | Release Date |
+| ----------- | --------------------------------------------------------------------------------------------- | ------------ |
+| 0.2.0       | macOS native section/run support (no external dependency); play button also in Outline view; new divider line commands and shortcuts | 2026-01-25   |
+| 0.1.9       | Outline now follows cursor, highlighting corresponding sections in real-time                  | 2026-01-24   |
+| 0.1.7-0.1.8 | Added toggle comments functionality with customizable comment styles                          | 2026-01-22   |
+| 0.1.5-0.1.6 | Added "Run Current Section" feature                                                           | 2026-01-12   |
+| 0.1.4       | Added multi-level numbering display and auto-update file content                              | 2026-01-12   |
+| 0.1.3       | Fixed display issue with `**#` without spaces                                               | 2025-12-30   |
+| 0.1.2       | Added keyboard shortcut functionality                                                         | 2025-12-26   |
+| 0.1.0-0.1.1 | Initial release matching Stata bookmark style                                                 | 2025-12-25   |

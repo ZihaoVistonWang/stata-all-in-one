@@ -605,9 +605,7 @@ function activate(context) {
         { id: 'stata-outline.toggleComment' },  // 添加注释切换命令
         { id: 'stata-outline.insertSeparatorDash', separatorChar: '-' },
         { id: 'stata-outline.insertSeparatorEqual', separatorChar: '=' },
-        { id: 'stata-outline.insertSeparatorStar', separatorChar: '*' },
-        { id: 'stata-outline.insertSeparatorHash', separatorChar: '#' },
-        { id: 'stata-outline.insertSeparatorPercent', separatorChar: '%' }
+        { id: 'stata-outline.insertSeparatorStar', separatorChar: '*' }
     ];
 
     commands.forEach(cmd => {
