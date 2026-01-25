@@ -5,20 +5,86 @@ const showInfo = (msg, ...items) => vscode.window.showInformationMessage(`${EXT_
 const showWarn = (msg, ...items) => vscode.window.showWarningMessage(`${EXT_LABEL}: ${msg}`, ...items);
 const showError = (msg, ...items) => vscode.window.showErrorMessage(`${EXT_LABEL}: ${msg}`, ...items);
 
-// function symbolKindByLevel(level) {
-//     switch (level) {
-//         case 1:
-//             return vscode.SymbolKind.Method;      // 一级标题
-//         case 2:
-//             return vscode.SymbolKind.Interface;   // 二级标题
-//         case 3:
-//             return vscode.SymbolKind.Field;       // 三级标题
-//         case 4:
-//             return vscode.SymbolKind.Property;      // 四级标题
-//         default:
-//             return vscode.SymbolKind.Class;    // 更深层
-//     }
-// }
+// 从重复字符序列中提取中心文本
+function extractCenterText(title) {
+    // 将文本转换为Unicode码位数组，以正确处理emoji等复合字符
+    const cps = Array.from(title);
+    const len = cps.length;
+    
+    // 尝试从左到右找到一个重复模式
+    for (let patternLen = 1; patternLen <= Math.floor(len / 3); patternLen++) {
+        // 检查左边是否有连续的重复模式
+        let leftEnd = 0;
+        let rightStart = len;
+        
+        // 从左边匹配重复模式
+        while (leftEnd < len / 3) {
+            let match = true;
+            for (let i = 0; i < patternLen; i++) {
+                if (leftEnd + i >= len || cps[leftEnd + i] !== cps[i]) {
+                    match = false;
+                    break;
+                }
+            }
+            if (match) {
+                leftEnd += patternLen;
+            } else {
+                break;
+            }
+        }
+        
+        // 如果找到了左边的重复模式，尝试在右边也找到相同的模式
+        if (leftEnd > 0) {
+            // 从右边匹配相同的模式
+            let rightMatch = true;
+            while (rightMatch && (len - rightStart) < leftEnd) {
+                if (rightStart - patternLen >= leftEnd) {
+                    for (let i = 0; i < patternLen; i++) {
+                        if (cps[rightStart - patternLen + i] !== cps[i]) {
+                            rightMatch = false;
+                            break;
+                        }
+                    }
+                    if (rightMatch) {
+                        rightStart -= patternLen;
+                    } else {
+                        break;
+                    }
+                } else {
+                    break;
+                }
+            }
+            
+            // 如果左右都有匹配的模式，提取中间的内容
+            if ((len - rightStart) === leftEnd && rightStart > leftEnd) {
+                return cps.slice(leftEnd, rightStart).join('').trim();
+            }
+        }
+    }
+    
+    // 如果上面的方法没成功，尝试更简单的中心提取方法
+    // 查找最长的重复子串作为边界
+    const str = title.trim();
+    for (let i = 1; i <= Math.floor(str.length / 3); i++) {
+        // 尝试从开头提取i个字符作为可能的重复模式
+        const pattern = str.substring(0, i);
+        
+        // 检查是否以这个模式开头和结尾
+        if (str.startsWith(pattern) && str.endsWith(pattern)) {
+            // 检查中间是否有足够的空间放有意义的文本
+            if (str.length > 2 * pattern.length) {
+                const middle = str.substring(pattern.length, str.length - pattern.length).trim();
+                // 确保中间部分不是重复的模式字符
+                if (middle && !middle.includes(pattern)) {
+                    return middle;
+                }
+            }
+        }
+    }
+    
+    // 如果都没找到，返回原始标题
+    return title;
+}
 
 // 设置标题级别的函数
 function setHeadingLevel(level) {
@@ -473,6 +539,7 @@ async function runCurrentSection() {
     const document = editor.document;
     const config = vscode.workspace.getConfiguration('stata-outline');
     const stataVersion = config.get('stataVersion', 'StataMP');
+    const activateStataWindow = config.get('activateStataWindow', true);
     
         // 查找可用的 Stata 应用：优先用户设置，若未安装则自动回退到已安装版本
         const foundApp = findStataApp(stataVersion);
@@ -555,30 +622,38 @@ async function runCurrentSection() {
         codeToRun = document.getText(new vscode.Range(startPos, endPos));
     }
     
-    // 创建临时文件
+    // 创建临时文件在当前文档的目录中
     const fs = require('fs');
     const path = require('path');
     const os = require('os');
     
-    const tmpDir = os.tmpdir();
-    const tmpFilePath = path.join(tmpDir, `stata_outline_temp_${Date.now()}.do`);
+    // 获取当前文档的目录，如果无法获取则使用系统临时目录
+    const docDir = path.dirname(document.fileName);
+    const tmpFilePath = path.join(docDir, 'stata_outline_temp.do');
     
     try {
-        // 写入临时文件
+        // 写入临时文件到文档所在目录
         fs.writeFileSync(tmpFilePath, codeToRun, 'utf8');
         
             // 构建Stata命令（使用已检测到的应用名和路径）
-            const stataCommand = `pgrep -x "${appName}" > /dev/null || (open -a "${appPath}" && while ! pgrep -x "${appName}" > /dev/null; do sleep 0.2; done && sleep 0.5); osascript -e 'tell application "${appName}" to DoCommand "do \\"${tmpFilePath}\\""'`;
+            let stataCommand = `pgrep -x "${appName}" > /dev/null || (open -a "${appPath}" && while ! pgrep -x "${appName}" > /dev/null; do sleep 0.2; done && sleep 0.5); osascript -e 'tell application "${appName}" to DoCommand "do \\"${tmpFilePath}\\""'`;
+            
+            // 如果需要激活Stata窗口，则添加activate命令
+            if (activateStataWindow) {
+                stataCommand += ` -e 'tell application "${appName}" to activate'`;
+            }
         
         // 执行命令
         const { exec } = require('child_process');
         exec(stataCommand, (error, stdout, stderr) => {
             // 清理临时文件
-            try {
-                fs.unlinkSync(tmpFilePath);
-            } catch (e) {
-                console.error('Failed to delete temporary file:', e);
-            }
+            setTimeout(() => {
+                try {
+                    fs.unlinkSync(tmpFilePath);
+                } catch (e) {
+                    console.error('Failed to delete temporary file:', e);
+                }
+            }, 2000); // 延迟删除，确保Stata已完成读取
             
             if (error) {
                 showError(`Failed to run Stata code: ${error.message}`);
@@ -634,8 +709,8 @@ function activate(context) {
                 showWarn('Please enter at most 6 symbols/letters/emoji.');
                 return;
             }
-            if (/\s/.test(input) || /[\x00-\x1F\x7F]/.test(input)) {
-                showWarn('Only symbols, letters, or emoji are supported (no spaces).');
+            if (/[\x00-\x1F\x7F]/.test(input)) {
+                showWarn('Control characters are not supported.');
                 return;
             }
         }
@@ -666,11 +741,24 @@ function activate(context) {
 
                     const titleRange = new vscode.Range(i, 0, i, line.length);
 
-                    // 去除分隔符：检查是否为带分隔符的标题格式 `=== title ===`
+                    // 去除分隔符：检查是否为带分隔符的标题格式 `=== title ===` 或 `*** title ***`
                     let originalTitle = title;
                     const separatorMatch = /^([=\-*#%]+)\s+(.+?)\s+[=\-*#%]+$/.exec(originalTitle);
                     if (separatorMatch) {
                         originalTitle = separatorMatch[2].trim();
+                    }
+                    
+                    // 检查是否为自定义分隔符格式，如 "separator text separator"
+                    // 例如: "xxxxxxxxxxxxxxxxxxxxx level 1 xxxxxxxxxxxxxxxxxxxxxxx"
+                    const customSeparatorMatch = /^(.+)\s+(\S.*?)\s+\1$/.exec(originalTitle);
+                    if (customSeparatorMatch) {
+                        originalTitle = customSeparatorMatch[2].trim();
+                    }
+                    
+                    // 更通用的处理：检测重复字符序列包围的文本
+                    // 例如: "aaaa bbb cccc bbb aaaa" -> 提取 "bbb"
+                    if (!customSeparatorMatch) {
+                        originalTitle = extractCenterText(originalTitle);
                     }
                     
                     // 如果标题已经包含序号，提取原始标题（去掉序号）

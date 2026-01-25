@@ -1,6 +1,6 @@
 # Stata Outline
 
-**Version:** 0.2.0
+**Version:** 0.2.1
 **Author:** Zihao Viston Wang
 
 [中文版本](README_CN.md)
@@ -26,10 +26,14 @@
   - **Smart Section Run**: When **no code is selected**, pressing `Ctrl/Cmd + D` automatically detects the current section and executes from that header down to (but not including) the next header of the same or higher level.
   - **Precision Selection Run**: Press `Ctrl/Cmd + D` to run the selected block. Supports **fuzzy selection**, executing complete lines even if not fully highlighted.
 
-### 3. Efficient Dividers & Styling
+### 3. Efficient Separators & Styling
 
-- **Quick Insertion**: Supports multiple symbols to enhance code readability.
-  - `Ctrl/Cmd + -` (Hyphen) | `Ctrl/Cmd + =` (Equal) | `Ctrl/Cmd + Shift + 8` (Asterisk) | `Ctrl/Cmd + S` (Custom).
+- **Quick Insertion**: Supports various symbols to enhance code readability.
+  - **Standard Separators**: Use `Ctrl/Cmd + Symbol` to insert a divider:
+    - `Ctrl/Cmd + -` (Dash) | `Ctrl/Cmd + =` (Equal) | `Ctrl/Cmd + Shift + 8` (Asterisk)
+  - **Custom Separators**:
+    - `Ctrl + Alt + S` (Windows) | `Ctrl + Cmd + S` (macOS), where **S** stands for "**S**eparator".
+    - After the shortcut, simply input **your desired character** to generate the line.
 - **Intelligent Wrap Mode**:
   - **Blank Line Insertion**: Generates a full-width divider (length adjustable in settings).
   - **Non-blank Line Insertion**: Pressing the shortcut once inserts a divider above the line; pressing it again inserts one below, creating a "wrapped" header effect.
@@ -38,7 +42,7 @@
 ### 4. Enhanced Commenting
 
 - **Toggle Comments**: Quickly toggle line comments using `Ctrl/Cmd + /`.
-- **Custom Styles**: Defaults to `//`, with support for switching to other valid Stata comment delimiters in settings.
+- **Optional Styles**: Defaults to `//`, with support for switching to other valid Stata comment delimiters in settings.
 
 > ![fig](./example.png)
 > *Hierarchical outline view in Stata `.do` files (Left: VS Code, Right: Stata)*
@@ -73,24 +77,27 @@ Search for "Stata Outline" in VS Code settings and configure:
 
    - `true`: Automatically adds/removes numbering in `.do` files (requires numbering display).
    - `false` (default): Only displays numbering in outline, doesn't modify file.
-3. **Show Run Button** (`stata-outline.showRunButton`)
+3. **Show Run Button (macOS)** (`stata-outline.showRunButton`)
 
    - `true`: Shows play button in editor title bar and Outline view.
    - `false` (default): Hides button (macOS-only feature).
+4. **Stata Version (macOS)** (`stata-outline.stataVersion`)
 
-4. **Comment Style** (`stata-outline.commentStyle`)
+   - Select between `StataMP`, `StataIC`, `StataSE` when running on macOS.
+
+5. **Active Stata Window After Running Code (macOS)** (`stata-outline.activateStataWindow`)
+
+   - `true` (default): Brings Stata window to the foreground after code execution.
+   - `false`: Does not change focus.
+
+6. **Comment Style** (`stata-outline.commentStyle`)
 
    - `// ` (default): Line comments with double slash.
    - `* `: Stata single-line comments.
    - `/* ... */`: Block-style comments.
-
-5. **Separator Length** (`stata-outline.separatorLength`)
+7. **Separator Length** (`stata-outline.separatorLength`)
 
    - Numeric length used to size divider lines (including prefixes). Larger values produce longer separators.
-
-6. **Stata Version (macOS)** (`stata-outline.stataVersion`)
-
-   - Select between `StataMP`, `StataIC`, `StataSE` when running on macOS.
 
 > **Note**: Changes take effect after reopening `.do` files. When `updateFileContent` is disabled, existing numbering in `.do` files will be automatically removed.
 
@@ -114,13 +121,13 @@ Search for "Stata Outline" in VS Code settings and configure:
 
 ## Changelog
 
-| Version     | Changes                                                                                       | Release Date |
-| ----------- | --------------------------------------------------------------------------------------------- | ------------ |
-| 0.2.0       | macOS native section/run support (no external dependency); play button also in Outline view; new divider line commands and shortcuts | 2026-01-25   |
-| 0.1.9       | Outline now follows cursor, highlighting corresponding sections in real-time                  | 2026-01-24   |
-| 0.1.7-0.1.8 | Added toggle comments functionality with customizable comment styles                          | 2026-01-22   |
-| 0.1.5-0.1.6 | Added "Run Current Section" feature                                                           | 2026-01-12   |
-| 0.1.4       | Added multi-level numbering display and auto-update file content                              | 2026-01-12   |
-| 0.1.3       | Fixed display issue with `**#` without spaces                                               | 2025-12-30   |
-| 0.1.2       | Added keyboard shortcut functionality                                                         | 2025-12-26   |
-| 0.1.0-0.1.1 | Initial release matching Stata bookmark style                                                 | 2025-12-25   |
+| Version     | Changes                                                                                                                              | Release Date |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------ |
+| 0.2.0-0.2.1 | macOS native section/run support (no external dependency); play button also in Outline view; new divider line commands and shortcuts | 2026-01-25   |
+| 0.1.9       | Outline now follows cursor, highlighting corresponding sections in real-time                                                         | 2026-01-24   |
+| 0.1.7-0.1.8 | Added toggle comments functionality with customizable comment styles                                                                 | 2026-01-22   |
+| 0.1.5-0.1.6 | Added "Run Current Section" feature                                                                                                  | 2026-01-12   |
+| 0.1.4       | Added multi-level numbering display and auto-update file content                                                                     | 2026-01-12   |
+| 0.1.3       | Fixed display issue with `**#` without spaces                                                                                      | 2025-12-30   |
+| 0.1.2       | Added keyboard shortcut functionality                                                                                                | 2025-12-26   |
+| 0.1.0-0.1.1 | Initial release matching Stata bookmark style                                                                                        | 2025-12-25   |

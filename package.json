@@ -2,7 +2,7 @@
   "name": "stata-outline",
   "displayName": "Stata Outline",
   "description": "Adds hierarchical Outline support for Stata .do files using comment headings like '**#', '**##', etc.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "publisher": "ZihaoVistonWang",
   "icon": "icon.png",
   "engines": {
@@ -59,6 +59,11 @@
           "default": 60,
           "minimum": 10,
           "markdownDescription": "Total character length of the divider line (including the '** #' prefix and separators). | 分割线所在行的字符总长度（包括前缀 '** #' 和分隔符）。"
+        },
+        "stata-outline.activateStataWindow": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Activate the Stata window after running code (bringing it to the foreground). | 运行代码后激活Stata窗口（将其带到前台）。"
         }
       }
     },
@@ -147,8 +152,8 @@
       },
       {
         "command": "stata-outline.insertCustomSeparator",
-        "key": "ctrl+s",
-        "mac": "cmd+s",
+        "key": "ctrl+alt+s",
+        "mac": "ctrl+cmd+s",
         "when": "editorTextFocus && editorLangId == stata"
       },
       {
