@@ -5,85 +5,94 @@ const showInfo = (msg, ...items) => vscode.window.showInformationMessage(`${EXT_
 const showWarn = (msg, ...items) => vscode.window.showWarningMessage(`${EXT_LABEL}: ${msg}`, ...items);
 const showError = (msg, ...items) => vscode.window.showErrorMessage(`${EXT_LABEL}: ${msg}`, ...items);
 
-// 从重复字符序列中提取中心文本
-function extractCenterText(title) {
-    // 将文本转换为Unicode码位数组，以正确处理emoji等复合字符
+// 通用分隔符移除函数：识别并去除标题两端的重复字符/模式
+// 支持格式：`pattern ... text ... pattern` 或 `pattern text pattern` (无空格)
+// 返回提取的标题，如果没有找到分隔符则返回原始标题
+function removeSeparators(title) {
+    if (!title || title.length === 0) return title;
+    
     const cps = Array.from(title);
     const len = cps.length;
     
-    // 尝试从左到右找到一个重复模式
-    for (let patternLen = 1; patternLen <= Math.floor(len / 3); patternLen++) {
-        // 检查左边是否有连续的重复模式
-        let leftEnd = 0;
-        let rightStart = len;
+    // 只有当标题足够长时才尝试移除分隔符（防止误识别短标题）
+    // 最少需要：最少3个字符模式 + 至少1个字符内容 + 最少3个字符模式 = 7 个code points
+    if (len < 7) return title;
+    
+    // 尝试单字符模式（最常见）
+    for (let charLen = 1; charLen <= 6; charLen++) {
+        const pattern = cps.slice(0, charLen); // 从开头取 charLen 个字符作为模式
         
-        // 从左边匹配重复模式
-        while (leftEnd < len / 3) {
+        let leftCount = 0;
+        let pos = 0;
+        
+        // 从左边计数有多少个完整的模式
+        while (pos + charLen <= len) {
             let match = true;
-            for (let i = 0; i < patternLen; i++) {
-                if (leftEnd + i >= len || cps[leftEnd + i] !== cps[i]) {
+            for (let i = 0; i < charLen; i++) {
+                if (cps[pos + i] !== pattern[i]) {
                     match = false;
                     break;
                 }
             }
             if (match) {
-                leftEnd += patternLen;
+                leftCount++;
+                pos += charLen;
             } else {
                 break;
             }
         }
         
-        // 如果找到了左边的重复模式，尝试在右边也找到相同的模式
-        if (leftEnd > 0) {
-            // 从右边匹配相同的模式
-            let rightMatch = true;
-            while (rightMatch && (len - rightStart) < leftEnd) {
-                if (rightStart - patternLen >= leftEnd) {
-                    for (let i = 0; i < patternLen; i++) {
-                        if (cps[rightStart - patternLen + i] !== cps[i]) {
-                            rightMatch = false;
-                            break;
-                        }
-                    }
-                    if (rightMatch) {
-                        rightStart -= patternLen;
-                    } else {
-                        break;
-                    }
-                } else {
+        // 模式至少要重复 3 次
+        if (leftCount < 3) continue;
+        
+        // 从右边计数有多少个完整的模式
+        let rightCount = 0;
+        let rightPos = len;
+        while (rightPos - charLen >= leftCount * charLen) {
+            let match = true;
+            for (let i = 0; i < charLen; i++) {
+                if (cps[rightPos - charLen + i] !== pattern[i]) {
+                    match = false;
                     break;
                 }
             }
-            
-            // 如果左右都有匹配的模式，提取中间的内容
-            if ((len - rightStart) === leftEnd && rightStart > leftEnd) {
-                return cps.slice(leftEnd, rightStart).join('').trim();
+            if (match) {
+                rightCount++;
+                rightPos -= charLen;
+            } else {
+                break;
+            }
+        }
+        
+        // 如果左右都有相同模式且中间有内容，就提取中间部分
+        if (rightCount >= 3 && rightPos > leftCount * charLen) {
+            const middle = cps.slice(leftCount * charLen, rightPos).join('').trim();
+            if (middle && middle.length > 0) {
+                return middle;
             }
         }
     }
     
-    // 如果上面的方法没成功，尝试更简单的中心提取方法
-    // 查找最长的重复子串作为边界
+    // 备选方案：处理以某个字符串开头和结尾的情况
     const str = title.trim();
     for (let i = 1; i <= Math.floor(str.length / 3); i++) {
-        // 尝试从开头提取i个字符作为可能的重复模式
         const pattern = str.substring(0, i);
-        
-        // 检查是否以这个模式开头和结尾
         if (str.startsWith(pattern) && str.endsWith(pattern)) {
-            // 检查中间是否有足够的空间放有意义的文本
             if (str.length > 2 * pattern.length) {
                 const middle = str.substring(pattern.length, str.length - pattern.length).trim();
-                // 确保中间部分不是重复的模式字符
-                if (middle && !middle.includes(pattern)) {
+                if (middle && middle.length > 0 && !middle.includes(pattern)) {
                     return middle;
                 }
             }
         }
     }
     
-    // 如果都没找到，返回原始标题
     return title;
+}
+
+// 从重复字符序列中提取中心文本（保留以支持向后兼容）
+function extractCenterText(title) {
+    return removeSeparators(title);
 }
 
 // 设置标题级别的函数
@@ -699,14 +708,14 @@ function activate(context) {
     // 注册自定义分隔符命令（通过输入框）
     const customSeparatorCommand = vscode.commands.registerCommand('stata-outline.insertCustomSeparator', async () => {
         const input = await vscode.window.showInputBox({
-            prompt: 'Enter separator character (symbols / letters / emoji, defaults to "=")',
+            prompt: 'Enter a single separator character (emoji / letter / symbol / space, defaults to "=")',
             placeHolder: '='
         });
 
         if (input) {
             const cps = Array.from(input);
-            if (cps.length > 6) {
-                showWarn('Please enter at most 6 symbols/letters/emoji.');
+            if (cps.length > 1) {
+                showWarn('Please enter exactly one character.');
                 return;
             }
             if (/[\x00-\x1F\x7F]/.test(input)) {
@@ -741,25 +750,8 @@ function activate(context) {
 
                     const titleRange = new vscode.Range(i, 0, i, line.length);
 
-                    // 去除分隔符：检查是否为带分隔符的标题格式 `=== title ===` 或 `*** title ***`
-                    let originalTitle = title;
-                    const separatorMatch = /^([=\-*#%]+)\s+(.+?)\s+[=\-*#%]+$/.exec(originalTitle);
-                    if (separatorMatch) {
-                        originalTitle = separatorMatch[2].trim();
-                    }
-                    
-                    // 检查是否为自定义分隔符格式，如 "separator text separator"
-                    // 例如: "xxxxxxxxxxxxxxxxxxxxx level 1 xxxxxxxxxxxxxxxxxxxxxxx"
-                    const customSeparatorMatch = /^(.+)\s+(\S.*?)\s+\1$/.exec(originalTitle);
-                    if (customSeparatorMatch) {
-                        originalTitle = customSeparatorMatch[2].trim();
-                    }
-                    
-                    // 更通用的处理：检测重复字符序列包围的文本
-                    // 例如: "aaaa bbb cccc bbb aaaa" -> 提取 "bbb"
-                    if (!customSeparatorMatch) {
-                        originalTitle = extractCenterText(originalTitle);
-                    }
+                    // 使用通用分隔符移除函数处理标题
+                    let originalTitle = removeSeparators(title);
                     
                     // 如果标题已经包含序号，提取原始标题（去掉序号）
                     const numberingMatch = /^(\d+(?:\.\d+)*)\s+(.*)$/.exec(originalTitle);
