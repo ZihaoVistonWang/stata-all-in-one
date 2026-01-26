@@ -23,6 +23,10 @@ Stata All in One
 
 ## 功能概览
 
+<p align="center">
+   <img src="img/example-marked.png" alt="An example of Stata All in One Icon"/>
+</p>
+
 ### 1. 增强语法高亮
 
 - **完整语法支持**：集成 [Stata Enhanced](https://github.com/kylebarron/language-stata) 语法引擎，为 `.do` 文件提供精确的语法高亮。

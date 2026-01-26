@@ -5,3 +5,5 @@ node_modules
 *.pptx
 *.do
 *.do.stswp
+.gitignore
+./img/example.png
