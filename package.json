@@ -1,7 +1,7 @@
 {
   "name": "stata-all-in-one",
   "displayName": "Stata All in One",
-  "description": "A Stata language extension for Visual Studio Code includeing an outline view, commands to run sections, syntax highlighting, and more.",
+  "description": "A Stata language extension for VS Code includeing an outline view, commands to run sections, syntax highlighting, and more.",
   "version": "0.2.2",
   "publisher": "ZihaoVistonWang",
   "icon": "icon.png",
@@ -17,24 +17,24 @@
   ],
   "contributes": {
     "configuration": {
-      "title": "Stata Outline",
+      "title": "Stata All in One",
       "properties": {
-        "stata-outline.showNumbering": {
+        "stata-all-in-one.showNumbering": {
           "type": "boolean",
           "default": false,
           "markdownDescription": "Display multi-level title numbers in the outline view (e.g. 1.1, 1.2.1). **Requires reopening .do files** | 是否在大纲视图中显示多级标题序号（如 1.1, 1.2.1）。**需要重新打开 .do 文件**"
         },
-        "stata-outline.updateFileContent": {
+        "stata-all-in-one.updateFileContent": {
           "type": "boolean",
           "default": false,
           "markdownDescription": "Automatically update section titles in .do files to include numbering when numbering is enabled. **Requires reopening .do files** | 当启用序号时，自动更新.do文件中的section标题以包含序号。**需要重新打开 .do 文件**"
         },
-        "stata-outline.showRunButton": {
+        "stata-all-in-one.showRunButton": {
           "type": "boolean",
           "default": false,
           "markdownDescription": "Show the run button in the editor title bar to run the current section. **Only available on macOS** | 是否在编辑器标题栏显示运行当前 section 的按钮。**仅 macOS 可用**"
         },
-        "stata-outline.stataVersion": {
+        "stata-all-in-one.stataVersion": {
           "type": "string",
           "enum": [
             "StataMP",
@@ -44,7 +44,7 @@
           "default": "StataMP",
           "markdownDescription": "The version of Stata to use when running code. **Only available on macOS** | 运行代码时使用的 Stata 版本。**仅 macOS 可用**"
         },
-        "stata-outline.commentStyle": {
+        "stata-all-in-one.commentStyle": {
           "type": "string",
           "enum": [
             "// ",
@@ -54,18 +54,18 @@
           "default": "// ",
           "markdownDescription": "Comment style used for toggling comments. Options are `//`, `*`, or `/* ... */` | 用于切换注释的样式。选项包括 `//`、`*` 或 `/* ... */`"
         },
-        "stata-outline.separatorLength": {
+        "stata-all-in-one.separatorLength": {
           "type": "number",
           "default": 60,
           "minimum": 10,
           "markdownDescription": "Total character length of the divider line (including the '** #' prefix and separators). | 分割线所在行的字符总长度（包括前缀 '** #' 和分隔符）。"
         },
-        "stata-outline.activateStataWindow": {
+        "stata-all-in-one.activateStataWindow": {
           "type": "boolean",
           "default": true,
           "markdownDescription": "Activate the Stata window after running code (bringing it to the foreground). | 运行代码后激活Stata窗口（将其带到前台）。"
         },
-        "stata-outline.stataPathWindows": {
+        "stata-all-in-one.stataPathWindows": {
           "type": "string",
           "default": "",
           "markdownDescription": "Path to Stata executable on Windows (e.g., `C:\\Program Files\\Stata17\\StataMP-64.exe`). **Only used on Windows** | Windows 上 Stata 可执行文件的路径（例如 `C:\\Program Files\\Stata17\\StataMP-64.exe`）。**仅在 Windows 上使用**"
@@ -81,130 +81,130 @@
     ],
     "commands": [
       {
-        "command": "stata-outline.setLevel1",
+        "command": "stata-all-in-one.setLevel1",
         "title": "Set as Level 1 Heading"
       },
       {
-        "command": "stata-outline.setLevel2",
+        "command": "stata-all-in-one.setLevel2",
         "title": "Set as Level 2 Heading"
       },
       {
-        "command": "stata-outline.setLevel3",
+        "command": "stata-all-in-one.setLevel3",
         "title": "Set as Level 3 Heading"
       },
       {
-        "command": "stata-outline.setLevel4",
+        "command": "stata-all-in-one.setLevel4",
         "title": "Set as Level 4 Heading"
       },
       {
-        "command": "stata-outline.setLevel5",
+        "command": "stata-all-in-one.setLevel5",
         "title": "Set as Level 5 Heading"
       },
       {
-        "command": "stata-outline.setLevel6",
+        "command": "stata-all-in-one.setLevel6",
         "title": "Set as Level 6 Heading"
       },
       {
-        "command": "stata-outline.clearHeading",
+        "command": "stata-all-in-one.clearHeading",
         "title": "Clear Heading"
       },
       {
-        "command": "stata-outline.runSection",
+        "command": "stata-all-in-one.runSection",
         "title": "Run Current Section",
         "icon": "$(play)"
       },
       {
-        "command": "stata-outline.insertCustomSeparator",
+        "command": "stata-all-in-one.insertCustomSeparator",
         "title": "Insert Custom Separator"
       },
       {
-        "command": "stata-outline.insertSeparatorDash",
+        "command": "stata-all-in-one.insertSeparatorDash",
         "title": "Insert Dash Separator"
       },
       {
-        "command": "stata-outline.insertSeparatorEqual",
+        "command": "stata-all-in-one.insertSeparatorEqual",
         "title": "Insert Equal Separator"
       },
       {
-        "command": "stata-outline.insertSeparatorStar",
+        "command": "stata-all-in-one.insertSeparatorStar",
         "title": "Insert Star Separator"
       }
     ],
     "keybindings": [
       {
-        "command": "stata-outline.runSection",
+        "command": "stata-all-in-one.runSection",
         "key": "ctrl+d",
         "mac": "cmd+d",
         "when": "editorTextFocus && editorLangId == stata"
       },
       {
-        "command": "stata-outline.insertSeparatorDash",
+        "command": "stata-all-in-one.insertSeparatorDash",
         "key": "ctrl+-",
         "mac": "cmd+-",
         "when": "editorTextFocus && editorLangId == stata"
       },
       {
-        "command": "stata-outline.insertSeparatorEqual",
+        "command": "stata-all-in-one.insertSeparatorEqual",
         "key": "ctrl+=",
         "mac": "cmd+=",
         "when": "editorTextFocus && editorLangId == stata"
       },
       {
-        "command": "stata-outline.insertSeparatorStar",
+        "command": "stata-all-in-one.insertSeparatorStar",
         "key": "ctrl+shift+8",
         "mac": "cmd+shift+8",
         "when": "editorTextFocus && editorLangId == stata"
       },
       {
-        "command": "stata-outline.insertCustomSeparator",
+        "command": "stata-all-in-one.insertCustomSeparator",
         "key": "ctrl+alt+s",
         "mac": "ctrl+cmd+s",
         "when": "editorTextFocus && editorLangId == stata"
       },
       {
-        "command": "stata-outline.toggleComment",
+        "command": "stata-all-in-one.toggleComment",
         "key": "ctrl+/",
         "mac": "cmd+/",
         "when": "editorTextFocus && editorLangId == stata"
       },
       {
-        "command": "stata-outline.setLevel1",
+        "command": "stata-all-in-one.setLevel1",
         "key": "ctrl+1",
         "mac": "cmd+1",
         "when": "editorTextFocus && editorLangId == stata"
       },
       {
-        "command": "stata-outline.setLevel2",
+        "command": "stata-all-in-one.setLevel2",
         "key": "ctrl+2",
         "mac": "cmd+2",
         "when": "editorTextFocus && editorLangId == stata"
       },
       {
-        "command": "stata-outline.setLevel3",
+        "command": "stata-all-in-one.setLevel3",
         "key": "ctrl+3",
         "mac": "cmd+3",
         "when": "editorTextFocus && editorLangId == stata"
       },
       {
-        "command": "stata-outline.setLevel4",
+        "command": "stata-all-in-one.setLevel4",
         "key": "ctrl+4",
         "mac": "cmd+4",
         "when": "editorTextFocus && editorLangId == stata"
       },
       {
-        "command": "stata-outline.setLevel5",
+        "command": "stata-all-in-one.setLevel5",
         "key": "ctrl+5",
         "mac": "cmd+5",
         "when": "editorTextFocus && editorLangId == stata"
       },
       {
-        "command": "stata-outline.setLevel6",
+        "command": "stata-all-in-one.setLevel6",
         "key": "ctrl+6",
         "mac": "cmd+6",
         "when": "editorTextFocus && editorLangId == stata"
       },
       {
-        "command": "stata-outline.clearHeading",
+        "command": "stata-all-in-one.clearHeading",
         "key": "ctrl+0",
         "mac": "cmd+0",
         "when": "editorTextFocus && editorLangId == stata"
@@ -213,15 +213,15 @@
     "menus": {
       "editor/title": [
         {
-          "command": "stata-outline.runSection",
-          "when": "editorLangId == stata && config.stata-outline.showRunButton",
+          "command": "stata-all-in-one.runSection",
+          "when": "editorLangId == stata && config.stata-all-in-one.showRunButton",
           "group": "navigation"
         }
       ],
       "view/title": [
         {
-          "command": "stata-outline.runSection",
-          "when": "view == outline && config.stata-outline.showRunButton",
+          "command": "stata-all-in-one.runSection",
+          "when": "view == outline && config.stata-all-in-one.showRunButton",
           "group": "navigation"
         }
       ]
@@ -229,6 +229,6 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/ZihaoVistonWang/stata-outline"
+    "url": "https://github.com/ZihaoVistonWang/stata-all-in-one"
   }
 }
