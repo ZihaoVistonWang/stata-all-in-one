@@ -7,6 +7,62 @@ const vscode = require('vscode');
 
 const EXT_LABEL = 'Stata All in One';
 
+const UI_TEXT = {
+    en: {
+        lineTooLong: 'Line would be too long. Increase separator length setting.',
+        sepHere: 'Separator already present here.',
+        sepAboveBelow: 'Separator already present above and below.',
+        oneChar: 'Please enter exactly one character.',
+        controlChars: 'Control characters are not supported.',
+        customSepPrompt: 'Enter a single separator character (emoji / letter / symbol / space, defaults to "=")',
+        customSepPlaceholder: '=',
+        noEditor: 'No active editor found',
+        unsupportedPlatform: 'Running Stata code is only supported on macOS and Windows',
+        missingWinPath: 'Stata executable path not configured. Please set "stata-all-in-one.stataPathWindows" in settings.',
+        noStataInstalled: ({ installedList }) => `No Stata installation detected. Please install Stata or set an existing version. Installed: ${installedList}.`,
+        winRunFailed: ({ message, detail }) => `Failed to run Stata code on Windows: ${message}${detail}`,
+        codeSentStata: 'Code sent to Stata',
+        runFailed: ({ message }) => `Failed to run Stata code: ${message}`,
+        codeSentApp: ({ app }) => `Code sent to ${app}`,
+        tmpFileFailed: ({ message }) => `Failed to create temporary file: ${message}`,
+        resetDone: 'Migration prompt state reset. Checking migration now...'
+    },
+    zh: {
+        lineTooLong: '行长度不足，请在设置中增大分隔线长度。',
+        sepHere: '此处已存在分隔线。',
+        sepAboveBelow: '上下都有分隔线，无需重复插入。',
+        oneChar: '请只输入一个字符。',
+        controlChars: '不支持控制字符。',
+        customSepPrompt: '输入一个分隔符字符（表情/字母/符号/空格，默认 "="）',
+        customSepPlaceholder: '=',
+        noEditor: '未找到活动编辑器',
+        unsupportedPlatform: '仅在 macOS 和 Windows 上支持运行 Stata 代码',
+        missingWinPath: '未配置 Stata 可执行路径，请设置 "stata-all-in-one.stataPathWindows"。',
+        noStataInstalled: ({ installedList }) => `未检测到已安装的 Stata，请安装或设置可用版本。已检测：${installedList}。`,
+        winRunFailed: ({ message, detail }) => `在 Windows 运行 Stata 失败：${message}${detail}`,
+        codeSentStata: '已发送代码到 Stata',
+        runFailed: ({ message }) => `运行 Stata 代码失败：${message}`,
+        codeSentApp: ({ app }) => `已发送代码到 ${app}`,
+        tmpFileFailed: ({ message }) => `创建临时文件失败：${message}`,
+        resetDone: '迁移提示状态已重置，正在检查迁移...'
+    }
+};
+
+const getUserLanguage = () => {
+    const lang = (vscode.env.language || '').toLowerCase();
+    return lang.startsWith('zh') ? 'zh' : 'en';
+};
+
+const msg = (key, params) => {
+    const lang = getUserLanguage();
+    const dict = UI_TEXT[lang] || UI_TEXT.en;
+    const entry = dict[key] !== undefined ? dict[key] : UI_TEXT.en[key];
+    if (typeof entry === 'function') {
+        return entry(params || {});
+    }
+    return entry;
+};
+
 /**
  * Show information message
  */
@@ -202,6 +258,8 @@ module.exports = {
     showInfo,
     showWarn,
     showError,
+    msg,
+    getUserLanguage,
     isWindows,
     isMacOS,
     stripSurroundingQuotes,

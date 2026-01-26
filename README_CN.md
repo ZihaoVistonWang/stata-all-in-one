@@ -1,5 +1,5 @@
 <p align="center">
-   <img src="icon.png" alt="Stata All in One Icon" style="width:25%;" />
+   <img src="icon-wide.png" alt="Stata All in One Icon" style="width:300px;" />
 </p>
 
 <h1 align="center">
@@ -119,6 +119,7 @@ Stata All in One
 
 | 版本        | 更新内容                                                     | 发布日期   |
 | ----------- | ------------------------------------------------------------ | ---------- |
+| 0.2.3       | 添加了迁移提示以及来自 Stata Outline 的自动迁移设置          | 2026-01-27 |
 | 0.2.2       | Windows 原生支持运行 Stata 代码                              | 2026-01-27 |
 | 0.2.0-0.2.1 | macOS 原生支持运行代码，无需额外依赖；新增分隔线命令与快捷键 | 2026-01-25 |
 | 0.1.9       | 大纲自动跟随光标，光标移动时实时高亮相应章节                 | 2026-01-24 |
