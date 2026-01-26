@@ -6,6 +6,8 @@
 Stata All in One
 </h1>
 
+<p align="center">`Stata All in One` is derived from  <a href="https://github.com/ZihaoVistonWang/stata-outline">`Stata Outline`</a>, with extended features and improvements.</p>
+
 <p align="center">
    | <b>Version:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.2.3</a>｜<b>Author:</b> <a href="https://zihaowang.cn">Zihao Viston Wang</a> | <b>Translate:</b>
   <a href="README_CN.md">中文版本</a> |
@@ -80,38 +82,35 @@ Search for "Stata All in One" in VS Code settings and configure:
    - `false` (default): Displays original headings.
 2. **Auto-update File Content** (`stata-all-in-one.updateFileContent`)
 
-   - `true`: Automatically adds/removes numbering in `.do` files (requires numbering display).
+   - `true`: When numbering is enabled, automatically update section titles in .do files to include numbers. **Requires reopening .do files**
    - `false` (default): Only displays numbering in outline, doesn't modify file.
 
 ### Code Execution
 
 3. **Show Run Button** (`stata-all-in-one.showRunButton`)
 
-   - `true` (default): Shows play button in editor title bar and Outline view.
+   - `true` (default): Whether to show the run button in the editor title bar.
    - `false`: Hides button.
-4. **Stata Version on macOS** (`stata-all-in-one.stataVersion`)
+4. **Stata Version on macOS** (`stata-all-in-one.stataVersionOnMacOS`)
 
-   - Select between `StataMP`, `StataIC`, `StataSE` when running on macOS.
+   - **[macOS]** Stata version. Select between `StataMP`, `StataIC`, `StataSE`.
    - Default: `StataMP`
-5. **Stata Path on Windows** (`stata-all-in-one.stataPathWindows`)
+5. **Stata Path on Windows** (`stata-all-in-one.stataPathOnWindows`)
 
-   - Path to Stata executable on Windows (e.g., `C:\Program Files\Stata17\StataMP-64.exe`).
-   - Only used on Windows.
+   - **[Windows]** Path to Stata executable file (e.g., `C:\Program Files\Stata17\StataMP-64.exe`).
 6. **Active Stata Window After Running Code** (`stata-all-in-one.activateStataWindow`)
 
-   - `true` (default): Brings Stata window to the foreground after code execution.
+   - `true` (default): Activate the Stata window after running code (bring it to the foreground).
    - `false`: Does not change focus.
 
 ### Code Style
 
 7. **Comment Style** (`stata-all-in-one.commentStyle`)
 
-   - `// ` (default): Line comments with double slash.
-   - `* `: Stata single-line comments.
-   - `/* ... */`: Block-style comments.
+   - `// ` (default): Comment style used for toggling comments. Options include `//`, `*`, or `/* ... */`
 8. **Separator Length** (`stata-all-in-one.separatorLength`)
 
-   - Numeric length used to size divider lines (including prefixes). Default: `60`
+   - Total character length of the separator line (including the '** #' prefix and separators). Default: `60`
 
 > **Note**: Changes take effect after reopening `.do` files. When `updateFileContent` is disabled, existing numbering in `.do` files will be automatically removed.
 

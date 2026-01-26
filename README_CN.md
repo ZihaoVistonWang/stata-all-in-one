@@ -6,6 +6,8 @@
 Stata All in One
 </h1>
 
+<p align="center">Stata All in One 源自 <a href="https://github.com/ZihaoVistonWang/stata-outline">Stata Outline</a>，进行了功能扩展和改进。</p>
+
 <p align="center">
   | <b>版本:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.2.2</a> | <b>作者:</b> <a href="https://zihaowang.cn">王梓豪</a> | <b>翻译:</b>
   <a href="README.md">English Version</a> |
@@ -78,38 +80,35 @@ Stata All in One
    - `false`（默认）：显示原始标题。
 2. **自动更新文件内容** (`stata-all-in-one.updateFileContent`)
 
-   - `true`：自动在 `.do` 文件中添加/删除序号（需启用序号显示）。
+   - `true`：当启用序号时，自动更新.do文件中的section标题以包含序号。
    - `false`（默认）：仅大纲显示序号，不修改文件。
 
 ### 代码运行
 
 3. **显示运行按钮** (`stata-all-in-one.showRunButton`)
 
-   - `true`（默认）：编辑器标题栏与大纲视图顶部显示播放按钮。
+   - `true`（默认）：是否在编辑器标题栏显示运行按钮。
    - `false`：隐藏按钮。
 4. **Stata 版本** (`stata-all-in-one.stataVersion`)
 
-   - 可选择 `StataMP`、`StataIC`、`StataSE` 版本，以运行代码（仅 macOS）。
+   - **[macOS]** Stata 运行版本。可选择 `StataMP`、`StataIC`、`StataSE` 版本。
    - 默认值：`StataMP`
 5. **Stata 路径（Windows）** (`stata-all-in-one.stataPathWindows`)
 
-   - Windows 上 Stata 可执行文件的路径（例如 `C:\\Program Files\\Stata17\\StataMP-64.exe`）。
-   - 仅在 Windows 上使用。
+   - **[Windows]** Stata 执行文件路径（例如 `C:\\Program Files\\Stata17\\StataMP-64.exe`）。
 6. **运行代码后激活 Stata 至前台** (`stata-all-in-one.activateStataWindow`)
 
-   - `true`（默认）：运行代码后激活 Stata 窗口。
+   - `true`（默认）：运行代码后激活Stata窗口（将其带到前台）。
    - `false`：不激活 Stata 窗口。
 
 ### 代码风格
 
 7. **注释样式** (`stata-all-in-one.commentStyle`)
 
-   - `// `（默认）：双斜杠行注释。
-   - `* `：Stata 单行注释。
-   - `/* ... */`：块状注释。
+   - `// `（默认）：用于切换注释的样式。选项包括 `//`、`*` 或 `/* ... */`
 8. **分隔线长度** (`stata-all-in-one.separatorLength`)
 
-   - 用于控制分隔线的总长度（包含前缀）。默认值：`60`
+   - 分割线所在行的字符总长度（包括前缀 '** #' 和分隔符）。默认值：`60`
 
 > **注意**：修改设置后需重新打开 `.do` 文件生效。禁用 `updateFileContent` 时，文件中现有序号将被自动移除。
 
