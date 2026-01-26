@@ -1,3 +1,5 @@
+<!-- markdownlint-disable MD001 MD041 MD033 MD029 MD060 MD038 -->
+
 <p align="center">
    <img src="img/icon-wide.png" alt="Stata All in One Icon" style="width:300px;" />
 </p>
@@ -6,18 +8,27 @@
 Stata All in One
 </h1>
 
-<p align="center">Stata All in One 源自 <a href="https://github.com/ZihaoVistonWang/stata-outline">Stata Outline</a>，进行了功能扩展和改进。</p>
-
 <p align="center">
-  | <b>版本:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.2.2</a> | <b>作者:</b> <a href="https://zihaowang.cn">王梓豪</a> | <b>翻译:</b>
+  | <b>版本:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.2.3</a> | <b>作者:</b> <a href="https://zihaowang.cn">王梓豪</a> | <b>翻译:</b>
   <a href="README.md">English Version</a> |
 </p>
 
 ---
 
+<h3 align="center"><u>一站式 Stata 开发体验：语法高亮 + 智能大纲 + 代码运行 + 快捷编辑，<b>All in One</b>!</u></h3>
+
+<p align="center">Stata All in One 源自 <a href="https://github.com/ZihaoVistonWang/stata-outline">Stata Outline</a>，进行了功能扩展和改进。</p>
+
+---
+
 ## 功能概览
 
-### 1. 智能大纲与结构导航
+### 1. 增强语法高亮
+
+- **完整语法支持**：集成 [Stata Enhanced](https://github.com/kylebarron/language-stata) 语法引擎，为 `.do` 文件提供精确的语法高亮。
+- **自定义命令高亮**：支持为用户常用的第三方命令（如 `reghdfe`、`ivreghdfe`、`gtools` 等）添加关键字高亮，可在设置中自由配置。
+
+### 2. 智能大纲与结构导航
 
 - **多级大纲识别**：自动识别 `**#` 至 `**######` 格式的注释行，最高支持 *6 级层级标题*。
   - **快捷键**：`Ctrl/Cmd + 1-6` 快速转换对应等级标题，`Ctrl/Cmd + 0` 恢复为普通代码行。
@@ -26,7 +37,7 @@ Stata All in One
 - **多级逻辑序号**：支持在大纲中显示 `1.1`、`1.2.1` 等格式的序号（需在设置中开启）。
 - **自动同步序号**：插件会根据大纲结构自动在 `.do` 文件中插入或删除序号（需在设置中开启）。
 
-### 2. 代码运行 (Stata 交互)
+### 3. 代码运行 (Stata 交互)
 
 - **平台支持**：无需额外扩展即可与 **macOS** 和 **Windows** 上的 Stata 无缝集成。
 - **多场景执行策略**：
@@ -34,7 +45,7 @@ Stata All in One
   - **智能分节运行**：当**未选中**任何代码时，按 `Ctrl/Cmd + D` 将自动识别当前章节范围，执行从当前标题起始至下一个同级（或高级别）标题前的所有代码。
   - **精准选中运行**：按 `Ctrl/Cmd + D` 执行选中的代码块。支持**模糊选中**，即使未完全覆盖整行字符，插件也会自动匹配并执行所选的完整行。
 
-### 3. 高效分隔线与样式
+### 4. 高效分隔线与样式
 
 - **快速插入**：支持多种符号，显著提升代码的可读性。
   - **标准分隔符**：通过 `Ctrl/Cmd + [符号]` 快速插入分隔线：
@@ -47,7 +58,7 @@ Stata All in One
   - **非空行插入**：初次按快捷键在行上方插入，再次按键则在下方插入，实现“包裹”效果。
   - **标题修饰**：选中标题文本按快捷键，将生成带有平衡装饰符的标题（例如：`**# === 标题内容 ===`），且不影响大纲识别。
 
-### 4. 注释增强
+### 5. 注释增强
 
 - **一键切换**：使用 `Ctrl/Cmd + /` 快速切换行注释状态。
 - **可选样式**：默认使用 `//`，支持在设置中更改为其他合法注释符。
@@ -72,41 +83,49 @@ Stata All in One
 
 在 VS Code 设置中搜索 "Stata All in One"，配置以下选项：
 
+### 语法高亮
+
+1. **自定义命令高亮** (`stata-all-in-one.customCommands`)
+
+   - 自定义需要高亮的 Stata 命令（字符串数组），默认包含 `reghdfe`。
+   - 示例：`["reghdfe", "ivreghdfe", "gtools", "winsor2"]`
+   - **需要重载窗口生效**。
+
 ### 大纲与导航
 
-1. **显示多级序号** (`stata-all-in-one.showNumbering`)
+2. **显示多级序号** (`stata-all-in-one.showNumbering`)
 
    - `true`：大纲显示 `1.1`、`1.2.1` 等序号。
    - `false`（默认）：显示原始标题。
-2. **自动更新文件内容** (`stata-all-in-one.updateFileContent`)
+3. **自动更新文件内容** (`stata-all-in-one.updateFileContent`)
 
    - `true`：当启用序号时，自动更新.do文件中的section标题以包含序号。
    - `false`（默认）：仅大纲显示序号，不修改文件。
 
 ### 代码运行
 
-3. **显示运行按钮** (`stata-all-in-one.showRunButton`)
+4. **显示运行按钮** (`stata-all-in-one.showRunButton`)
 
    - `true`（默认）：是否在编辑器标题栏显示运行按钮。
    - `false`：隐藏按钮。
-4. **Stata 版本** (`stata-all-in-one.stataVersion`)
+5. **Stata 版本** (`stata-all-in-one.stataVersion`)
 
    - **[macOS]** Stata 运行版本。可选择 `StataMP`、`StataIC`、`StataSE` 版本。
    - 默认值：`StataMP`
-5. **Stata 路径（Windows）** (`stata-all-in-one.stataPathWindows`)
+6. **Stata 路径（Windows）** (`stata-all-in-one.stataPathWindows`)
 
    - **[Windows]** Stata 执行文件路径（例如 `C:\\Program Files\\Stata17\\StataMP-64.exe`）。
-6. **运行代码后激活 Stata 至前台** (`stata-all-in-one.activateStataWindow`)
+7. **运行代码后激活 Stata 至前台** (`stata-all-in-one.activateStataWindow`)
 
    - `true`（默认）：运行代码后激活Stata窗口（将其带到前台）。
    - `false`：不激活 Stata 窗口。
 
 ### 代码风格
 
-7. **注释样式** (`stata-all-in-one.commentStyle`)
+8. **注释样式** (`stata-all-in-one.commentStyle`)
 
    - `// `（默认）：用于切换注释的样式。选项包括 `//`、`*` 或 `/* ... */`
-8. **分隔线长度** (`stata-all-in-one.separatorLength`)
+9. **分隔线长度** (`stata-all-in-one.separatorLength`)
 
    - 分割线所在行的字符总长度（包括前缀 '** #' 和分隔符）。默认值：`60`
 
@@ -116,15 +135,15 @@ Stata All in One
 
 ## 版本记录
 
-| 版本        | 更新内容                                                     | 发布日期   |
-| ----------- | ------------------------------------------------------------ | ---------- |
-| 0.2.3       | 添加了迁移提示以及来自 Stata Outline 的自动迁移设置          | 2026-01-27 |
-| 0.2.2       | Windows 原生支持运行 Stata 代码                              | 2026-01-27 |
-| 0.2.0-0.2.1 | macOS 原生支持运行代码，无需额外依赖；新增分隔线命令与快捷键 | 2026-01-25 |
-| 0.1.9       | 大纲自动跟随光标，光标移动时实时高亮相应章节                 | 2026-01-24 |
-| 0.1.7-0.1.8 | 新增切换注释功能，支持自定义注释样式                         | 2026-01-22 |
-| 0.1.5-0.1.6 | 新增"运行当前节"功能                                         | 2026-01-12 |
-| 0.1.4       | 添加多级序号显示与自动文件更新功能                           | 2026-01-12 |
-| 0.1.3       | 修复 `**#` 无空格时无法显示的问题                          | 2025-12-30 |
-| 0.1.2       | 新增快捷键功能                                               | 2025-12-26 |
-| 0.1.0-0.1.1 | 初始版本，匹配 Stata 书签风格                                | 2025-12-25 |
+| 版本        | 更新内容                                                                        | 发布日期   |
+| ----------- | ------------------------------------------------------------------------------- | ---------- |
+| 0.2.3       | 集成 Stata Enhanced 语法高亮；添加迁移提示以及来自 Stata Outline 的自动迁移设置 | 2026-01-27 |
+| 0.2.2       | Windows 原生支持运行 Stata 代码                                                 | 2026-01-27 |
+| 0.2.0-0.2.1 | macOS 原生支持运行代码，无需额外依赖；新增分隔线命令与快捷键                    | 2026-01-25 |
+| 0.1.9       | 大纲自动跟随光标，光标移动时实时高亮相应章节                                    | 2026-01-24 |
+| 0.1.7-0.1.8 | 新增切换注释功能，支持自定义注释样式                                            | 2026-01-22 |
+| 0.1.5-0.1.6 | 新增"运行当前节"功能                                                            | 2026-01-12 |
+| 0.1.4       | 添加多级序号显示与自动文件更新功能                                              | 2026-01-12 |
+| 0.1.3       | 修复 `**#` 无空格时无法显示的问题                                             | 2025-12-30 |
+| 0.1.2       | 新增快捷键功能                                                                  | 2025-12-26 |
+| 0.1.0-0.1.1 | 初始版本，匹配 Stata 书签风格                                                   | 2025-12-25 |
