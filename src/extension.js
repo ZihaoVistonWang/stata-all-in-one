@@ -9,6 +9,7 @@ const { registerSeparatorCommands } = require('./modules/separator');
 const { registerCommentCommand, toggleComment } = require('./modules/comment');
 const { registerRunCommand } = require('./modules/runCode');
 const { registerCustomCommandHighlight } = require('./modules/customCommandHighlight');
+const { registerCompletionProvider } = require('./modules/completionProvider');
 
 const MIGRATION_MESSAGES = {
     en: {
@@ -221,6 +222,15 @@ function activate(context) {
 
     // Register semantic tokens for custom commands (user-configurable keywords)
     registerCustomCommandHighlight(context);
+
+    // Register completion provider for Stata commands and functions (if enabled)
+    const { getEnableCompletion } = require('./utils/config');
+    if (getEnableCompletion()) {
+        registerCompletionProvider(context);
+        console.log('Stata All in One: Code completion provider registered');
+    } else {
+        console.log('Stata All in One: Code completion provider disabled');
+    }
 
     // Register run code command
     registerRunCommand(context);

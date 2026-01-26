@@ -83,6 +83,11 @@ const getCustomCommands = () => {
  */
 const getStataPathWindows = () => getConfigValue('stataPathWindows', '');
 
+/**
+ * Get enableCompletion setting
+ */
+const getEnableCompletion = () => getConfigValue('enableCompletion', true);
+
 module.exports = {
     CONFIG_NAMESPACE,
     getConfig,
@@ -95,5 +100,6 @@ module.exports = {
     getCommentStyle,
     getSeparatorLength,
     getStataPathWindows,
-    getCustomCommands
+    getCustomCommands,
+    getEnableCompletion
 };
