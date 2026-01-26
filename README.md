@@ -84,12 +84,10 @@ Search for "Stata Outline" in VS Code settings and configure:
 4. **Stata Version (macOS)** (`stata-outline.stataVersion`)
 
    - Select between `StataMP`, `StataIC`, `StataSE` when running on macOS.
-
 5. **Active Stata Window After Running Code (macOS)** (`stata-outline.activateStataWindow`)
 
    - `true` (default): Brings Stata window to the foreground after code execution.
    - `false`: Does not change focus.
-
 6. **Comment Style** (`stata-outline.commentStyle`)
 
    - `// ` (default): Line comments with double slash.
@@ -100,22 +98,6 @@ Search for "Stata Outline" in VS Code settings and configure:
    - Numeric length used to size divider lines (including prefixes). Larger values produce longer separators.
 
 > **Note**: Changes take effect after reopening `.do` files. When `updateFileContent` is disabled, existing numbering in `.do` files will be automatically removed.
-
----
-
-## Usage Example
-
-```stata
-**# Data Processing
-**## Cleaning
-**### Remove duplicates
-**# Model Estimation
-***## Regression Analysis
-```
-
-- **With numbering** (`showNumbering: true`):Outline shows `1. Data Processing`, `1.1 Cleaning`, `1.1.1 Remove duplicates`, etc.
-- **Without numbering** (`showNumbering: false`):
-  Outline shows original headings `Data Processing`, `Cleaning`, etc.
 
 ---
 
