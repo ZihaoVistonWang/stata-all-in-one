@@ -1,16 +1,30 @@
 {
   "name": "stata-all-in-one",
   "displayName": "Stata All in One",
-  "description": "A Stata language extension for VS Code includeing an outline view, commands to run sections, syntax highlighting, and more.",
+  "description": "Supercharge your Stata workflow in VS Code. An enhanced version of `Stata Outline` with advanced syntax highlighting, code navigation (Outline), and seamless script execution. All your Stata needs in one place.",
   "version": "0.2.3",
   "publisher": "ZihaoVistonWang",
   "icon": "icon.png",
+  "keywords": [
+    "stata",
+    "do",
+    "ado",
+    "outline",
+    "statistics",
+    "econometrics",
+    "data analysis",
+    "code runner",
+    "syntax highlighting",
+    "stata code",
+    "stata do file",
+    "stata outline",
+    "stata runner"
+  ],
   "engines": {
     "vscode": "^1.70.0"
   },
   "activationEvents": [
-    "onLanguage:stata",
-    "onCommand:stata-all-in-one.debugResetMigrationPrompt"
+    "onLanguage:stata"
   ],
   "main": "./main.js",
   "categories": [
