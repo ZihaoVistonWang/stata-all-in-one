@@ -31,8 +31,8 @@
         },
         "stata-all-in-one.showRunButton": {
           "type": "boolean",
-          "default": false,
-          "markdownDescription": "Show the run button in the editor title bar to run the current section. **Only available on macOS** | 是否在编辑器标题栏显示运行当前 section 的按钮。**仅 macOS 可用**"
+          "default": true,
+          "markdownDescription": "Show the run button in the editor title bar to run the current section. | 是否在编辑器标题栏显示运行当前 section 的按钮。"
         },
         "stata-all-in-one.stataVersion": {
           "type": "string",
@@ -42,7 +42,17 @@
             "StataSE"
           ],
           "default": "StataMP",
-          "markdownDescription": "The version of Stata to use when running code. **Only available on macOS** | 运行代码时使用的 Stata 版本。**仅 macOS 可用**"
+          "markdownDescription": "The version of Stata to use when running code (macOS only). | 运行代码时使用的 Stata 版本（仅 macOS）。"
+        },
+        "stata-all-in-one.stataPathWindows": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Path to Stata executable on Windows (e.g., `C:\\Program Files\\Stata17\\StataMP-64.exe`). **Only used on Windows** | Windows 上 Stata 可执行文件的路径（例如 `C:\\Program Files\\Stata17\\StataMP-64.exe`）。**仅在 Windows 上使用**"
+        },
+        "stata-all-in-one.activateStataWindow": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Activate the Stata window after running code (bringing it to the foreground). | 运行代码后激活Stata窗口（将其带到前台）。"
         },
         "stata-all-in-one.commentStyle": {
           "type": "string",
@@ -59,16 +69,6 @@
           "default": 60,
           "minimum": 10,
           "markdownDescription": "Total character length of the divider line (including the '** #' prefix and separators). | 分割线所在行的字符总长度（包括前缀 '** #' 和分隔符）。"
-        },
-        "stata-all-in-one.activateStataWindow": {
-          "type": "boolean",
-          "default": true,
-          "markdownDescription": "Activate the Stata window after running code (bringing it to the foreground). | 运行代码后激活Stata窗口（将其带到前台）。"
-        },
-        "stata-all-in-one.stataPathWindows": {
-          "type": "string",
-          "default": "",
-          "markdownDescription": "Path to Stata executable on Windows (e.g., `C:\\Program Files\\Stata17\\StataMP-64.exe`). **Only used on Windows** | Windows 上 Stata 可执行文件的路径（例如 `C:\\Program Files\\Stata17\\StataMP-64.exe`）。**仅在 Windows 上使用**"
         }
       }
     },
