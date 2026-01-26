@@ -1,6 +1,6 @@
 const vscode = require('vscode');
 
-const EXT_LABEL = 'Stata Outline';
+const EXT_LABEL = 'Stata All in One';
 const showInfo = (msg, ...items) => vscode.window.showInformationMessage(`${EXT_LABEL}: ${msg}`, ...items);
 const showWarn = (msg, ...items) => vscode.window.showWarningMessage(`${EXT_LABEL}: ${msg}`, ...items);
 const showError = (msg, ...items) => vscode.window.showErrorMessage(`${EXT_LABEL}: ${msg}`, ...items);
@@ -147,7 +147,7 @@ function updateFileContentWithNumbering(document, items, counters) {
         return;
     }
 
-    const config = vscode.workspace.getConfiguration('stata-outline');
+    const config = vscode.workspace.getConfiguration('stata-all-in-one');
     const showNumbering = config.get('showNumbering', true);
     const updateFileContent = config.get('updateFileContent', false);
 
@@ -288,7 +288,7 @@ function isSeparatorLine(lineText) {
 
 // 获取分割线总长度（来自配置，默认 60，最小为 10）
 function getSeparatorLength() {
-    const config = vscode.workspace.getConfiguration('stata-outline');
+    const config = vscode.workspace.getConfiguration('stata-all-in-one');
     const len = config.get('separatorLength', 60);
     if (typeof len !== 'number' || !isFinite(len) || len < 10) {
         return 60;
@@ -433,7 +433,7 @@ function toggleComment() {
     const selection = editor.selection;
     
     // 获取配置的注释样式
-    const config = vscode.workspace.getConfiguration('stata-outline');
+    const config = vscode.workspace.getConfiguration('stata-all-in-one');
     const commentStyle = config.get('commentStyle', '// ');
 
     const startLine = selection.start.line;
@@ -549,7 +549,7 @@ async function runCurrentSection() {
     }
 
     const document = editor.document;
-    const config = vscode.workspace.getConfiguration('stata-outline');
+    const config = vscode.workspace.getConfiguration('stata-all-in-one');
 
     // 平台检查
     const onWindows = isWindows();
@@ -566,7 +566,7 @@ async function runCurrentSection() {
         const rawPath = config.get('stataPathWindows', '');
         stataPathWindows = stripSurroundingQuotes(rawPath.trim());
         if (!stataPathWindows) {
-            showError('Stata executable path not configured. Please set "stata-outline.stataPathWindows" in settings.');
+            showError('Stata executable path not configured. Please set "stata-all-in-one.stataPathWindows" in settings.');
             return;
         }
     }
@@ -674,7 +674,7 @@ async function runCurrentSection() {
         
         if (onWindows) {
             // Windows 执行逻辑：使用 PowerShell 脚本
-            const extensionPath = require('vscode').extensions.getExtension('ZihaoVistonWang.stata-outline').extensionPath;
+            const extensionPath = require('vscode').extensions.getExtension('ZihaoVistonWang.stata-all-in-one').extensionPath;
             const psScriptPath = stripSurroundingQuotes(path.join(extensionPath, 'scripts', 'win_run_do_file.ps1'));
             const cleanDoFilePath = stripSurroundingQuotes(tmpFilePath);
 
@@ -738,24 +738,24 @@ async function runCurrentSection() {
 function activate(context) {
     // 注册命令
     const commands = [
-        { id: 'stata-outline.setLevel1', level: 1 },
-        { id: 'stata-outline.setLevel2', level: 2 },
-        { id: 'stata-outline.setLevel3', level: 3 },
-        { id: 'stata-outline.setLevel4', level: 4 },
-        { id: 'stata-outline.setLevel5', level: 5 },
-        { id: 'stata-outline.setLevel6', level: 6 },
-        { id: 'stata-outline.clearHeading', level: 0 },
-        { id: 'stata-outline.toggleComment' },  // 添加注释切换命令
-        { id: 'stata-outline.insertSeparatorDash', separatorChar: '-' },
-        { id: 'stata-outline.insertSeparatorEqual', separatorChar: '=' },
-        { id: 'stata-outline.insertSeparatorStar', separatorChar: '*' }
+        { id: 'stata-all-in-one.setLevel1', level: 1 },
+        { id: 'stata-all-in-one.setLevel2', level: 2 },
+        { id: 'stata-all-in-one.setLevel3', level: 3 },
+        { id: 'stata-all-in-one.setLevel4', level: 4 },
+        { id: 'stata-all-in-one.setLevel5', level: 5 },
+        { id: 'stata-all-in-one.setLevel6', level: 6 },
+        { id: 'stata-all-in-one.clearHeading', level: 0 },
+        { id: 'stata-all-in-one.toggleComment' },  // 添加注释切换命令
+        { id: 'stata-all-in-one.insertSeparatorDash', separatorChar: '-' },
+        { id: 'stata-all-in-one.insertSeparatorEqual', separatorChar: '=' },
+        { id: 'stata-all-in-one.insertSeparatorStar', separatorChar: '*' }
     ];
 
     commands.forEach(cmd => {
         const disposable = vscode.commands.registerCommand(cmd.id, () => {
             if (cmd.separatorChar) {
                 insertSeparator(cmd.separatorChar);
-            } else if (cmd.id === 'stata-outline.toggleComment') {
+            } else if (cmd.id === 'stata-all-in-one.toggleComment') {
                 toggleComment();  // 特殊处理注释命令
             } else {
                 setHeadingLevel(cmd.level);
@@ -765,7 +765,7 @@ function activate(context) {
     });
 
     // 注册自定义分隔符命令（通过输入框）
-    const customSeparatorCommand = vscode.commands.registerCommand('stata-outline.insertCustomSeparator', async () => {
+    const customSeparatorCommand = vscode.commands.registerCommand('stata-all-in-one.insertCustomSeparator', async () => {
         const input = await vscode.window.showInputBox({
             prompt: 'Enter a single separator character (emoji / letter / symbol / space, defaults to "=")',
             placeHolder: '='
@@ -789,7 +789,7 @@ function activate(context) {
     context.subscriptions.push(customSeparatorCommand);
 
     // 注册运行 section 的命令
-    const runSectionCommand = vscode.commands.registerCommand('stata-outline.runSection', runCurrentSection);
+    const runSectionCommand = vscode.commands.registerCommand('stata-all-in-one.runSection', runCurrentSection);
     context.subscriptions.push(runSectionCommand);
 
     // 原有的 DocumentSymbolProvider
@@ -851,7 +851,7 @@ function activate(context) {
             }
 
             // 获取配置：是否显示序号
-            const config = vscode.workspace.getConfiguration('stata-outline');
+            const config = vscode.workspace.getConfiguration('stata-all-in-one');
             const showNumbering = config.get('showNumbering', true);
 
             // Step 2: 构建 Outline 树结构
