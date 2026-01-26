@@ -23,6 +23,10 @@ Stata All in One
 
 ## Features
 
+<p align="center">
+   <img src="img/example-marked.png" alt="An example of Stata All in One Icon"/>
+</p>
+
 ### 1. Enhanced Syntax Highlighting
 
 - **Full Syntax Support**: Integrates [Stata Enhanced](https://github.com/kylebarron/language-stata) syntax engine for precise syntax highlighting in `.do` files.
