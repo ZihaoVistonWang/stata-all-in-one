@@ -1,9 +1,17 @@
-# Stata Outline
 
-**Version:** 0.2.1
-**Author:** Zihao Viston Wang
+<p align="center">
+   <img src="icon.png" alt="Stata All in One Icon" style="width:25%;" />
+</p>
 
-[中文版本](README_CN.md)
+
+<h1 align="center">
+Stata All in One
+</h1>
+
+<p align="center">
+  | <b>Version:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.2.2</a>｜<b>Author:</b> <a href="https://zihaowang.cn">Zihao Viston Wang</a> | <b>Translate:</b>
+  <a href="README_CN.md">中文版本</a> |
+</p>
 
 ---
 
@@ -20,7 +28,7 @@
 
 ### 2. Code Execution (Stata Interaction)
 
-- **Native Support (macOS)**: Communicates directly with Stata without requiring additional extensions. *Note: Windows is currently not supported.*
+- **Platform Support**: Seamlessly integrates with Stata on both **macOS** and **Windows** without requiring additional extensions.
 - **Flexible Execution Modes**:
   - **Global Execution**: Click the ▶️ button in the editor title bar or Outline view header to run the current script.
   - **Smart Section Run**: When **no code is selected**, pressing `Ctrl/Cmd + D` automatically detects the current section and executes from that header down to (but not including) the next header of the same or higher level.
@@ -44,21 +52,18 @@
 - **Toggle Comments**: Quickly toggle line comments using `Ctrl/Cmd + /`.
 - **Optional Styles**: Defaults to `//`, with support for switching to other valid Stata comment delimiters in settings.
 
-> ![fig](./example.png)
-> *Hierarchical outline view in Stata `.do` files (Left: VS Code, Right: Stata)*
-
 ---
 
 ## Installation
 
 ### Extension Marketplace
 
-1. Search for "Stata Outline" in VS Code extensions and install.
+1. Search for "Stata All in One" in VS Code extensions and install.
 2. Open any `.do` file and navigate to Outline panel (Explorer → Outline) to view hierarchical structure.
 
 ### Manual Installation
 
-1. Download `stata-outline-x.x.x.vsix` from [releases page](https://github.com/ZihaoVistonWang/stata-outline/releases).
+1. Download `stata-all-in-one-x.x.x.vsix` from [releases page](https://github.com/ZihaoVistonWang/stata-all-in-one/releases).
 2. In VS Code → Extensions panel → `...` → `Install from VSIX...`.
 3. Select the downloaded file to complete installation.
 4. Open any `.do` file and view Outline panel.
@@ -67,35 +72,45 @@
 
 ## Configuration
 
-Search for "Stata Outline" in VS Code settings and configure:
+Search for "Stata All in One" in VS Code settings and configure:
 
-1. **Display Multi-level Numbering** (`stata-outline.showNumbering`)
+### Outline & Navigation
 
+1. **Display Multi-level Numbering** (`stata-all-in-one.showNumbering`)
    - `true`: Outline displays `1.1`, `1.2.1` style numbering.
    - `false` (default): Displays original headings.
-2. **Auto-update File Content** (`stata-outline.updateFileContent`)
 
+2. **Auto-update File Content** (`stata-all-in-one.updateFileContent`)
    - `true`: Automatically adds/removes numbering in `.do` files (requires numbering display).
    - `false` (default): Only displays numbering in outline, doesn't modify file.
-3. **Show Run Button (macOS)** (`stata-outline.showRunButton`)
 
-   - `true`: Shows play button in editor title bar and Outline view.
-   - `false` (default): Hides button (macOS-only feature).
-4. **Stata Version (macOS)** (`stata-outline.stataVersion`)
+### Code Execution
 
+3. **Show Run Button** (`stata-all-in-one.showRunButton`)
+   - `true` (default): Shows play button in editor title bar and Outline view.
+   - `false`: Hides button.
+
+4. **Stata Version on macOS** (`stata-all-in-one.stataVersion`)
    - Select between `StataMP`, `StataIC`, `StataSE` when running on macOS.
-5. **Active Stata Window After Running Code (macOS)** (`stata-outline.activateStataWindow`)
+   - Default: `StataMP`
 
+5. **Stata Path on Windows** (`stata-all-in-one.stataPathWindows`)
+   - Path to Stata executable on Windows (e.g., `C:\Program Files\Stata17\StataMP-64.exe`).
+   - Only used on Windows.
+
+6. **Active Stata Window After Running Code** (`stata-all-in-one.activateStataWindow`)
    - `true` (default): Brings Stata window to the foreground after code execution.
    - `false`: Does not change focus.
-6. **Comment Style** (`stata-outline.commentStyle`)
 
+### Code Style
+
+7. **Comment Style** (`stata-all-in-one.commentStyle`)
    - `// ` (default): Line comments with double slash.
    - `* `: Stata single-line comments.
    - `/* ... */`: Block-style comments.
-7. **Separator Length** (`stata-outline.separatorLength`)
 
-   - Numeric length used to size divider lines (including prefixes). Larger values produce longer separators.
+8. **Separator Length** (`stata-all-in-one.separatorLength`)
+   - Numeric length used to size divider lines (including prefixes). Default: `60`
 
 > **Note**: Changes take effect after reopening `.do` files. When `updateFileContent` is disabled, existing numbering in `.do` files will be automatically removed.
 
@@ -103,9 +118,10 @@ Search for "Stata Outline" in VS Code settings and configure:
 
 ## Changelog
 
-| Version     | Changes                                                                                                                              | Release Date |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------ |
-| 0.2.0-0.2.1 | macOS native section/run support (no external dependency); play button also in Outline view; new divider line commands and shortcuts | 2026-01-25   |
+| Version | Changes                                                                                                                              | Release Date |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------ |
+| 0.2.2   | Windows native support for executing Stata code | 2026-01-27   |
+| 0.2.0-0.2.1 | macOS native support for executing Stata code; new divider line commands and shortcuts | 2026-01-25   |
 | 0.1.9       | Outline now follows cursor, highlighting corresponding sections in real-time                                                         | 2026-01-24   |
 | 0.1.7-0.1.8 | Added toggle comments functionality with customizable comment styles                                                                 | 2026-01-22   |
 | 0.1.5-0.1.6 | Added "Run Current Section" feature                                                                                                  | 2026-01-12   |

@@ -1,9 +1,15 @@
-# Stata 大纲
+<p align="center">
+   <img src="icon.png" alt="Stata All in One Icon" style="width:25%;" />
+</p>
 
-**版本:** 0.2.1
-**作者:** 王梓豪
+<h1 align="center">
+Stata All in One
+</h1>
 
-[English Version / 英文版本](README.md)
+<p align="center">
+  | <b>版本:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.2.2</a> | <b>作者:</b> <a href="https://zihaowang.cn">王梓豪</a> | <b>翻译:</b>
+  <a href="README.md">English Version</a> |
+</p>
 
 ---
 
@@ -14,13 +20,13 @@
 - **多级大纲识别**：自动识别 `**#` 至 `**######` 格式的注释行，最高支持 *6 级层级标题*。
   - **快捷键**：`Ctrl/Cmd + 1-6` 快速转换对应等级标题，`Ctrl/Cmd + 0` 恢复为普通代码行。
 - **光标自动跟随**：编辑器光标移动时，大纲视图将自动高亮并跳转至对应章节。
-  - *设置方法：点击大纲右上角 `···` 按钮，勾选「跟随光标」。*（抱歉～此为VS Code的GUI设置，我无法通过代码进行配置）
+  - *设置方法：点击大纲右上角 `···` 按钮，勾选「跟随光标」。*（抱歉～此为VS Code的GUI设置，我无法通过插件控制它）
 - **多级逻辑序号**：支持在大纲中显示 `1.1`、`1.2.1` 等格式的序号（需在设置中开启）。
 - **自动同步序号**：插件会根据大纲结构自动在 `.do` 文件中插入或删除序号（需在设置中开启）。
 
 ### 2. 代码运行 (Stata 交互)
 
-- **原生支持 (macOS)**：无需额外扩展即可与 Stata 通信；*Windows 环境暂不支持*。
+- **平台支持**：无需额外扩展即可与 **macOS** 和 **Windows** 上的 Stata 无缝集成。
 - **多场景执行策略**：
   - **全局/全量执行**：点击编辑器标题栏或大纲视图顶部的 ▶️ 按钮，运行当前脚本。
   - **智能分节运行**：当**未选中**任何代码时，按 `Ctrl/Cmd + D` 将自动识别当前章节范围，执行从当前标题起始至下一个同级（或高级别）标题前的所有代码。
@@ -44,61 +50,66 @@
 - **一键切换**：使用 `Ctrl/Cmd + /` 快速切换行注释状态。
 - **可选样式**：默认使用 `//`，支持在设置中更改为其他合法注释符。
 
-> ![fig](./example.png)
-> *Stata `.do` 文件中的层级大纲视图（左侧：VS Code，右侧：Stata）*
-
 ---
 
 ## 安装
 
 ### 扩展市场安装
 
-1. 在 VS Code 扩展中搜索 "Stata Outline" 并安装。
-2. 打开任意 `.do` 文件，通过资源管理器 → 大纲查看层级结构。
+1. 在 VS Code 扩展中搜索 "Stata All in One" 并安装。
 
 ### 手动安装
 
-1. 从 [发布页面](https://github.com/ZihaoVistonWang/stata-outline/releases) 下载 `stata-outline-x.x.x.vsix`。
+1. 从 [发布页面](https://github.com/ZihaoVistonWang/stata-all-in-one/releases) 下载 `stata-all-in-one-x.x.x.vsix`。
 2. VS Code → 扩展面板 → `...` → `从 VSIX 安装...`。
 3. 选择下载的文件完成安装。
-4. 打开 `.do` 文件并查看大纲面板。
 
 ---
 
 ## 配置
 
-在 VS Code 设置中搜索 "Stata Outline"，配置以下选项：
+在 VS Code 设置中搜索 "Stata All in One"，配置以下选项：
 
-1. **显示多级序号** (`stata-outline.showNumbering`)
+### 大纲与导航
+
+1. **显示多级序号** (`stata-all-in-one.showNumbering`)
 
    - `true`：大纲显示 `1.1`、`1.2.1` 等序号。
    - `false`（默认）：显示原始标题。
-2. **自动更新文件内容** (`stata-outline.updateFileContent`)
+2. **自动更新文件内容** (`stata-all-in-one.updateFileContent`)
 
    - `true`：自动在 `.do` 文件中添加/删除序号（需启用序号显示）。
    - `false`（默认）：仅大纲显示序号，不修改文件。
-3. **显示运行按钮（仅 macOS）** (`stata-outline.showRunButton`)
 
-   - `true`：编辑器标题栏与大纲视图顶部显示播放按钮。
-   - `false` （默认）：隐藏按钮。
-  
-4. **Stata 版本（仅 macOS）** (`stata-outline.stataVersion`)
+### 代码运行
 
-   - 可选择 `StataMP`、`StataIC`、`StataSE` 版本，以运行代码。
+3. **显示运行按钮** (`stata-all-in-one.showRunButton`)
 
-5. **运行代码后激活Stata至前台（仅 macOS）** (`stata-outline.activateStataWindow`)
+   - `true`（默认）：编辑器标题栏与大纲视图顶部显示播放按钮。
+   - `false`：隐藏按钮。
+4. **Stata 版本** (`stata-all-in-one.stataVersion`)
+
+   - 可选择 `StataMP`、`StataIC`、`StataSE` 版本，以运行代码（仅 macOS）。
+   - 默认值：`StataMP`
+5. **Stata 路径（Windows）** (`stata-all-in-one.stataPathWindows`)
+
+   - Windows 上 Stata 可执行文件的路径（例如 `C:\\Program Files\\Stata17\\StataMP-64.exe`）。
+   - 仅在 Windows 上使用。
+6. **运行代码后激活 Stata 至前台** (`stata-all-in-one.activateStataWindow`)
 
    - `true`（默认）：运行代码后激活 Stata 窗口。
    - `false`：不激活 Stata 窗口。
 
-6. **注释样式** (`stata-outline.commentStyle`)
+### 代码风格
+
+7. **注释样式** (`stata-all-in-one.commentStyle`)
 
    - `// `（默认）：双斜杠行注释。
    - `* `：Stata 单行注释。
    - `/* ... */`：块状注释。
-7. **分隔线长度** (`stata-outline.separatorLength`)
+8. **分隔线长度** (`stata-all-in-one.separatorLength`)
 
-   - 用于控制分隔线的总长度（包含前缀）。
+   - 用于控制分隔线的总长度（包含前缀）。默认值：`60`
 
 > **注意**：修改设置后需重新打开 `.do` 文件生效。禁用 `updateFileContent` 时，文件中现有序号将被自动移除。
 
@@ -106,13 +117,14 @@
 
 ## 版本记录
 
-| 版本        | 更新内容                                                 | 发布日期   |
-|-------------|----------------------------------------------------------|------------|
-| 0.2.0-0.2.1 | macOS 上无需额外依赖即可运行代码；新增分隔线命令与快捷键 | 2026-01-25 |
-| 0.1.9       | 大纲自动跟随光标，光标移动时实时高亮相应章节             | 2026-01-24 |
-| 0.1.7-0.1.8 | 新增切换注释功能，支持自定义注释样式                     | 2026-01-22 |
-| 0.1.5-0.1.6 | 新增"运行当前节"功能                                     | 2026-01-12 |
-| 0.1.4       | 添加多级序号显示与自动文件更新功能                       | 2026-01-12 |
-| 0.1.3       | 修复 `**#` 无空格时无法显示的问题                        | 2025-12-30 |
-| 0.1.2       | 新增快捷键功能                                           | 2025-12-26 |
-| 0.1.0-0.1.1 | 初始版本，匹配 Stata 书签风格                            | 2025-12-25 |
+| 版本        | 更新内容                                                     | 发布日期   |
+| ----------- | ------------------------------------------------------------ | ---------- |
+| 0.2.2       | Windows 原生支持运行 Stata 代码                              | 2026-01-27 |
+| 0.2.0-0.2.1 | macOS 原生支持运行代码，无需额外依赖；新增分隔线命令与快捷键 | 2026-01-25 |
+| 0.1.9       | 大纲自动跟随光标，光标移动时实时高亮相应章节                 | 2026-01-24 |
+| 0.1.7-0.1.8 | 新增切换注释功能，支持自定义注释样式                         | 2026-01-22 |
+| 0.1.5-0.1.6 | 新增"运行当前节"功能                                         | 2026-01-12 |
+| 0.1.4       | 添加多级序号显示与自动文件更新功能                           | 2026-01-12 |
+| 0.1.3       | 修复 `**#` 无空格时无法显示的问题                          | 2025-12-30 |
+| 0.1.2       | 新增快捷键功能                                               | 2025-12-26 |
+| 0.1.0-0.1.1 | 初始版本，匹配 Stata 书签风格                                | 2025-12-25 |
