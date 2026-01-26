@@ -1,5 +1,5 @@
 <p align="center">
-   <img src="icon-wide.png" alt="Stata All in One Icon" style="width:300px;" />
+   <img src="img/icon-wide.png" alt="Stata All in One Icon" style="width:300px;" />
 </p>
 
 <h1 align="center">
