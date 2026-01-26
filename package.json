@@ -1,7 +1,7 @@
 {
-  "name": "stata-outline",
-  "displayName": "Stata Outline",
-  "description": "Adds hierarchical Outline support for Stata .do files using comment headings like '**#', '**##', etc.",
+  "name": "stata-all-in-one",
+  "displayName": "Stata All in One",
+  "description": "A Stata language extension for Visual Studio Code includeing an outline view, commands to run sections, syntax highlighting, and more.",
   "version": "0.2.2",
   "publisher": "ZihaoVistonWang",
   "icon": "icon.png",
