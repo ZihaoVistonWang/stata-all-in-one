@@ -7,7 +7,7 @@
 const { exec } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const { showInfo, showError } = require('../../utils/common');
+const { showInfo, showError, msg } = require('../../utils/common');
 const config = require('../../utils/config');
 
 /**
@@ -65,7 +65,7 @@ function runOnMac(codeToRun, tmpFilePath) {
         const installedList = (foundApp.installed && foundApp.installed.length > 0)
             ? foundApp.installed.join(', ')
             : 'none detected';
-        showError(`No Stata installation detected. Please install Stata or set an existing version. Installed: ${installedList}.`);
+        showError(msg('noStataInstalled', { installedList }));
         return;
     }
 
@@ -89,11 +89,11 @@ function runOnMac(codeToRun, tmpFilePath) {
         }, 2000);
         
         if (error) {
-            showError(`Failed to run Stata code: ${error.message}`);
+            showError(msg('runFailed', { message: error.message }));
             return;
         }
-        
-        showInfo(`Code sent to ${appName}`);
+
+        showInfo(msg('codeSentApp', { app: appName }));
     });
 }
 

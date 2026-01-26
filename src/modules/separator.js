@@ -5,7 +5,7 @@
  */
 
 const vscode = require('vscode');
-const { showInfo, showWarn, hasNonAsciiCodePoint, buildSeparatorSegment, isSeparatorLine } = require('../utils/common');
+const { showInfo, showWarn, hasNonAsciiCodePoint, buildSeparatorSegment, isSeparatorLine, msg } = require('../utils/common');
 const config = require('../utils/config');
 
 /**
@@ -23,7 +23,7 @@ function insertSeparator(char) {
     const effectiveTotalLength = hasNonAsciiCodePoint(char) ? Math.max(10, Math.floor(totalLength * 2 / 3)) : totalLength;
 
     // Check if selection is within a single heading line
-    if (!selection.isEmpty && selection.start.line === selection.end.line) {
+    if (selection.start.line === selection.end.line) {
         const line = document.lineAt(selection.start.line);
         const text = line.text;
         const headingMatch = /^\*\*\s*(#+)\s*(.*)$/.exec(text.trim());
@@ -41,7 +41,7 @@ function insertSeparator(char) {
             const remaining = effectiveTotalLength - prefixLength - titleLength;
             
             if (remaining < 4) {
-                showWarn('Line would be too long. Increase separator length setting.');
+                showWarn(msg('lineTooLong'));
                 return;
             }
             
@@ -74,14 +74,14 @@ function insertSeparator(char) {
     const nextIsSep = (targetLine + 1 < document.lineCount) && isSeparatorLine(document.lineAt(targetLine + 1).text);
 
     if (currentIsSep || (prevIsSep && nextIsSep)) {
-        showInfo('Separator already present here.');
+        showInfo(msg('sepHere'));
         return;
     }
 
     if (!isCurrentEmpty) {
         if (prevIsSep) {
             if (nextIsSep) {
-                showInfo('Separator already present above and below.');
+                showInfo(msg('sepAboveBelow'));
                 return;
             }
             targetLine = targetLine + 1;
@@ -116,18 +116,18 @@ function registerSeparatorCommands(context) {
     // Register custom separator command
     const customSeparatorCommand = vscode.commands.registerCommand('stata-all-in-one.insertCustomSeparator', async () => {
         const input = await vscode.window.showInputBox({
-            prompt: 'Enter a single separator character (emoji / letter / symbol / space, defaults to "=")',
-            placeHolder: '='
+            prompt: msg('customSepPrompt'),
+            placeHolder: msg('customSepPlaceholder')
         });
 
         if (input) {
             const cps = Array.from(input);
             if (cps.length > 1) {
-                showWarn('Please enter exactly one character.');
+                showWarn(msg('oneChar'));
                 return;
             }
             if (/[\x00-\x1F\x7F]/.test(input)) {
-                showWarn('Control characters are not supported.');
+                showWarn(msg('controlChars'));
                 return;
             }
         }

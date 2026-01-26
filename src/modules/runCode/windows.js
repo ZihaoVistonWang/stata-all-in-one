@@ -8,7 +8,7 @@ const { exec } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const vscode = require('vscode');
-const { showInfo, showError, stripSurroundingQuotes } = require('../../utils/common');
+const { showInfo, showError, stripSurroundingQuotes, msg } = require('../../utils/common');
 const config = require('../../utils/config');
 
 /**
@@ -35,11 +35,11 @@ function runOnWindows(codeToRun, tmpFilePath, stataPathWindows) {
         
         if (error) {
             const detail = stderr && stderr.trim() ? ` Details: ${stderr.trim()}` : '';
-            showError(`Failed to run Stata code on Windows: ${error.message}${detail}`);
+            showError(msg('winRunFailed', { message: error.message, detail }));
             return;
         }
-        
-        showInfo('Code sent to Stata');
+
+        showInfo(msg('codeSentStata'));
     });
 }
 

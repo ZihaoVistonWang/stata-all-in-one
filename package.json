@@ -2,14 +2,15 @@
   "name": "stata-all-in-one",
   "displayName": "Stata All in One",
   "description": "A Stata language extension for VS Code includeing an outline view, commands to run sections, syntax highlighting, and more.",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "publisher": "ZihaoVistonWang",
   "icon": "icon.png",
   "engines": {
     "vscode": "^1.70.0"
   },
   "activationEvents": [
-    "onLanguage:stata"
+    "onLanguage:stata",
+    "onCommand:stata-all-in-one.debugResetMigrationPrompt"
   ],
   "main": "./main.js",
   "categories": [
@@ -128,6 +129,10 @@
       {
         "command": "stata-all-in-one.insertSeparatorStar",
         "title": "Insert Star Separator"
+      },
+      {
+        "command": "stata-all-in-one.debugResetMigrationPrompt",
+        "title": "Stata All in One: Debug Reset Migration Prompt"
       }
     ],
     "keybindings": [

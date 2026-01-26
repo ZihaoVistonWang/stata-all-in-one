@@ -7,7 +7,7 @@
 const vscode = require('vscode');
 const fs = require('fs');
 const path = require('path');
-const { isWindows, isMacOS, showError, stripSurroundingQuotes } = require('../../utils/common');
+const { isWindows, isMacOS, showError, stripSurroundingQuotes, msg } = require('../../utils/common');
 const config = require('../../utils/config');
 const { runOnMac } = require('./mac');
 const { runOnWindows } = require('./windows');
@@ -86,7 +86,7 @@ function getCodeToRun(editor) {
 async function runCurrentSection() {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
-        showError('No active editor found');
+        showError(msg('noEditor'));
         return;
     }
 
@@ -97,7 +97,7 @@ async function runCurrentSection() {
     const onMac = isMacOS();
 
     if (!onWindows && !onMac) {
-        showError('Running Stata code is only supported on macOS and Windows');
+        showError(msg('unsupportedPlatform'));
         return;
     }
 
@@ -107,7 +107,7 @@ async function runCurrentSection() {
         const rawPath = config.getStataPathWindows();
         stataPathWindows = stripSurroundingQuotes(rawPath.trim());
         if (!stataPathWindows) {
-            showError('Stata executable path not configured. Please set "stata-all-in-one.stataPathWindows" in settings.');
+            showError(msg('missingWinPath'));
             return;
         }
     }
@@ -128,7 +128,7 @@ async function runCurrentSection() {
             runOnMac(codeToRun, tmpFilePath);
         }
     } catch (error) {
-        showError(`Failed to create temporary file: ${error.message}`);
+        showError(msg('tmpFileFailed', { message: error.message }));
     }
 }
 

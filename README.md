@@ -1,15 +1,13 @@
-
 <p align="center">
-   <img src="icon.png" alt="Stata All in One Icon" style="width:25%;" />
+   <img src="icon-wide.png" alt="Stata All in One Icon" style="width:300px;" />
 </p>
-
 
 <h1 align="center">
 Stata All in One
 </h1>
 
 <p align="center">
-  | <b>Version:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.2.2</a>｜<b>Author:</b> <a href="https://zihaowang.cn">Zihao Viston Wang</a> | <b>Translate:</b>
+   | <b>Version:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.2.3</a>｜<b>Author:</b> <a href="https://zihaowang.cn">Zihao Viston Wang</a> | <b>Translate:</b>
   <a href="README_CN.md">中文版本</a> |
 </p>
 
@@ -77,39 +75,42 @@ Search for "Stata All in One" in VS Code settings and configure:
 ### Outline & Navigation
 
 1. **Display Multi-level Numbering** (`stata-all-in-one.showNumbering`)
+
    - `true`: Outline displays `1.1`, `1.2.1` style numbering.
    - `false` (default): Displays original headings.
-
 2. **Auto-update File Content** (`stata-all-in-one.updateFileContent`)
+
    - `true`: Automatically adds/removes numbering in `.do` files (requires numbering display).
    - `false` (default): Only displays numbering in outline, doesn't modify file.
 
 ### Code Execution
 
 3. **Show Run Button** (`stata-all-in-one.showRunButton`)
+
    - `true` (default): Shows play button in editor title bar and Outline view.
    - `false`: Hides button.
-
 4. **Stata Version on macOS** (`stata-all-in-one.stataVersion`)
+
    - Select between `StataMP`, `StataIC`, `StataSE` when running on macOS.
    - Default: `StataMP`
-
 5. **Stata Path on Windows** (`stata-all-in-one.stataPathWindows`)
+
    - Path to Stata executable on Windows (e.g., `C:\Program Files\Stata17\StataMP-64.exe`).
    - Only used on Windows.
-
 6. **Active Stata Window After Running Code** (`stata-all-in-one.activateStataWindow`)
+
    - `true` (default): Brings Stata window to the foreground after code execution.
    - `false`: Does not change focus.
 
 ### Code Style
 
 7. **Comment Style** (`stata-all-in-one.commentStyle`)
+
    - `// ` (default): Line comments with double slash.
    - `* `: Stata single-line comments.
    - `/* ... */`: Block-style comments.
-
 8. **Separator Length** (`stata-all-in-one.separatorLength`)
+
    - Numeric length used to size divider lines (including prefixes). Default: `60`
 
 > **Note**: Changes take effect after reopening `.do` files. When `updateFileContent` is disabled, existing numbering in `.do` files will be automatically removed.
@@ -118,14 +119,15 @@ Search for "Stata All in One" in VS Code settings and configure:
 
 ## Changelog
 
-| Version | Changes                                                                                                                              | Release Date |
-| ------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------ |
-| 0.2.2   | Windows native support for executing Stata code | 2026-01-27   |
+| Version     | Changes                                                                                | Release Date |
+| ----------- | -------------------------------------------------------------------------------------- | ------------ |
+| 0.2.3       | Added migration prompt and auto-migrated settings from Stata Outline                   | 2026-01-27   |
+| 0.2.2       | Windows native support for executing Stata code                                        | 2026-01-27   |
 | 0.2.0-0.2.1 | macOS native support for executing Stata code; new divider line commands and shortcuts | 2026-01-25   |
-| 0.1.9       | Outline now follows cursor, highlighting corresponding sections in real-time                                                         | 2026-01-24   |
-| 0.1.7-0.1.8 | Added toggle comments functionality with customizable comment styles                                                                 | 2026-01-22   |
-| 0.1.5-0.1.6 | Added "Run Current Section" feature                                                                                                  | 2026-01-12   |
-| 0.1.4       | Added multi-level numbering display and auto-update file content                                                                     | 2026-01-12   |
-| 0.1.3       | Fixed display issue with `**#` without spaces                                                                                      | 2025-12-30   |
-| 0.1.2       | Added keyboard shortcut functionality                                                                                                | 2025-12-26   |
-| 0.1.0-0.1.1 | Initial release matching Stata bookmark style                                                                                        | 2025-12-25   |
+| 0.1.9       | Outline now follows cursor, highlighting corresponding sections in real-time           | 2026-01-24   |
+| 0.1.7-0.1.8 | Added toggle comments functionality with customizable comment styles                   | 2026-01-22   |
+| 0.1.5-0.1.6 | Added "Run Current Section" feature                                                    | 2026-01-12   |
+| 0.1.4       | Added multi-level numbering display and auto-update file content                       | 2026-01-12   |
+| 0.1.3       | Fixed display issue with `**#` without spaces                                        | 2025-12-30   |
+| 0.1.2       | Added keyboard shortcut functionality                                                  | 2025-12-26   |
+| 0.1.0-0.1.1 | Initial release matching Stata bookmark style                                          | 2025-12-25   |
