@@ -84,6 +84,16 @@
           "default": 60,
           "minimum": 10,
           "markdownDescription": "%config.separatorLength.description%"
+        },
+        "stata-all-in-one.customCommands": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "reghdfe"
+          ],
+          "markdownDescription": "%config.customCommands.description%"
         }
       }
     },

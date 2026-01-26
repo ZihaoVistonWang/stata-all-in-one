@@ -62,6 +62,23 @@ const getSeparatorLength = () => {
 };
 
 /**
+ * Get user-defined commands to highlight
+ */
+const getCustomCommands = () => {
+    const raw = getConfigValue('customCommands', ['reghdfe']);
+    if (!Array.isArray(raw)) {
+        return ['reghdfe'];
+    }
+    const cleaned = raw
+        .map(item => (typeof item === 'string' ? item.trim().toLowerCase() : ''))
+        .filter(Boolean)
+        .map(cmd => cmd.replace(/[^a-z0-9_]/gi, ''))
+        .filter(Boolean);
+    const uniq = Array.from(new Set(cleaned));
+    return uniq.length > 0 ? uniq : ['reghdfe'];
+};
+
+/**
  * Get stataPathWindows setting
  */
 const getStataPathWindows = () => getConfigValue('stataPathWindows', '');
@@ -77,5 +94,6 @@ module.exports = {
     getActivateStataWindow,
     getCommentStyle,
     getSeparatorLength,
-    getStataPathWindows
+    getStataPathWindows,
+    getCustomCommands
 };

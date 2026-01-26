@@ -6,5 +6,6 @@
   "config.stataPathOnWindows.description": "**[Windows]** Path to Stata executable file (e.g., `C:\\Program Files\\Stata17\\StataMP-64.exe`).",
   "config.activateStataWindow.description": "Activate the Stata window after running code (bring it to the foreground).",
   "config.commentStyle.description": "Comment style used for toggling comments. Options include `//`, `*`, or `/* ... */`",
-  "config.separatorLength.description": "Total character length of the separator line (including the '** #' prefix and separators)."
+  "config.separatorLength.description": "Total character length of the separator line (including the '** #' prefix and separators).",
+  "config.customCommands.description": "User-defined Stata commands to highlight as keywords (array of strings). Default: reghdfe. **Requires reloading window**"
 }

@@ -6,5 +6,6 @@
   "config.stataPathOnWindows.description": "**[Windows]** Stata 执行文件路径（例如 `C:\\Program Files\\Stata17\\StataMP-64.exe`）。",
   "config.activateStataWindow.description": "运行代码后激活Stata窗口（将其带到前台）。",
   "config.commentStyle.description": "用于切换注释的样式。选项包括 `//`、`*` 或 `/* ... */`",
-  "config.separatorLength.description": "分割线所在行的字符总长度（包括前缀 '** #' 和分隔符）。"
+  "config.separatorLength.description": "分割线所在行的字符总长度（包括前缀 '** #' 和分隔符）。",
+  "config.customCommands.description": "自定义需要高亮的 Stata 命令（字符串数组），默认包含 reghdfe。**需要重载窗口**"
 }

@@ -8,6 +8,7 @@ const { setHeadingLevel, createDocumentSymbolProvider } = require('./modules/out
 const { registerSeparatorCommands } = require('./modules/separator');
 const { registerCommentCommand, toggleComment } = require('./modules/comment');
 const { registerRunCommand } = require('./modules/runCode');
+const { registerCustomCommandHighlight } = require('./modules/customCommandHighlight');
 
 const MIGRATION_MESSAGES = {
     en: {
@@ -217,6 +218,9 @@ function activate(context) {
 
     // Register comment toggle command
     registerCommentCommand(context);
+
+    // Register semantic tokens for custom commands (user-configurable keywords)
+    registerCustomCommandHighlight(context);
 
     // Register run code command
     registerRunCommand(context);
