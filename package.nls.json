@@ -1,0 +1,10 @@
+{
+  "config.showNumbering.description": "Whether to display multi-level title numbers in the outline view (e.g., 1.1, 1.2.1). **Requires reopening .do files**",
+  "config.updateFileContent.description": "When numbering is enabled, automatically update section titles in .do files to include numbers. **Requires reopening .do files**",
+  "config.showRunButton.description": "Whether to show the run button in the editor title bar.",
+  "config.stataVersionOnMacOS.description": "**[macOS]** Stata runtime version.",
+  "config.stataPathOnWindows.description": "**[Windows]** Path to Stata executable file (e.g., `C:\\Program Files\\Stata17\\StataMP-64.exe`).",
+  "config.activateStataWindow.description": "Activate the Stata window after running code (bring it to the foreground).",
+  "config.commentStyle.description": "Comment style used for toggling comments. Options include `//`, `*`, or `/* ... */`",
+  "config.separatorLength.description": "Total character length of the separator line (including the '** #' prefix and separators)."
+}
