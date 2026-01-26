@@ -11,7 +11,7 @@
   "activationEvents": [
     "onLanguage:stata"
   ],
-  "main": "./extension.js",
+  "main": "./main.js",
   "categories": [
     "Programming Languages"
   ],
