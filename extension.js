@@ -483,11 +483,6 @@ function toggleComment() {
     });
 }
 
-// 检查是否是macOS系统
-function isMacOS() {
-    return process.platform === 'darwin';
-}
-
 // 查找可用的 Stata 应用（优先使用用户选择的版本），若未找到则回退到已安装的第一个
 function findStataApp(preferredName) {
     const fs = require('fs');
@@ -531,7 +526,21 @@ function findStataApp(preferredName) {
     return { name: chosenName, path: chosenPath, installed };
 }
 
+// 检查是否是Windows系统
+function isWindows() {
+    return process.platform === 'win32';
+}
+
+// 检查是否是macOS系统
+function isMacOS() {
+    return process.platform === 'darwin';
+}
+
 // 获取当前光标所在的 section 范围并运行
+function stripSurroundingQuotes(p) {
+    if (!p) return p;
+    return p.replace(/^\s*["']+/, '').replace(/["']+\s*$/, '');
+}
 async function runCurrentSection() {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
@@ -539,17 +548,35 @@ async function runCurrentSection() {
         return;
     }
 
-    // 检查是否是macOS
-    if (!isMacOS()) {
-        showError('Running Stata code is only supported on macOS');
+    const document = editor.document;
+    const config = vscode.workspace.getConfiguration('stata-outline');
+
+    // 平台检查
+    const onWindows = isWindows();
+    const onMac = isMacOS();
+
+    if (!onWindows && !onMac) {
+        showError('Running Stata code is only supported on macOS and Windows');
         return;
     }
 
-    const document = editor.document;
-    const config = vscode.workspace.getConfiguration('stata-outline');
+    // Windows 平台特定配置检查
+    let stataPathWindows = null;
+    if (onWindows) {
+        const rawPath = config.get('stataPathWindows', '');
+        stataPathWindows = stripSurroundingQuotes(rawPath.trim());
+        if (!stataPathWindows) {
+            showError('Stata executable path not configured. Please set "stata-outline.stataPathWindows" in settings.');
+            return;
+        }
+    }
+
     const stataVersion = config.get('stataVersion', 'StataMP');
     const activateStataWindow = config.get('activateStataWindow', true);
     
+    let appName, appPath;
+    
+    if (onMac) {
         // 查找可用的 Stata 应用：优先用户设置，若未安装则自动回退到已安装版本
         const foundApp = findStataApp(stataVersion);
         if (!foundApp.path) {
@@ -559,8 +586,9 @@ async function runCurrentSection() {
             showError(`No Stata installation detected. Please install Stata or set an existing version. Installed: ${installedList}.`);
             return;
         }
-        const appName = foundApp.name;
-        const appPath = foundApp.path;
+        appName = foundApp.name;
+        appPath = foundApp.path;
+    }
     
     let codeToRun;
     
@@ -644,7 +672,37 @@ async function runCurrentSection() {
         // 写入临时文件到文档所在目录
         fs.writeFileSync(tmpFilePath, codeToRun, 'utf8');
         
-            // 构建Stata命令（使用已检测到的应用名和路径）
+        if (onWindows) {
+            // Windows 执行逻辑：使用 PowerShell 脚本
+            const extensionPath = require('vscode').extensions.getExtension('ZihaoVistonWang.stata-outline').extensionPath;
+            const psScriptPath = stripSurroundingQuotes(path.join(extensionPath, 'scripts', 'win_run_do_file.ps1'));
+            const cleanDoFilePath = stripSurroundingQuotes(tmpFilePath);
+
+            // 构建 PowerShell 命令（powershell.exe 在 Windows 上可用）
+            const psCommand = `powershell -NoProfile -ExecutionPolicy Bypass -File "${psScriptPath}" -stataPath "${stataPathWindows}" -doFilePath "${cleanDoFilePath}"`;
+            
+            // 执行 PowerShell 命令
+            const { exec } = require('child_process');
+            exec(psCommand, (error, stdout, stderr) => {
+                // 清理临时文件
+                setTimeout(() => {
+                    try {
+                        fs.unlinkSync(tmpFilePath);
+                    } catch (e) {
+                        console.error('Failed to delete temporary file:', e);
+                    }
+                }, 2000); // 延迟删除，确保Stata已完成读取
+                
+                if (error) {
+                    const detail = stderr && stderr.trim() ? ` Details: ${stderr.trim()}` : '';
+                    showError(`Failed to run Stata code on Windows: ${error.message}${detail}`);
+                    return;
+                }
+                
+                showInfo('Code sent to Stata');
+            });
+        } else if (onMac) {
+            // macOS 执行逻辑
             let stataCommand = `pgrep -x "${appName}" > /dev/null || (open -a "${appPath}" && while ! pgrep -x "${appName}" > /dev/null; do sleep 0.2; done && sleep 0.5); osascript -e 'tell application "${appName}" to DoCommand "do \\"${tmpFilePath}\\""'`;
             
             // 如果需要激活Stata窗口，则添加activate命令
@@ -652,25 +710,26 @@ async function runCurrentSection() {
                 stataCommand += ` -e 'tell application "${appName}" to activate'`;
             }
         
-        // 执行命令
-        const { exec } = require('child_process');
-        exec(stataCommand, (error, stdout, stderr) => {
-            // 清理临时文件
-            setTimeout(() => {
-                try {
-                    fs.unlinkSync(tmpFilePath);
-                } catch (e) {
-                    console.error('Failed to delete temporary file:', e);
+            // 执行命令
+            const { exec } = require('child_process');
+            exec(stataCommand, (error, stdout, stderr) => {
+                // 清理临时文件
+                setTimeout(() => {
+                    try {
+                        fs.unlinkSync(tmpFilePath);
+                    } catch (e) {
+                        console.error('Failed to delete temporary file:', e);
+                    }
+                }, 2000); // 延迟删除，确保Stata已完成读取
+                
+                if (error) {
+                    showError(`Failed to run Stata code: ${error.message}`);
+                    return;
                 }
-            }, 2000); // 延迟删除，确保Stata已完成读取
-            
-            if (error) {
-                showError(`Failed to run Stata code: ${error.message}`);
-                return;
-            }
-            
-            showInfo(`Code sent to ${appName}`);
-        });
+                
+                showInfo(`Code sent to ${appName}`);
+            });
+        }
     } catch (error) {
         showError(`Failed to create temporary file: ${error.message}`);
     }
