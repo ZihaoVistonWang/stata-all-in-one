@@ -15,7 +15,14 @@ if (-not $proc) {
     # If not running, start it using the provided path / 如果未运行，按提供的路径启动
     if (Test-Path $stataPath) {
         Start-Process $stataPath
+        $startTime = Get-Date
+        $timeout = New-TimeSpan -Seconds 10
+        
         while (-not (Get-Process | Where-Object { $_.ProcessName -like "*Stata*" })) { 
+            if ((Get-Date) - $startTime -gt $timeout) {
+                Write-Error "Timeout: Stata failed to start within 10 seconds"
+                exit 1
+            }
             Start-Sleep -Milliseconds 200 
         }
         Start-Sleep -Seconds 2
