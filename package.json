@@ -4,7 +4,7 @@
   "description": "Supercharge your Stata workflow in VS Code. An enhanced version of `Stata Outline` with advanced syntax highlighting, code navigation (Outline), and seamless script execution. All your Stata needs in one place.",
   "version": "0.2.3",
   "publisher": "ZihaoVistonWang",
-  "icon": "icon.png",
+  "icon": "img/icon.png",
   "keywords": [
     "stata",
     "do",
@@ -90,8 +90,23 @@
     "languages": [
       {
         "id": "stata",
-        "aliases": ["Stata", "stata"],
-        "extensions": [".do"]
+        "aliases": [
+          "Stata",
+          "stata"
+        ],
+        "extensions": [
+          ".do",
+          ".ado",
+          ".mata"
+        ],
+        "configuration": "./language_config.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "stata",
+        "scopeName": "source.stata",
+        "path": "./grammars/stata.json"
       }
     ],
     "commands": [
