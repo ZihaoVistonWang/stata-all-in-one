@@ -33,7 +33,7 @@ const CONFIG_MAPPING = [
     { old: 'stata-outline.updateFileContent', fresh: 'stata-all-in-one.updateFileContent' },
     { old: 'stata-outline.showRunButton', fresh: 'stata-all-in-one.showRunButton' },
     { old: 'stata-outline.stataVersion', fresh: 'stata-all-in-one.stataVersion' },
-    { old: 'stata-outline.stataPathWindows', fresh: 'stata-all-in-one.stataPathWindows' },
+    { old: 'stata-outline.stataPathOnWindows', fresh: 'stata-all-in-one.stataPathOnWindows' },
     { old: 'stata-outline.activateStataWindow', fresh: 'stata-all-in-one.activateStataWindow' },
     { old: 'stata-outline.commentStyle', fresh: 'stata-all-in-one.commentStyle' },
     { old: 'stata-outline.separatorLength', fresh: 'stata-all-in-one.separatorLength' }

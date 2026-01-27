@@ -79,9 +79,9 @@ const getCustomCommands = () => {
 };
 
 /**
- * Get stataPathWindows setting
+ * Get stataPathOnWindows setting
  */
-const getStataPathWindows = () => getConfigValue('stataPathWindows', '');
+const getStataPathOnWindows = () => getConfigValue('stataPathOnWindows', '');
 
 /**
  * Get enableCompletion setting
@@ -99,7 +99,7 @@ module.exports = {
     getActivateStataWindow,
     getCommentStyle,
     getSeparatorLength,
-    getStataPathWindows,
+    getStataPathOnWindows: getStataPathOnWindows,
     getCustomCommands,
     getEnableCompletion
 };

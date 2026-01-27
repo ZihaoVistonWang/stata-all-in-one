@@ -102,11 +102,11 @@ async function runCurrentSection() {
     }
 
     // Windows platform specific validation
-    let stataPathWindows = null;
+    let stataPathOnWindows = null;
     if (onWindows) {
-        const rawPath = config.getStataPathWindows();
-        stataPathWindows = stripSurroundingQuotes(rawPath.trim());
-        if (!stataPathWindows) {
+        const rawPath = config.getStataPathOnWindows();
+        stataPathOnWindows = stripSurroundingQuotes(rawPath.trim());
+        if (!stataPathOnWindows) {
             showError(msg('missingWinPath'));
             return;
         }
@@ -123,7 +123,7 @@ async function runCurrentSection() {
         fs.writeFileSync(tmpFilePath, codeToRun, 'utf8');
         
         if (onWindows) {
-            runOnWindows(codeToRun, tmpFilePath, stataPathWindows);
+            runOnWindows(codeToRun, tmpFilePath, stataPathOnWindows);
         } else if (onMac) {
             runOnMac(codeToRun, tmpFilePath);
         }
