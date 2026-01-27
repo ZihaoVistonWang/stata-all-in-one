@@ -116,7 +116,7 @@ Stata All in One
 
    - **[macOS]** Stata 运行版本。可选择 `StataMP`、`StataIC`、`StataSE` 版本。
    - 默认值：`StataMP`
-6. **Stata 路径（Windows）** (`stata-all-in-one.stataPathWindows`)
+6. **Stata 路径（Windows）** (`stata-all-in-one.stataPathOnWindows`)
 
    - **[Windows]** Stata 执行文件路径（例如 `C:\\Program Files\\Stata17\\StataMP-64.exe`）。
 7. **运行代码后激活 Stata 至前台** (`stata-all-in-one.activateStataWindow`)

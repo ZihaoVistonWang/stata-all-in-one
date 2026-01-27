@@ -14,13 +14,13 @@ const config = require('../../utils/config');
 /**
  * Run code on Windows
  */
-function runOnWindows(codeToRun, tmpFilePath, stataPathWindows) {
+function runOnWindows(codeToRun, tmpFilePath, stataPathOnWindows) {
     const extensionPath = vscode.extensions.getExtension('ZihaoVistonWang.stata-all-in-one').extensionPath;
     const psScriptPath = stripSurroundingQuotes(path.join(extensionPath, 'scripts', 'win_run_do_file.ps1'));
     const cleanDoFilePath = stripSurroundingQuotes(tmpFilePath);
 
     // Build PowerShell command
-    const psCommand = `powershell -NoProfile -ExecutionPolicy Bypass -File "${psScriptPath}" -stataPath "${stataPathWindows}" -doFilePath "${cleanDoFilePath}"`;
+    const psCommand = `powershell -NoProfile -ExecutionPolicy Bypass -File "${psScriptPath}" -stataPath "${stataPathOnWindows}" -doFilePath "${cleanDoFilePath}"`;
     
     // Execute PowerShell command
     exec(psCommand, (error, stdout, stderr) => {
