@@ -72,7 +72,10 @@ function runOnMac(codeToRun, tmpFilePath) {
     const appName = foundApp.name;
     const appPath = foundApp.path;
 
-    let stataCommand = `pgrep -x "${appName}" > /dev/null || (open -a "${appPath}" && while ! pgrep -x "${appName}" > /dev/null; do sleep 0.2; done && sleep 0.5); osascript -e 'tell application "${appName}" to DoCommand "do \\"${tmpFilePath}\\""'`;
+    // Close all help windows first / 先关闭所有帮助窗口
+    let closeHelpCommand = `osascript -e 'tell application "System Events"' -e 'set helperWindows to (every window of application "${appName}" whose name contains "help")' -e 'repeat with w in helperWindows' -e 'close w' -e 'end repeat' -e 'end tell' 2>/dev/null || true`;
+    
+    let stataCommand = `${closeHelpCommand}; pgrep -x "${appName}" > /dev/null || (open -a "${appPath}" && while ! pgrep -x "${appName}" > /dev/null; do sleep 0.2; done && sleep 0.5); osascript -e 'tell application "${appName}" to DoCommand "do \\"${tmpFilePath}\\""'`;
     
     if (activateStataWindow) {
         stataCommand += ` -e 'tell application "${appName}" to activate'`;

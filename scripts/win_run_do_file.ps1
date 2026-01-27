@@ -5,7 +5,8 @@
 
 param (
     [string]$stataPath,
-    [string]$doFilePath
+    [string]$doFilePath,
+    [int]$sleepDelay = 200
 )
 
 # 1. Identify Stata process / 自动识别 Stata 进程
@@ -23,7 +24,7 @@ if (-not $proc) {
                 Write-Error "Timeout: Stata failed to start within 10 seconds"
                 exit 1
             }
-            Start-Sleep -Milliseconds 200 
+            Start-Sleep -Milliseconds $sleepDelay 
         }
         Start-Sleep -Seconds 2
         $proc = Get-Process | Where-Object { $_.ProcessName -like "*Stata*" }
@@ -33,16 +34,18 @@ if (-not $proc) {
     }
 }
 
-# 2. Close all Viewer help windows / 关闭所有Viewer帮助窗口
+# 2. Close all help windows / 关闭所有帮助窗口
 $wshell = New-Object -ComObject WScript.Shell
-$helperWindows = Get-Process | Where-Object { $_.MainWindowTitle -match "Viewer.*help" }
-Write-Host "Found viewer help windows: $($helperWindows.Count)"
-$helperWindows | ForEach-Object {
-    Write-Host "Closing window: $($_.MainWindowTitle)"
-    $wshell.AppActivate($_.MainWindowTitle)
-    Start-Sleep -Milliseconds 200
-    $wshell.SendKeys("%{F4}")  # Alt+F4
-    Start-Sleep -Milliseconds 300
+$helperWindows = Get-Process | Where-Object { $_.MainWindowTitle -match "help" }
+if ($helperWindows.Count -gt 0) {
+    Write-Host "Found $($helperWindows.Count) help window(s), closing..."
+    $helperWindows | ForEach-Object {
+        Write-Host "Closing: $($_.MainWindowTitle)"
+        $wshell.AppActivate($_.MainWindowTitle)
+        Start-Sleep -Milliseconds $sleepDelay
+        $wshell.SendKeys("%{F4}")  # Alt+F4
+    }
+    Start-Sleep -Milliseconds 200  # 统一等待所有窗口关闭
 }
 
 # 3. Fuzzy Match Window Title / 模糊匹配窗口标题
@@ -58,10 +61,8 @@ if ($actualTitle -and $wshell.AppActivate($actualTitle)) {
     # Put the command into Clipboard / 存入剪贴板
     Set-Clipboard -Value "do `"$cleanPath`""
     
-    Start-Sleep -Milliseconds 500
+    Start-Sleep -Milliseconds $sleepDelay
     
     # Paste and Enter / 粘贴并回车
-    $wshell.SendKeys("^v")
-    Start-Sleep -Milliseconds 300
-    $wshell.SendKeys("~") 
+    $wshell.SendKeys("^v~")  # Ctrl+V 和 Enter 合并为一个操作
 }
