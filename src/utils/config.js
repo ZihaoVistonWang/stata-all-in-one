@@ -70,9 +70,9 @@ const getCustomCommands = () => {
         return ['reghdfe'];
     }
     const cleaned = raw
-        .map(item => (typeof item === 'string' ? item.trim().toLowerCase() : ''))
+        .map(item => (typeof item === 'string' ? item.trim() : ''))
         .filter(Boolean)
-        .map(cmd => cmd.replace(/[^a-z0-9_]/gi, ''))
+        .map(cmd => cmd.replace(/[^a-zA-Z0-9_]/g, ''))
         .filter(Boolean);
     const uniq = Array.from(new Set(cleaned));
     return uniq.length > 0 ? uniq : ['reghdfe'];

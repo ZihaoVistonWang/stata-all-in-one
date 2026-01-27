@@ -92,8 +92,8 @@ Stata All in One
 1. **自定义命令高亮** (`stata-all-in-one.customCommands`)
 
    - 自定义需要高亮的 Stata 命令（字符串数组），默认包含 `reghdfe`。
-   - 示例：`["reghdfe", "ivreghdfe", "gtools", "winsor2"]`
-   - **需要重载窗口生效**。
+   - 示例：`["reghdfe", "ivreghdfe", "gtools", "winsor2", "outreg2"]`
+   - **配置后需要重载窗口生效**。
 
 ### 大纲与导航
 
@@ -112,7 +112,7 @@ Stata All in One
 
    - `true`（默认）：是否在编辑器标题栏显示运行按钮。
    - `false`：隐藏按钮。
-5. **Stata 版本** (`stata-all-in-one.stataVersion`)
+5. **Stata 版本（macOS）** (`stata-all-in-one.stataVersionOnMacOS`)
 
    - **[macOS]** Stata 运行版本。可选择 `StataMP`、`StataIC`、`StataSE` 版本。
    - 默认值：`StataMP`

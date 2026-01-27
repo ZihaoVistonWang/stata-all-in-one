@@ -2,42 +2,53 @@
 
 ```text
 stata-all-in-one/
-├── extension.js                    # 根入口（委托到src/extension.js）
-├── package.json                    # VS Code扩展配置
-├── src/
-│   ├── extension.js               # 主入口 - 注册所有命令和提供者
-│   ├── utils/
-│   │   ├── common.js              # 通用工具函数
-│   │   │   ├── showInfo/showWarn/showError()  # 消息提示
-│   │   │   ├── isWindows/isMacOS()            # 平台检测
-│   │   │   ├── removeSeparators()             # 移除装饰符
-│   │   │   ├── isSeparatorLine()              # 分隔线检测
-│   │   │   ├── buildSeparatorSegment()        # 构建分隔符
+├── extension.js              # 根入口（委托到src/extension.js）
+├── package.json              # VS Code扩展配置
+├── grammars/                 # 语法定义文件夹
+│   ├── stata.json                  # Stata主语法定义（完整）
+│   └── stata-custom.json           # 自定义命令注入语法（动态生成）
+├── src/                      # 源代码文件夹
+│   ├── extension.js                # 主入口 - 注册所有命令和提供者
+│   ├── utils/                      # 工具层
+│   │   ├── common.js                      # 通用工具函数
+│   │   │   ├── showInfo/showWarn/showError()     # 消息提示
+│   │   │   ├── isWindows/isMacOS()               # 平台检测
+│   │   │   ├── removeSeparators()                # 移除装饰符
+│   │   │   ├── isSeparatorLine()                 # 分隔线检测
+│   │   │   ├── buildSeparatorSegment()           # 构建分隔符
 │   │   │   └── 其他工具函数
-│   │   └── config.js              # 配置管理
-│   │       ├── getShowNumbering()
-│   │       ├── getCommentStyle()
-│   │       ├── getSeparatorLength()
+│   │   └── config.js                       # 配置管理
+│   │       ├── getShowNumbering()                # 获取是否显示序号
+│   │       ├── getCommentStyle()                 # 获取注释风格
+│   │       ├── getSeparatorLength()              # 获取分隔符长度
+│   │       ├── getCustomCommands()               # 获取自定义命令
 │   │       └── 其他配置getter
-│   └── modules/
-│       ├── outlineView.js         # 大纲视图模块
-│       │   ├── setHeadingLevel()   # 设置标题级别
-│       │   └── createDocumentSymbolProvider()
-│       ├── separator.js            # 分隔线模块
-│       │   ├── insertSeparator()
-│       │   └── registerSeparatorCommands()
-│       ├── comment.js              # 注释模块
-│       │   ├── toggleComment()
-│       │   └── registerCommentCommand()
-│       └── runCode/                # 代码执行模块
-│           ├── index.js            # 主模块
-│           │   ├── runCurrentSection()
-│           │   └── registerRunCommand()
-│           ├── mac.js              # macOS 实现
-│           │   ├── findStataApp()
-│           │   └── runOnMac()
-│           └── windows.js          # Windows 实现
-│               └── runOnWindows()
+│   └── modules/                    # 功能模块
+│       ├── outlineView.js                  # 大纲视图模块
+│       │   ├── setHeadingLevel()                 # 设置标题级别
+│       │   └── createDocumentSymbolProvider()    # 提供大纲符号
+│       ├── separator.js                    # 分隔线模块
+│       │   ├── insertSeparator()                 # 插入分隔线
+│       │   └── registerSeparatorCommands()       # 注册分隔线命令
+│       ├── comment.js                      # 注释模块
+│       │   ├── toggleComment()                   # 切换注释
+│       │   └── registerCommentCommand()          # 注册注释命令
+│       ├── customCommandHighlight.js       # 自定义命令高亮模块
+│       │   ├── buildGrammarPattern()             # 构建正则模式（大小写不敏感）
+│       │   ├── createInjectionGrammar()          # 创建注入语法
+│       │   ├── updateGrammarFile()               # 动态更新语法文件
+│       │   └── registerCustomCommandHighlight()  # 注册并监听配置变化
+│       ├── completionProvider.js           # 代码补全模块
+│       ├── helpCommand.js                  # Stata帮助命令模块
+│       └── runCode/                        # 代码执行模块
+│           ├── index.js                          # 主模块
+│           │   ├── runCurrentSection()                  # 运行当前节代码
+│           │   └── registerRunCommand()                 # 注册运行命令
+│           ├── mac.js                            # macOS 实现
+│           │   ├── findStataApp()                       # 查找 Stata 应用路径
+│           │   └── runOnMac()                           # 在 macOS 上运行代码
+│           └── windows.js                        # Windows 实现
+│               └── runOnWindows()                       # 在 Windows 上运行代码
 ```
 
 ## 模块说明
@@ -83,6 +94,45 @@ stata-all-in-one/
 - `toggleComment()`: 快速切换行注释或块注释
 - 支持多种注释风格：`//`, `*`, `/* ... */`
 - 跟随用户配置进行切换
+
+#### customCommandHighlight.js
+
+**职责**: 为用户自定义的Stata第三方命令提供原生语法高亮
+
+- `buildGrammarPattern()`: 根据命令列表生成大小写不敏感的正则表达式模式
+  - 例如：`reghdfe` → `[Rr][Ee][Gg][Hh][Dd][Ff][Ee]`
+  - 支持转义特殊字符
+- `createInjectionGrammar()`: 创建TextMate注入语法对象
+  - 使用 `keyword.control.flow.stata` 作用域，与内置命令保持颜色一致
+- `updateGrammarFile()`: 动态生成/更新 `grammars/stata-custom.json` 文件
+  - 插件激活时读取配置并生成语法文件
+- `registerCustomCommandHighlight()`: 主函数
+  - 初始化时更新语法文件
+  - 监听配置变化，自动提示重载窗口
+
+**工作流程**：
+
+1. 扩展激活 → 读取 `customCommands` 配置
+2. 根据命令列表生成正则表达式模式
+3. 写入 `stata-custom.json`（TextMate注入语法）
+4. VS Code加载该注入语法到源代码中
+5. 输入时即时高亮（无延迟）
+6. 用户修改配置 → 自动更新语法文件 → 提示重载
+
+#### completionProvider.js
+
+**职责**: 提供Stata命令和函数的代码补全
+
+- 实现VS Code的CompletionItemProvider接口
+- 支持命令补全、函数补全
+- 跟随用户配置开启/关闭
+
+#### helpCommand.js
+
+**职责**: 集成Stata帮助系统
+
+- 获取选中命令名称
+- 调用Stata帮助（`help` 命令）
 
 #### runCode/
 

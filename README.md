@@ -94,8 +94,8 @@ Search for "Stata All in One" in VS Code settings and configure:
 1. **Custom Command Highlighting** (`stata-all-in-one.customCommands`)
 
    - User-defined Stata commands to highlight as keywords (array of strings). Default: `reghdfe`.
-   - Example: `["reghdfe", "ivreghdfe", "gtools", "winsor2"]`
-   - **Requires reloading window**.
+   - Example: `["reghdfe", "ivreghdfe", "gtools", "winsor2", "outreg2"]`
+   - **Requires reloading window** after configuration.
 
 ### Outline & Navigation
 

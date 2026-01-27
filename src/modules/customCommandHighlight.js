@@ -1,56 +1,123 @@
 /**
- * Semantic tokens for user-defined Stata commands
+ * Custom command highlighting for user-defined Stata commands
+ * Generates injection grammar file for native TextMate highlighting
  */
 
 const vscode = require('vscode');
+const path = require('path');
+const fs = require('fs');
 const config = require('../utils/config');
 
-const TOKEN_TYPES = ['keyword'];
-const TOKEN_MODIFIERS = [];
-const LEGEND = new vscode.SemanticTokensLegend(TOKEN_TYPES, TOKEN_MODIFIERS);
-
-function buildRegex(commands) {
+/**
+ * Build case-insensitive regex pattern for grammar
+ * Converts each letter to [Aa] format for case-insensitive matching
+ */
+function buildGrammarPattern(commands) {
     if (!commands || commands.length === 0) {
         return null;
     }
-    const escaped = commands.map(cmd => cmd.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&'));
-    const pattern = `\\b(${escaped.join('|')})\\b`;
-    return new RegExp(pattern, 'gi');
+    // Escape special regex characters and create case-insensitive pattern
+    const escaped = commands.map(cmd => {
+        const escaped = cmd.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+        // Make each character case-insensitive: a -> [Aa]
+        return escaped.split('').map(char => {
+            if (/[a-zA-Z]/.test(char)) {
+                return `[${char.toUpperCase()}${char.toLowerCase()}]`;
+            }
+            return char;
+        }).join('');
+    });
+    return `\\b(${escaped.join('|')})\\b`;
 }
 
-function createProvider() {
-    return {
-        provideDocumentSemanticTokens(document) {
-            const commands = config.getCustomCommands();
-            const regex = buildRegex(commands);
-            if (!regex) {
-                return null;
-            }
+/**
+ * Create injection grammar object for TextMate
+ */
+function createInjectionGrammar(commands) {
+    const pattern = buildGrammarPattern(commands);
+    if (!pattern) {
+        return null;
+    }
 
-            const builder = new vscode.SemanticTokensBuilder(LEGEND);
-            for (let line = 0; line < document.lineCount; line++) {
-                const text = document.lineAt(line).text;
-                regex.lastIndex = 0;
-                let match;
-                while ((match = regex.exec(text)) !== null) {
-                    builder.push(line, match.index, match[0].length, 0, 0);
-                }
+    return {
+        scopeName: 'stata.injection.custom-commands',
+        injectionSelector: 'L:source.stata',
+        patterns: [
+            {
+                match: pattern,
+                name: 'keyword.control.flow.stata'
             }
-            return builder.build();
-        }
+        ]
     };
 }
 
+/**
+ * Update the dynamic grammar file with current custom commands
+ */
+function updateGrammarFile(context) {
+    const commands = config.getCustomCommands();
+    
+    // Get extension path
+    const extensionPath = context.extensionPath;
+    const grammarPath = path.join(extensionPath, 'grammars', 'stata-custom.json');
+
+    // Always create grammar file, even if empty (to avoid package.json reference error)
+    const grammar = createInjectionGrammar(commands) || {
+        scopeName: 'stata.injection.custom-commands',
+        injectionSelector: 'L:source.stata',
+        patterns: []
+    };
+
+    // Write grammar file
+    try {
+        fs.writeFileSync(grammarPath, JSON.stringify(grammar, null, 2), 'utf8');
+        if (commands && commands.length > 0) {
+            console.log('Stata All in One: Updated custom grammar with', commands.length, 'commands:', commands.join(', '));
+        } else {
+            console.log('Stata All in One: Custom grammar file cleared (no commands configured)');
+        }
+        return commands && commands.length > 0;
+    } catch (error) {
+        console.error('Stata All in One: Failed to write grammar file:', error);
+        return false;
+    }
+}
+
+/**
+ * Register custom command highlighting
+ * Generates injection grammar on activation and watches for configuration changes
+ */
 function registerCustomCommandHighlight(context) {
-    const selector = [
-        { language: 'stata', scheme: 'file' },
-        { language: 'stata', scheme: 'untitled' }
-    ];
-    const provider = createProvider();
-    const disposable = vscode.languages.registerDocumentSemanticTokensProvider(selector, provider, LEGEND);
+    // Update grammar file on activation
+    updateGrammarFile(context);
+
+    // Watch for configuration changes
+    const disposable = vscode.workspace.onDidChangeConfiguration(async (event) => {
+        if (event.affectsConfiguration('stata-all-in-one.customCommands')) {
+            console.log('Stata All in One: Custom commands configuration changed');
+            
+            if (updateGrammarFile(context)) {
+                // Prompt user to reload window
+                const message = vscode.env.language.startsWith('zh') 
+                    ? '自定义命令已更新，需要重新加载窗口以应用更改。'
+                    : 'Custom commands updated. Reload window to apply changes.';
+                const reloadButton = vscode.env.language.startsWith('zh') 
+                    ? '重新加载' 
+                    : 'Reload';
+                
+                vscode.window.showInformationMessage(message, reloadButton).then(selection => {
+                    if (selection === reloadButton) {
+                        vscode.commands.executeCommand('workbench.action.reloadWindow');
+                    }
+                });
+            }
+        }
+    });
+
     context.subscriptions.push(disposable);
 }
 
 module.exports = {
     registerCustomCommandHighlight
 };
+
