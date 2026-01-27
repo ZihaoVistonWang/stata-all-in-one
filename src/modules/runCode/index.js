@@ -107,8 +107,54 @@ async function runCurrentSection() {
         const rawPath = config.getStataPathOnWindows();
         stataPathOnWindows = stripSurroundingQuotes(rawPath.trim());
         if (!stataPathOnWindows) {
-            showError(msg('missingWinPath'));
-            return;
+            // Prompt user to input Stata path
+            const userPath = await vscode.window.showInputBox({
+                prompt: msg('promptWinPath'),
+                placeHolder: msg('promptWinPathPlaceholder'),
+                ignoreFocusOut: true
+            });
+            
+            if (!userPath) {
+                return; // User cancelled
+            }
+            
+            // Save the path to settings
+            await vscode.workspace.getConfiguration('stata-all-in-one').update(
+                'stataPathOnWindows',
+                userPath.trim(),
+                vscode.ConfigurationTarget.Global
+            );
+            
+            stataPathOnWindows = stripSurroundingQuotes(userPath.trim());
+            vscode.window.showInformationMessage(msg('configSaved'));
+        }
+    }
+    
+    // macOS platform specific validation
+    if (onMac) {
+        const stataVersion = config.getStataVersion();
+        if (!stataVersion || stataVersion.trim() === '') {
+            // Prompt user to select Stata version
+            const selectedVersion = await vscode.window.showQuickPick(
+                ['StataMP', 'StataIC', 'StataSE'],
+                {
+                    placeHolder: msg('promptMacVersion'),
+                    ignoreFocusOut: true
+                }
+            );
+            
+            if (!selectedVersion) {
+                return; // User cancelled
+            }
+            
+            // Save the version to settings
+            await vscode.workspace.getConfiguration('stata-all-in-one').update(
+                'stataVersionOnMacOS',
+                selectedVersion,
+                vscode.ConfigurationTarget.Global
+            );
+            
+            vscode.window.showInformationMessage(msg('configSaved'));
         }
     }
 

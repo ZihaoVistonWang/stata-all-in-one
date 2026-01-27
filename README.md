@@ -48,6 +48,8 @@ Stata All in One
   - **Global Execution**: Click the ▶️ button in the editor title bar or Outline view header to run the current script.
   - **Smart Section Run**: When **no code is selected**, pressing `Ctrl/Cmd + D` automatically detects the current section and executes from that header down to (but not including) the next header of the same or higher level.
   - **Precision Selection Run**: Press `Ctrl/Cmd + D` to run the selected block. Supports **fuzzy selection**, executing complete lines even if not fully highlighted.
+  - **⚠️Note**
+    - On Windows, code execution relies on PowerShell automation. If your machine is slow or occasionally misses keystrokes, consider increasing the step delay (setting `stata-all-in-one.stataStepDelayOnWindows`).
 
 ### 4. Efficient Separators & Styling
 
@@ -70,6 +72,12 @@ Stata All in One
 ### 6. In-Editor Help (Stata Help)
 
 - **Quick Help**: For example, select 'regress' and press the shortcut key `Ctrl/Cmd + H` to open Stata's 'regress' help page.
+
+---
+
+## Keyboard Shortcuts
+
+Click [here](SHORTCUT.md) to view the complete list of keyboard shortcuts.
 
 ---
 
