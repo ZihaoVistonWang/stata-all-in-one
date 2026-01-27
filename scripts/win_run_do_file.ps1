@@ -33,12 +33,23 @@ if (-not $proc) {
     }
 }
 
-# 2. Fuzzy Match Window Title / 模糊匹配窗口标题
+# 2. Close all Viewer help windows / 关闭所有Viewer帮助窗口
+$wshell = New-Object -ComObject WScript.Shell
+$helperWindows = Get-Process | Where-Object { $_.MainWindowTitle -match "Viewer.*help" }
+Write-Host "Found viewer help windows: $($helperWindows.Count)"
+$helperWindows | ForEach-Object {
+    Write-Host "Closing window: $($_.MainWindowTitle)"
+    $wshell.AppActivate($_.MainWindowTitle)
+    Start-Sleep -Milliseconds 200
+    $wshell.SendKeys("%{F4}")  # Alt+F4
+    Start-Sleep -Milliseconds 300
+}
+
+# 3. Fuzzy Match Window Title / 模糊匹配窗口标题
 $stataWindow = $proc | Where-Object { $_.MainWindowTitle -match "Stata" } | Select-Object -First 1
 $actualTitle = $stataWindow.MainWindowTitle
 
-# 3. Execute Command / 执行指令
-$wshell = New-Object -ComObject WScript.Shell
+# 4. Execute Command / 执行指令
 
 if ($actualTitle -and $wshell.AppActivate($actualTitle)) {
     # Compatibility path conversion / 路径兼容性转换
