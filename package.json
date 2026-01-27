@@ -175,6 +175,10 @@
         "title": "Insert Star Separator"
       },
       {
+        "command": "stata-all-in-one.showHelp",
+        "title": "Show Help for Selected Command"
+      },
+      {
         "command": "stata-all-in-one.debugResetMigrationPrompt",
         "title": "Stata All in One: Debug Reset Migration Prompt"
       }
@@ -256,6 +260,12 @@
         "command": "stata-all-in-one.clearHeading",
         "key": "ctrl+0",
         "mac": "cmd+0",
+        "when": "editorTextFocus && editorLangId == stata"
+      },
+      {
+        "command": "stata-all-in-one.showHelp",
+        "key": "ctrl+h",
+        "mac": "cmd+h",
         "when": "editorTextFocus && editorLangId == stata"
       }
     ],

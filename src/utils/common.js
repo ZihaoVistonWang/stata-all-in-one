@@ -25,7 +25,10 @@ const UI_TEXT = {
         runFailed: ({ message }) => `Failed to run Stata code: ${message}`,
         codeSentApp: ({ app }) => `Code sent to ${app}`,
         tmpFileFailed: ({ message }) => `Failed to create temporary file: ${message}`,
-        resetDone: 'Migration prompt state reset. Checking migration now...'
+        resetDone: 'Migration prompt state reset. Checking migration now...',
+        noTextSelected: 'No text selected. Please select a Stata command and try again.',
+        notAValidIdentifier: ({ command }) => `"${command}" is not a valid Stata command identifier. Please select a valid command.`,
+        helpCommandSent: ({ command }) => `Help command sent to Stata for "${command}"`
     },
     zh: {
         lineTooLong: '行长度不足，请在设置中增大分隔线长度。',
@@ -44,7 +47,10 @@ const UI_TEXT = {
         runFailed: ({ message }) => `运行 Stata 代码失败：${message}`,
         codeSentApp: ({ app }) => `已发送代码到 ${app}`,
         tmpFileFailed: ({ message }) => `创建临时文件失败：${message}`,
-        resetDone: '迁移提示状态已重置，正在检查迁移...'
+        resetDone: '迁移提示状态已重置，正在检查迁移...',
+        noTextSelected: '未选中任何文本。请选中一个 Stata 命令后重试。',
+        notAValidIdentifier: ({ command }) => `"${command}" 不是有效的 Stata 命令标识符。请选中一个有效的命令。`,
+        helpCommandSent: ({ command }) => `已向 Stata 发送帮助命令："${command}"`
     }
 };
 

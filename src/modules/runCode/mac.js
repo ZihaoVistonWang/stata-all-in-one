@@ -7,7 +7,7 @@
 const { exec } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const { showInfo, showError, msg } = require('../../utils/common');
+const { showError, msg } = require('../../utils/common');
 const config = require('../../utils/config');
 
 /**
@@ -93,7 +93,7 @@ function runOnMac(codeToRun, tmpFilePath) {
             return;
         }
 
-        showInfo(msg('codeSentApp', { app: appName }));
+        // Silent success: no popup notification
     });
 }
 
