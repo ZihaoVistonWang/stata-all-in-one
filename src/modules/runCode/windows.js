@@ -8,7 +8,7 @@ const { exec } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const vscode = require('vscode');
-const { showInfo, showError, stripSurroundingQuotes, msg } = require('../../utils/common');
+const { showError, stripSurroundingQuotes, msg } = require('../../utils/common');
 const config = require('../../utils/config');
 
 /**
@@ -39,7 +39,7 @@ function runOnWindows(codeToRun, tmpFilePath, stataPathOnWindows) {
             return;
         }
 
-        showInfo(msg('codeSentStata'));
+        // Silent success: no popup notification
     });
 }
 

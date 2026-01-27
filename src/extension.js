@@ -10,6 +10,7 @@ const { registerCommentCommand, toggleComment } = require('./modules/comment');
 const { registerRunCommand } = require('./modules/runCode');
 const { registerCustomCommandHighlight } = require('./modules/customCommandHighlight');
 const { registerCompletionProvider } = require('./modules/completionProvider');
+const { registerHelpCommand } = require('./modules/helpCommand');
 
 const MIGRATION_MESSAGES = {
     en: {
@@ -234,6 +235,9 @@ function activate(context) {
 
     // Register run code command
     registerRunCommand(context);
+
+    // Register help command
+    registerHelpCommand(context);
 
     // Register document symbol provider for outline view
     const provider = createDocumentSymbolProvider();
