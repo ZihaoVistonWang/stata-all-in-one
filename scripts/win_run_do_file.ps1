@@ -6,7 +6,7 @@
 param (
     [string]$stataPath,
     [string]$doFilePath,
-    [int]$sleepDelay = 200
+    [int]$sleepDelay = 100
 )
 
 # 1. Identify Stata process / 自动识别 Stata 进程
@@ -45,7 +45,7 @@ if ($helperWindows.Count -gt 0) {
         Start-Sleep -Milliseconds $sleepDelay
         $wshell.SendKeys("%{F4}")  # Alt+F4
     }
-    Start-Sleep -Milliseconds 200  # 统一等待所有窗口关闭
+    Start-Sleep -Milliseconds $sleepDelay  # 统一等待所有窗口关闭
 }
 
 # 3. Fuzzy Match Window Title / 模糊匹配窗口标题
@@ -54,7 +54,19 @@ $actualTitle = $stataWindow.MainWindowTitle
 
 # 4. Execute Command / 执行指令
 
-if ($actualTitle -and $wshell.AppActivate($actualTitle)) {
+$activated = $false
+if ($actualTitle) {
+    $activated = $wshell.AppActivate($actualTitle)
+}
+
+if (-not $activated -and $proc -and $proc[0].Id) {
+    # Fallback: activate by process ID to avoid title matching issues
+    $activated = $wshell.AppActivate($proc[0].Id)
+}
+
+if ($activated) {
+    Start-Sleep -Milliseconds $sleepDelay  # give focus time to settle
+
     # Compatibility path conversion / 路径兼容性转换
     $cleanPath = $doFilePath.Replace("\", "/")
     
@@ -63,6 +75,8 @@ if ($actualTitle -and $wshell.AppActivate($actualTitle)) {
     
     Start-Sleep -Milliseconds $sleepDelay
     
-    # Paste and Enter / 粘贴并回车
-    $wshell.SendKeys("^v~")  # Ctrl+V 和 Enter 合并为一个操作
+    # Paste then Enter / 先粘贴再回车，避免粘贴被吞
+    $wshell.SendKeys("^v")
+    Start-Sleep -Milliseconds $sleepDelay
+    $wshell.SendKeys("~")  # Enter
 }

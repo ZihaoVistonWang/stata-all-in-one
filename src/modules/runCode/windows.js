@@ -19,8 +19,8 @@ function runOnWindows(codeToRun, tmpFilePath, stataPathOnWindows) {
     const psScriptPath = stripSurroundingQuotes(path.join(extensionPath, 'scripts', 'win_run_do_file.ps1'));
     const cleanDoFilePath = stripSurroundingQuotes(tmpFilePath);
     
-    // Get step delay from config, default 200ms
-    const sleepDelay = config.getStataStepDelayOnWindows ? config.getStataStepDelayOnWindows() : 200;
+    // Get step delay from config, default 100ms
+    const sleepDelay = config.getStataStepDelayOnWindows ? config.getStataStepDelayOnWindows() : 100;
 
     // Build PowerShell command
     const psCommand = `powershell -NoProfile -ExecutionPolicy Bypass -File "${psScriptPath}" -stataPath "${stataPathOnWindows}" -doFilePath "${cleanDoFilePath}" -sleepDelay ${sleepDelay}`;
