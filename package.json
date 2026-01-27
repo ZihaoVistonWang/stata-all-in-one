@@ -122,6 +122,13 @@
         "language": "stata",
         "scopeName": "source.stata",
         "path": "./grammars/stata.json"
+      },
+      {
+        "scopeName": "stata.injection.custom-commands",
+        "path": "./grammars/stata-custom.json",
+        "injectTo": [
+          "source.stata"
+        ]
       }
     ],
     "commands": [

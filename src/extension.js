@@ -221,7 +221,7 @@ function activate(context) {
     // Register comment toggle command
     registerCommentCommand(context);
 
-    // Register semantic tokens for custom commands (user-configurable keywords)
+    // Register custom command highlighting (native injection grammar)
     registerCustomCommandHighlight(context);
 
     // Register completion provider for Stata commands and functions (if enabled)

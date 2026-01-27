@@ -7,6 +7,6 @@
   "config.activateStataWindow.description": "Activate the Stata window after running code (bring it to the foreground).",
   "config.commentStyle.description": "Comment style used for toggling comments. Options include `//`, `*`, or `/* ... */`",
   "config.separatorLength.description": "Total character length of the separator line (including the '** #' prefix and separators).",
-  "config.customCommands.description": "User-defined Stata commands to highlight as keywords (array of strings). Default: reghdfe. **Requires reloading window**",
+  "config.customCommands.description": "User-defined Stata commands to highlight as keywords (array of strings). These commands will use the **same color** as built-in commands (like regress, summarize). Case-insensitive matching supported. Example: [\"reghdfe\", \"ivreg2\", \"outreg2\"]. **Requires reloading window** (Ctrl+Shift+P → Developer: Reload Window)",
   "config.enableCompletion.description": "Enable Stata code completion (autocomplete suggestions for commands, functions, and keywords)."
 }
