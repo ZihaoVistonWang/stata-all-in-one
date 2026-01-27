@@ -52,11 +52,12 @@
         "stata-all-in-one.stataVersionOnMacOS": {
           "type": "string",
           "enum": [
+            "",
             "StataMP",
             "StataIC",
             "StataSE"
           ],
-          "default": "StataMP",
+          "default": "",
           "markdownDescription": "%config.stataVersionOnMacOS.description%"
         },
         "stata-all-in-one.stataPathOnWindows": {
@@ -277,8 +278,8 @@
       },
       {
         "command": "stata-all-in-one.showHelp",
-        "key": "ctrl+h",
-        "mac": "cmd+h",
+        "key": "ctrl+shift+h",
+        "mac": "cmd+shift+h",
         "when": "editorTextFocus && editorLangId == stata"
       }
     ],
