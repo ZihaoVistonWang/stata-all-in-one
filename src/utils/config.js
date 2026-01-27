@@ -88,6 +88,17 @@ const getStataPathOnWindows = () => getConfigValue('stataPathOnWindows', '');
  */
 const getEnableCompletion = () => getConfigValue('enableCompletion', true);
 
+/**
+ * Get step delay setting for Windows commands (in milliseconds)
+ */
+const getStataStepDelayOnWindows = () => {
+    const delay = getConfigValue('stataStepDelayOnWindows', 200);
+    if (typeof delay !== 'number' || !isFinite(delay) || delay < 50) {
+        return 200;
+    }
+    return Math.floor(delay);
+};
+
 module.exports = {
     CONFIG_NAMESPACE,
     getConfig,
@@ -101,5 +112,6 @@ module.exports = {
     getSeparatorLength,
     getStataPathOnWindows: getStataPathOnWindows,
     getCustomCommands,
-    getEnableCompletion
+    getEnableCompletion,
+    getStataStepDelayOnWindows
 };
