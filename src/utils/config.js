@@ -92,9 +92,9 @@ const getEnableCompletion = () => getConfigValue('enableCompletion', true);
  * Get step delay setting for Windows commands (in milliseconds)
  */
 const getStataStepDelayOnWindows = () => {
-    const delay = getConfigValue('stataStepDelayOnWindows', 200);
+    const delay = getConfigValue('stataStepDelayOnWindows', 100);
     if (typeof delay !== 'number' || !isFinite(delay) || delay < 50) {
-        return 200;
+        return 100;
     }
     return Math.floor(delay);
 };

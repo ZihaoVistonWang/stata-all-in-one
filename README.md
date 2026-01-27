@@ -67,6 +67,10 @@ Stata All in One
 - **Toggle Comments**: Quickly toggle line comments using `Ctrl/Cmd + /`.
 - **Optional Styles**: Defaults to `//`, with support for switching to other valid Stata comment delimiters in settings.
 
+### 6. In-Editor Help (Stata Help)
+
+- **Quick Help**: For example, select 'regress' and press the shortcut key `Ctrl/Cmd + H` to open Stata's 'regress' help page.
+
 ---
 
 ## Installation
@@ -121,17 +125,20 @@ Search for "Stata All in One" in VS Code settings and configure:
 6. **Stata Path on Windows** (`stata-all-in-one.stataPathOnWindows`)
 
    - **[Windows]** Path to Stata executable file (e.g., `C:\Program Files\Stata17\StataMP-64.exe`).
-7. **Active Stata Window After Running Code** (`stata-all-in-one.activateStataWindow`)
+7. **Stata Step Delay (Windows)** (`stata-all-in-one.stataStepDelayOnWindows`)
+
+   - **[Windows]** Delay between PowerShell automation steps (ms). Default: `100` (min: `50`). Increase if your machine is slower or Stata misses keystrokes.
+8. **Active Stata Window After Running Code** (`stata-all-in-one.activateStataWindow`)
 
    - `true` (default): Activate the Stata window after running code (bring it to the foreground).
    - `false`: Does not change focus.
 
 ### Code Style
 
-8. **Comment Style** (`stata-all-in-one.commentStyle`)
+9. **Comment Style** (`stata-all-in-one.commentStyle`)
 
    - `// ` (default): Comment style used for toggling comments. Options include `//`, `*`, or `/* ... */`
-9. **Separator Length** (`stata-all-in-one.separatorLength`)
+10. **Separator Length** (`stata-all-in-one.separatorLength`)
 
    - Total character length of the separator line (including the '** #' prefix and separators). Default: `60`
 

@@ -67,6 +67,10 @@ Stata All in One
 - **一键切换**：使用 `Ctrl/Cmd + /` 快速切换行注释状态。
 - **可选样式**：默认使用 `//`，支持在设置中更改为其他合法注释符。
 
+### 6. 内置帮助（Stata Help）
+
+- **快捷帮助**：例如：选中 `regress`，按下快捷键`Ctrl/Cmd + H`，即可打开 Stata 的 `regress` 帮助页面。
+
 ---
 
 ## 安装
@@ -119,17 +123,20 @@ Stata All in One
 6. **Stata 路径（Windows）** (`stata-all-in-one.stataPathOnWindows`)
 
    - **[Windows]** Stata 执行文件路径（例如 `C:\\Program Files\\Stata17\\StataMP-64.exe`）。
-7. **运行代码后激活 Stata 至前台** (`stata-all-in-one.activateStataWindow`)
+7. **步骤延迟（Windows）** (`stata-all-in-one.stataStepDelayOnWindows`)
+
+   - **[Windows]** PowerShell 自动化每一步之间的延迟（毫秒）。默认：`100`（最小：`50`）。机器较慢或偶发漏键时可适当调大。
+8. **运行代码后激活 Stata 至前台** (`stata-all-in-one.activateStataWindow`)
 
    - `true`（默认）：运行代码后激活Stata窗口（将其带到前台）。
    - `false`：不激活 Stata 窗口。
 
 ### 代码风格
 
-8. **注释样式** (`stata-all-in-one.commentStyle`)
+9. **注释样式** (`stata-all-in-one.commentStyle`)
 
    - `// `（默认）：用于切换注释的样式。选项包括 `//`、`*` 或 `/* ... */`
-9. **分隔线长度** (`stata-all-in-one.separatorLength`)
+10. **分隔线长度** (`stata-all-in-one.separatorLength`)
 
    - 分割线所在行的字符总长度（包括前缀 '** #' 和分隔符）。默认值：`60`
 
