@@ -55,8 +55,11 @@ function findStataApp(preferredName) {
 
 /**
  * Run code on macOS
+ * @param {string} codeToRun - The code to execute
+ * @param {string} tmpFilePath - Path to temporary file
+ * @param {boolean} isHelpCommand - Whether this is a help command (will force window activation)
  */
-function runOnMac(codeToRun, tmpFilePath) {
+function runOnMac(codeToRun, tmpFilePath, isHelpCommand = false) {
     const stataVersion = config.getStataVersion();
     const activateStataWindow = config.getActivateStataWindow();
     
@@ -77,7 +80,11 @@ function runOnMac(codeToRun, tmpFilePath) {
     
     let stataCommand = `${closeHelpCommand}; pgrep -x "${appName}" > /dev/null || (open -a "${appPath}" && while ! pgrep -x "${appName}" > /dev/null; do sleep 0.2; done && sleep 0.5); osascript -e 'tell application "${appName}" to DoCommand "do \\"${tmpFilePath}\\""'`;
     
-    if (activateStataWindow) {
+    // For help commands, activate the help window specifically after a delay
+    // 对于帮助命令，延迟后专门激活帮助窗口
+    if (isHelpCommand) {
+        stataCommand += ` && sleep 0.2 && osascript -e 'tell application "System Events"' -e 'tell process "${appName}"' -e 'set helpWin to first window whose name contains "help"' -e 'set frontmost to true' -e 'perform action "AXRaise" of helpWin' -e 'end tell' -e 'end tell' 2>/dev/null || osascript -e 'tell application "${appName}" to activate'`;
+    } else if (activateStataWindow) {
         stataCommand += ` -e 'tell application "${appName}" to activate'`;
     }
 
