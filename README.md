@@ -9,15 +9,19 @@ Stata All in One
 </h1>
 
 <p align="center">
-   | <b>Version:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.2.3</a> | <b>Author:</b> <a href="https://zihaowang.cn">Zihao Viston Wang</a> | <b>Translate:</b>
+   One <b>VS Code</b> extension tailored for Stata users
+</p>
+
+<p align="center">
+   | <b>Version:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.2.4</a> | <b>Author:</b> <a href="https://zihaowang.cn">Zihao Viston Wang</a> | <b>Translate:</b>
   <a href="README_CN.md">中文版本</a> |
 </p>
 
 ---
 
-<h3 align="center"><u><b>All-in-one</b> Stata development experience: </br>Syntax Highlighting + Smart Outline + Code Execution + Quick Editing!</u></h3>
+<h3 align="center"><b>All-in-one</b> Stata experience: </br>Syntax Highlighting + Code Hints + Smart Outline + Code Execution + Quick Editing!</h3>
 
-<p align="center"><code>Stata All in One</code> is derived from <a href="https://github.com/ZihaoVistonWang/stata-outline">Stata Outline</a>, with extended features and improvements.</p>
+<p align="center">Stata All in One is derived from <a href="https://github.com/ZihaoVistonWang/stata-outline">Stata Outline</a>.</p>
 
 ---
 
@@ -27,51 +31,55 @@ Stata All in One
    <img src="img/example-marked.png" alt="An example of Stata All in One Icon"/>
 </p>
 
-### 1. Enhanced Syntax Highlighting
+### 1. Enhanced Syntax Highlighting & Code Completion
 
-- **Full Syntax Support**: Integrates [Stata Enhanced](https://github.com/kylebarron/language-stata) syntax engine for precise syntax highlighting in `.do` files.
+- **Full Syntax Highlighting and Code Completion Support**: Integrates [Stata Enhanced](https://github.com/kylebarron/language-stata) syntax engine[^1], providing precise syntax highlighting and code completion for `.do` files (under MIT License).
 - **Custom Command Highlighting**: Supports highlighting for commonly used third-party commands (e.g., `reghdfe`, `ivreghdfe`, `gtools`), freely configurable in settings.
+
+[^1]: [Stata Enhanced](https://github.com/kylebarron/language-stata) syntax engine was developed by Kyle Barron, providing comprehensive support for the Stata language. This extension follows the MIT License. Thanks to Kyle Barron for his contribution!
 
 ### 2. Smart Outline & Structural Navigation
 
 - **Multi-level Outline Recognition**: Automatically detects comment lines from `**#` to `**######` as hierarchical headers, supporting up to **6 levels**.
   - **Shortcuts**: `Ctrl/Cmd + 1-6` to quickly convert to the corresponding header level; `Ctrl/Cmd + 0` to revert to a standard code line.
-- **Cursor Sync (Auto-Reveal)**: The outline view automatically highlights and navigates to the corresponding section as the cursor moves in the editor.
-  - *Setup: Click the "···" button in the top-right of the Outline view and check "Follow Cursor".* (Note: This is a VS Code GUI setting and cannot be configured via code).
+- **Cursor Auto-Follow**: The outline view automatically highlights and navigates to the corresponding section as the cursor moves in the editor.
+  - *Setup: Click the "···" button in the top-right of the Outline view and check "Follow Cursor".*[^2]
 - **Multi-level Numbering**: Optional display of logical numbering (e.g., `1.1`, `1.2.1`) within the outline (must be enabled in settings).
 - **Auto-Sync Numbering**: When enabled, the extension automatically adds or removes numbering directly within the `.do` file based on the outline structure.
+
+[^2]: Sorry~ This is a VS Code GUI setting, I cannot control it through the extension.
 
 ### 3. Code Execution (Stata Interaction)
 
 - **Platform Support**: Seamlessly integrates with Stata on both **macOS** and **Windows** without requiring additional extensions.
-- **Flexible Execution Modes**:
-  - **Global Execution**: Click the ▶️ button in the editor title bar or Outline view header to run the current script.
-  - **Smart Section Run**: When **no code is selected**, pressing `Ctrl/Cmd + D` automatically detects the current section and executes from that header down to (but not including) the next header of the same or higher level.
-  - **Precision Selection Run**: Press `Ctrl/Cmd + D` to run the selected block. Supports **fuzzy selection**, executing complete lines even if not fully highlighted.
-  - **⚠️Note**
-    - On Windows, code execution relies on PowerShell automation. If your machine is slow or occasionally misses keystrokes, consider increasing the step delay (setting `stata-all-in-one.stataStepDelayOnWindows`).
+- **Multi-Scenario Execution Strategies**:
+  - **Smart Current Section Run**: When **no code is selected**, clicking the ▶️ button in the editor title bar or Outline view header, or pressing `Ctrl/Cmd + D`, will automatically detect the current section range and execute all code from the current header to (but not including) the next header of the same or higher level.
+  - **Precision Selection Run**: Press `Ctrl/Cmd + D` to execute the selected code block. Supports **fuzzy selection** - even if you haven't fully covered entire lines, the extension will automatically match and execute the complete selected lines.
+- **⚠️ Note**
+  - On Windows, code execution relies on PowerShell automation. If your machine is slow or occasionally misses keystrokes, consider increasing the step delay (setting `stata-all-in-one.stataStepDelayOnWindows`).
 
-### 4. Efficient Separators & Styling
+### 4. Efficient Separator Lines & Styling
 
-- **Quick Insertion**: Supports various symbols to enhance code readability.
-  - **Standard Separators**: Use `Ctrl/Cmd + Symbol` to insert a divider:
+- **Quick Insertion**: Supports various symbols to significantly enhance code readability.
+  - **Standard Separators**: Use `Ctrl/Cmd + Symbol` to quickly insert separator lines:
     - `Ctrl/Cmd + -` (Dash) | `Ctrl/Cmd + =` (Equal) | `Ctrl/Cmd + Shift + 8` (Asterisk)
   - **Custom Separators**:
     - `Ctrl + Alt + S` (Windows) | `Ctrl + Cmd + S` (macOS), where **S** stands for "**S**eparator".
-    - After the shortcut, simply input **your desired character** to generate the line.
+    - After pressing the shortcut, simply input your desired character to generate the corresponding separator line.
 - **Intelligent Wrap Mode**:
-  - **Blank Line Insertion**: Generates a full-width divider (length adjustable in settings).
-  - **Non-blank Line Insertion**: Pressing the shortcut once inserts a divider above the line; pressing it again inserts one below, creating a "wrapped" header effect.
-  - **Header Decoration**: Select header text and press the shortcut to generate a title with balanced decorative symbols (e.g., `**# === Title ===`). These decorations do not interfere with outline recognition.
+  - **Blank Line Insertion**: Generates a full-width separator line (length adjustable in settings).
+  - **Non-blank Line Insertion**: Pressing the shortcut once inserts above the line; pressing it again inserts below, creating a "wrapped" effect.
+  - **Header Decoration**: Select some characters of a header and press the shortcut to generate a title with balanced decorative symbols (e.g., `**# === Title ===`), without affecting outline recognition.
+    - **Centered Header**: If using **Header Decoration** + **Custom *space* separator**, the header content will be automatically centered.
 
 ### 5. Enhanced Commenting
 
 - **Toggle Comments**: Quickly toggle line comments using `Ctrl/Cmd + /`.
 - **Optional Styles**: Defaults to `//`, with support for switching to other valid Stata comment delimiters in settings.
 
-### 6. In-Editor Help (Stata Help)
+### 6. Built-in Help (Stata Help)
 
-- **Quick Help**: For example, select 'regress' and press the shortcut key `Ctrl/Cmd + H` to open Stata's 'regress' help page.
+- **Quick Help**: For example, select `regress` and press the shortcut key `Ctrl/Cmd + H` to open Stata's `regress` help page.
 
 ---
 
@@ -111,11 +119,11 @@ Search for "Stata All in One" in VS Code settings and configure:
 
 ### Outline & Navigation
 
-2. **Display Multi-level Numbering** (`stata-all-in-one.showNumbering`)
+2. **Display Multi-level Numbering** (`stata-all-in-one.numberingShow`)
 
    - `true`: Outline displays `1.1`, `1.2.1` style numbering.
    - `false` (default): Displays original headings.
-3. **Auto-update File Content** (`stata-all-in-one.updateFileContent`)
+3. **Auto-update File Content** (`stata-all-in-one.numberingAdd`)
 
    - `true`: When numbering is enabled, automatically update section titles in .do files to include numbers. **Requires reopening .do files**
    - `false` (default): Only displays numbering in outline, doesn't modify file.
@@ -150,7 +158,7 @@ Search for "Stata All in One" in VS Code settings and configure:
 
    - Total character length of the separator line (including the '** #' prefix and separators). Default: `60`
 
-> **Note**: Changes take effect after reopening `.do` files. When `updateFileContent` is disabled, existing numbering in `.do` files will be automatically removed.
+> **Note**: Changes take effect after reopening `.do` files. When `numberingAdd` is disabled, existing numbering in `.do` files will be automatically removed.
 
 ---
 
@@ -158,6 +166,7 @@ Search for "Stata All in One" in VS Code settings and configure:
 
 | Version     | Changes                                                                                                       | Release Date |
 | ----------- | ------------------------------------------------------------------------------------------------------------- | ------------ |
+| 0.2.4       | Added Stata help functionality; fixed some known issues                                                       | 2026-01-28   |
 | 0.2.3       | Integrated Stata Enhanced syntax highlighting; migration prompt and auto-migrated settings from Stata Outline | 2026-01-27   |
 | 0.2.2       | Windows native support for executing Stata code                                                               | 2026-01-27   |
 | 0.2.0-0.2.1 | macOS native support for executing Stata code; new divider line commands and shortcuts                        | 2026-01-25   |

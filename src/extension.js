@@ -30,8 +30,8 @@ const MIGRATION_STATE_KEYS = {
 };
 
 const CONFIG_MAPPING = [
-    { old: 'stata-outline.showNumbering', fresh: 'stata-all-in-one.showNumbering' },
-    { old: 'stata-outline.updateFileContent', fresh: 'stata-all-in-one.updateFileContent' },
+    { old: 'stata-outline.numberingShow', fresh: 'stata-all-in-one.numberingShow' },
+    { old: 'stata-outline.numberingAdd', fresh: 'stata-all-in-one.numberingAdd' },
     { old: 'stata-outline.showRunButton', fresh: 'stata-all-in-one.showRunButton' },
     { old: 'stata-outline.stataVersion', fresh: 'stata-all-in-one.stataVersion' },
     { old: 'stata-outline.stataPathOnWindows', fresh: 'stata-all-in-one.stataPathOnWindows' },
