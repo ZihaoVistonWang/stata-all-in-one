@@ -2,7 +2,7 @@
   "name": "stata-all-in-one",
   "displayName": "Stata All in One",
   "description": "Supercharge your Stata workflow in VS Code. An enhanced version of `Stata Outline` with advanced syntax highlighting, code navigation (Outline), and seamless script execution. All your Stata needs in one place.",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "publisher": "ZihaoVistonWang",
   "icon": "img/icon.png",
   "keywords": [
@@ -34,15 +34,15 @@
     "configuration": {
       "title": "Stata All in One",
       "properties": {
-        "stata-all-in-one.showNumbering": {
+        "stata-all-in-one.numberingShow": {
           "type": "boolean",
           "default": false,
-          "markdownDescription": "%config.showNumbering.description%"
+          "markdownDescription": "%config.numberingShow.description%"
         },
-        "stata-all-in-one.updateFileContent": {
+        "stata-all-in-one.numberingAdd": {
           "type": "boolean",
           "default": false,
-          "markdownDescription": "%config.updateFileContent.description%"
+          "markdownDescription": "%config.numberingAdd.description%"
         },
         "stata-all-in-one.showRunButton": {
           "type": "boolean",

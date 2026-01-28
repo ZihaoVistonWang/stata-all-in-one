@@ -18,7 +18,7 @@ stata-all-in-one/
 │   │   │   ├── buildSeparatorSegment()           # 构建分隔符
 │   │   │   └── 其他工具函数
 │   │   └── config.js                       # 配置管理
-│   │       ├── getShowNumbering()                # 获取是否显示序号
+│   │       ├── getnumberingShow()                # 获取是否显示序号
 │   │       ├── getCommentStyle()                 # 获取注释风格
 │   │       ├── getSeparatorLength()              # 获取分隔符长度
 │   │       ├── getCustomCommands()               # 获取自定义命令

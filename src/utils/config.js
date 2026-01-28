@@ -21,14 +21,14 @@ const getConfigValue = (key, defaultValue) => {
 };
 
 /**
- * Get showNumbering setting
+ * Get numberingShow setting
  */
-const getShowNumbering = () => getConfigValue('showNumbering', true);
+const getnumberingShow = () => getConfigValue('numberingShow', true);
 
 /**
- * Get updateFileContent setting
+ * Get numberingAdd setting
  */
-const getUpdateFileContent = () => getConfigValue('updateFileContent', false);
+const getnumberingAdd = () => getConfigValue('numberingAdd', false);
 
 /**
  * Get showRunButton setting
@@ -103,8 +103,8 @@ module.exports = {
     CONFIG_NAMESPACE,
     getConfig,
     getConfigValue,
-    getShowNumbering,
-    getUpdateFileContent,
+    getnumberingShow,
+    getnumberingAdd,
     getShowRunButton,
     getStataVersion,
     getActivateStataWindow,

@@ -51,16 +51,16 @@ function setHeadingLevel(level) {
 /**
  * Update file content with numbering
  */
-function updateFileContentWithNumbering(document, items, counters) {
+function numberingAddWithNumbering(document, items, counters) {
     const editor = vscode.window.activeTextEditor;
     if (!editor || editor.document !== document) {
         return;
     }
 
-    const showNumbering = config.getShowNumbering();
-    const updateFileContent = config.getUpdateFileContent();
+    const numberingShow = config.getnumberingShow();
+    const numberingAdd = config.getnumberingAdd();
 
-    if (!updateFileContent) {
+    if (!numberingAdd) {
         return;
     }
 
@@ -73,7 +73,7 @@ function updateFileContentWithNumbering(document, items, counters) {
         
         let newText;
         
-        if (showNumbering) {
+        if (numberingShow) {
             const numbering = counters.slice(0, item.level).join('.');
             
             const regex = /^\*{1,2}\s*(#+)\s+(\d+(?:\.\d+)*)\s+(.*)$/;
@@ -211,7 +211,7 @@ function createDocumentSymbolProvider() {
                 );
             }
 
-            const showNumbering = config.getShowNumbering();
+            const numberingShow = config.getnumberingShow();
 
             // Step 2: Build outline tree structure
             const rootSymbols = [];
@@ -222,7 +222,7 @@ function createDocumentSymbolProvider() {
                 const item = items[itemIndex];
                 let displayTitle;
                 
-                if (showNumbering) {
+                if (numberingShow) {
                     let numbering = '';
                     
                     while (counters.length < item.level) {
@@ -280,10 +280,10 @@ function createDocumentSymbolProvider() {
             }
 
             // Handle file content updates based on configuration
-            const updateFileContent = config.getUpdateFileContent();
+            const numberingAdd = config.getnumberingAdd();
             
             if (items.length > 0) {
-                if (updateFileContent) {
+                if (numberingAdd) {
                     const fileCounters = [];
                     for (let i = 0; i < items.length; i++) {
                         const item = items[i];
@@ -303,7 +303,7 @@ function createDocumentSymbolProvider() {
                             range: item.titleRange
                         };
                         
-                        updateFileContentWithNumbering(document, [tempItem], tempCounters);
+                        numberingAddWithNumbering(document, [tempItem], tempCounters);
                     }
                 } else {
                     for (const item of items) {

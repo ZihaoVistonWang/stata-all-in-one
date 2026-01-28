@@ -1,6 +1,6 @@
 {
-  "config.showNumbering.description": "是否在大纲视图中显示多级标题序号（如 1.1, 1.2.1）。**需要重新打开 .do 文件**",
-  "config.updateFileContent.description": "当启用序号时，自动更新.do文件中的section标题以包含序号。**需要重新打开 .do 文件**",
+  "config.numberingShow.description": "是否在大纲视图中显示多级标题序号（如 1.1, 1.2.1）。**需要重新打开 .do 文件**",
+  "config.numberingAdd.description": "当启用序号时，自动更新.do文件中的section标题以包含序号。**需要重新打开 .do 文件**",
   "config.showRunButton.description": "是否在编辑器标题栏显示运行按钮。",
   "config.stataVersionOnMacOS.description": "**[macOS]** Stata 运行版本。",
   "config.stataPathOnWindows.description": "**[Windows]** Stata 执行文件路径（例如 `C:\\Program Files\\Stata17\\StataMP-64.exe`）。",
