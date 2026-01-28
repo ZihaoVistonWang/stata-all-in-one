@@ -3,4 +3,4 @@ kylebarron.stata-enhanced-1.6.1
 .vscode
 *.do
 *.do.stswp
-*.vsix
+# *.vsix
