@@ -43,6 +43,9 @@ stata-all-in-one/
 │       │   └── registerCustomCommandHighlight()  # 注册并监听配置变化
 │       ├── completionProvider.js           # 代码补全模块
 │       ├── helpCommand.js                  # Stata帮助命令模块
+│       ├── updateNotification.js           # 版本更新通知模块
+│       │   ├── checkAndNotifyUpdate()            # 检查并显示更新通知
+│       │   └── registerUpdateCheck()             # 注册更新检查
 │       └── runCode/                        # 代码执行模块
 │           ├── index.js                          # 主模块
 │           │   ├── runCurrentSection()                  # 运行当前节代码
@@ -151,6 +154,27 @@ stata-all-in-one/
 
 - 获取选中命令名称
 - 调用Stata帮助（`help` 命令）
+
+#### updateNotification.js
+
+**职责**: 处理版本更新通知
+
+- `checkAndNotifyUpdate()`: 检查版本变化并显示更新通知
+- `registerUpdateCheck()`: 在扩展激活时注册更新检查
+- 支持中英文双语通知
+- 自动管理版本跟踪（使用 globalState）
+
+**工作原理**：
+1. 从 `package.json` 读取当前版本号
+2. 与存储的 `lastSeenVersion` 比较
+3. 版本变化时自动弹出通知（右下角）
+4. 提供「了解更多」按钮，链接到对应语言的版本记录页面
+5. 显示后自动更新存储的版本号
+
+**添加新版本通知**：
+- 在 `CHANGELOG` 对象中添加新版本条目
+- 包含 `ver_info`（通知文本）和 `more_url`（详情链接）
+- 支持中英文分别配置
 
 #### runCode/
 
