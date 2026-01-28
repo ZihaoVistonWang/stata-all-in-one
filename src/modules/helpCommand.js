@@ -107,7 +107,7 @@ async function runHelpCommand() {
         if (onWindows) {
             runOnWindows(helpCode, tmpFilePath, stataPathOnWindows);
         } else if (onMac) {
-            runOnMac(helpCode, tmpFilePath);
+            runOnMac(helpCode, tmpFilePath, true); // Pass true to indicate this is a help command
         }
         // Silent success: no popup notification
     } catch (error) {
