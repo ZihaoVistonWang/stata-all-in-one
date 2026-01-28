@@ -16,13 +16,13 @@ const CHANGELOG = {
         },
         '0.2.4': {
             ver_info: '✨ Stata All in One (0.2.4): Added Stata help functionality and fixed some known issues.',
-            more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one#line-break'
+            more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one#Changelog'
         }
     },
     zh: {
         '0.2.5': {
             ver_info: '✨ Stata All in One (0.2.5)：智能换行 - 新增智能换行功能（Shift+Enter），支持 Stata 代码自动缩进和格式化。',
-            more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one#版本记录'
+            more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one#line-break'
         },
         '0.2.4': {
             ver_info: '✨ Stata All in One (0.2.4)：添加了 Stata 帮助功能，修复了一些已知问题。',
