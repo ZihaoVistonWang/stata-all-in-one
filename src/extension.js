@@ -12,6 +12,7 @@ const { registerCustomCommandHighlight } = require('./modules/customCommandHighl
 const { registerCompletionProvider } = require('./modules/completionProvider');
 const { registerHelpCommand } = require('./modules/helpCommand');
 const { registerLineBreakCommand } = require('./modules/lineBreak');
+const { registerUpdateCheck } = require('./modules/updateNotification');
 
 const MIGRATION_MESSAGES = {
     en: {
@@ -198,6 +199,9 @@ function activate(context) {
         console.log('Stata All in One: Stata Outline not installed, skipping migration');
     }
 
+    // Check for updates and show notification
+    registerUpdateCheck(context);
+
     // Register heading level commands
     const headingCommands = [
         { id: 'stata-all-in-one.setLevel1', level: 1 },
@@ -270,6 +274,30 @@ function activate(context) {
         }
     );
     context.subscriptions.push(resetPromptCommand);
+
+    // Register debug test update notification command
+    const testUpdateCommand = vscode.commands.registerCommand(
+        'stata-all-in-one.debugTestUpdateNotification',
+        async () => {
+            console.log('Stata All in One: Debug test update notification command executed');
+            const { checkAndNotifyUpdate } = require('./modules/updateNotification');
+            
+            // Reset version to trigger update notification
+            const packageJson = require('../package.json');
+            const currentVersion = packageJson.version;
+            
+            // Reset stored version to trigger notification
+            await context.globalState.update('stata-all-in-one.lastSeenVersion', '0.0.0');
+            
+            // Show update notification
+            checkAndNotifyUpdate(context);
+            
+            const { showInfo } = require('./utils/common');
+            showInfo(`Debug: Reset version to 0.0.0, showing notification for v${currentVersion}`);
+        }
+    );
+    context.subscriptions.push(testUpdateCommand);
+
     console.log('Stata All in One: All commands registered');
 }
 

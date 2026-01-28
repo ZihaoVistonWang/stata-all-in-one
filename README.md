@@ -1,4 +1,4 @@
-<!-- markdownlint-disable MD001 MD041 MD033 MD029 MD060 MD038 -->
+<!-- markdownlint-disable MD001 MD041 MD033 MD029 MD060 MD038 MD032 MD007 -->
 
 <p align="center">
    <img src="img/icon-wide.png" alt="Stata All in One Icon" style="width:300px;" />
@@ -82,6 +82,7 @@ Stata All in One
 
    - **Quick Help**: For example, select `regress` and press the shortcut key `Ctrl/Cmd + H` to open Stata's `regress` help page.
 
+<a id="line-break"></a>
 3. Smart Line Break (Stata Line Break)
    - **One-Key Line Break**: Use `Shift+Enter` to insert Stata line continuation symbol `///` at the cursor position.
    - **Smart Indentation**: Automatically indent by 4 spaces

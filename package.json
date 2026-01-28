@@ -199,6 +199,10 @@
       {
         "command": "stata-all-in-one.debugResetMigrationPrompt",
         "title": "Stata All in One: Debug Reset Migration Prompt"
+      },
+      {
+        "command": "stata-all-in-one.debugTestUpdateNotification",
+        "title": "Stata All in One: Debug Test Update Notification"
       }
     ],
     "keybindings": [
