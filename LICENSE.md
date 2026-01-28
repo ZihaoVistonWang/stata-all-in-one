@@ -1,6 +1,6 @@
 # MIT License
 
-**Copyright (c) 2025 Zihao Viston Wang / 王梓豪**
+**Copyright (c) 2026 Zihao Viston Wang / 王梓豪**
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -23,7 +23,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 # MIT 许可证
 
-**版权所有 (c) 2025 Zihao Viston Wang / 王梓豪**
+**版权所有 (c) 2026 Zihao Viston Wang / 王梓豪**
 
 特此授予免费获得本软件及相关文档文件（以下简称"软件"）副本的任何人许可，
 允许不受限制地处理本软件，包括但不限于使用、复制、修改、合并、出版、分发、
