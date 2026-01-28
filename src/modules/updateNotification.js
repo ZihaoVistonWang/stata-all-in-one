@@ -57,9 +57,23 @@ function checkAndNotifyUpdate(context) {
         // Get last seen version from global state
         const lastSeenVersion = context.globalState.get('stata-all-in-one.lastSeenVersion');
         
-        // If no last seen version, store current and skip notification
+        // If no last seen version, this might be an upgrade from old version (before update notification feature)
+        // Show notification for current version, then store it
         if (!lastSeenVersion) {
+            const lang = getUserLanguage();
+            const changelog = getChangelog(currentVersion, lang);
+            
+            if (changelog) {
+                const learnMoreLabel = lang === 'zh' ? '了解更多' : 'Learn More';
+                vscode.window.showInformationMessage(changelog.ver_info, 'OK', learnMoreLabel).then(selection => {
+                    if (selection === learnMoreLabel && changelog.more_url) {
+                        vscode.env.openExternal(vscode.Uri.parse(changelog.more_url));
+                    }
+                });
+            }
+            
             context.globalState.update('stata-all-in-one.lastSeenVersion', currentVersion);
+            console.log('Stata All in One: First time or upgrade from old version, showing notification for', currentVersion);
             return;
         }
 
