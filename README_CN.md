@@ -13,7 +13,7 @@ Stata All in One
 </p>
 
 <p align="center">
-  | <b>版本:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.2.4</a> | <b>作者:</b> <a href="https://zihaowang.cn">王梓豪</a> | <b>翻译:</b>
+  | <b>版本:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.2.5</a> | <b>作者:</b> <a href="https://zihaowang.cn">王梓豪</a> | <b>翻译:</b>
   <a href="README.md">English Version</a> |
 </p>
 
@@ -72,14 +72,19 @@ Stata All in One
   - **标题修饰**：选中标题的若干字符按快捷键，将生成带有平衡装饰符的标题（例如：`**# === 标题内容 ===`），且不影响大纲识别。
     - 标题居中：如果使用 **标题修饰** + **自定义*空格*分隔符**，则标题内容将自动居中显示。
 
-### 5. 注释增强
+### 5. 更多精彩
 
-- **一键切换**：使用 `Ctrl/Cmd + /` 快速切换行注释状态。
-- **可选样式**：默认使用 `//`，支持在设置中更改为其他合法注释符。
+1. 注释增强
+   - **一键切换**：使用 `Ctrl/Cmd + /` 快速切换行注释状态。
+   - **可选样式**：默认使用 `//`，支持在设置中更改为其他合法注释符。
 
-### 6. 内置帮助（Stata Help）
+2. 内置帮助（Stata Help）
 
-- **快捷帮助**：例如：选中 `regress`，按下快捷键`Ctrl/Cmd + H`，即可打开 Stata 的 `regress` 帮助页面。
+   - **快捷帮助**：例如：选中 `regress`，按下快捷键`Ctrl/Cmd + H`，即可打开 Stata 的 `regress` 帮助页面。
+
+3. 智能换行（Stata Line Break）
+   - **一键换行**：使用 `Shift+Enter` 在光标位置插入 Stata 换行符 `///`。
+   - **智能缩进**：自动缩进 4 个空格
 
 ---
 
@@ -163,6 +168,7 @@ Stata All in One
 
 | 版本        | 更新内容                                                                        | 发布日期   |
 |-------------|---------------------------------------------------------------------------------|------------|
+| 0.2.5       | 新增智能换行功能（Shift+Enter），支持 Stata 代码自动缩进和格式化                | 2026-01-28 |
 | 0.2.4       | 添加了stata帮助功能；修复了一些已知问题                                         | 2026-01-28 |
 | 0.2.3       | 集成 Stata Enhanced 语法高亮；添加迁移提示以及来自 Stata Outline 的自动迁移设置 | 2026-01-27 |
 | 0.2.2       | Windows 原生支持运行 Stata 代码                                                 | 2026-01-27 |

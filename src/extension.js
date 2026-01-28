@@ -11,6 +11,7 @@ const { registerRunCommand } = require('./modules/runCode');
 const { registerCustomCommandHighlight } = require('./modules/customCommandHighlight');
 const { registerCompletionProvider } = require('./modules/completionProvider');
 const { registerHelpCommand } = require('./modules/helpCommand');
+const { registerLineBreakCommand } = require('./modules/lineBreak');
 
 const MIGRATION_MESSAGES = {
     en: {
@@ -220,6 +221,9 @@ function activate(context) {
 
     // Register comment toggle command
     registerCommentCommand(context);
+
+    // Register line break command
+    registerLineBreakCommand(context);
 
     // Register custom command highlighting (native injection grammar)
     registerCustomCommandHighlight(context);

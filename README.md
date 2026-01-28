@@ -13,7 +13,7 @@ Stata All in One
 </p>
 
 <p align="center">
-   | <b>Version:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.2.4</a> | <b>Author:</b> <a href="https://zihaowang.cn">Zihao Viston Wang</a> | <b>Translate:</b>
+   | <b>Version:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.2.5</a> | <b>Author:</b> <a href="https://zihaowang.cn">Zihao Viston Wang</a> | <b>Translate:</b>
   <a href="README_CN.md">中文版本</a> |
 </p>
 
@@ -72,14 +72,19 @@ Stata All in One
   - **Header Decoration**: Select some characters of a header and press the shortcut to generate a title with balanced decorative symbols (e.g., `**# === Title ===`), without affecting outline recognition.
     - **Centered Header**: If using **Header Decoration** + **Custom *space* separator**, the header content will be automatically centered.
 
-### 5. Enhanced Commenting
+### 5. More Features
 
-- **Toggle Comments**: Quickly toggle line comments using `Ctrl/Cmd + /`.
-- **Optional Styles**: Defaults to `//`, with support for switching to other valid Stata comment delimiters in settings.
+1. Enhanced Comments
+   - **Toggle Comments**: Quickly toggle line comments using `Ctrl/Cmd + /`.
+   - **Optional Styles**: Defaults to `//`, with support for switching to other valid Stata comment delimiters in settings.
 
-### 6. Built-in Help (Stata Help)
+2. Built-in Help (Stata Help)
 
-- **Quick Help**: For example, select `regress` and press the shortcut key `Ctrl/Cmd + H` to open Stata's `regress` help page.
+   - **Quick Help**: For example, select `regress` and press the shortcut key `Ctrl/Cmd + H` to open Stata's `regress` help page.
+
+3. Smart Line Break (Stata Line Break)
+   - **One-Key Line Break**: Use `Shift+Enter` to insert Stata line continuation symbol `///` at the cursor position.
+   - **Smart Indentation**: Automatically indent by 4 spaces
 
 ---
 
@@ -166,6 +171,7 @@ Search for "Stata All in One" in VS Code settings and configure:
 
 | Version     | Changes                                                                                                       | Release Date |
 | ----------- | ------------------------------------------------------------------------------------------------------------- | ------------ |
+| 0.2.5       | Added smart line break feature (Shift+Enter) with auto-indentation and formatting for Stata code              | 2026-01-28   |
 | 0.2.4       | Added Stata help functionality; fixed some known issues                                                       | 2026-01-28   |
 | 0.2.3       | Integrated Stata Enhanced syntax highlighting; migration prompt and auto-migrated settings from Stata Outline | 2026-01-27   |
 | 0.2.2       | Windows native support for executing Stata code                                                               | 2026-01-27   |
