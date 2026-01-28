@@ -33,6 +33,9 @@ stata-all-in-one/
 │       ├── comment.js                      # 注释模块
 │       │   ├── toggleComment()                   # 切换注释
 │       │   └── registerCommentCommand()          # 注册注释命令
+│       ├── lineBreak.js                    # Stata 换行模块
+│       │   ├── insertLineBreak()                 # 插入换行符 ///
+│       │   └── registerLineBreakCommand()        # 注册换行命令
 │       ├── customCommandHighlight.js       # 自定义命令高亮模块
 │       │   ├── buildGrammarPattern()             # 构建正则模式（大小写不敏感）
 │       │   ├── createInjectionGrammar()          # 创建注入语法
@@ -94,6 +97,21 @@ stata-all-in-one/
 - `toggleComment()`: 快速切换行注释或块注释
 - 支持多种注释风格：`//`, `*`, `/* ... */`
 - 跟随用户配置进行切换
+
+#### lineBreak.js
+
+**职责**: 处理 Stata 代码换行
+
+- `insertLineBreak()`: 在光标位置插入 Stata 换行符 `///`
+- 自动格式化：确保 `///` 前只有一个空格
+- 智能缩进：第一次换行增加4个空格，后续换行保持相同缩进
+- 快捷键：`Shift+Enter`
+
+**工作原理**：
+1. 检测是否在续行块中（查找前面的行是否有 `///`）
+2. 第一次换行：基础缩进 + 4空格
+3. 后续换行：保持当前缩进级别
+4. 自动移除多余空格并格式化
 
 #### customCommandHighlight.js
 

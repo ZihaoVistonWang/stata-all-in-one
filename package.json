@@ -2,7 +2,7 @@
   "name": "stata-all-in-one",
   "displayName": "Stata All in One",
   "description": "Supercharge your Stata workflow in VS Code. An enhanced version of `Stata Outline` with advanced syntax highlighting, code navigation (Outline), and seamless script execution. All your Stata needs in one place.",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "publisher": "ZihaoVistonWang",
   "icon": "img/icon.png",
   "keywords": [
@@ -193,6 +193,10 @@
         "title": "Show Help for Selected Command"
       },
       {
+        "command": "stata-all-in-one.insertLineBreak",
+        "title": "Insert Stata Line Break"
+      },
+      {
         "command": "stata-all-in-one.debugResetMigrationPrompt",
         "title": "Stata All in One: Debug Reset Migration Prompt"
       }
@@ -280,6 +284,12 @@
         "command": "stata-all-in-one.showHelp",
         "key": "ctrl+shift+h",
         "mac": "cmd+shift+h",
+        "when": "editorTextFocus && editorLangId == stata"
+      },
+      {
+        "command": "stata-all-in-one.insertLineBreak",
+        "key": "shift+enter",
+        "mac": "shift+enter",
         "when": "editorTextFocus && editorLangId == stata"
       }
     ],
