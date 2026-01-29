@@ -99,6 +99,11 @@ const getStataStepDelayOnWindows = () => {
     return Math.floor(delay);
 };
 
+/**
+ * Get separatorSymmetric setting
+ */
+const getSeparatorSymmetric = () => getConfigValue('separatorSymmetric', true);
+
 module.exports = {
     CONFIG_NAMESPACE,
     getConfig,
@@ -113,5 +118,6 @@ module.exports = {
     getStataPathOnWindows: getStataPathOnWindows,
     getCustomCommands,
     getEnableCompletion,
-    getStataStepDelayOnWindows
+    getStataStepDelayOnWindows,
+    getSeparatorSymmetric
 };
