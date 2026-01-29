@@ -1,12 +1,11 @@
-/**
- * Configuration management for Stata All in One extension
- * 配置管理模块
- */
-
 const vscode = require('vscode');
 
 const CONFIG_NAMESPACE = 'stata-all-in-one';
 
+/**
+ * Configuration management for Stata All in One extension
+ * 配置管理模块
+ */
 /**
  * Get configuration object
  */
@@ -84,11 +83,6 @@ const getCustomCommands = () => {
 const getStataPathOnWindows = () => getConfigValue('stataPathOnWindows', '');
 
 /**
- * Get enableCompletion setting
- */
-const getEnableCompletion = () => getConfigValue('enableCompletion', true);
-
-/**
  * Get step delay setting for Windows commands (in milliseconds)
  */
 const getStataStepDelayOnWindows = () => {
@@ -117,7 +111,6 @@ module.exports = {
     getSeparatorLength,
     getStataPathOnWindows: getStataPathOnWindows,
     getCustomCommands,
-    getEnableCompletion,
     getStataStepDelayOnWindows,
     getSeparatorSymmetric
 };

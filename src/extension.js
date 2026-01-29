@@ -232,14 +232,9 @@ function activate(context) {
     // Register custom command highlighting (native injection grammar)
     registerCustomCommandHighlight(context);
 
-    // Register completion provider for Stata commands and functions (if enabled)
-    const { getEnableCompletion } = require('./utils/config');
-    if (getEnableCompletion()) {
-        registerCompletionProvider(context);
-        console.log('Stata All in One: Code completion provider registered');
-    } else {
-        console.log('Stata All in One: Code completion provider disabled');
-    }
+    // Register completion provider for Stata commands and functions
+    registerCompletionProvider(context);
+    console.log('Stata All in One: Code completion provider registered');
 
     // Register run code command
     registerRunCommand(context);

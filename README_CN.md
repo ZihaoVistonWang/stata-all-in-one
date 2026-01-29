@@ -114,7 +114,7 @@ Stata All in One
 
 在 VS Code 设置中搜索 "Stata All in One"，配置以下选项：
 
-### 语法高亮
+### 语法高亮和代码提示
 
 1. **自定义命令高亮** (`stata-all-in-one.customCommands`)
 
@@ -161,6 +161,10 @@ Stata All in One
 10. **分隔线长度** (`stata-all-in-one.separatorLength`)
 
    - 分割线所在行的字符总长度（包括前缀 '** #' 和分隔符）。默认值：`60`
+11. **分隔线对称性** (`stata-all-in-one.separatorSymmetric`)
+
+   - `true`：在分割线末尾添加 ` **` 以保证视觉对称（例如 `** === 标题 === **`）。
+   - `false`（默认）：分割线不添加末尾后缀。
 
 > **注意**：修改设置后需重新打开 `.do` 文件生效。禁用 `numberingAdd` 时，文件中现有序号将被自动移除。
 

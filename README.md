@@ -83,6 +83,7 @@ Stata All in One
    - **Quick Help**: For example, select `regress` and press the shortcut key `Ctrl/Cmd + Shift + H` to open Stata's `regress` help page.
 
 <a id="line-break"></a>
+
 3. Smart Line Break (Stata Line Break)
    - **One-Key Line Break**: Use `Shift+Enter` to insert Stata line continuation symbol `///` at the cursor position.
    - **Smart Indentation**: Automatically indent by 4 spaces
@@ -115,7 +116,7 @@ Click [here](SHORTCUT.md) to view the complete list of keyboard shortcuts.
 
 Search for "Stata All in One" in VS Code settings and configure:
 
-### Syntax Highlighting
+### Syntax Highlighting and Code Hints
 
 1. **Custom Command Highlighting** (`stata-all-in-one.customCommands`)
 
@@ -163,6 +164,10 @@ Search for "Stata All in One" in VS Code settings and configure:
 10. **Separator Length** (`stata-all-in-one.separatorLength`)
 
    - Total character length of the separator line (including the '** #' prefix and separators). Default: `60`
+11. **Separator Symmetric** (`stata-all-in-one.separatorSymmetric`)
+
+   - `true`: Add ` **` at the end of separator lines to ensure visual symmetry (e.g., `** === title === **`).
+   - `false` (default): Separator lines without the suffix.
 
 > **Note**: Changes take effect after reopening `.do` files. When `numberingAdd` is disabled, existing numbering in `.do` files will be automatically removed.
 

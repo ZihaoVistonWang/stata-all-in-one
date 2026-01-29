@@ -102,11 +102,6 @@
           ],
           "markdownDescription": "%config.customCommands.description%"
         },
-        "stata-all-in-one.enableCompletion": {
-          "type": "boolean",
-          "default": true,
-          "markdownDescription": "%config.enableCompletion.description%"
-        },
         "stata-all-in-one.separatorSymmetric": {
           "type": "boolean",
           "default": false,
