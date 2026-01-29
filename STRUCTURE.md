@@ -19,8 +19,15 @@ stata-all-in-one/
 │   │   │   └── 其他工具函数
 │   │   └── config.js                       # 配置管理
 │   │       ├── getnumberingShow()                # 获取是否显示序号
+│   │       ├── getnumberingAdd()                 # 获取是否自动添加序号
+│   │       ├── getShowRunButton()                # 获取是否显示运行按钮
+│   │       ├── getStataVersion()                 # 获取 macOS Stata 版本
+│   │       ├── getStataPathOnWindows()           # 获取 Windows Stata 路径
+│   │       ├── getStataStepDelayOnWindows()      # 获取 Windows 步骤延迟
+│   │       ├── getActivateStataWindow()          # 获取运行后是否激活 Stata
 │   │       ├── getCommentStyle()                 # 获取注释风格
 │   │       ├── getSeparatorLength()              # 获取分隔符长度
+│   │       ├── getSeparatorSymmetric()           # 获取分隔线对称设置
 │   │       ├── getCustomCommands()               # 获取自定义命令
 │   │       └── 其他配置getter
 │   └── modules/                    # 功能模块
@@ -29,6 +36,7 @@ stata-all-in-one/
 │       │   └── createDocumentSymbolProvider()    # 提供大纲符号
 │       ├── separator.js                    # 分隔线模块
 │       │   ├── insertSeparator()                 # 插入分隔线
+│       │   ├── updateAllSeparators()             # 批量更新分隔线（对称性）
 │       │   └── registerSeparatorCommands()       # 注册分隔线命令
 │       ├── comment.js                      # 注释模块
 │       │   ├── toggleComment()                   # 切换注释
@@ -90,6 +98,7 @@ stata-all-in-one/
 **职责**: 管理分隔线插入和管理
 
 - `insertSeparator()`: 插入分隔线（支持独立行或标题修饰）
+- `updateAllSeparators()`: 根据对称设置批量更新分隔线
 - 支持多种符号：`-`, `=`, `*`，以及自定义符号
 - 智能判断插入位置（上方/下方）
 
@@ -146,7 +155,7 @@ stata-all-in-one/
 
 - 实现VS Code的CompletionItemProvider接口
 - 支持命令补全、函数补全
-- 跟随用户配置开启/关闭
+- 默认启用，无需配置开关
 
 #### helpCommand.js
 
