@@ -10,6 +10,10 @@ const { getUserLanguage } = require('../utils/common');
 // Update changelog: version -> changelog text
 const CHANGELOG = {
     en: {
+        '0.2.6': {
+            ver_info: '✨ Stata All in One (0.2.6): macOS Stata auto-detection (Stata 19+), separator symmetric setting with bulk update, and help shortcut set to `Ctrl/Cmd+Shift+H`.',
+            more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one#separatorSymmetric'
+        },
         '0.2.5': {
             ver_info: '✨ Stata All in One (0.2.5): Smart Line Break - New smart line break feature (Shift+Enter) with auto-indentation and formatting for Stata code.',
             more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one#line-break'
@@ -20,6 +24,10 @@ const CHANGELOG = {
         }
     },
     zh: {
+        '0.2.6': {
+            ver_info: '✨ Stata All in One (0.2.6)：macOS 版 Stata 自动检测（支持 Stata 19+），新增分隔线“对称”配置与批量更新命令，帮助快捷键改为 `Ctrl/Cmd+Shift+H`。',
+            more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one#separatorSymmetric'
+        },
         '0.2.5': {
             ver_info: '✨ Stata All in One (0.2.5)：智能换行 - 新增智能换行功能（Shift+Enter），支持 Stata 代码自动缩进和格式化。',
             more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one#line-break'

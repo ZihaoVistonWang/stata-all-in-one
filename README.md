@@ -13,7 +13,7 @@ Stata All in One
 </p>
 
 <p align="center">
-   | <b>Version:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.2.5</a> | <b>Author:</b> <a href="https://zihaowang.cn">Zihao Viston Wang</a> | <b>Translate:</b>
+   | <b>Version:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.2.6</a> | <b>Author:</b> <a href="https://zihaowang.cn">Zihao Viston Wang</a> | <b>Translate:</b>
   <a href="README_CN.md">中文版本</a> |
 </p>
 
@@ -164,6 +164,9 @@ Search for "Stata All in One" in VS Code settings and configure:
 10. **Separator Length** (`stata-all-in-one.separatorLength`)
 
    - Total character length of the separator line (including the '** #' prefix and separators). Default: `60`
+
+<a id="separatorSymmetric"></a>
+
 11. **Separator Symmetric** (`stata-all-in-one.separatorSymmetric`)
 
    - `true`: Add ` **` at the end of separator lines to ensure visual symmetry (e.g., `** === title === **`).
@@ -177,6 +180,7 @@ Search for "Stata All in One" in VS Code settings and configure:
 
 | Version     | Changes                                                                                                       | Release Date |
 | ----------- | ------------------------------------------------------------------------------------------------------------- | ------------ |
+| 0.2.6       | macOS Stata auto-detection (Stata 19+); separator symmetric setting with bulk update command; help shortcut set to Ctrl/Cmd+Shift+H | 2026-01-30   |
 | 0.2.5       | Added smart line break feature (Shift+Enter) with auto-indentation and formatting for Stata code              | 2026-01-28   |
 | 0.2.4       | Added Stata help functionality; fixed some known issues                                                       | 2026-01-28   |
 | 0.2.3       | Integrated Stata Enhanced syntax highlighting; migration prompt and auto-migrated settings from Stata Outline | 2026-01-27   |
