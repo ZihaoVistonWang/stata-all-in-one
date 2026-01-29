@@ -13,6 +13,8 @@ const { registerCompletionProvider } = require('./modules/completionProvider');
 const { registerHelpCommand } = require('./modules/helpCommand');
 const { registerLineBreakCommand } = require('./modules/lineBreak');
 const { registerUpdateCheck } = require('./modules/updateNotification');
+const { findStataApp } = require('./modules/runCode/mac');
+const { isMacOS, showInfo, showWarn, msg } = require('./utils/common');
 
 const MIGRATION_MESSAGES = {
     en: {
@@ -41,6 +43,8 @@ const CONFIG_MAPPING = [
     { old: 'stata-outline.commentStyle', fresh: 'stata-all-in-one.commentStyle' },
     { old: 'stata-outline.separatorLength', fresh: 'stata-all-in-one.separatorLength' }
 ];
+
+const MAC_AUTO_DETECT_KEY = 'stata-all-in-one.macAutoDetectDone';
 
 function getUserLanguage() {
     const lang = (vscode.env.language || '').toLowerCase();
@@ -202,6 +206,39 @@ function activate(context) {
     // Check for updates and show notification
     registerUpdateCheck(context);
 
+    // Auto-detect Stata on macOS (one-time reset, then only when empty)
+    if (isMacOS()) {
+        const config = vscode.workspace.getConfiguration('stata-all-in-one');
+        const currentVersion = config.get('stataVersionOnMacOS');
+        const autoDetectDone = context.globalState.get(MAC_AUTO_DETECT_KEY, false);
+        const shouldAutoDetect = !autoDetectDone || !currentVersion || currentVersion.trim() === '';
+
+        if (shouldAutoDetect) {
+            console.log('Stata All in One: Attempting auto-detection of Stata on macOS');
+            const autoFound = findStataApp('');
+
+            if (autoFound.path && autoFound.name) {
+                config.update('stataVersionOnMacOS', autoFound.name, vscode.ConfigurationTarget.Global)
+                    .then(() => {
+                        console.log(`Stata All in One: Auto-detected and saved ${autoFound.name}`);
+                        showInfo(msg('autoDetectedStata', { appName: autoFound.name, appPath: autoFound.path }));
+                    }, (err) => {
+                        console.error('Stata All in One: Failed to save auto-detected config:', err);
+                    })
+                    .then(() => context.globalState.update(MAC_AUTO_DETECT_KEY, true));
+            } else {
+                const installedList = (autoFound.installed && autoFound.installed.length > 0)
+                    ? autoFound.installed.join(', ')
+                    : 'none detected';
+                console.log('Stata All in One: No Stata installation detected on macOS');
+                showWarn(msg('noStataInstalled', { installedList }));
+                context.globalState.update(MAC_AUTO_DETECT_KEY, true);
+            }
+        } else {
+            console.log(`Stata All in One: Stata version already configured: ${currentVersion}`);
+        }
+    }
+
     // Register heading level commands
     const headingCommands = [
         { id: 'stata-all-in-one.setLevel1', level: 1 },
@@ -250,6 +287,26 @@ function activate(context) {
             provider
         )
     );
+
+    // Register reset Stata version on macOS command
+    const resetMacVersionCommand = vscode.commands.registerCommand(
+        'stata-all-in-one.resetStataVersionOnMacOS',
+        async () => {
+            if (!isMacOS()) {
+                showWarn(msg('macOnlyCommand'));
+                return;
+            }
+
+            await vscode.workspace.getConfiguration('stata-all-in-one').update(
+                'stataVersionOnMacOS',
+                '',
+                vscode.ConfigurationTarget.Global
+            );
+            await context.globalState.update(MAC_AUTO_DETECT_KEY, false);
+            showInfo(msg('macVersionReset'));
+        }
+    );
+    context.subscriptions.push(resetMacVersionCommand);
 
     // Register debug reset migration prompt command
     const resetPromptCommand = vscode.commands.registerCommand(

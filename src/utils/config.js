@@ -37,7 +37,7 @@ const getShowRunButton = () => getConfigValue('showRunButton', false);
 /**
  * Get stataVersion setting
  */
-const getStataVersion = () => getConfigValue('stataVersion', 'StataMP');
+const getStataVersion = () => getConfigValue('stataVersionOnMacOS', 'StataMP');
 
 /**
  * Get activateStataWindow setting
