@@ -80,7 +80,7 @@ Stata All in One
 
 2. Built-in Help (Stata Help)
 
-   - **Quick Help**: For example, select `regress` and press the shortcut key `Ctrl/Cmd + H` to open Stata's `regress` help page.
+   - **Quick Help**: For example, select `regress` and press the shortcut key `Ctrl/Cmd + Shift + H` to open Stata's `regress` help page.
 
 <a id="line-break"></a>
 3. Smart Line Break (Stata Line Break)
