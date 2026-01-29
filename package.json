@@ -2,7 +2,7 @@
   "name": "stata-all-in-one",
   "displayName": "Stata All in One",
   "description": "Supercharge your Stata workflow in VS Code. An enhanced version of `Stata Outline` with advanced Syntax Highlighting + Code Hints + Smart Outline + Code Execution + Quick Editing. All your Stata needs in one place.",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "publisher": "ZihaoVistonWang",
   "icon": "img/icon.png",
   "keywords": [
@@ -141,64 +141,68 @@
     "commands": [
       {
         "command": "stata-all-in-one.setLevel1",
-        "title": "Set as Level 1 Heading"
+        "title": "Stata All in One: Set as Level 1 Heading"
       },
       {
         "command": "stata-all-in-one.setLevel2",
-        "title": "Set as Level 2 Heading"
+        "title": "Stata All in One: Set as Level 2 Heading"
       },
       {
         "command": "stata-all-in-one.setLevel3",
-        "title": "Set as Level 3 Heading"
+        "title": "Stata All in One: Set as Level 3 Heading"
       },
       {
         "command": "stata-all-in-one.setLevel4",
-        "title": "Set as Level 4 Heading"
+        "title": "Stata All in One: Set as Level 4 Heading"
       },
       {
         "command": "stata-all-in-one.setLevel5",
-        "title": "Set as Level 5 Heading"
+        "title": "Stata All in One: Set as Level 5 Heading"
       },
       {
         "command": "stata-all-in-one.setLevel6",
-        "title": "Set as Level 6 Heading"
+        "title": "Stata All in One: Set as Level 6 Heading"
       },
       {
         "command": "stata-all-in-one.clearHeading",
-        "title": "Clear Heading"
+        "title": "Stata All in One: Clear Heading"
       },
       {
         "command": "stata-all-in-one.runSection",
-        "title": "Run Current Section",
+        "title": "Stata All in One: Run Current Section",
         "icon": "$(play)"
       },
       {
         "command": "stata-all-in-one.insertCustomSeparator",
-        "title": "Insert Custom Separator"
+        "title": "Stata All in One: Insert Custom Separator"
       },
       {
         "command": "stata-all-in-one.insertSeparatorDash",
-        "title": "Insert Dash Separator"
+        "title": "Stata All in One: Insert Dash Separator"
       },
       {
         "command": "stata-all-in-one.insertSeparatorEqual",
-        "title": "Insert Equal Separator"
+        "title": "Stata All in One: Insert Equal Separator"
       },
       {
         "command": "stata-all-in-one.insertSeparatorStar",
-        "title": "Insert Star Separator"
+        "title": "Stata All in One: Insert Star Separator"
       },
       {
         "command": "stata-all-in-one.updateAllSeparators",
-        "title": "Update All Separators"
+        "title": "Stata All in One: Update All Separators"
       },
       {
         "command": "stata-all-in-one.showHelp",
-        "title": "Show Help for Selected Command"
+        "title": "Stata All in One: Show Help for Selected Command"
       },
       {
         "command": "stata-all-in-one.insertLineBreak",
-        "title": "Insert Stata Line Break"
+        "title": "Stata All in One: Insert Stata Line Break"
+      },
+      {
+        "command": "stata-all-in-one.resetStataVersionOnMacOS",
+        "title": "Stata All in One: Reset Stata Version on macOS"
       },
       {
         "command": "stata-all-in-one.debugResetMigrationPrompt",

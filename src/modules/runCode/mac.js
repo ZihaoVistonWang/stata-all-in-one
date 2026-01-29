@@ -7,7 +7,8 @@
 const { exec } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const { showError, msg } = require('../../utils/common');
+const vscode = require('vscode');
+const { showError, showInfo, msg } = require('../../utils/common');
 const config = require('../../utils/config');
 
 /**
@@ -17,7 +18,8 @@ function findStataApp(preferredName) {
     const checkPaths = (appName) => {
         const candidates = [
             `/Applications/${appName}.app`,
-            `/Applications/Stata/${appName}.app`
+            `/Applications/Stata/${appName}.app`,
+            `/Applications/StataNow/${appName}.app`
         ];
         for (const p of candidates) {
             if (fs.existsSync(p)) {
@@ -25,6 +27,52 @@ function findStataApp(preferredName) {
             }
         }
         return null;
+    };
+
+    const scanForStataApps = () => {
+        const baseDirs = ['/Applications', '/Applications/Stata', '/Applications/StataNow'];
+        const apps = [];
+        const seen = new Set();
+
+        for (const dir of baseDirs) {
+            try {
+                if (!fs.existsSync(dir)) {
+                    continue;
+                }
+                const entries = fs.readdirSync(dir, { withFileTypes: true });
+                for (const entry of entries) {
+                    if (!entry.isDirectory() || !entry.name.endsWith('.app')) {
+                        continue;
+                    }
+                    const appName = entry.name.slice(0, -4);
+                    if (!/stata/i.test(appName)) {
+                        continue;
+                    }
+                    const appPath = path.join(dir, entry.name);
+                    const key = `${appName}@@${appPath}`;
+                    if (!seen.has(key)) {
+                        seen.add(key);
+                        apps.push({ name: appName, path: appPath });
+                    }
+                }
+            } catch (e) {
+                // Ignore directory read errors
+            }
+        }
+
+        const preferredOrder = ['StataMP', 'StataSE', 'StataIC', 'Stata'];
+        apps.sort((a, b) => {
+            const aIdx = preferredOrder.findIndex(p => a.name === p);
+            const bIdx = preferredOrder.findIndex(p => b.name === p);
+            const aScore = aIdx === -1 ? Number.MAX_SAFE_INTEGER : aIdx;
+            const bScore = bIdx === -1 ? Number.MAX_SAFE_INTEGER : bIdx;
+            if (aScore !== bScore) {
+                return aScore - bScore;
+            }
+            return a.name.localeCompare(b.name);
+        });
+
+        return apps;
     };
 
     const orderedNames = Array.from(new Set([
@@ -38,6 +86,7 @@ function findStataApp(preferredName) {
     const installed = [];
     let chosenName = null;
     let chosenPath = null;
+    let autoDetected = false;
 
     for (const name of orderedNames) {
         const p = checkPaths(name);
@@ -50,7 +99,17 @@ function findStataApp(preferredName) {
         }
     }
 
-    return { name: chosenName, path: chosenPath, installed };
+    if (!chosenPath) {
+        const autoCandidates = scanForStataApps();
+        if (autoCandidates.length > 0) {
+            autoDetected = true;
+            chosenName = autoCandidates[0].name;
+            chosenPath = autoCandidates[0].path;
+            autoCandidates.forEach(app => installed.push(app.name));
+        }
+    }
+
+    return { name: chosenName, path: chosenPath, installed: Array.from(new Set(installed)), autoDetected };
 }
 
 /**
@@ -72,6 +131,8 @@ function runOnMac(codeToRun, tmpFilePath, isHelpCommand = false) {
         return;
     }
 
+    // Only show notification if auto-detected in this session (not saved yet)
+    // Auto-detection should have saved config in index.js already
     const appName = foundApp.name;
     const appPath = foundApp.path;
 
@@ -108,5 +169,6 @@ function runOnMac(codeToRun, tmpFilePath, isHelpCommand = false) {
 }
 
 module.exports = {
-    runOnMac
+    runOnMac,
+    findStataApp
 };
