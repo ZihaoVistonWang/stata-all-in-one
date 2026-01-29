@@ -11,7 +11,7 @@ This document provides a list of keyboard shortcuts available in the "Stata All 
 | Shortcut / 快捷键                                     | Action / 操作                                                  |
 |-------------------------------------------------------|----------------------------------------------------------------|
 | `Ctrl/Cmd + 1-6`                                      | Convert to Header Level 1-6 / 转换为标题级别1-6                |
-| `Ctrl/Cmd + 0`                                        | Convert to Normal Text from Header / 将标题转换为普通文本                         |
+| `Ctrl/Cmd + 0`                                        | Convert to Normal Text from Header / 将标题转换为普通文本      |
 | `Ctrl/Cmd + D`                                        | Run Selected Code or Current Section / 运行选中代码或当前节    |
 | `Ctrl/Cmd + -`                                        | Insert Dash Separator / 插入破折号分隔符                       |
 | `Ctrl/Cmd + =`                                        | Insert Equal Separator / 插入等号分隔符                        |
@@ -19,3 +19,4 @@ This document provides a list of keyboard shortcuts available in the "Stata All 
 | `Ctrl + Alt + S` (Windows) / `Ctrl + Cmd + S` (macOS) | Insert Custom Separator / 插入自定义分隔符                     |
 | `Ctrl/Cmd + /`                                        | Toggle Line Comment / 切换行注释                               |
 | `Ctrl/Cmd + Shift + H`                                | Open Stata Help for Selected Command / 打开选中命令的Stata帮助 |
+| `Shift + Enter`                                      | Insert Stata Line Break (///) / 插入Stata换行符 (///)          |

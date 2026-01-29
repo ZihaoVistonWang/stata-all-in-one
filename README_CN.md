@@ -80,7 +80,7 @@ Stata All in One
 
 2. 内置帮助（Stata Help）
 
-   - **快捷帮助**：例如：选中 `regress`，按下快捷键`Ctrl/Cmd + H`，即可打开 Stata 的 `regress` 帮助页面。
+   - **快捷帮助**：例如：选中 `regress`，按下快捷键`Ctrl/Cmd + Shift + H`，即可打开 Stata 的 `regress` 帮助页面。
 
 <a id="line-break"></a>
 
