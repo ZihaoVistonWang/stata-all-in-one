@@ -13,7 +13,7 @@ Stata All in One
 </p>
 
 <p align="center">
-  | <b>版本:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.2.5</a> | <b>作者:</b> <a href="https://zihaowang.cn">王梓豪</a> | <b>翻译:</b>
+  | <b>版本:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.2.6</a> | <b>作者:</b> <a href="https://zihaowang.cn">王梓豪</a> | <b>翻译:</b>
   <a href="README.md">English Version</a> |
 </p>
 
@@ -161,6 +161,9 @@ Stata All in One
 10. **分隔线长度** (`stata-all-in-one.separatorLength`)
 
    - 分割线所在行的字符总长度（包括前缀 '** #' 和分隔符）。默认值：`60`
+
+<a id="separatorSymmetric"></a>
+
 11. **分隔线对称性** (`stata-all-in-one.separatorSymmetric`)
 
    - `true`：在分割线末尾添加 ` **` 以保证视觉对称（例如 `** === 标题 === **`）。
@@ -174,6 +177,7 @@ Stata All in One
 
 | 版本        | 更新内容                                                                        | 发布日期   |
 |-------------|---------------------------------------------------------------------------------|------------|
+| 0.2.6       | macOS 版 Stata 自动检测（支持 Stata 19+）；新增分隔线“对称”配置与批量更新命令；帮助快捷键改为 Ctrl/Cmd+Shift+H | 2026-01-30 |
 | 0.2.5       | 新增智能换行功能（Shift+Enter），支持 Stata 代码自动缩进和格式化                | 2026-01-28 |
 | 0.2.4       | 添加了stata帮助功能；修复了一些已知问题                                         | 2026-01-28 |
 | 0.2.3       | 集成 Stata Enhanced 语法高亮；添加迁移提示以及来自 Stata Outline 的自动迁移设置 | 2026-01-27 |
