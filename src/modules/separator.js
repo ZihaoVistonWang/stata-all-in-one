@@ -22,8 +22,8 @@ function insertSeparator(char) {
     const totalLength = config.getSeparatorLength();
     const effectiveTotalLength = hasNonAsciiCodePoint(char) ? Math.max(10, Math.floor(totalLength * 2 / 3)) : totalLength;
 
-    // Check if selection is within a single heading line
-    if (selection.start.line === selection.end.line) {
+    // Check if selection is within a single heading line AND has selected text
+    if (selection.start.line === selection.end.line && !selection.isEmpty) {
         const line = document.lineAt(selection.start.line);
         const text = line.text;
         const headingMatch = /^\*\*\s*(#+)\s*(.*)$/.exec(text.trim());

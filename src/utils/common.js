@@ -10,7 +10,7 @@ const EXT_LABEL = 'Stata All in One';
 const UI_TEXT = {
     en: {
         lineTooLong: 'Line would be too long. Increase separator length setting.',
-        sepHere: 'Separator already present here.',
+        sepHere: 'Separator already present between the upper and lower lines.',
         sepAboveBelow: 'Separator already present above and below.',
         oneChar: 'Please enter exactly one character.',
         controlChars: 'Control characters are not supported.',
@@ -36,7 +36,7 @@ const UI_TEXT = {
     },
     zh: {
         lineTooLong: '行长度不足，请在设置中增大分隔线长度。',
-        sepHere: '此处已存在分隔线。',
+        sepHere: '上下行已存在分隔线。',
         sepAboveBelow: '上下都有分隔线，无需重复插入。',
         oneChar: '请只输入一个字符。',
         controlChars: '不支持控制字符。',

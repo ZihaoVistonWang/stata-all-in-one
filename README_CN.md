@@ -83,6 +83,7 @@ Stata All in One
    - **快捷帮助**：例如：选中 `regress`，按下快捷键`Ctrl/Cmd + H`，即可打开 Stata 的 `regress` 帮助页面。
 
 <a id="line-break"></a>
+
 3. 智能换行（Stata Line Break）
    - **一键换行**：使用 `Shift+Enter` 在光标位置插入 Stata 换行符 `///`。
    - **智能缩进**：自动缩进 4 个空格
