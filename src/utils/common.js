@@ -116,15 +116,22 @@ const stripSurroundingQuotes = (p) => {
 /**
  * Remove decorative separators from a title
  * Supports formats: `pattern ... text ... pattern` or `pattern text pattern`
+ * Also handles trailing ' **' suffix for symmetric separators
  * Returns extracted title, or original if no decorators found
  */
 function removeSeparators(title) {
     if (!title || title.length === 0) return title;
     
-    const cps = Array.from(title);
+    // Remove trailing ' **' if present (symmetric separator suffix)
+    let workingTitle = title;
+    if (workingTitle.endsWith(' **')) {
+        workingTitle = workingTitle.slice(0, -3).trim();
+    }
+    
+    const cps = Array.from(workingTitle);
     const len = cps.length;
     
-    if (len < 7) return title;
+    if (len < 7) return workingTitle;
     
     // Try single character patterns (most common)
     for (let charLen = 1; charLen <= 6; charLen++) {
@@ -178,7 +185,7 @@ function removeSeparators(title) {
     }
     
     // Fallback: handle string patterns
-    const str = title.trim();
+    const str = workingTitle.trim();
     for (let i = 1; i <= Math.floor(str.length / 3); i++) {
         const pattern = str.substring(0, i);
         if (str.startsWith(pattern) && str.endsWith(pattern)) {
@@ -191,7 +198,7 @@ function removeSeparators(title) {
         }
     }
     
-    return title;
+    return workingTitle;
 }
 
 /**
@@ -206,33 +213,54 @@ const extractCenterText = (title) => removeSeparators(title);
  */
 function isSeparatorLine(lineText) {
     const trimmed = lineText.trim();
-    if (!trimmed.startsWith('** ')) {
+    // Check if starts with '**' (with or without space before #)
+    if (!trimmed.startsWith('**')) {
         return false;
     }
-    const body = trimmed.slice(3);
+    
+    // Extract body after '**' prefix
+    let body = trimmed.slice(2).trimStart();
+    if (!body) {
+        return false;
+    }
+    
+    // Remove trailing ' **' if present
+    if (body.endsWith(' **')) {
+        body = body.slice(0, -3).trim();
+    }
     if (!body) {
         return false;
     }
 
-    const cps = Array.from(body);
-    if (cps.length < 3) {
-        return false;
+    // Check for consecutive repeated characters (excluding # and spaces)
+    // A separator line has at least 3 consecutive same characters
+    let maxConsecutive = 0;
+    let currentChar = '';
+    let currentCount = 0;
+
+    for (const char of body) {
+        // Skip # and spaces when checking for patterns
+        if (char === '#' || char === ' ') {
+            if (currentCount > maxConsecutive) {
+                maxConsecutive = currentCount;
+            }
+            currentCount = 0;
+            currentChar = '';
+        } else if (char === currentChar) {
+            currentCount++;
+        } else {
+            if (currentCount > maxConsecutive) {
+                maxConsecutive = currentCount;
+            }
+            currentChar = char;
+            currentCount = 1;
+        }
+    }
+    if (currentCount > maxConsecutive) {
+        maxConsecutive = currentCount;
     }
 
-    for (let k = 1; k <= Math.min(6, cps.length); k++) {
-        const unit = cps.slice(0, k);
-        let ok = true;
-        for (let i = 0; i < cps.length; i++) {
-            if (cps[i] !== unit[i % k]) {
-                ok = false;
-                break;
-            }
-        }
-        if (ok) {
-            return true;
-        }
-    }
-    return false;
+    return maxConsecutive >= 3;
 }
 
 /**
