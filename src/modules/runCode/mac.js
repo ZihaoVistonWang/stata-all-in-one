@@ -43,7 +43,7 @@ function findStataApp(preferredName) {
     }
 
     // Sort by preferred order
-    const preferredOrder = ['StataMP', 'StataSE', 'StataIC', 'Stata'];
+    const preferredOrder = ['StataMP', 'StataSE', 'StataIC', 'StataBE', 'Stata'];
     apps.sort((a, b) => {
         const aIdx = preferredOrder.indexOf(a.name);
         const bIdx = preferredOrder.indexOf(b.name);
