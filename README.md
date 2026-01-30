@@ -13,8 +13,8 @@ Stata All in One
 </p>
 
 <p align="center">
-   | <b>Version:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.2.6</a> | <b>Author:</b> <a href="https://zihaowang.cn">Zihao Viston Wang</a> | <b>Translate:</b>
-  <a href="README_CN.md">中文版本</a> |
+   | <b>Version:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.2.6</a> | <b>Author:</b> <a href="https://zihaowang.cn">Zihao Viston Wang</a> | <b>翻译:</b>
+  <a href="https://gitee.com/ZihaoVistonWang/stata-all-in-one">中文版本</a> |
 </p>
 
 ---
@@ -54,7 +54,7 @@ Stata All in One
 - **Platform Support**: Seamlessly integrates with Stata on both **macOS** and **Windows** without requiring additional extensions.
 - **Multi-Scenario Execution Strategies**:
   - **Smart Current Section Run**: When **no code is selected**, clicking the ▶️ button in the editor title bar or Outline view header, or pressing `Ctrl/Cmd + D`, will automatically detect the current section range and execute all code from the current header to (but not including) the next header of the same or higher level.
-  - **Precision Selection Run**: Press `Ctrl/Cmd + D` to execute the selected code block. Supports **fuzzy selection** - even if you haven't fully covered entire lines, the extension will automatically match and execute the complete selected lines.
+  - **Precision Selection Run**: Clicking the ▶️ button or pressing `Ctrl/Cmd + D` to execute the selected code block. Supports **fuzzy selection** - even if you haven't fully covered entire lines, the extension will automatically match and execute the complete selected lines.
 - **⚠️ Note**
   - On Windows, code execution relies on PowerShell automation. If your machine is slow or occasionally misses keystrokes, consider increasing the step delay (setting `stata-all-in-one.stataStepDelayOnWindows`).
 

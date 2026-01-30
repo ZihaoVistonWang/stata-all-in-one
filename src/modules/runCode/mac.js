@@ -15,101 +15,64 @@ const config = require('../../utils/config');
  * Find available Stata application on macOS
  */
 function findStataApp(preferredName) {
-    const checkPaths = (appName) => {
-        const candidates = [
-            `/Applications/${appName}.app`,
-            `/Applications/Stata/${appName}.app`,
-            `/Applications/StataNow/${appName}.app`
-        ];
-        for (const p of candidates) {
-            if (fs.existsSync(p)) {
-                return p;
-            }
-        }
-        return null;
-    };
+    const baseDirs = ['/Applications', '/Applications/Stata', '/Applications/StataNow'];
+    const apps = [];
+    const seen = new Set();
 
-    const scanForStataApps = () => {
-        const baseDirs = ['/Applications', '/Applications/Stata', '/Applications/StataNow'];
-        const apps = [];
-        const seen = new Set();
-
-        for (const dir of baseDirs) {
-            try {
-                if (!fs.existsSync(dir)) {
-                    continue;
+    // Scan directories for Stata apps
+    for (const dir of baseDirs) {
+        try {
+            if (!fs.existsSync(dir)) continue;
+            
+            const entries = fs.readdirSync(dir, { withFileTypes: true });
+            for (const entry of entries) {
+                if (!entry.isDirectory() || !entry.name.endsWith('.app')) continue;
+                
+                const appName = entry.name.slice(0, -4);
+                if (!/stata/i.test(appName)) continue;
+                
+                const appPath = path.join(dir, entry.name);
+                if (!seen.has(appName)) {
+                    seen.add(appName);
+                    apps.push({ name: appName, path: appPath });
                 }
-                const entries = fs.readdirSync(dir, { withFileTypes: true });
-                for (const entry of entries) {
-                    if (!entry.isDirectory() || !entry.name.endsWith('.app')) {
-                        continue;
-                    }
-                    const appName = entry.name.slice(0, -4);
-                    if (!/stata/i.test(appName)) {
-                        continue;
-                    }
-                    const appPath = path.join(dir, entry.name);
-                    const key = `${appName}@@${appPath}`;
-                    if (!seen.has(key)) {
-                        seen.add(key);
-                        apps.push({ name: appName, path: appPath });
-                    }
-                }
-            } catch (e) {
-                // Ignore directory read errors
             }
-        }
-
-        const preferredOrder = ['StataMP', 'StataSE', 'StataIC', 'Stata'];
-        apps.sort((a, b) => {
-            const aIdx = preferredOrder.findIndex(p => a.name === p);
-            const bIdx = preferredOrder.findIndex(p => b.name === p);
-            const aScore = aIdx === -1 ? Number.MAX_SAFE_INTEGER : aIdx;
-            const bScore = bIdx === -1 ? Number.MAX_SAFE_INTEGER : bIdx;
-            if (aScore !== bScore) {
-                return aScore - bScore;
-            }
-            return a.name.localeCompare(b.name);
-        });
-
-        return apps;
-    };
-
-    const orderedNames = Array.from(new Set([
-        preferredName,
-        'StataMP',
-        'StataSE',
-        'StataIC',
-        'Stata'
-    ].filter(Boolean)));
-
-    const installed = [];
-    let chosenName = null;
-    let chosenPath = null;
-    let autoDetected = false;
-
-    for (const name of orderedNames) {
-        const p = checkPaths(name);
-        if (p) {
-            installed.push(name);
-            if (!chosenPath) {
-                chosenName = name;
-                chosenPath = p;
-            }
+        } catch (e) {
+            // Ignore directory read errors
         }
     }
 
-    if (!chosenPath) {
-        const autoCandidates = scanForStataApps();
-        if (autoCandidates.length > 0) {
-            autoDetected = true;
-            chosenName = autoCandidates[0].name;
-            chosenPath = autoCandidates[0].path;
-            autoCandidates.forEach(app => installed.push(app.name));
+    // Sort by preferred order
+    const preferredOrder = ['StataMP', 'StataSE', 'StataIC', 'Stata'];
+    apps.sort((a, b) => {
+        const aIdx = preferredOrder.indexOf(a.name);
+        const bIdx = preferredOrder.indexOf(b.name);
+        const aScore = aIdx === -1 ? Number.MAX_SAFE_INTEGER : aIdx;
+        const bScore = bIdx === -1 ? Number.MAX_SAFE_INTEGER : bIdx;
+        if (aScore !== bScore) return aScore - bScore;
+        return a.name.localeCompare(b.name);
+    });
+
+    const installed = apps.map(app => app.name);
+    
+    // Use user's preferred version if found, otherwise use first by priority
+    let chosen = { name: null, path: null };
+    if (preferredName) {
+        const preferred = apps.find(app => app.name === preferredName);
+        if (preferred) {
+            chosen = preferred;
+        } else if (apps.length > 0) {
+            chosen = apps[0];
         }
+    } else if (apps.length > 0) {
+        chosen = apps[0];
     }
 
-    return { name: chosenName, path: chosenPath, installed: Array.from(new Set(installed)), autoDetected };
+    return { 
+        name: chosen.name, 
+        path: chosen.path, 
+        installed 
+    };
 }
 
 /**
@@ -122,32 +85,47 @@ function runOnMac(codeToRun, tmpFilePath, isHelpCommand = false) {
     const stataVersion = config.getStataVersion();
     const activateStataWindow = config.getActivateStataWindow();
     
-    const foundApp = findStataApp(stataVersion);
-    if (!foundApp.path) {
-        const installedList = (foundApp.installed && foundApp.installed.length > 0)
-            ? foundApp.installed.join(', ')
-            : 'none detected';
-        showError(msg('noStataInstalled', { installedList }));
-        return;
+    let appName;
+
+    // Only scan if config is empty, otherwise use configured version
+    if (!stataVersion || stataVersion.trim() === '') {
+        const foundApp = findStataApp('');
+        if (!foundApp.name) {
+            const installedList = (foundApp.installed && foundApp.installed.length > 0)
+                ? foundApp.installed.join(', ')
+                : 'none detected';
+            showError(msg('noStataInstalled', { installedList }));
+            return;
+        }
+        appName = foundApp.name;
+    } else {
+        // Verify configured version exists
+        const candidates = [
+            `/Applications/${stataVersion}.app`,
+            `/Applications/Stata/${stataVersion}.app`,
+            `/Applications/StataNow/${stataVersion}.app`
+        ];
+        const exists = candidates.some(p => fs.existsSync(p));
+        if (!exists) {
+            showError(msg('stataNotFoundConfigured', { stataVersion }));
+            return;
+        }
+        appName = stataVersion;
     }
 
-    // Only show notification if auto-detected in this session (not saved yet)
-    // Auto-detection should have saved config in index.js already
-    const appName = foundApp.name;
-    const appPath = foundApp.path;
-
-    // Close all help windows first / 先关闭所有帮助窗口
-    let closeHelpCommand = `osascript -e 'tell application "System Events"' -e 'set helperWindows to (every window of application "${appName}" whose name contains "help")' -e 'repeat with w in helperWindows' -e 'close w' -e 'end repeat' -e 'end tell' 2>/dev/null || true`;
+    // Activate window first if needed, then close help windows and run code
+    // 先激活窗口（视觉反馈更快），再执行关闭帮助窗口和运行代码
+    let stataCommand = '';
     
-    let stataCommand = `${closeHelpCommand}; pgrep -x "${appName}" > /dev/null || (open -a "${appPath}" && while ! pgrep -x "${appName}" > /dev/null; do sleep 0.2; done && sleep 0.5); osascript -e 'tell application "${appName}" to DoCommand "do \\"${tmpFilePath}\\""'`;
-    
-    // For help commands, activate the help window specifically after a delay
-    // 对于帮助命令，延迟后专门激活帮助窗口
-    if (isHelpCommand) {
-        stataCommand += ` && sleep 0.2 && osascript -e 'tell application "System Events"' -e 'tell process "${appName}"' -e 'set helpWin to first window whose name contains "help"' -e 'set frontmost to true' -e 'perform action "AXRaise" of helpWin' -e 'end tell' -e 'end tell' 2>/dev/null || osascript -e 'tell application "${appName}" to activate'`;
-    } else if (activateStataWindow) {
-        stataCommand += ` -e 'tell application "${appName}" to activate'`;
+    if (isHelpCommand || activateStataWindow) {
+        stataCommand = `osascript -e 'tell application "${appName}" to activate' && `;
     }
+    
+    // Please uncomment the following line if you want to close all help windows before running code
+    // 如果需要先关闭帮助窗口，则将下面的命令取消注释
+    // stataCommand += `osascript -e 'tell application "${appName}" to DoCommandAsync "window manage close viewer _all"' && `;
+
+    stataCommand += `osascript -e 'tell application "${appName}" to DoCommandAsync "do \\"${tmpFilePath}\\""'`;
 
     exec(stataCommand, (error, stdout, stderr) => {
         // Clean up temporary file
