@@ -279,6 +279,15 @@ function activate(context) {
     // Register help command
     registerHelpCommand(context);
 
+    // Register bug report command
+    const reportBugCommand = vscode.commands.registerCommand(
+        'stata-all-in-one.reportBug',
+        () => {
+            showInfo(msg('reportBugInfo'));
+        }
+    );
+    context.subscriptions.push(reportBugCommand);
+
     // Register document symbol provider for outline view
     const provider = createDocumentSymbolProvider();
     context.subscriptions.push(
