@@ -10,6 +10,10 @@ const { getUserLanguage } = require('../utils/common');
 // Update changelog: version -> changelog text
 const CHANGELOG = {
     en: {
+        '0.2.7': {
+            ver_info: '✨ Stata All in One (0.2.7): Switch macOS runner to async AppleScript for faster start/execute, and add outline support for `program define` blocks.',
+            more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one#Changelog'
+        },
         '0.2.6': {
             ver_info: '✨ Stata All in One (0.2.6): macOS Stata auto-detection (Stata 19+), separator symmetric setting with bulk update, and help shortcut set to `Ctrl/Cmd+Shift+H`.',
             more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one#separatorSymmetric'
@@ -24,6 +28,10 @@ const CHANGELOG = {
         }
     },
     zh: {
+        '0.2.7': {
+            ver_info: '✨ Stata All in One (0.2.7)：mac 运行逻辑改为异步以提升启动与执行响应；大纲视图新增对 program define 代码块的识别。',
+            more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one#版本记录'
+        },
         '0.2.6': {
             ver_info: '✨ Stata All in One (0.2.6)：macOS 版 Stata 自动检测（支持 Stata 19+），新增分隔线“对称”配置与批量更新命令，帮助快捷键改为 `Ctrl/Cmd+Shift+H`。',
             more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one#separatorSymmetric'
