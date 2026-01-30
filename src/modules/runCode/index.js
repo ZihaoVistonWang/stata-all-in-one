@@ -163,7 +163,7 @@ async function runCurrentSection() {
     
     // Create temporary file
     const docDir = path.dirname(document.fileName);
-    const tmpFilePath = path.join(docDir, 'stata_outline_temp.do');
+    const tmpFilePath = path.join(docDir, 'stata_all_in_one_temp.do');
     
     try {
         fs.writeFileSync(tmpFilePath, codeToRun, 'utf8');

@@ -99,7 +99,7 @@ async function runHelpCommand() {
     // Create temporary file
     const document = editor.document;
     const docDir = path.dirname(document.fileName);
-    const tmpFilePath = path.join(docDir, 'stata_help_temp.do');
+    const tmpFilePath = path.join(docDir, 'stata_all_in_one_temp.do');
     
     try {
         fs.writeFileSync(tmpFilePath, helpCode, 'utf8');
