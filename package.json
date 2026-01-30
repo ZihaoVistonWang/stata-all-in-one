@@ -2,7 +2,7 @@
   "name": "stata-all-in-one",
   "displayName": "Stata All in One",
   "description": "Supercharge your Stata workflow in VS Code. An enhanced version of `Stata Outline` with advanced Syntax Highlighting + Code Hints + Smart Outline + Code Execution + Quick Editing. All your Stata needs in one place.",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "publisher": "ZihaoVistonWang",
   "icon": "img/icon.png",
   "keywords": [
@@ -173,6 +173,10 @@
         "icon": "$(play)"
       },
       {
+        "command": "stata-all-in-one.reportBug",
+        "title": "%command.reportBug.title%"
+      },
+      {
         "command": "stata-all-in-one.insertCustomSeparator",
         "title": "Stata All in One: Insert Custom Separator"
       },
@@ -308,9 +312,15 @@
     "menus": {
       "editor/title": [
         {
+          "command": "stata-all-in-one.reportBug",
+          "title": "%command.reportBug.short%",
+          "when": "editorLangId == stata",
+          "group": "navigation@0"
+        },
+        {
           "command": "stata-all-in-one.runSection",
           "when": "editorLangId == stata && config.stata-all-in-one.showRunButton",
-          "group": "navigation"
+          "group": "navigation@1"
         }
       ],
       "view/title": [

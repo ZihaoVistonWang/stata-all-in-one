@@ -13,7 +13,7 @@ Stata All in One
 </p>
 
 <p align="center">
-   | <b>Version:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.2.6</a> | <b>Author:</b> <a href="https://zihaowang.cn">Zihao Viston Wang</a> | <b>翻译:</b>
+   | <b>Version:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.2.7</a> | <b>Author:</b> <a href="https://zihaowang.cn">Zihao Viston Wang</a> | <b>翻译:</b>
   <a href="https://gitee.com/ZihaoVistonWang/stata-all-in-one">中文版本</a> |
 </p>
 
@@ -46,6 +46,7 @@ Stata All in One
   - *Setup: Click the "···" button in the top-right of the Outline view and check "Follow Cursor".*[^2]
 - **Multi-level Numbering**: Optional display of logical numbering (e.g., `1.1`, `1.2.1`) within the outline (must be enabled in settings).
 - **Auto-Sync Numbering**: When enabled, the extension automatically adds or removes numbering directly within the `.do` file based on the outline structure.
+- **`program define` Block Recognition**: Displays program names in the outline view for easy navigation and management of custom programs.
 
 [^2]: Sorry~ This is a VS Code GUI setting, I cannot control it through the extension.
 
@@ -178,18 +179,19 @@ Search for "Stata All in One" in VS Code settings and configure:
 
 ## Changelog
 
-| Version     | Changes                                                                                                       | Release Date |
-| ----------- | ------------------------------------------------------------------------------------------------------------- | ------------ |
-| 0.2.6       | macOS Stata auto-detection (Stata 19+); separator symmetric setting with bulk update command; help shortcut set to Ctrl/Cmd+Shift+H | 2026-01-30   |
-| 0.2.5       | Added smart line break feature (Shift+Enter) with auto-indentation and formatting for Stata code              | 2026-01-28   |
-| 0.2.4       | Added Stata help functionality; fixed some known issues                                                       | 2026-01-28   |
-| 0.2.3       | Integrated Stata Enhanced syntax highlighting; migration prompt and auto-migrated settings from Stata Outline | 2026-01-27   |
-| 0.2.2       | Windows native support for executing Stata code                                                               | 2026-01-27   |
-| 0.2.0-0.2.1 | macOS native support for executing Stata code; new divider line commands and shortcuts                        | 2026-01-25   |
-| 0.1.9       | Outline now follows cursor, highlighting corresponding sections in real-time                                  | 2026-01-24   |
-| 0.1.7-0.1.8 | Added toggle comments functionality with customizable comment styles                                          | 2026-01-22   |
-| 0.1.5-0.1.6 | Added "Run Current Section" feature                                                                           | 2026-01-12   |
-| 0.1.4       | Added multi-level numbering display and auto-update file content                                              | 2026-01-12   |
-| 0.1.3       | Fixed display issue with `**#` without spaces                                                               | 2025-12-30   |
-| 0.1.2       | Added keyboard shortcut functionality                                                                         | 2025-12-26   |
-| 0.1.0-0.1.1 | Initial release matching Stata bookmark style                                                                 | 2025-12-25   |
+| Version     | Changes                                                                                                                                                                                                            | Release Date |
+|-------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------|
+| 0.2.7       | Switch macOS runner to asynchronous AppleScript (DoCommandAsync) for faster startup and execution; add outline support to detect program define ... end blocks and list program names under their current section. | 2026-01-30   |
+| 0.2.6       | macOS Stata auto-detection (Stata 19+); separator symmetric setting with bulk update command; help shortcut set to Ctrl/Cmd+Shift+H                                                                                | 2026-01-30   |
+| 0.2.5       | Added smart line break feature (Shift+Enter) with auto-indentation and formatting for Stata code                                                                                                                   | 2026-01-28   |
+| 0.2.4       | Added Stata help functionality; fixed some known issues                                                                                                                                                            | 2026-01-28   |
+| 0.2.3       | Integrated Stata Enhanced syntax highlighting; migration prompt and auto-migrated settings from Stata Outline                                                                                                      | 2026-01-27   |
+| 0.2.2       | Windows native support for executing Stata code                                                                                                                                                                    | 2026-01-27   |
+| 0.2.0-0.2.1 | macOS native support for executing Stata code; new divider line commands and shortcuts                                                                                                                             | 2026-01-25   |
+| 0.1.9       | Outline now follows cursor, highlighting corresponding sections in real-time                                                                                                                                       | 2026-01-24   |
+| 0.1.7-0.1.8 | Added toggle comments functionality with customizable comment styles                                                                                                                                               | 2026-01-22   |
+| 0.1.5-0.1.6 | Added "Run Current Section" feature                                                                                                                                                                                | 2026-01-12   |
+| 0.1.4       | Added multi-level numbering display and auto-update file content                                                                                                                                                   | 2026-01-12   |
+| 0.1.3       | Fixed display issue with `**#` without spaces                                                                                                                                                                      | 2025-12-30   |
+| 0.1.2       | Added keyboard shortcut functionality                                                                                                                                                                              | 2025-12-26   |
+| 0.1.0-0.1.1 | Initial release matching Stata bookmark style                                                                                                                                                                      | 2025-12-25   |
