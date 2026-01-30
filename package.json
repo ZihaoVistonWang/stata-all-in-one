@@ -54,8 +54,9 @@
           "enum": [
             "",
             "StataMP",
+            "StataSE",
             "StataIC",
-            "StataSE"
+            "StataBE"
           ],
           "default": "",
           "markdownDescription": "%config.stataVersionOnMacOS.description%"
