@@ -13,8 +13,8 @@ Stata All in One
 </p>
 
 <p align="center">
-  | <b>版本:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.2.6</a> | <b>作者:</b> <a href="https://zihaowang.cn">王梓豪</a> | <b>翻译:</b>
-  <a href="README.md">English Version</a> |
+  | <b>版本:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.2.6</a> | <b>作者:</b> <a href="https://zihaowang.cn">王梓豪</a> | <b>Translate:</b>
+  <a href="https://github.com/ZihaoVistonWang/stata-all-in-one">English Version</a> |
 </p>
 
 ---
@@ -54,7 +54,7 @@ Stata All in One
 - **平台支持**：无需额外扩展即可与 **macOS** 和 **Windows** 上的 Stata 无缝集成。
 - **多场景执行策略**：
   - **智能运行当前章节代码**：当**未选中**任何代码时，点击编辑器标题栏或大纲视图顶部的 ▶️ 按钮 或 按 `Ctrl/Cmd + D` 将自动识别当前章节范围，执行从当前标题起始至下一个同级（或高级别）标题前的所有代码。
-  - **精准选中运行**：按 `Ctrl/Cmd + D` 执行选中的代码块。支持**模糊选中**，即使未完全覆盖整行字符，插件也会自动匹配并执行所选的完整行。
+  - **精准选中运行**：按 ▶️ 按钮 或 `Ctrl/Cmd + D` 执行选中的代码块。支持**模糊选中**，即使未完全覆盖整行字符，插件也会自动匹配并执行所选的完整行。
 - **⚠️ 注意**
   - Windows 系统下运行代码依赖 PowerShell 脚本自动化，如果电脑较慢或偶发漏键时可适当调大步骤延迟（设置项 `stata-all-in-one.stataStepDelayOnWindows`）。
 
