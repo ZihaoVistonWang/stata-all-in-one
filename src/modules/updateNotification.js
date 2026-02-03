@@ -10,6 +10,10 @@ const { getUserLanguage } = require('../utils/common');
 // Update changelog: version -> changelog text
 const CHANGELOG = {
     en: {
+        '0.2.8': {
+            ver_info: '✨ Stata All in One (0.2.8): Fixed an issue with title numbering.',
+            more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one#Changelog'
+        },
         '0.2.7': {
             ver_info: '✨ Stata All in One (0.2.7): Switch macOS runner to async AppleScript for faster start/execute, and add outline support for `program define` blocks.',
             more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one#Changelog'
@@ -28,6 +32,10 @@ const CHANGELOG = {
         }
     },
     zh: {
+        '0.2.8': {
+            ver_info: '✨ Stata All in One (0.2.8)：修复了关于标题序号的已知问题',
+            more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one#版本记录'
+        },
         '0.2.7': {
             ver_info: '✨ Stata All in One (0.2.7)：mac 运行逻辑改为异步以提升启动与执行响应；大纲视图新增对 program define 代码块的识别。',
             more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one#版本记录'

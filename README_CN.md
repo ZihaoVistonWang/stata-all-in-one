@@ -13,7 +13,7 @@ Stata All in One
 </p>
 
 <p align="center">
-  | <b>版本:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.2.6</a> | <b>作者:</b> <a href="https://zihaowang.cn">王梓豪</a> | <b>Translate:</b>
+  | <b>版本:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.2.8</a> | <b>作者:</b> <a href="https://zihaowang.cn">王梓豪</a> | <b>Translate:</b>
   <a href="https://github.com/ZihaoVistonWang/stata-all-in-one">English Version</a> |
 </p>
 
@@ -178,6 +178,7 @@ Stata All in One
 
 | 版本        | 更新内容                                                                                                                       | 发布日期   |
 |-------------|--------------------------------------------------------------------------------------------------------------------------------|------------|
+| 0.2.8       | 修复了关于标题序号的已知问题                                                                                                 | 2026-02-03 |
 | 0.2.7       | mac 执行代码改为异步 AppleScript 调用以提升启动与执行响应；大纲视图新增对 program define 块的识别并在当前 section 下显示程序名 | 2026-01-30 |
 | 0.2.6       | macOS 版 Stata 自动检测（支持 Stata 19+）；新增分隔线“对称”配置与批量更新命令；帮助快捷键改为 Ctrl/Cmd+Shift+H               | 2026-01-30 |
 | 0.2.5       | 新增智能换行功能（Shift+Enter），支持 Stata 代码自动缩进和格式化                                                               | 2026-01-28 |

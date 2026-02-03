@@ -263,17 +263,13 @@ function createDocumentSymbolProvider() {
                 
                 if (item.type === 'heading') {
                     // Reset counters when we reach a new heading at same or higher level
-                    while (counters.length > 0 && counters.length >= item.level) {
+                    while (counters.length > item.level) {
                         counters.pop();
                     }
                     
                     if (numberingShow) {
                         while (counters.length < item.level) {
                             counters.push(0);
-                        }
-
-                        for (let i = item.level; i < counters.length; i++) {
-                            counters[i] = 0;
                         }
 
                         counters[item.level - 1]++;
