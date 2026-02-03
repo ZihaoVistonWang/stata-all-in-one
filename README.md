@@ -13,7 +13,7 @@ Stata All in One
 </p>
 
 <p align="center">
-   | <b>Version:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.2.7</a> | <b>Author:</b> <a href="https://zihaowang.cn">Zihao Viston Wang</a> | <b>翻译:</b>
+   | <b>Version:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.2.8</a> | <b>Author:</b> <a href="https://zihaowang.cn">Zihao Viston Wang</a> | <b>翻译:</b>
   <a href="https://gitee.com/ZihaoVistonWang/stata-all-in-one">中文版本</a> |
 </p>
 
@@ -181,6 +181,7 @@ Search for "Stata All in One" in VS Code settings and configure:
 
 | Version     | Changes                                                                                                                                                                                                            | Release Date |
 |-------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------|
+| 0.2.8       | fixed some known issues about Numbering                                                                                                                                                                            | 2026-02-03   |
 | 0.2.7       | Switch macOS runner to asynchronous AppleScript (DoCommandAsync) for faster startup and execution; add outline support to detect program define ... end blocks and list program names under their current section. | 2026-01-30   |
 | 0.2.6       | macOS Stata auto-detection (Stata 19+); separator symmetric setting with bulk update command; help shortcut set to Ctrl/Cmd+Shift+H                                                                                | 2026-01-30   |
 | 0.2.5       | Added smart line break feature (Shift+Enter) with auto-indentation and formatting for Stata code                                                                                                                   | 2026-01-28   |
