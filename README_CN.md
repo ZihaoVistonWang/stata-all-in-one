@@ -93,7 +93,7 @@ Stata All in One
 
 ## 快捷键
 
-点击[这里](SHORTCUT.md)查看完整快捷键列表。
+点击[这里](https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/SHORTCUT.md)查看完整快捷键列表。
 
 ---
 
