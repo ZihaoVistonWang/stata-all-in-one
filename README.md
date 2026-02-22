@@ -93,7 +93,7 @@ Stata All in One
 
 ## Keyboard Shortcuts
 
-Click [here](SHORTCUT.md) to view the complete list of keyboard shortcuts.
+Click [here](https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/SHORTCUT.md) to view the complete list of keyboard shortcuts.
 
 ---
 
