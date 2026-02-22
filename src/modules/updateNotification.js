@@ -10,6 +10,10 @@ const { getUserLanguage } = require('../utils/common');
 // Update changelog: version -> changelog text
 const CHANGELOG = {
     en: {
+        '0.2.9': {
+            ver_info: '✨ Stata All in One (0.2.9): Fixed custom command highlighting in comments.',
+            more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one#Changelog'
+        },
         '0.2.8': {
             ver_info: '✨ Stata All in One (0.2.8): Fixed an issue with title numbering.',
             more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one#Changelog'
@@ -32,6 +36,10 @@ const CHANGELOG = {
         }
     },
     zh: {
+        '0.2.9': {
+            ver_info: '✨ Stata All in One (0.2.9)：修复了自定义命令在注释中仍显示高亮颜色的问题。',
+            more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one#版本记录'
+        },
         '0.2.8': {
             ver_info: '✨ Stata All in One (0.2.8)：修复了关于标题序号的已知问题',
             more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one#版本记录'

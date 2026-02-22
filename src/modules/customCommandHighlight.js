@@ -41,7 +41,7 @@ function createInjectionGrammar(commands) {
 
     return {
         scopeName: 'stata.injection.custom-commands',
-        injectionSelector: 'L:source.stata',
+        injectionSelector: 'L:source.stata - comment',
         patterns: [
             {
                 match: pattern,
@@ -64,7 +64,7 @@ function updateGrammarFile(context) {
     // Always create grammar file, even if empty (to avoid package.json reference error)
     const grammar = createInjectionGrammar(commands) || {
         scopeName: 'stata.injection.custom-commands',
-        injectionSelector: 'L:source.stata',
+        injectionSelector: 'L:source.stata - comment',
         patterns: []
     };
 
