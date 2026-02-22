@@ -1,9 +1,9 @@
 {
   "scopeName": "stata.injection.custom-commands",
-  "injectionSelector": "L:source.stata",
+  "injectionSelector": "L:source.stata - comment",
   "patterns": [
     {
-      "match": "\\b([Rr][Ee][Gg][Hh][Dd][Ff][Ee])\\b",
+      "match": "\\b([Rr][Ee][Gg][Hh][Dd][Ff][Ee]|[Ii][Vv][Rr][Ee][Gg][Hh][Dd][Ff][Ee])\\b",
       "name": "keyword.control.flow.stata"
     }
   ]
