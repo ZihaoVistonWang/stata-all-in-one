@@ -98,6 +98,11 @@ const getStataStepDelayOnWindows = () => {
  */
 const getSeparatorSymmetric = () => getConfigValue('separatorSymmetric', true);
 
+/**
+ * Get enableCtrlShiftD setting (whether to use Ctrl+Shift+D as run shortcut)
+ */
+const getEnableCtrlShiftD = () => getConfigValue('enableCtrlShiftD', false);
+
 module.exports = {
     CONFIG_NAMESPACE,
     getConfig,
@@ -112,5 +117,6 @@ module.exports = {
     getStataPathOnWindows: getStataPathOnWindows,
     getCustomCommands,
     getStataStepDelayOnWindows,
-    getSeparatorSymmetric
+    getSeparatorSymmetric,
+    getEnableCtrlShiftD
 };

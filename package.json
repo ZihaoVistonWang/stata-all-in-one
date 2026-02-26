@@ -2,7 +2,7 @@
   "name": "stata-all-in-one",
   "displayName": "Stata All in One",
   "description": "Supercharge your Stata workflow in VS Code. An enhanced version of `Stata Outline` with advanced Syntax Highlighting + Code Hints + Smart Outline + Code Execution + Quick Editing. All your Stata needs in one place.",
-  "version": "0.2.9",
+  "version": "0.2.10",
   "publisher": "ZihaoVistonWang",
   "icon": "img/icon.png",
   "keywords": [
@@ -100,11 +100,16 @@
           ],
           "markdownDescription": "%config.customCommands.description%"
         },
-        "stata-all-in-one.separatorSymmetric": {
-          "type": "boolean",
-          "default": false,
-          "markdownDescription": "%config.separatorSymmetric.description%"
-        }
+"stata-all-in-one.separatorSymmetric": {
+            "type": "boolean",
+            "default": false,
+            "markdownDescription": "%config.separatorSymmetric.description%"
+        },
+        "stata-all-in-one.enableCtrlShiftD": {
+            "type": "boolean",
+            "default": false,
+            "markdownDescription": "%config.enableCtrlShiftD.description%"
+          }
       }
     },
     "languages": [
@@ -220,7 +225,13 @@
         "command": "stata-all-in-one.runSection",
         "key": "ctrl+d",
         "mac": "cmd+d",
-        "when": "editorTextFocus && editorLangId == stata"
+        "when": "editorTextFocus && editorLangId == stata && !config.stata-all-in-one.enableCtrlShiftD"
+      },
+      {
+        "command": "stata-all-in-one.runSection",
+        "key": "ctrl+shift+d",
+        "mac": "cmd+shift+d",
+        "when": "editorTextFocus && editorLangId == stata && config.stata-all-in-one.enableCtrlShiftD"
       },
       {
         "command": "stata-all-in-one.insertSeparatorDash",

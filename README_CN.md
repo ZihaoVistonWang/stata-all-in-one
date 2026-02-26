@@ -13,7 +13,7 @@ Stata All in One
 </p>
 
 <p align="center">
-  | <b>版本:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.2.9</a> | <b>作者:</b> <a href="https://zihaowang.cn">王梓豪</a> | <b>Translate:</b>
+  | <b>版本:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.2.10</a> | <b>作者:</b> <a href="https://zihaowang.cn">王梓豪</a> | <b>Translate:</b>
   <a href="https://github.com/ZihaoVistonWang/stata-all-in-one">English Version</a> |
 </p>
 
@@ -56,14 +56,17 @@ Stata All in One
 
 [^2]: 抱歉～此为VS Code的GUI设置，我无法通过插件控制它。
 
+<a id="code_execution"></a>
+
 ### 3. 代码运行 (Stata 交互)
 
 - **平台支持**：无需额外扩展即可与 **macOS** 和 **Windows** 上的 Stata 无缝集成。
 - **多场景执行策略**：
-  - **智能运行当前章节代码**：当**未选中**任何代码时，点击编辑器标题栏或大纲视图顶部的 ▶️ 按钮 或 按 `Ctrl/Cmd + D` 将自动识别当前章节范围，执行从当前标题起始至下一个同级（或高级别）标题前的所有代码。
-  - **精准选中运行**：按 ▶️ 按钮 或 `Ctrl/Cmd + D` 执行选中的代码块。支持**模糊选中**，即使未完全覆盖整行字符，插件也会自动匹配并执行所选的完整行。
+   - **章节运行**：当光标在标题行（如 `** # 标题`）时，点击 ▶️ 按钮 或按 `Ctrl/Cmd + D`，将执行从该标题起始至下一个同级或高级别标题前的所有代码（即整个章节）。
+   - **单行运行**：当光标在普通代码行（无选中）时，点击 ▶️ 按钮 或按 `Ctrl/Cmd + D`，只执行当前行代码。
+   - **选中运行**：当选中多行代码时，点击 ▶️ 按钮 或按 `Ctrl/Cmd + D`，执行选中行的代码。支持**模糊选中**——无需精确选中代码段的*首行*或*尾行*，系统会自动捕捉并运行选中内容涉及的全部行。
 - **⚠️ 注意**
-  - Windows 系统下运行代码依赖 PowerShell 脚本自动化，如果电脑较慢或偶发漏键时可适当调大步骤延迟（设置项 `stata-all-in-one.stataStepDelayOnWindows`）。
+   - Windows 系统下运行代码依赖 PowerShell 脚本自动化，如果电脑较慢或偶发漏键时可适当调大步骤延迟（设置项 `stata-all-in-one.stataStepDelayOnWindows`）。
 
 ### 4. 高效分隔线与样式
 
@@ -157,21 +160,25 @@ Stata All in One
    - **[Windows]** PowerShell 自动化每一步之间的延迟（毫秒）。默认：`100`（最小：`50`）。电脑较慢或偶发漏键时可适当调大。
 8. **运行代码后激活 Stata 至前台** (`stata-all-in-one.activateStataWindow`)
 
-   - `true`（默认）：运行代码后激活Stata窗口（将其带到前台）。
-   - `false`：不激活 Stata 窗口。
+    - `true`（默认）：运行代码后激活Stata窗口（将其带到前台）。
+    - `false`：不激活 Stata 窗口。
+9. **启用 Ctrl+Shift+D 作为运行快捷键** (`stata-all-in-one.enableCtrlShiftD`)
+
+     - `true`：使用 `Ctrl/Cmd+Shift+D` 作为运行代码的快捷键。
+     - `false`（默认）：使用默认的 `Ctrl/Cmd+D` 快捷键。
 
 ### 代码风格
 
-9. **注释样式** (`stata-all-in-one.commentStyle`)
+10. **注释样式** (`stata-all-in-one.commentStyle`)
 
-   - `// `（默认）：用于切换注释的样式。选项包括 `//`、`*` 或 `/* ... */`
-10. **分隔线长度** (`stata-all-in-one.separatorLength`)
+    - `// `（默认）：用于切换注释的样式。选项包括 `//`、`*` 或 `/* ... */`
+11. **分隔线长度** (`stata-all-in-one.separatorLength`)
 
-   - 分割线所在行的字符总长度（包括前缀 '** #' 和分隔符）。默认值：`60`
+    - 分割线所在行的字符总长度（包括前缀 \'** #\' 和分隔符）。默认值：`60`
 
 <a id="separatorSymmetric"></a>
 
-11. **分隔线对称性** (`stata-all-in-one.separatorSymmetric`)
+12. **分隔线对称性** (`stata-all-in-one.separatorSymmetric`)
 
    - `true`：在分割线末尾添加 ` **` 以保证视觉对称（例如 `** === 标题 === **`）。
    - `false`（默认）：分割线不添加末尾后缀。
@@ -184,6 +191,7 @@ Stata All in One
 
 | 版本        | 更新内容                                                                                                                       | 发布日期   |
 |-------------|--------------------------------------------------------------------------------------------------------------------------------|------------|
+| 0.2.10      | 优化代码运行逻辑：章节运行（标题行运行整个章节）、单行运行（代码行只运行当前行）、选中运行（运行选中内容，支持模糊选中）；新增运行快捷键可选配置（可选：`cmd/ctrl+d`或`cmd/ctrl+shift+d`） | 2026-02-26 |
 | 0.2.9       | 修复了自定义命令在注释中仍显示高亮颜色的问题，现在被注释的自定义命令正确显示为灰色                                             | 2026-02-23 |
 | 0.2.8       | 修复了关于标题序号的已知问题                                                                                                 | 2026-02-03 |
 | 0.2.7       | mac 执行代码改为异步 AppleScript 调用以提升启动与执行响应；大纲视图新增对 program define 块的识别并在当前 section 下显示程序名 | 2026-01-30 |

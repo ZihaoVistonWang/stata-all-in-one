@@ -30,53 +30,66 @@ function getCodeToRun(editor) {
         
         return document.getText(new vscode.Range(startPos, endPos));
     } else {
-        // Run current section
+        // Unselected: check if current line is a header
         const currentLine = editor.selection.active.line;
-        const regex = /^\*{1,2}\s*(#+)\s?(.*)$/;
+        const lineText = document.lineAt(currentLine).text;
+        const headerRegex = /^\*{1,2}\s*#+/;
         
-        let sectionStart = -1;
-        let sectionLevel = -1;
-        
-        // Find the current section header
-        for (let i = currentLine; i >= 0; i--) {
-            const line = document.lineAt(i).text;
-            const match = regex.exec(line);
-            if (match) {
-                sectionStart = i;
-                sectionLevel = match[1].length;
-                break;
-            }
-        }
-        
-        if (sectionStart === -1) {
-            sectionStart = 0;
-            sectionLevel = 0;
-        }
-        
-        // Find the next section at same or higher level
-        let sectionEnd = document.lineCount - 1;
-        
-        for (let i = sectionStart + 1; i < document.lineCount; i++) {
-            const line = document.lineAt(i).text;
-            const match = regex.exec(line);
-            if (match) {
-                const currentLevel = match[1].length;
-                if (currentLevel <= sectionLevel && sectionLevel > 0) {
-                    sectionEnd = i - 1;
-                    break;
-                }
-                if (sectionLevel === 0) {
-                    sectionEnd = i - 1;
+        if (headerRegex.test(lineText)) {
+            // Current line is a header: run current section
+            const regex = /^\*{1,2}\s*(#+)\s?(.*)$/;
+            
+            let sectionStart = -1;
+            let sectionLevel = -1;
+            
+            // Find the current section header
+            for (let i = currentLine; i >= 0; i--) {
+                const line = document.lineAt(i).text;
+                const match = regex.exec(line);
+                if (match) {
+                    sectionStart = i;
+                    sectionLevel = match[1].length;
                     break;
                 }
             }
+            
+            if (sectionStart === -1) {
+                sectionStart = 0;
+                sectionLevel = 0;
+            }
+            
+            // Find the next section at same or higher level
+            let sectionEnd = document.lineCount - 1;
+            
+            for (let i = sectionStart + 1; i < document.lineCount; i++) {
+                const line = document.lineAt(i).text;
+                const match = regex.exec(line);
+                if (match) {
+                    const currentLevel = match[1].length;
+                    if (currentLevel <= sectionLevel && sectionLevel > 0) {
+                        sectionEnd = i - 1;
+                        break;
+                    }
+                    if (sectionLevel === 0) {
+                        sectionEnd = i - 1;
+                        break;
+                    }
+                }
+            }
+            
+            const startPos = new vscode.Position(sectionStart, 0);
+            const endLine = document.lineAt(sectionEnd);
+            const endPos = new vscode.Position(sectionEnd, endLine.text.length);
+            
+            return document.getText(new vscode.Range(startPos, endPos));
+        } else {
+            // Current line is not a header: run only the current line
+            const lineObj = document.lineAt(currentLine);
+            const startPos = new vscode.Position(currentLine, 0);
+            const endPos = new vscode.Position(currentLine, lineObj.text.length);
+            
+            return document.getText(new vscode.Range(startPos, endPos));
         }
-        
-        const startPos = new vscode.Position(sectionStart, 0);
-        const endLine = document.lineAt(sectionEnd);
-        const endPos = new vscode.Position(sectionEnd, endLine.text.length);
-        
-        return document.getText(new vscode.Range(startPos, endPos));
     }
 }
 

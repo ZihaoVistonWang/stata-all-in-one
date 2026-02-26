@@ -13,7 +13,7 @@ Stata All in One
 </p>
 
 <p align="center">
-   | <b>Version:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.2.9</a> | <b>Author:</b> <a href="https://zihaowang.cn">Zihao Viston Wang</a> | <b>翻译:</b>
+   | <b>Version:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.2.10</a> | <b>Author:</b> <a href="https://zihaowang.cn">Zihao Viston Wang</a> | <b>翻译:</b>
   <a href="https://gitee.com/ZihaoVistonWang/stata-all-in-one">中文版本</a> |
 </p>
 
@@ -57,14 +57,17 @@ Stata All in One
 
 [^2]: Sorry~ This is a VS Code GUI setting, I cannot control it through the extension.
 
+<a id="code_execution"></a>
+
 ### 3. Code Execution (Stata Interaction)
 
 - **Platform Support**: Seamlessly integrates with Stata on both **macOS** and **Windows** without requiring additional extensions.
 - **Multi-Scenario Execution Strategies**:
-  - **Smart Current Section Run**: When **no code is selected**, clicking the ▶️ button in the editor title bar or Outline view header, or pressing `Ctrl/Cmd + D`, will automatically detect the current section range and execute all code from the current header to (but not including) the next header of the same or higher level.
-  - **Precision Selection Run**: Clicking the ▶️ button or pressing `Ctrl/Cmd + D` to execute the selected code block. Supports **fuzzy selection** - even if you haven't fully covered entire lines, the extension will automatically match and execute the complete selected lines.
+   - **Section Execution**: When the cursor is on a header line (e.g., `** # Title`), clicking the ▶️ button or pressing `Ctrl/Cmd + D` will execute the entire section from that header to the next same-level or higher-level header.
+   - **Single Line Execution**: When the cursor is on a regular code line (no selection), clicking the ▶️ button or pressing `Ctrl/Cmd + D` will only execute that specific line.
+   - **Selected Code Execution**: When multiple lines of code are selected, clicking the ▶️ button or pressing `Ctrl/Cmd + D` will execute the selected code lines. Supports **fuzzy selection** - no need to precisely select the *first* or *last* line of a code segment; the system will automatically capture and run all lines covered by the selection.
 - **⚠️ Note**
-  - On Windows, code execution relies on PowerShell automation. If your machine is slow or occasionally misses keystrokes, consider increasing the step delay (setting `stata-all-in-one.stataStepDelayOnWindows`).
+   - On Windows, code execution relies on PowerShell automation. If your machine is slow or occasionally misses keystrokes, consider increasing the step delay (setting `stata-all-in-one.stataStepDelayOnWindows`).
 
 ### 4. Efficient Separator Lines & Styling
 
@@ -161,8 +164,12 @@ Search for "Stata All in One" in VS Code settings and configure:
    - **[Windows]** Delay between PowerShell automation steps (ms). Default: `100` (min: `50`). Increase if your machine is slower or Stata misses keystrokes.
 8. **Active Stata Window After Running Code** (`stata-all-in-one.activateStataWindow`)
 
-   - `true` (default): Activate the Stata window after running code (bring it to the foreground).
-   - `false`: Does not change focus.
+    - `true` (default): Activate the Stata window after running code (bring it to the foreground).
+    - `false`: Does not change focus.
+9. **Enable Ctrl+Shift+D for Run Shortcut** (`stata-all-in-one.enableCtrlShiftD`)
+
+    - `true`: Use `Ctrl/Cmd+Shift+D` as the run code shortcut.
+    - `false` (default): Use the default `Ctrl/Cmd+D` shortcut.
 
 ### Code Style
 
@@ -188,6 +195,7 @@ Search for "Stata All in One" in VS Code settings and configure:
 
 | Version     | Changes                                                                                                                                                                                                            | Release Date |
 |-------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------|
+| 0.2.10      | Refined code execution logic: Section execution (cursor on header runs entire section), Line execution (cursor on code line runs only that line), Selection execution (supported fuzzy selection); added configurable run shortcut option (optional: `cmd/ctrl+d` or `cmd/ctrl+shift+d`) | 2026-02-26   |
 | 0.2.9       | Fixed custom command highlighting in comments - custom commands now correctly display as gray when commented out                                                                                                   | 2026-02-23   |
 | 0.2.8       | Fixed some known issues about Numbering                                                                                                                                                                            | 2026-02-03   |
 | 0.2.7       | Switch macOS runner to asynchronous AppleScript (DoCommandAsync) for faster startup and execution; add outline support to detect program define ... end blocks and list program names under their current section. | 2026-01-30   |

@@ -10,6 +10,10 @@ const { getUserLanguage } = require('../utils/common');
 // Update changelog: version -> changelog text
 const CHANGELOG = {
     en: {
+        '0.2.10': {
+            ver_info: '✨ Stata All in One (0.2.10): Refined code execution - Section/Line/Selection modes; added configurable run shortcut (optional: cmd/ctrl+d or cmd/ctrl+shift+d).',
+            more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one#code_execution'
+        },
         '0.2.9': {
             ver_info: '✨ Stata All in One (0.2.9): Fixed custom command highlighting in comments.',
             more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one#Changelog'
@@ -36,6 +40,10 @@ const CHANGELOG = {
         }
     },
     zh: {
+        '0.2.10': {
+            ver_info: '✨ Stata All in One (0.2.10)：优化代码运行逻辑 - 章节/单行/选中运行模式；新增运行快捷键可选配置（可选：cmd/ctrl+d 或 cmd/ctrl+shift+d）。',
+            more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one#code_execution'
+        },
         '0.2.9': {
             ver_info: '✨ Stata All in One (0.2.9)：修复了自定义命令在注释中仍显示高亮颜色的问题。',
             more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one#版本记录'
