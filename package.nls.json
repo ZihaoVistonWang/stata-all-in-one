@@ -8,8 +8,9 @@
   "config.commentStyle.description": "Comment style used for toggling comments. Options include `//`, `*`, or `/* ... */`",
   "config.separatorLength.description": "Total character length of the separator line (including the '** #' prefix and separators).",
   "config.customCommands.description": "User-defined Stata commands to highlight as keywords (array of strings). These commands will use the **same color** as built-in commands (like regress, summarize). Case-insensitive matching supported. Example: [\"reghdfe\", \"ivreg2\", \"outreg2\"]. **Requires reloading window** (Ctrl+Shift+P → Developer: Reload Window)",
-  "config.separatorSymmetric.description": "Add ` **` at the end of separator lines to ensure visual symmetry (e.g., `** === title === **`).",
-  "config.stataStepDelayOnWindows.description": "**[Windows]** Delay in milliseconds between each PowerShell command execution step. Increase this value if you experience issues on slower machines (default: 100ms, minimum: 50ms).",
+"config.separatorSymmetric.description": "Add ` **` at the end of separator lines to ensure visual symmetry (e.g., `** === title === **`).",
+    "config.stataStepDelayOnWindows.description": "**[Windows]** Delay in milliseconds between each PowerShell command execution step. Increase this value if you experience issues on slower machines (default: 100ms, minimum: 50ms).",
+    "config.enableCtrlShiftD.description": "Enable `Ctrl/Cmd+Shift+D` as the run code shortcut (instead of the default `Ctrl/Cmd+D`).",
   "command.reportBug.title": "Stata All in One: Report Bug",
   "command.reportBug.short": "Bug"
 }
