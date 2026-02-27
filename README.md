@@ -99,10 +99,11 @@ Stata All in One
    - **One-Key Line Break**: Use `Shift+Enter` to insert Stata line continuation symbol `///` at the cursor position.
    - **Smart Indentation**: Automatically indent by 4 spaces
 
-4. Rename Variable (Refactoring)
-   - **Rename**: Place cursor on a user-defined variable and press `F2` to rename all occurrences in the current document.
-   - **Smart Validation**: Automatically validates the new name to ensure it follows Stata naming rules and does not conflict with built-in commands or keywords.
-   - **Safe**: Skips comment lines to avoid unintended modifications.
+ 4. Rename Variable (Refactoring)
+    - **Rename**: Place cursor on a user-defined variable and press `F2` to rename all occurrences in the current document.
+    - **Smart Validation**: Automatically validates the new name to ensure it follows Stata naming rules and does not conflict with built-in commands or keywords.
+    - **Safe**: Skips comment lines to avoid unintended modifications.
+    - **Option Detection**: Intelligently prevents renaming Stata command options (e.g., `keep`, `se`, `bdec`, etc.) and distinguishes between option names and variable names inside parentheses.
 
 ---
 
