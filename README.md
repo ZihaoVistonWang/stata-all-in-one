@@ -89,21 +89,20 @@ Stata All in One
    - **Toggle Comments**: Quickly toggle line comments using `Ctrl/Cmd + /`.
    - **Optional Styles**: Defaults to `//`, with support for switching to other valid Stata comment delimiters in settings.
 
-2. Built-in Help (Stata Help)
+2. Built-in Help
 
    - **Quick Help**: For example, select `regress` and press the shortcut key `Ctrl/Cmd + Shift + H` to open Stata's `regress` help page.
 
 <a id="line-break"></a>
 
-3. Smart Line Break (Stata Line Break)
+3. Smart Line Break
    - **One-Key Line Break**: Use `Shift+Enter` to insert Stata line continuation symbol `///` at the cursor position.
    - **Smart Indentation**: Automatically indent by 4 spaces
 
- 4. Rename Variable (Refactoring)
-    - **Rename**: Place cursor on a user-defined variable and press `F2` to rename all occurrences in the current document.
-    - **Smart Validation**: Automatically validates the new name to ensure it follows Stata naming rules and does not conflict with built-in commands or keywords.
-    - **Safe**: Skips comment lines to avoid unintended modifications.
-    - **Option Detection**: Intelligently prevents renaming Stata command options (e.g., `keep`, `se`, `bdec`, etc.) and distinguishes between option names and variable names inside parentheses.
+4. Safe Rename Mode
+   - **Rename Variable**: Select a variable and press `F2` to rename all occurrences in the current do-file.
+   - **Smart Validation**: Automatically validates the new name to ensure it follows Stata naming rules and does not conflict with built-in commands or keywords.
+   - **Command Protection**: Intelligently prevents renaming Stata commands (e.g., `reghdfe`, `outreg2`) and their options (e.g., `absorb`, `ctitle`).
 
 ---
 
