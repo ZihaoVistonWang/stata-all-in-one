@@ -11,7 +11,7 @@ const { getUserLanguage } = require('../utils/common');
 const CHANGELOG = {
     en: {
         '0.2.10': {
-            ver_info: '✨ Stata All in One (0.2.10): Refined code execution - Section/Line/Selection modes; added configurable run shortcut (optional: cmd/ctrl+d or cmd/ctrl+shift+d).',
+            ver_info: '✨ Stata All in One (0.2.10): Refined code execution - Section/Line/Selection modes; added configurable run shortcut (optional: cmd/ctrl+d or cmd/ctrl+shift+d); added F2 rename support for variables.',
             more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one#code_execution'
         },
         '0.2.9': {
@@ -41,7 +41,7 @@ const CHANGELOG = {
     },
     zh: {
         '0.2.10': {
-            ver_info: '✨ Stata All in One (0.2.10)：优化代码运行逻辑 - 章节/单行/选中运行模式；新增运行快捷键可选配置（可选：cmd/ctrl+d 或 cmd/ctrl+shift+d）。',
+            ver_info: '✨ Stata All in One (0.2.10)：优化代码运行逻辑 - 章节/单行/选中运行模式；新增运行快捷键可选配置（可选：cmd/ctrl+d 或 cmd/ctrl+shift+d）；新增 F2 重命名功能支持变量。',
             more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one#code_execution'
         },
         '0.2.9': {

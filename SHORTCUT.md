@@ -20,3 +20,4 @@ This document provides a list of keyboard shortcuts available in the "Stata All 
 | `Ctrl/Cmd + /`                                        | Toggle Line Comment / 切换行注释                               |
 | `Ctrl/Cmd + Shift + H`                                | Open Stata Help for Selected Command / 打开选中命令的Stata帮助 |
 | `Shift + Enter`                                      | Insert Stata Line Break (///) / 插入Stata换行符 (///)          |
+| `F2`                                                  | Rename Variable / 重命名变量                              |

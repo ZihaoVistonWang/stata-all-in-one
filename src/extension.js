@@ -12,6 +12,7 @@ const { registerCustomCommandHighlight } = require('./modules/customCommandHighl
 const { registerCompletionProvider } = require('./modules/completionProvider');
 const { registerHelpCommand } = require('./modules/helpCommand');
 const { registerLineBreakCommand } = require('./modules/lineBreak');
+const { registerRenameProvider } = require('./modules/renameProvider');
 const { registerUpdateCheck } = require('./modules/updateNotification');
 const { findStataApp } = require('./modules/runCode/mac');
 const { isMacOS, showInfo, showWarn, msg } = require('./utils/common');
@@ -272,6 +273,17 @@ function activate(context) {
     // Register completion provider for Stata commands and functions
     registerCompletionProvider(context);
     console.log('Stata All in One: Code completion provider registered');
+
+    // Register rename provider for Stata variables and commands
+    registerRenameProvider(context);
+    console.log('Stata All in One: Rename provider registered');
+
+    // Register custom rename command to handle F2
+    const { executeRename } = require('./modules/renameProvider');
+    context.subscriptions.push(
+        vscode.commands.registerCommand('stata-all-in-one.rename', executeRename)
+    );
+    console.log('Stata All in One: Custom rename command registered');
 
     // Register run code command
     registerRunCommand(context);
