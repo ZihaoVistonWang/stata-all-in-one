@@ -99,6 +99,11 @@ Stata All in One
    - **One-Key Line Break**: Use `Shift+Enter` to insert Stata line continuation symbol `///` at the cursor position.
    - **Smart Indentation**: Automatically indent by 4 spaces
 
+4. Rename Variable (Refactoring)
+   - **Rename**: Place cursor on a user-defined variable and press `F2` to rename all occurrences in the current document.
+   - **Smart Validation**: Automatically validates the new name to ensure it follows Stata naming rules and does not conflict with built-in commands or keywords.
+   - **Safe**: Skips comment lines to avoid unintended modifications.
+
 ---
 
 ## Keyboard Shortcuts
@@ -195,7 +200,7 @@ Search for "Stata All in One" in VS Code settings and configure:
 
 | Version     | Changes                                                                                                                                                                                                            | Release Date |
 |-------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------|
-| 0.2.10      | Refined code execution logic: Section execution (cursor on header runs entire section), Line execution (cursor on code line runs only that line), Selection execution (supported fuzzy selection); added configurable run shortcut option (optional: `cmd/ctrl+d` or `cmd/ctrl+shift+d`) | 2026-02-26   |
+| 0.2.10      | Refined code execution logic: Section execution (cursor on header runs entire section), Line execution (cursor on code line runs only that line), Selection execution (supported fuzzy selection); added configurable run shortcut option (optional: `cmd/ctrl+d` or `cmd/ctrl+shift+d`); added F2 rename support for variables | 2026-02-26   |
 | 0.2.9       | Fixed custom command highlighting in comments - custom commands now correctly display as gray when commented out                                                                                                   | 2026-02-23   |
 | 0.2.8       | Fixed some known issues about Numbering                                                                                                                                                                            | 2026-02-03   |
 | 0.2.7       | Switch macOS runner to asynchronous AppleScript (DoCommandAsync) for faster startup and execution; add outline support to detect program define ... end blocks and list program names under their current section. | 2026-01-30   |

@@ -37,7 +37,9 @@ const UI_TEXT = {
         noTextSelected: 'No text selected. Please select a Stata command and try again.',
         notAValidIdentifier: ({ command }) => `"${command}" is not a valid Stata command identifier. Please select a valid command.`,
         helpCommandSent: ({ command }) => `Help command sent to Stata for "${command}"`,
-        reportBugInfo: 'If you encounter a bug, please contact hi@zihaowang.cn.'
+        reportBugInfo: 'If you encounter a bug, please contact hi@zihaowang.cn.',
+        cannotRenameCommand: ({ word }) => `Cannot rename "${word}": Built-in or custom Stata command`,
+        cannotRenameOption: ({ word }) => `Cannot rename "${word}": Stata command option`
     },
     zh: {
         lineTooLong: '行长度不足，请在设置中增大分隔线长度。',
@@ -68,7 +70,9 @@ const UI_TEXT = {
         noTextSelected: '未选中任何文本。请选中一个 Stata 命令后重试。',
         notAValidIdentifier: ({ command }) => `"${command}" 不是有效的 Stata 命令标识符。请选中一个有效的命令。`,
         helpCommandSent: ({ command }) => `已向 Stata 发送帮助命令："${command}"`,
-        reportBugInfo: '如遇问题或 bug，请联系 hi@zihaowang.cn。'
+        reportBugInfo: '如遇问题或 bug，请联系 hi@zihaowang.cn。',
+        cannotRenameCommand: ({ word }) => `无法重命名 "${word}"：这是内置或自定义的 Stata 命令`,
+        cannotRenameOption: ({ word }) => `无法重命名 "${word}"：这是 Stata 命令的选项`
     }
 };
 

@@ -218,6 +218,10 @@
       {
         "command": "stata-all-in-one.debugTestUpdateNotification",
         "title": "Stata All in One: Debug Test Update Notification"
+      },
+      {
+        "command": "stata-all-in-one.rename",
+        "title": "Stata All in One: Rename Variable"
       }
     ],
     "keybindings": [
@@ -315,6 +319,11 @@
         "command": "stata-all-in-one.insertLineBreak",
         "key": "shift+enter",
         "mac": "shift+enter",
+        "when": "editorTextFocus && editorLangId == stata"
+      },
+      {
+        "command": "stata-all-in-one.rename",
+        "key": "f2",
         "when": "editorTextFocus && editorLangId == stata"
       }
     ],
