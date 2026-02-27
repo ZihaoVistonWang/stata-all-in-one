@@ -166,57 +166,38 @@ function isOptionNameAtPosition(document, position) {
     const afterWord = lineText.substring(wordRange.end.character);
     const trimmedAfter = afterWord.trimLeft();
 
-    console.log(`[Rename Debug] Word: "${word}"`);
-    console.log(`[Rename Debug] Before: "${beforeWord}" (length: ${beforeWord.length})`);
-    console.log(`[Rename Debug] After: "${afterWord}" (length: ${afterWord.length})`);
-    console.log(`[Rename Debug] TrimmedAfter: "${trimmedAfter}"`);
-
     // Rule 1: Word followed by opening parenthesis (option with parameters)
     // This matches: keep(var), se(1), bdec(3), etc.
     // The word BEFORE the parentheses is an option name and should NOT be renamed
     if (trimmedAfter.startsWith('(') && !trimmedAfter.startsWith(')(')) {
-        console.log(`[Rename Debug] ✓ Matched Rule 1: Word before parentheses`);
         return true;
     }
-    console.log(`[Rename Debug] ✗ Rule 1: BeforeParentheses condition not met. ` +
-                `startsWith('(${trimmedAfter.charAt(0)}')=${trimmedAfter.startsWith('(')}, ` +
-                `startsWith(')(')=${trimmedAfter.startsWith(')(')}`);
 
     // Rule 2: Word inside parentheses (should be allowed to rename)
     // This matches: keep(var) where var is a variable name
     if (beforeWord.endsWith('(') || trimmedAfter.startsWith(')')) {
-        console.log(`[Rename Debug] ✓ Matched Rule 2: Word inside parentheses`);
-        console.log(`[Rename Debug] → Allowing rename for word "${word}"`);
         return false;
     }
-    console.log(`[Rename Debug] ✗ Rule 2: Not inside parentheses`);
 
     // Rule 3: First word after comma
     if (beforeWord.endsWith(',')) {
-        console.log(`[Rename Debug] ✓ Matched Rule 3: First word after comma`);
         return true;
     }
-    console.log(`[Rename Debug] ✗ Rule 3: Not after comma`);
 
     // Rule 4: Word after slash
     if (beforeWord.endsWith('/')) {
-        console.log(`[Rename Debug] ✓ Matched Rule 4: Word after slash`);
         return true;
     }
-    console.log(`[Rename Debug] ✗ Rule 4: Not after slash`);
 
     // Rule 5: Common fixed option names
     const commonOptions = ['if', 'in', 'using', 'drop', 'keep', 'replace', 'cluster', 'robust', 'noisily', 'quietly', 'capture', 'estimate'];
     const beforeWithoutWhitespace = beforeWord.trim();
     if (commonOptions.includes(word)) {
         if (beforeWithoutWhitespace.endsWith(',') || beforeWithoutWhitespace.endsWith('/')) {
-            console.log(`[Rename Debug] ✓ Matched Rule 5: Common option in option context`);
             return true;
         }
     }
-    console.log(`[Rename Debug] ✗ Rule 5: Common option check`);
 
-    console.log(`[Rename Debug] → Final decision: ALLOW rename for "${word}"`);
     return false;
 }
 
