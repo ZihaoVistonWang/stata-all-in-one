@@ -7,3 +7,4 @@ node_modules
 *.do.stswp
 .gitignore
 ./img/example.png
+CLAUDE.md
