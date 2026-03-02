@@ -129,7 +129,7 @@
           ".ado",
           ".mata"
         ],
-        "configuration": "./language_config.json"
+        "configuration": "./grammars/language_config.json"
       }
     ],
     "grammars": [
