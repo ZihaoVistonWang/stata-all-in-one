@@ -11,6 +11,7 @@
 "config.separatorSymmetric.description": "Add ` **` at the end of separator lines to ensure visual symmetry (e.g., `** === title === **`).",
     "config.stataStepDelayOnWindows.description": "**[Windows]** Delay in milliseconds between each PowerShell command execution step. Increase this value if you experience issues on slower machines (default: 100ms, minimum: 50ms).",
     "config.enableCtrlShiftD.description": "Enable `Ctrl/Cmd+Shift+D` as the run code shortcut (instead of the default `Ctrl/Cmd+D`).",
+    "config.cdToDoFileDir.description": "Whether to automatically `cd` to the do file's directory when Stata is first launched. If disabled, Stata's working directory is not changed on startup.",
   "command.reportBug.title": "Stata All in One: Report Bug",
   "command.reportBug.short": "Bug"
 }

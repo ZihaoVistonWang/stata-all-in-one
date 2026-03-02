@@ -4,7 +4,7 @@
  * macOS Stata 代码运行
  */
 
-const { exec } = require('child_process');
+const { exec, execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const vscode = require('vscode');
@@ -76,12 +76,25 @@ function findStataApp(preferredName) {
 }
 
 /**
+ * Check if Stata is currently running on macOS
+ */
+function isStataRunning(appName) {
+    try {
+        const result = execSync(`pgrep -x "${appName}"`, { encoding: 'utf8' });
+        return result.trim().length > 0;
+    } catch {
+        return false;
+    }
+}
+
+/**
  * Run code on macOS
  * @param {string} codeToRun - The code to execute
  * @param {string} tmpFilePath - Path to temporary file
  * @param {boolean} isHelpCommand - Whether this is a help command (will force window activation)
+ * @param {string|null} docDir - Directory of the do file, used to cd on first launch
  */
-function runOnMac(codeToRun, tmpFilePath, isHelpCommand = false) {
+function runOnMac(codeToRun, tmpFilePath, isHelpCommand = false, docDir = null) {
     const stataVersion = config.getStataVersion();
     const activateStataWindow = config.getActivateStataWindow();
     
@@ -112,6 +125,16 @@ function runOnMac(codeToRun, tmpFilePath, isHelpCommand = false) {
         }
         appName = stataVersion;
     }
+
+    // If enabled and Stata is not running, prepend cd to the do file's directory
+    const cdEnabled = config.getCdToDoFileDir ? config.getCdToDoFileDir() : false;
+    const running = isStataRunning(appName);
+    let finalCode = codeToRun;
+    if (cdEnabled && !running && docDir) {
+        const escapedDir = docDir.replace(/"/g, '\\"');
+        finalCode = `cd "${escapedDir}"\n${codeToRun}`;
+    }
+    fs.writeFileSync(tmpFilePath, finalCode, 'utf8');
 
     // Activate window first if needed, then close help windows and run code
     // 先激活窗口（视觉反馈更快），再执行关闭帮助窗口和运行代码

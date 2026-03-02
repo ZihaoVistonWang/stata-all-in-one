@@ -13,7 +13,7 @@ Stata All in One
 </p>
 
 <p align="center">
-  | <b>版本:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.2.10</a> | <b>作者:</b> <a href="https://zihaowang.cn">王梓豪</a> | <b>Translate:</b>
+  | <b>版本:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.2.11</a> | <b>作者:</b> <a href="https://zihaowang.cn">王梓豪</a> | <b>Translate:</b>
   <a href="https://github.com/ZihaoVistonWang/stata-all-in-one">English Version</a> |
 </p>
 
@@ -103,6 +103,12 @@ Stata All in One
      - **智能验证**：自动验证新名称是否符合 Stata 命名规则，并检查是否与内置命令或关键字冲突。
      - **命令保护**：智能识别并阻止重命名 Stata 命令（如 `reghdfe`、`outreg2`）及其选项（如 `absorb`、`ctitle`）。
 
+<a id="cd-to-do-file-dir"></a>
+
+5. 自动 `cd` 到 do 文件目录
+   - **自动设置工作目录**：开启后，Stata 首次启动时会自动将工作目录切换到当前 do 文件所在位置。
+   - **默认关闭**：为避免影响习惯在 do 文件开头手动写 `cd` 命令的用户，防止产生意料之外的错误，该功能默认不启用。需要时可在设置中开启 `stata-all-in-one.cdToDoFileDir`。
+
 ---
 
 ## 快捷键
@@ -171,19 +177,23 @@ Stata All in One
 
      - `true`：使用 `Ctrl/Cmd+Shift+D` 作为运行代码的快捷键。
      - `false`（默认）：使用默认的 `Ctrl/Cmd+D` 快捷键。
+10. **自动 cd 到 do 文件目录** (`stata-all-in-one.cdToDoFileDir`)
+
+     - `true`：Stata 首次启动时自动将工作目录切换到当前 do 文件所在位置。
+     - `false`（默认）：Stata 启动后不更改工作目录。
 
 ### 代码风格
 
-10. **注释样式** (`stata-all-in-one.commentStyle`)
+11. **注释样式** (`stata-all-in-one.commentStyle`)
 
     - `// `（默认）：用于切换注释的样式。选项包括 `//`、`*` 或 `/* ... */`
-11. **分隔线长度** (`stata-all-in-one.separatorLength`)
+12. **分隔线长度** (`stata-all-in-one.separatorLength`)
 
     - 分割线所在行的字符总长度（包括前缀 \'** #\' 和分隔符）。默认值：`60`
 
 <a id="separatorSymmetric"></a>
 
-12. **分隔线对称性** (`stata-all-in-one.separatorSymmetric`)
+13. **分隔线对称性** (`stata-all-in-one.separatorSymmetric`)
 
    - `true`：在分割线末尾添加 ` **` 以保证视觉对称（例如 `** === 标题 === **`）。
    - `false`（默认）：分割线不添加末尾后缀。
@@ -196,6 +206,7 @@ Stata All in One
 
 | 版本        | 更新内容                                                                                                                       | 发布日期   |
 |-------------|--------------------------------------------------------------------------------------------------------------------------------|------------|
+| 0.2.11      | 新增可选配置：Stata 首次启动时自动 `cd` 到 do 文件所在目录（默认关闭）                                                 | 2026-03-02 |
 | 0.2.10      | 优化代码运行逻辑：章节运行（标题行运行整个章节）、单行运行（代码行只运行当前行）、选中运行（运行选中内容，支持模糊选中）；新增运行快捷键可选配置（可选：`cmd/ctrl+d`或`cmd/ctrl+shift+d`）；新增 F2 重命名功能支持变量 | 2026-02-27 |
 | 0.2.9       | 修复了自定义命令在注释中仍显示高亮颜色的问题，现在被注释的自定义命令正确显示为灰色                                             | 2026-02-23 |
 | 0.2.8       | 修复了关于标题序号的已知问题                                                                                                 | 2026-02-03 |

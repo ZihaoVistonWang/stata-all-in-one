@@ -10,6 +10,10 @@ const { getUserLanguage } = require('../utils/common');
 // Update changelog: version -> changelog text
 const CHANGELOG = {
     en: {
+        '0.2.11': {
+            ver_info: '✨ Stata All in One (0.2.11): New option to auto `cd` to do file directory on first Stata launch.',
+            more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one#cd-to-do-file-dir'
+        },
         '0.2.10': {
             ver_info: '✨ Stata All in One (0.2.10): Section/Line/Selection execution modes, configurable run shortcut, and F2 rename with option detection.',
             more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one#code_execution'
@@ -40,6 +44,10 @@ const CHANGELOG = {
         }
     },
     zh: {
+        '0.2.11': {
+            ver_info: '✨ Stata All in One (0.2.11)：新增可选配置，Stata 首次启动时自动 `cd` 到 do 文件所在目录。',
+            more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one#cd-to-do-file-dir'
+        },
         '0.2.10': {
             ver_info: '✨ Stata All in One (0.2.10)：重构"章节/单行/选中"代码运行逻辑、可选运行快捷键配置、变量按f2可全局重命名。',
             more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one#code_execution'

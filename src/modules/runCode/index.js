@@ -179,12 +179,10 @@ async function runCurrentSection() {
     const tmpFilePath = path.join(docDir, 'stata_all_in_one_temp.do');
     
     try {
-        fs.writeFileSync(tmpFilePath, codeToRun, 'utf8');
-        
         if (onWindows) {
-            runOnWindows(codeToRun, tmpFilePath, stataPathOnWindows);
+            runOnWindows(codeToRun, tmpFilePath, stataPathOnWindows, docDir);
         } else if (onMac) {
-            runOnMac(codeToRun, tmpFilePath);
+            runOnMac(codeToRun, tmpFilePath, false, docDir);
         }
     } catch (error) {
         showError(msg('tmpFileFailed', { message: error.message }));
