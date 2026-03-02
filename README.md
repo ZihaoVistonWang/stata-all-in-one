@@ -206,25 +206,21 @@ Search for "Stata All in One" in VS Code settings and configure:
 
 ---
 
+## Sponsor
+
+If this extension has been helpful to you, feel free to scan the Alipay (left) or WeChat (right) QR code below to buy me a coffee ☕
+
+<p align="center">
+   <img src="img/sponsorsihp.png" alt="Support QR Code" style="width:600px;" />
+</p>
+
+---
+
 ## Changelog
 
-| Version     | Changes                                                                                                                                                                                                            | Release Date |
-|-------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------|
-| 0.2.11      | New optional feature: Auto `cd` to do file directory on first Stata launch (disabled by default).                                                                  | 2026-03-02   |
-| 0.2.10      | Refined code execution logic: Section execution (cursor on header runs entire section), Line execution (cursor on code line runs only that line), Selection execution (supported fuzzy selection); added configurable run shortcut option (optional: `cmd/ctrl+d` or `cmd/ctrl+shift+d`); added F2 rename support for variables | 2026-02-27   |
-| 0.2.9       | Fixed custom command highlighting in comments - custom commands now correctly display as gray when commented out                                                                                                   | 2026-02-23   |
-| 0.2.8       | Fixed some known issues about Numbering                                                                                                                                                                            | 2026-02-03   |
-| 0.2.7       | Switch macOS runner to asynchronous AppleScript (DoCommandAsync) for faster startup and execution; add outline support to detect program define ... end blocks and list program names under their current section. | 2026-01-30   |
-| 0.2.6       | macOS Stata auto-detection (Stata 19+); separator symmetric setting with bulk update command; help shortcut set to Ctrl/Cmd+Shift+H                                                                                | 2026-01-30   |
-| 0.2.5       | Added smart line break feature (Shift+Enter) with auto-indentation and formatting for Stata code                                                                                                                   | 2026-01-28   |
-| 0.2.4       | Added Stata help functionality; fixed some known issues                                                                                                                                                            | 2026-01-28   |
-| 0.2.3       | Integrated Stata Enhanced syntax highlighting; migration prompt and auto-migrated settings from Stata Outline                                                                                                      | 2026-01-27   |
-| 0.2.2       | Windows native support for executing Stata code                                                                                                                                                                    | 2026-01-27   |
-| 0.2.0-0.2.1 | macOS native support for executing Stata code; new divider line commands and shortcuts                                                                                                                             | 2026-01-25   |
-| 0.1.9       | Outline now follows cursor, highlighting corresponding sections in real-time                                                                                                                                       | 2026-01-24   |
-| 0.1.7-0.1.8 | Added toggle comments functionality with customizable comment styles                                                                                                                                               | 2026-01-22   |
-| 0.1.5-0.1.6 | Added "Run Current Section" feature                                                                                                                                                                                | 2026-01-12   |
-| 0.1.4       | Added multi-level numbering display and auto-update file content                                                                                                                                                   | 2026-01-12   |
-| 0.1.3       | Fixed display issue with `**#` without spaces                                                                                                                                                                      | 2025-12-30   |
-| 0.1.2       | Added keyboard shortcut functionality                                                                                                                                                                              | 2025-12-26   |
-| 0.1.0-0.1.1 | Initial release matching Stata bookmark style                                                                                                                                                                      | 2025-12-25   |
+| Version | Changes | Release Date |
+|---------|---------|--------------|
+| 0.2.11  | New optional feature: Auto `cd` to do file directory on first Stata launch (disabled by default). | 2026-03-02 |
+| 0.2.10  | Refined code execution logic (Section/Line/Selection execution); Configurable run shortcut; F2 rename for variables. | 2026-02-27 |
+
+See [CHANGELOG.md](CHANGELOG.md) for full version history.
