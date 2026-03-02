@@ -358,5 +358,8 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/ZihaoVistonWang/stata-all-in-one"
+  },
+  "changelog": {
+    "url": "https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md"
   }
 }
