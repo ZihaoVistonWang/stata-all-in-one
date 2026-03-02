@@ -25,6 +25,7 @@ Stata All in One
    <a href="https://marketplace.visualstudio.com/items?itemName=ZihaoVistonWang.stata-all-in-one"><img src="https://img.shields.io/visual-studio-marketplace/i/ZihaoVistonWang.stata-all-in-one?colorA=363a4f&colorB=a6da95&style=for-the-badge"></a>
    <img src="https://img.shields.io/github/commit-activity/t/ZihaoVistonWang/stata-all-in-one?colorA=363a4f&colorB=f5a97f&style=for-the-badge">
    <a href="http://xhslink.com/o/4Zs0aSfJSK "><img src="https://img.shields.io/badge/Likes_and_collections-~500-brightgreen?colorA=363a4f&colorB=b7bdf8&style=for-the-badge"></a>
+   <a href="https://github.com/ZihaoVistonWang/stata-all-in-one#sponsor"><img src="https://img.shields.io/badge/BUY%20ME-A%20COFFEE-brightgreen?colorA=363a4f&colorB=e971b7&style=for-the-badge"></a>
 </p>
 
 
@@ -208,7 +209,7 @@ Search for "Stata All in One" in VS Code settings and configure:
 
 ## Sponsor
 
-If this extension has been helpful to you, feel free to scan the Alipay (left) or WeChat (right) QR code below to buy me a coffee ☕
+If this extension has been helpful to you, feel free to scan the **Alipay** (left) or **WeChat** (right) QR code below to buy me a coffee ☕
 
 <p align="center">
    <img src="img/sponsorsihp.png" alt="Support QR Code" style="width:600px;" />

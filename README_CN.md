@@ -25,6 +25,7 @@ Stata All in One
    <a href="https://marketplace.visualstudio.com/items?itemName=ZihaoVistonWang.stata-all-in-one"><img src="https://img.shields.io/visual-studio-marketplace/i/ZihaoVistonWang.stata-all-in-one?colorA=363a4f&colorB=a6da95&style=for-the-badge&label=被安装次数"></a>
    <img src="https://img.shields.io/github/commit-activity/t/ZihaoVistonWang/stata-all-in-one?colorA=363a4f&colorB=f5a97f&style=for-the-badge&label=修订次数">
    <a href="http://xhslink.com/o/4Zs0aSfJSK "><img src="https://img.shields.io/badge/小红书点赞收藏-~500-brightgreen?colorA=363a4f&colorB=b7bdf8&style=for-the-badge"></a>
+   <a href="https://gitee.com/ZihaoVistonWang/stata-all-in-one#打赏支持"><img src="https://img.shields.io/badge/点击-打赏支持-brightgreen?colorA=363a4f&colorB=e971b7&style=for-the-badge"></a>
 </p>
 
 <p align="center">Stata All in One 源自 <a href="https://github.com/ZihaoVistonWang/stata-outline">Stata Outline</a>，进行了功能扩展和改进。</p>

@@ -2,7 +2,7 @@
 
 This project includes code and assets from the following third-party project:
 
-- **Stata Enhanced** (v1.6.1) by Kyle Barron — MIT License. Files incorporated: `language_config.json` and the contents of the `grammars/` directory, originally from the Stata Enhanced VS Code extension.
+- **Stata Enhanced** (v1.6.1) by Kyle Barron — MIT License. Files incorporated: `grammars/language_config.json` and the contents of the `grammars/` directory, originally from the Stata Enhanced VS Code extension.
 
 ```text
 MIT License
