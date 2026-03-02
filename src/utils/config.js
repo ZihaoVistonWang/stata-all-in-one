@@ -103,6 +103,11 @@ const getSeparatorSymmetric = () => getConfigValue('separatorSymmetric', true);
  */
 const getEnableCtrlShiftD = () => getConfigValue('enableCtrlShiftD', false);
 
+/**
+ * Get cdToDoFileDir setting (whether to cd to do file dir on first Stata launch)
+ */
+const getCdToDoFileDir = () => getConfigValue('cdToDoFileDir', false);
+
 module.exports = {
     CONFIG_NAMESPACE,
     getConfig,
@@ -118,5 +123,6 @@ module.exports = {
     getCustomCommands,
     getStataStepDelayOnWindows,
     getSeparatorSymmetric,
-    getEnableCtrlShiftD
+    getEnableCtrlShiftD,
+    getCdToDoFileDir
 };

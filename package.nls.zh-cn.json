@@ -11,6 +11,7 @@
 "config.separatorSymmetric.description": "在分割线末尾添加 ` **` 以保证视觉上的对称（例如 `** === title === **`）。",
     "config.stataStepDelayOnWindows.description": "**[Windows]** PowerShell 每个执行步骤之间的延迟时间（毫秒）。如果在较慢的机器上遇到问题，请增加此值（默认值：100ms，最小值：50ms）。",
     "config.enableCtrlShiftD.description": "启用 `Ctrl/Cmd+Shift+D` 作为运行代码的快捷键（而非默认的 `Ctrl/Cmd+D`）。",
+    "config.cdToDoFileDir.description": "是否在 Stata 首次启动时自动 `cd` 到当前 do 文件所在目录。关闭时，Stata 启动后不会更改工作目录。",
   "command.reportBug.title": "Stata All in One：反馈 Bug",
   "command.reportBug.short": "Bug"
 }

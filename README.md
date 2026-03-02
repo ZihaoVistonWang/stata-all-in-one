@@ -13,7 +13,7 @@ Stata All in One
 </p>
 
 <p align="center">
-   | <b>Version:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.2.10</a> | <b>Author:</b> <a href="https://zihaowang.cn">Zihao Viston Wang</a> | <b>翻译:</b>
+   | <b>Version:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.2.11</a> | <b>Author:</b> <a href="https://zihaowang.cn">Zihao Viston Wang</a> | <b>翻译:</b>
   <a href="https://gitee.com/ZihaoVistonWang/stata-all-in-one">中文版本</a> |
 </p>
 
@@ -104,6 +104,12 @@ Stata All in One
    - **Smart Validation**: Automatically validates the new name to ensure it follows Stata naming rules and does not conflict with built-in commands or keywords.
    - **Command Protection**: Intelligently prevents renaming Stata commands (e.g., `reghdfe`, `outreg2`) and their options (e.g., `absorb`, `ctitle`).
 
+<a id="cd-to-do-file-dir"></a>
+
+5. Auto `cd` to Do File Directory
+   - **Auto Working Directory**: When enabled, automatically sets Stata's working directory to the do file's location on first launch.
+   - **Disabled by default**: This feature is off by default to avoid unexpected behavior for users who manually write `cd` at the top of their do files. Enable via setting `stata-all-in-one.cdToDoFileDir`.
+
 ---
 
 ## Keyboard Shortcuts
@@ -175,6 +181,10 @@ Search for "Stata All in One" in VS Code settings and configure:
 
     - `true`: Use `Ctrl/Cmd+Shift+D` as the run code shortcut.
     - `false` (default): Use the default `Ctrl/Cmd+D` shortcut.
+10. **Auto cd to Do File Directory** (`stata-all-in-one.cdToDoFileDir`)
+
+    - `true`: Automatically `cd` to the do file's directory when Stata is first launched.
+    - `false` (default): Stata's working directory is not changed on startup.
 
 ### Code Style
 
@@ -200,6 +210,7 @@ Search for "Stata All in One" in VS Code settings and configure:
 
 | Version     | Changes                                                                                                                                                                                                            | Release Date |
 |-------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------|
+| 0.2.11      | New optional feature: Auto `cd` to do file directory on first Stata launch (disabled by default).                                                                  | 2026-03-02   |
 | 0.2.10      | Refined code execution logic: Section execution (cursor on header runs entire section), Line execution (cursor on code line runs only that line), Selection execution (supported fuzzy selection); added configurable run shortcut option (optional: `cmd/ctrl+d` or `cmd/ctrl+shift+d`); added F2 rename support for variables | 2026-02-27   |
 | 0.2.9       | Fixed custom command highlighting in comments - custom commands now correctly display as gray when commented out                                                                                                   | 2026-02-23   |
 | 0.2.8       | Fixed some known issues about Numbering                                                                                                                                                                            | 2026-02-03   |
