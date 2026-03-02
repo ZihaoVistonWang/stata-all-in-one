@@ -113,9 +113,15 @@ function checkAndNotifyUpdate(context) {
             
             if (changelog) {
                 const learnMoreLabel = lang === 'zh' ? '了解更多' : 'Learn More';
-                vscode.window.showInformationMessage(changelog.ver_info, 'OK', learnMoreLabel).then(selection => {
+                const sponsorLabel = lang === 'zh' ? '☕ 打赏支持' : '☕ Buy me a coffee';
+                vscode.window.showInformationMessage(changelog.ver_info, 'OK', learnMoreLabel, sponsorLabel).then(selection => {
                     if (selection === learnMoreLabel && changelog.more_url) {
                         vscode.env.openExternal(vscode.Uri.parse(changelog.more_url));
+                    } else if (selection === sponsorLabel) {
+                        const sponsorUrl = lang === 'zh'
+                            ? 'https://gitee.com/ZihaoVistonWang/stata-all-in-one#打赏支持'
+                            : 'https://github.com/ZihaoVistonWang/stata-all-in-one#sponsor';
+                        vscode.env.openExternal(vscode.Uri.parse(sponsorUrl));
                     }
                 });
             }
@@ -137,9 +143,15 @@ function checkAndNotifyUpdate(context) {
 
         if (changelog) {
             const learnMoreLabel = lang === 'zh' ? '了解更多' : 'Learn More';
-            vscode.window.showInformationMessage(changelog.ver_info, 'OK', learnMoreLabel).then(selection => {
+            const sponsorLabel = lang === 'zh' ? '☕ 打赏支持' : '☕ Buy me a coffee';
+            vscode.window.showInformationMessage(changelog.ver_info, 'OK', learnMoreLabel, sponsorLabel).then(selection => {
                 if (selection === learnMoreLabel && changelog.more_url) {
                     vscode.env.openExternal(vscode.Uri.parse(changelog.more_url));
+                } else if (selection === sponsorLabel) {
+                    const sponsorUrl = lang === 'zh'
+                        ? 'https://gitee.com/ZihaoVistonWang/stata-all-in-one#打赏支持'
+                        : 'https://github.com/ZihaoVistonWang/stata-all-in-one#sponsor';
+                    vscode.env.openExternal(vscode.Uri.parse(sponsorUrl));
                 }
             });
         }
