@@ -300,6 +300,19 @@ function activate(context) {
     );
     context.subscriptions.push(reportBugCommand);
 
+    // Register sponsor command
+    const sponsorCommand = vscode.commands.registerCommand(
+        'stata-all-in-one.showSponsor',
+        () => {
+            const lang = getUserLanguage();
+            const sponsorUrl = lang === 'zh'
+                ? 'https://gitee.com/ZihaoVistonWang/stata-all-in-one#打赏支持'
+                : 'https://github.com/ZihaoVistonWang/stata-all-in-one#sponsor';
+            vscode.env.openExternal(vscode.Uri.parse(sponsorUrl));
+        }
+    );
+    context.subscriptions.push(sponsorCommand);
+
     // Register document symbol provider for outline view
     const provider = createDocumentSymbolProvider();
     context.subscriptions.push(

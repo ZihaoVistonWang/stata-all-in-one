@@ -13,5 +13,7 @@
     "config.enableCtrlShiftD.description": "启用 `Ctrl/Cmd+Shift+D` 作为运行代码的快捷键（而非默认的 `Ctrl/Cmd+D`）。",
     "config.cdToDoFileDir.description": "是否在 Stata 首次启动时自动 `cd` 到当前 do 文件所在目录。关闭时，Stata 启动后不会更改工作目录。",
   "command.reportBug.title": "Stata All in One：反馈 Bug",
-  "command.reportBug.short": "Bug"
+  "command.reportBug.short": "Bug",
+  "command.showSponsor.title": "打赏支持",
+  "command.showSponsor.short": "打赏"
 }
