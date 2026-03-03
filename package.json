@@ -185,6 +185,10 @@
         "title": "%command.reportBug.title%"
       },
       {
+        "command": "stata-all-in-one.showSponsor",
+        "title": "%command.showSponsor.title%"
+      },
+      {
         "command": "stata-all-in-one.insertCustomSeparator",
         "title": "Stata All in One: Insert Custom Separator"
       },
@@ -335,6 +339,12 @@
     "menus": {
       "editor/title": [
         {
+          "command": "stata-all-in-one.showSponsor",
+          "title": "%command.showSponsor.short%",
+          "when": "editorLangId == stata",
+          "group": "navigation@1"
+        },
+        {
           "command": "stata-all-in-one.reportBug",
           "title": "%command.reportBug.short%",
           "when": "editorLangId == stata",
@@ -343,7 +353,7 @@
         {
           "command": "stata-all-in-one.runSection",
           "when": "editorLangId == stata && config.stata-all-in-one.showRunButton",
-          "group": "navigation@1"
+          "group": "navigation@2"
         }
       ],
       "view/title": [
