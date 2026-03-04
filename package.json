@@ -114,6 +114,11 @@
             "type": "boolean",
             "default": false,
             "markdownDescription": "%config.cdToDoFileDir.description%"
+          },
+        "stata-all-in-one.showActionButtons": {
+            "type": "boolean",
+            "default": true,
+            "markdownDescription": "%config.showActionButtons.description%"
           }
       }
     },
@@ -341,13 +346,13 @@
         {
           "command": "stata-all-in-one.showSponsor",
           "title": "%command.showSponsor.short%",
-          "when": "editorLangId == stata",
+          "when": "editorLangId == stata && config.stata-all-in-one.showActionButtons",
           "group": "navigation@1"
         },
         {
           "command": "stata-all-in-one.reportBug",
           "title": "%command.reportBug.short%",
-          "when": "editorLangId == stata",
+          "when": "editorLangId == stata && config.stata-all-in-one.showActionButtons",
           "group": "navigation@0"
         },
         {
