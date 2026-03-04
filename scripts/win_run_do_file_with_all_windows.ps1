@@ -1,0 +1,204 @@
+param (
+    [string]$stataPath,
+    [string]$doFilePath,
+    [int]$sleepDelay = 100
+)
+
+$ErrorActionPreference = 'Stop'
+
+# 1. Embed C# API for advanced window enumeration and management
+$code = @"
+using System;
+using System.Runtime.InteropServices;
+using System.Text;
+using System.Collections.Generic;
+
+public class WindowManager {
+    public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    public static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+
+    [DllImport("user32.dll", CharSet = CharSet.Auto)]
+    public static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
+
+    [DllImport("user32.dll")]
+    public static extern bool IsWindowVisible(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    public static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+    // Get all visible windows belonging to a specific Process ID
+    public static List<IntPtr> GetProcessWindows(uint pid) {
+        List<IntPtr> windows = new List<IntPtr>();
+        EnumWindows(delegate(IntPtr hWnd, IntPtr lParam) {
+            uint windowPid;
+            GetWindowThreadProcessId(hWnd, out windowPid);
+            if (windowPid == pid && IsWindowVisible(hWnd)) {
+                windows.Add(hWnd);
+            }
+            return true;
+        }, IntPtr.Zero);
+        return windows;
+    }
+
+    // Read the title of a specific window
+    public static string GetWindowTitle(IntPtr hWnd) {
+        StringBuilder sb = new StringBuilder(256);
+        GetWindowText(hWnd, sb, 256);
+        return sb.ToString();
+    }
+}
+"@
+
+# Try to use keybd_event for more reliable key injection (Windows 10/11)
+# Falls back to SendKeys if P/Invoke is not available (e.g., restricted environments)
+$useKeyboardHelper = $false
+try {
+    Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+
+public static class KeyboardHelper {
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
+}
+"@ -ErrorAction Stop
+    $useKeyboardHelper = $true
+} catch {
+    # P/Invoke not available, will use SendKeys fallback
+    $useKeyboardHelper = $false
+}
+
+function Send-CtrlV {
+    if ($useKeyboardHelper) {
+        # Method 1: Use keybd_event for maximum reliability
+        $VK_CONTROL = 0x11
+        $VK_V = 0x56
+        $KEYEVENTF_KEYUP = 0x0002
+
+        [KeyboardHelper]::keybd_event($VK_CONTROL, 0, 0, [UIntPtr]::Zero)
+        Start-Sleep -Milliseconds 20
+        [KeyboardHelper]::keybd_event($VK_V, 0, 0, [UIntPtr]::Zero)
+        Start-Sleep -Milliseconds 20
+        [KeyboardHelper]::keybd_event($VK_V, 0, $KEYEVENTF_KEYUP, [UIntPtr]::Zero)
+        Start-Sleep -Milliseconds 20
+        [KeyboardHelper]::keybd_event($VK_CONTROL, 0, $KEYEVENTF_KEYUP, [UIntPtr]::Zero)
+    } else {
+        # Method 2: Use SendKeys with extended delay (fallback for restricted environments)
+        $global:wshell.SendKeys('^v')
+    }
+}
+
+# 2. Validate parameters
+if (-not $stataPath) {
+    Write-Error 'stataPath is required'
+    exit 1
+}
+
+if (-not $doFilePath) {
+    Write-Error 'doFilePath is required'
+    exit 1
+}
+
+# 3. Load WindowManager API
+try {
+    Add-Type -TypeDefinition $code -ErrorAction Stop
+} catch {
+    # API may already be loaded, ignore error
+}
+
+# 4. Find Stata process, launch if not exists
+$regex = "(?i)^stata(mp|se|ic|be)?[^a-z]*$"
+$proc = Get-Process | Where-Object { $_.ProcessName -match $regex } | Select-Object -First 1
+
+if (-not $proc) {
+    if (-not (Test-Path -LiteralPath $stataPath)) {
+        Write-Error ('Invalid Stata Path: ' + $stataPath)
+        exit 1
+    }
+
+    Start-Process -FilePath $stataPath
+    $startTime = Get-Date
+    $timeout = New-TimeSpan -Seconds 10
+
+    while (-not (Get-Process | Where-Object { $_.ProcessName -match $regex })) {
+        if ((Get-Date) - $startTime -gt $timeout) {
+            Write-Error 'Timeout: Stata failed to start within 10 seconds'
+            exit 1
+        }
+        Start-Sleep -Milliseconds $sleepDelay
+    }
+
+    Start-Sleep -Seconds 2
+    $proc = Get-Process | Where-Object { $_.ProcessName -match $regex } | Select-Object -First 1
+}
+
+# 5. Use WindowManager API to precisely locate Stata main window
+$handles = [WindowManager]::GetProcessWindows($proc.Id)
+$mainHandle = [IntPtr]::Zero
+$foundTitle = ""
+
+# Loop through all windows and find the main window whose title starts with "Stata"
+# Helper windows are usually "Viewer", "Data Editor", etc.
+foreach ($h in $handles) {
+    $title = [WindowManager]::GetWindowTitle($h)
+    
+    if ($title -match "(?i)^stata") {
+        $mainHandle = $h
+        $foundTitle = $title
+        break
+    }
+}
+
+# 6. Bring main window to foreground
+if ($mainHandle -ne [IntPtr]::Zero) {
+    # Use ShowWindow to restore window if minimized, 9 = SW_RESTORE
+    [WindowManager]::ShowWindow($mainHandle, 9) | Out-Null
+    Start-Sleep -Milliseconds $sleepDelay
+    
+    # Set window to foreground
+    [WindowManager]::SetForegroundWindow($mainHandle) | Out-Null
+    Start-Sleep -Milliseconds $sleepDelay
+} else {
+    # Fallback: if main window not found, use traditional AppActivate method
+    $wshell = New-Object -ComObject WScript.Shell
+    $activated = $false
+    
+    if ($proc.MainWindowTitle) {
+        $activated = $wshell.AppActivate($proc.MainWindowTitle)
+    }
+    
+    if (-not $activated) {
+        $activated = $wshell.AppActivate($proc.Id)
+    }
+    
+    if (-not $activated) {
+        Write-Error 'Failed to activate Stata window'
+        exit 1
+    }
+}
+
+# 7. Prepare and execute do file command
+Start-Sleep -Milliseconds $sleepDelay
+$cleanPath = $doFilePath -replace '\\', '/'
+$quote = [char]34
+$runCommand = 'do ' + $quote + $cleanPath + $quote
+
+# Initialize WScript.Shell for sending keystrokes
+if (-not $global:wshell) {
+    $global:wshell = New-Object -ComObject WScript.Shell
+}
+
+# Paste command via clipboard and execute
+Set-Clipboard -Value $runCommand
+Start-Sleep -Milliseconds ($sleepDelay + 50)
+Send-CtrlV
+Start-Sleep -Milliseconds ($sleepDelay + 50)
+$global:wshell.SendKeys('~')
