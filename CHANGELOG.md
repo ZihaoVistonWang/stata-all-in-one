@@ -3,6 +3,12 @@
 All notable changes to the Stata All in One extension will be documented in this file.
 本文件记录 Stata All in One 扩展的所有重要更改。
 
+## 0.2.12 (2026-03-05)
+- **New**: Windows configuration `closeStataOtherWindowsBeforeSendingCode` to control whether helper windows (Viewer/Data Editor) are closed before sending code
+- **New**: Configuration `showActionButtons` to toggle display of "Bug report" and "Sponsor" buttons in the editor title bar
+- **新增**：Windows 可配置发送代码前是否关闭 Viewer、数据编辑器等辅助窗口
+- **新增**：配置是否在编辑器标题栏显示"Bug 反馈"和"打赏支持"按钮
+
 ## 0.2.11 (2026-03-02)
 - **New**: Auto `cd` to do file directory on first Stata launch (disabled by default)
 - **新增**：Stata 首次启动时自动 `cd` 到 do 文件所在目录（默认关闭）

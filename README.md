@@ -13,7 +13,7 @@ Stata All in One
 </p>
 
 <p align="center">
-   | <b>Version:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.2.11</a> | <b>Author:</b> <a href="https://zihaowang.cn">Zihao Viston Wang</a> | <b>翻译:</b>
+   | <b>Version:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.2.12</a> | <b>Author:</b> <a href="https://zihaowang.cn">Zihao Viston Wang</a> | <b>翻译:</b>
   <a href="https://gitee.com/ZihaoVistonWang/stata-all-in-one">中文版本</a> |
 </p>
 
@@ -174,30 +174,34 @@ Search for "Stata All in One" in VS Code settings and configure:
 8. **Stata Step Delay (Windows)** (`stata-all-in-one.stataStepDelayOnWindows`)
    - **[Windows]** Delay between PowerShell automation steps (ms). Default: `100` (min: `50`). Increase if your machine is slower or Stata misses keystrokes.
 
-9. **Active Stata Window After Running Code** (`stata-all-in-one.activateStataWindow`)
+9. **Close Stata Other Windows Before Sending Code (Windows)** (`stata-all-in-one.closeStataOtherWindowsBeforeSendingCode`)
+   - **[Windows]** `true`: Close Stata helper windows (such as Viewer/Data Editor) before sending run commands.
+   - `false` (default): Keep those windows open and send code directly.
+
+10. **Active Stata Window After Running Code** (`stata-all-in-one.activateStataWindow`)
    - `true` (default): Activate the Stata window after running code (bring it to the foreground).
    - `false`: Does not change focus.
 
-10. **Enable Ctrl+Shift+D for Run Shortcut** (`stata-all-in-one.enableCtrlShiftD`)
+11. **Enable Ctrl+Shift+D for Run Shortcut** (`stata-all-in-one.enableCtrlShiftD`)
    - `true`: Use `Ctrl/Cmd+Shift+D` as the run code shortcut.
    - `false` (default): Use the default `Ctrl/Cmd+D` shortcut.
 
-11. **Auto cd to Do File Directory** (`stata-all-in-one.cdToDoFileDir`)
+12. **Auto cd to Do File Directory** (`stata-all-in-one.cdToDoFileDir`)
     - `true`: Automatically `cd` to the do file's directory when Stata is first launched.
     - `false` (default): Stata's working directory is not changed on startup.
 
 ### Code Style
 
-12. **Comment Style** (`stata-all-in-one.commentStyle`)
+13. **Comment Style** (`stata-all-in-one.commentStyle`)
    - `// ` (default): Comment style used for toggling comments. Options include `//`, `*`, or `/* ... */`
 
-13. **Separator Length** (`stata-all-in-one.separatorLength`)
+14. **Separator Length** (`stata-all-in-one.separatorLength`)
 
 - Total character length of the separator line (including the '\*\* #' prefix and separators). Default: `60`
 
 <a id="separatorSymmetric"></a>
 
-14. **Separator Symmetric** (`stata-all-in-one.separatorSymmetric`)
+15. **Separator Symmetric** (`stata-all-in-one.separatorSymmetric`)
 
 - `true`: Add ` **` at the end of separator lines to ensure visual symmetry (e.g., `** === title === **`).
 - `false` (default): Separator lines without the suffix.
@@ -220,6 +224,7 @@ If this extension has been helpful to you, feel free to scan the **Alipay** (lef
 
 | Version | Changes                                                                                                              | Release Date |
 | ------- | -------------------------------------------------------------------------------------------------------------------- | ------------ |
+| 0.2.12  | Windows: Added configurable option to close helper windows (Viewer/Data Editor) before sending code; Added configuration to toggle display of "Bug report" and "Sponsor" buttons. | 2026-03-05   |
 | 0.2.11  | New optional feature: Auto `cd` to do file directory on first Stata launch (disabled by default).                    | 2026-03-02   |
 | 0.2.10  | Refined code execution logic (Section/Line/Selection execution); Configurable run shortcut; F2 rename for variables. | 2026-02-27   |
 

@@ -13,7 +13,7 @@ Stata All in One
 </p>
 
 <p align="center">
-  | <b>版本:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.2.11</a> | <b>作者:</b> <a href="https://zihaowang.cn">王梓豪</a> | <b>Translate:</b>
+  | <b>版本:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.2.12</a> | <b>作者:</b> <a href="https://zihaowang.cn">王梓豪</a> | <b>Translate:</b>
   <a href="https://github.com/ZihaoVistonWang/stata-all-in-one">English Version</a> |
 </p>
 
@@ -171,29 +171,33 @@ Stata All in One
 8. **步骤延迟（Windows）** (`stata-all-in-one.stataStepDelayOnWindows`)
    - **[Windows]** PowerShell 自动化每一步之间的延迟（毫秒）。默认：`100`（最小：`50`）。电脑较慢或偶发漏键时可适当调大。
 
-9. **运行代码后激活 Stata 至前台** (`stata-all-in-one.activateStataWindow`)
+9. **发送代码前关闭 Stata 其他窗口（Windows）** (`stata-all-in-one.closeStataOtherWindowsBeforeSendingCode`)
+   - **[Windows]** `true`：发送运行命令前先关闭 Stata 辅助窗口（如 Viewer、Data Editor）。
+   - `false`（默认）：保留这些窗口，直接发送代码。
+
+10. **运行代码后激活 Stata 至前台** (`stata-all-in-one.activateStataWindow`)
    - `true`（默认）：运行代码后激活Stata窗口（将其带到前台）。
    - `false`：不激活 Stata 窗口。
 
-10. **启用 Ctrl+Shift+D 作为运行快捷键** (`stata-all-in-one.enableCtrlShiftD`)
+11. **启用 Ctrl+Shift+D 作为运行快捷键** (`stata-all-in-one.enableCtrlShiftD`)
    - `true`：使用 `Ctrl/Cmd+Shift+D` 作为运行代码的快捷键。
    - `false`（默认）：使用默认的 `Ctrl/Cmd+D` 快捷键。
 
-11. **自动 cd 到 do 文件目录** (`stata-all-in-one.cdToDoFileDir`)
+12. **自动 cd 到 do 文件目录** (`stata-all-in-one.cdToDoFileDir`)
     - `true`：Stata 首次启动时自动将工作目录切换到当前 do 文件所在位置。
     - `false`（默认）：Stata 启动后不更改工作目录。
 
 ### 代码风格
 
-12. **注释样式** (`stata-all-in-one.commentStyle`)
+13. **注释样式** (`stata-all-in-one.commentStyle`)
     - `// `（默认）：用于切换注释的样式。选项包括 `//`、`*` 或 `/* ... */`
 
-13. **分隔线长度** (`stata-all-in-one.separatorLength`)
+14. **分隔线长度** (`stata-all-in-one.separatorLength`)
     - 分割线所在行的字符总长度（包括前缀 \'\*\* #\' 和分隔符）。默认值：`60`
 
 <a id="separatorSymmetric"></a>
 
-14. **分隔线对称性** (`stata-all-in-one.separatorSymmetric`)
+15. **分隔线对称性** (`stata-all-in-one.separatorSymmetric`)
 
 - `true`：在分割线末尾添加 ` **` 以保证视觉对称（例如 `** === 标题 === **`）。
 - `false`（默认）：分割线不添加末尾后缀。
@@ -216,6 +220,7 @@ Stata All in One
 
 | 版本   | 更新内容                                                                           | 发布日期   |
 | ------ | ---------------------------------------------------------------------------------- | ---------- |
+| 0.2.12 | Windows 可配置发送代码前是否关闽 Viewer、数据编辑器等辅助窗口；新增配置是否氺示“Bug 反馈”和“打赏支持”按鑀 | 2026-03-05 |
 | 0.2.11 | 新增可选配置：Stata 首次启动时自动 `cd` 到 do 文件所在目录（默认关闭）             | 2026-03-02 |
 | 0.2.10 | 优化代码运行逻辑（章节/单行/选中运行）；新增运行快捷键可选；新增 F2 变量重命名功能 | 2026-02-27 |
 
