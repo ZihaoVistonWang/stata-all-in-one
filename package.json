@@ -234,6 +234,14 @@
         "title": "Stata All in One: Debug Test Update Notification"
       },
       {
+        "command": "stata-all-in-one.debugForceWindowsUpgradeNotification",
+        "title": "Stata All in One: Debug Force Windows Upgrade Notification"
+      },
+      {
+        "command": "stata-all-in-one.debugResetWindowsUpgradeNotification",
+        "title": "Stata All in One: Debug Reset Windows Upgrade Notification"
+      },
+      {
         "command": "stata-all-in-one.rename",
         "title": "Stata All in One: Rename Variable"
       }
