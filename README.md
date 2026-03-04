@@ -210,7 +210,7 @@ Search for "Stata All in One" in VS Code settings and configure:
 
 ## Sponsor
 
-If this extension has been helpful to you, feel free to scan the **Alipay** (left) or **WeChat** (middle) or [**Buy Me A Coffee**](https://www.buymeacoffee.com/zihaovistonwang) (right) QR code below to buy me a coffee ☕
+If this extension has been helpful to you, feel free to scan the **Alipay** (left) or **WeChat** (middle) or [**Buy me a Coffee**](https://www.buymeacoffee.com/zihaovistonwang) (right) QR code below to buy me a coffee ☕
 
 <p align="center">
    <img src="img/sponsorsihp.png" alt="Support QR Code" style="width:600px;" />
