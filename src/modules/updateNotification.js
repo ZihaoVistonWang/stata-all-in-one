@@ -10,6 +10,10 @@ const { getUserLanguage } = require('../utils/common');
 // Update changelog: version -> changelog text
 const CHANGELOG = {
     en: {
+        '0.2.12': {
+            ver_info: '✨ Stata All in One (0.2.12): Windows can now be configured to close other Stata windows before sending code; added a setting to show "bug" and "sponsor" buttons.',
+            more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one#close_stata_other_windows'
+        },
         '0.2.11': {
             ver_info: '✨ Stata All in One (0.2.11): New option to auto `cd` to do file directory on first Stata launch.',
             more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one#cd-to-do-file-dir'
@@ -44,6 +48,10 @@ const CHANGELOG = {
         }
     },
     zh: {
+        '0.2.12': {
+            ver_info: '✨ Stata All in One (0.2.12)：Windows 可配置发送代码前是否关闭stata其他窗口；新增配置是否显示“bug“和“赞赏“按钮。',
+            more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one#close_stata_other_windows'
+        },
         '0.2.11': {
             ver_info: '✨ Stata All in One (0.2.11)：新增可选配置，Stata 首次启动时自动 `cd` 到 do 文件所在目录。',
             more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one#cd-to-do-file-dir'
