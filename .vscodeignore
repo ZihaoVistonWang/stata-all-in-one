@@ -9,3 +9,4 @@ node_modules
 ./img/example.png
 CLAUDE.md
 .claude
+*.backup*

@@ -6,3 +6,4 @@ kylebarron.stata-enhanced-1.6.1
 # *.vsix
 CLAUDE.md
 .claude
+*.backup*
