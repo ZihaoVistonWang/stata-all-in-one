@@ -49,7 +49,7 @@ const CHANGELOG = {
     },
     zh: {
         '0.2.12': {
-            ver_info: '✨ Stata All in One (0.2.12)：Windows 可配置发送代码前是否关闭stata其他窗口；新增配置是否显示“bug“和“赞赏“按钮。',
+            ver_info: '✨ Stata All in One (0.2.12)：Windows 可配置发送代码前是否关闭stata其他窗口；新增配置是否显示“bug“和“打赏“按钮。',
             more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one#close_stata_other_windows'
         },
         '0.2.11': {
