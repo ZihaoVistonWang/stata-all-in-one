@@ -67,8 +67,8 @@ Stata All in One
   - **单行运行**：当光标在普通代码行（无选中）时，点击 ▶️ 按钮 或按 `Ctrl/Cmd + D`，只执行当前行代码。
   - **选中运行**：当选中多行代码时，点击 ▶️ 按钮 或按 `Ctrl/Cmd + D`，执行选中行的代码。支持**模糊选中**——无需精确选中代码段的*首行*或*尾行*，系统会自动捕捉并运行选中内容涉及的全部行。
 - **⚠️ 注意**
-  - Windows 系统下运行代码依赖 PowerShell 脚本自动化，如果电脑较慢或偶发漏键时可适当调大步骤延迟（设置项 `stata-all-in-one.stataStepDelayOnWindows`）。
   <a id="close_stata_other_windows"></a>
+  - Windows 系统下运行代码依赖 PowerShell 脚本自动化，如果电脑较慢或偶发漏键时可适当调大步骤延迟（设置项 `stata-all-in-one.stataStepDelayOnWindows`）。
   - Windows 系统下运行代码时，如果没有唤起Stata并运行代码，请尝试打开`发送代码前关闭 Stata 其他窗口`选项（设置项 `stata-all-in-one.closeStataOtherWindowsBeforeSendingCode`）。
 
 ### 4. 高效分隔线与样式
