@@ -22,10 +22,10 @@ Stata All in One
 <h3 align="center"><b>All-in-one</b> Stata experience: </br>Syntax Highlighting + Code Hints + Smart Outline + Code Execution + Quick Editing!</h3>
 
 <p align="center">
-   <a href="https://marketplace.visualstudio.com/items?itemName=ZihaoVistonWang.stata-all-in-one"><img src="https://img.shields.io/visual-studio-marketplace/i/ZihaoVistonWang.stata-all-in-one?colorA=363a4f&colorB=a6da95&style=for-the-badge"></a>
-   <img src="https://img.shields.io/github/commit-activity/t/ZihaoVistonWang/stata-all-in-one?colorA=363a4f&colorB=f5a97f&style=for-the-badge">
-   <a href="http://xhslink.com/o/4Zs0aSfJSK "><img src="https://img.shields.io/badge/Likes_and_collections-~500-brightgreen?colorA=363a4f&colorB=b7bdf8&style=for-the-badge"></a>
-   <a href="https://github.com/ZihaoVistonWang/stata-all-in-one#sponsor"><img src="https://img.shields.io/badge/BUY%20ME-A%20COFFEE-brightgreen?colorA=363a4f&colorB=e971b7&style=for-the-badge"></a>
+   <a href="https://marketplace.visualstudio.com/items?itemName=ZihaoVistonWang.stata-all-in-one"><img src="https://img.shields.io/visual-studio-marketplace/i/ZihaoVistonWang.stata-all-in-one?colorA=363a4f&colorB=a6da95&style=for-the-badge" alt="Marketplace Installs"></a>
+   <img src="https://img.shields.io/github/commit-activity/t/ZihaoVistonWang/stata-all-in-one?colorA=363a4f&colorB=f5a97f&style=for-the-badge" alt="GitHub Commit Activity">
+   <a href="http://xhslink.com/o/4Zs0aSfJSK "><img src="https://img.shields.io/badge/Likes_and_collections-~500-brightgreen?colorA=363a4f&colorB=b7bdf8&style=for-the-badge" alt="Likes and Collections"></a>
+   <a href="https://github.com/ZihaoVistonWang/stata-all-in-one#sponsor"><img src="https://img.shields.io/badge/BUY%20ME-A%20COFFEE-brightgreen?colorA=363a4f&colorB=e971b7&style=for-the-badge" alt="Buy Me A Coffee"></a>
 </p>
 
 <p align="center">Stata All in One is derived from <a href="https://github.com/ZihaoVistonWang/stata-outline">Stata Outline</a>.</p>
@@ -115,7 +115,7 @@ Stata All in One
 
 ## Keyboard Shortcuts
 
-Click [here](https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/SHORTCUT.md) to view the complete list of keyboard shortcuts.
+Click [Keyboard Shortcuts](https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/SHORTCUT.md) to view the complete list of keyboard shortcuts.
 
 ---
 
