@@ -47,10 +47,10 @@ Stata All in One
 
 ### 2. 智能大纲与结构导航
 
-- **多级大纲识别**：自动识别 `**#` 至 `**######` 格式的注释行，最高支持 *6 级层级标题*。
+- **多级大纲识别**：自动识别 `**#` 至 `**######` 格式的注释行，最高支持 _6 级层级标题_。
   - **快捷键**：`Ctrl/Cmd + 1-6` 快速转换对应等级标题，`Ctrl/Cmd + 0` 恢复为普通代码行。
 - **光标自动跟随**：编辑器光标移动时，大纲视图将自动高亮并跳转至对应章节。
-  - *设置方法：点击大纲右上角 `···` 按钮，勾选「跟随光标」。*[^2]
+  - _设置方法：点击大纲右上角 `···` 按钮，勾选「跟随光标」。_[^2]
 - **多级逻辑序号**：支持在大纲中显示 `1.1`、`1.2.1` 等格式的序号（需在设置中开启）。
 - **自动同步序号**：插件会根据大纲结构自动在 `.do` 文件中插入或删除序号（需在设置中开启）。
 - **支持`program define`块**：在大纲视图中显示 program 名称，方便导航和管理自定义程序。
@@ -63,11 +63,11 @@ Stata All in One
 
 - **平台支持**：无需额外扩展即可与 **macOS** 和 **Windows** 上的 Stata 无缝集成。
 - **多场景执行策略**：
-   - **章节运行**：当光标在标题行（如 `** # 标题`）时，点击 ▶️ 按钮 或按 `Ctrl/Cmd + D`，将执行从该标题起始至下一个同级或高级别标题前的所有代码（即整个章节）。
-   - **单行运行**：当光标在普通代码行（无选中）时，点击 ▶️ 按钮 或按 `Ctrl/Cmd + D`，只执行当前行代码。
-   - **选中运行**：当选中多行代码时，点击 ▶️ 按钮 或按 `Ctrl/Cmd + D`，执行选中行的代码。支持**模糊选中**——无需精确选中代码段的*首行*或*尾行*，系统会自动捕捉并运行选中内容涉及的全部行。
+  - **章节运行**：当光标在标题行（如 `** # 标题`）时，点击 ▶️ 按钮 或按 `Ctrl/Cmd + D`，将执行从该标题起始至下一个同级或高级别标题前的所有代码（即整个章节）。
+  - **单行运行**：当光标在普通代码行（无选中）时，点击 ▶️ 按钮 或按 `Ctrl/Cmd + D`，只执行当前行代码。
+  - **选中运行**：当选中多行代码时，点击 ▶️ 按钮 或按 `Ctrl/Cmd + D`，执行选中行的代码。支持**模糊选中**——无需精确选中代码段的*首行*或*尾行*，系统会自动捕捉并运行选中内容涉及的全部行。
 - **⚠️ 注意**
-   - Windows 系统下运行代码依赖 PowerShell 脚本自动化，如果电脑较慢或偶发漏键时可适当调大步骤延迟（设置项 `stata-all-in-one.stataStepDelayOnWindows`）。
+  - Windows 系统下运行代码依赖 PowerShell 脚本自动化，如果电脑较慢或偶发漏键时可适当调大步骤延迟（设置项 `stata-all-in-one.stataStepDelayOnWindows`）。
 
 ### 4. 高效分隔线与样式
 
@@ -90,7 +90,6 @@ Stata All in One
    - **可选样式**：默认使用 `//`，支持在设置中更改为其他合法注释符。
 
 2. 内置帮助（Built-in Help）
-
    - **快捷帮助**：例如：选中 `regress`，按下快捷键`Ctrl/Cmd + Shift + H`，即可打开 Stata 的 `regress` 帮助页面。
 
 <a id="line-break"></a>
@@ -99,10 +98,10 @@ Stata All in One
    - **一键换行**：使用 `Shift+Enter` 在光标位置插入 Stata 换行符 `///`。
    - **智能缩进**：自动缩进 4 个空格
 
- 4. 安全重命名模式（Safe Rename Mode）
-     - **重命名**：选中变量，按 `F2` 键可重命名当前文档中的所有该变量。
-     - **智能验证**：自动验证新名称是否符合 Stata 命名规则，并检查是否与内置命令或关键字冲突。
-     - **命令保护**：智能识别并阻止重命名 Stata 命令（如 `reghdfe`、`outreg2`）及其选项（如 `absorb`、`ctitle`）。
+4. 安全重命名模式（Safe Rename Mode）
+   - **重命名**：选中变量，按 `F2` 键可重命名当前文档中的所有该变量。
+   - **智能验证**：自动验证新名称是否符合 Stata 命名规则，并检查是否与内置命令或关键字冲突。
+   - **命令保护**：智能识别并阻止重命名 Stata 命令（如 `reghdfe`、`outreg2`）及其选项（如 `absorb`、`ctitle`）。
 
 <a id="cd-to-do-file-dir"></a>
 
@@ -139,7 +138,6 @@ Stata All in One
 ### 语法高亮和代码提示
 
 1. **自定义命令高亮** (`stata-all-in-one.customCommands`)
-
    - 自定义需要高亮的 Stata 命令（字符串数组），默认包含 `reghdfe`。
    - 示例：`["reghdfe", "ivreghdfe", "gtools", "winsor2", "outreg2"]`
    - **配置后需要重载窗口生效**。
@@ -147,57 +145,54 @@ Stata All in One
 ### 大纲与导航
 
 2. **显示多级序号** (`stata-all-in-one.numberingShow`)
-
    - `true`：大纲显示 `1.1`、`1.2.1` 等序号。
    - `false`（默认）：显示原始标题。
-3. **自动添加标题序号** (`stata-all-in-one.numberingAdd`)
 
+3. **自动添加标题序号** (`stata-all-in-one.numberingAdd`)
    - `true`：**当启用序号时**，自动更新.do文件中的section标题以包含序号。
    - `false`（默认）：仅大纲显示序号，不修改文件。
 
 ### 代码运行
 
 4. **显示运行按钮** (`stata-all-in-one.showRunButton`)
-
    - `true`（默认）：是否在编辑器标题栏显示运行按钮。
    - `false`：隐藏按钮。
+
 5. **Stata 版本（macOS）** (`stata-all-in-one.stataVersionOnMacOS`)
-
    - **[macOS]** Stata 运行版本。可选择 `StataMP`、`StataIC`、`StataSE` 版本。
+
 6. **Stata 路径（Windows）** (`stata-all-in-one.stataPathOnWindows`)
-
    - **[Windows]** Stata 执行文件路径（例如 `C:\Program Files\Stata17\StataMP-64.exe`）。
+
 7. **步骤延迟（Windows）** (`stata-all-in-one.stataStepDelayOnWindows`)
-
    - **[Windows]** PowerShell 自动化每一步之间的延迟（毫秒）。默认：`100`（最小：`50`）。电脑较慢或偶发漏键时可适当调大。
+
 8. **运行代码后激活 Stata 至前台** (`stata-all-in-one.activateStataWindow`)
+   - `true`（默认）：运行代码后激活Stata窗口（将其带到前台）。
+   - `false`：不激活 Stata 窗口。
 
-    - `true`（默认）：运行代码后激活Stata窗口（将其带到前台）。
-    - `false`：不激活 Stata 窗口。
 9. **启用 Ctrl+Shift+D 作为运行快捷键** (`stata-all-in-one.enableCtrlShiftD`)
+   - `true`：使用 `Ctrl/Cmd+Shift+D` 作为运行代码的快捷键。
+   - `false`（默认）：使用默认的 `Ctrl/Cmd+D` 快捷键。
 
-     - `true`：使用 `Ctrl/Cmd+Shift+D` 作为运行代码的快捷键。
-     - `false`（默认）：使用默认的 `Ctrl/Cmd+D` 快捷键。
 10. **自动 cd 到 do 文件目录** (`stata-all-in-one.cdToDoFileDir`)
-
-     - `true`：Stata 首次启动时自动将工作目录切换到当前 do 文件所在位置。
-     - `false`（默认）：Stata 启动后不更改工作目录。
+    - `true`：Stata 首次启动时自动将工作目录切换到当前 do 文件所在位置。
+    - `false`（默认）：Stata 启动后不更改工作目录。
 
 ### 代码风格
 
 11. **注释样式** (`stata-all-in-one.commentStyle`)
-
     - `// `（默认）：用于切换注释的样式。选项包括 `//`、`*` 或 `/* ... */`
-12. **分隔线长度** (`stata-all-in-one.separatorLength`)
 
-    - 分割线所在行的字符总长度（包括前缀 \'** #\' 和分隔符）。默认值：`60`
+12. **分隔线长度** (`stata-all-in-one.separatorLength`)
+    - 分割线所在行的字符总长度（包括前缀 \'\*\* #\' 和分隔符）。默认值：`60`
 
 <a id="separatorSymmetric"></a>
 
 13. **分隔线对称性** (`stata-all-in-one.separatorSymmetric`)
 
-   - `true`：在分割线末尾添加 ` **` 以保证视觉对称（例如 `** === 标题 === **`）。
-   - `false`（默认）：分割线不添加末尾后缀。
+- `true`：在分割线末尾添加 ` **` 以保证视觉对称（例如 `** === 标题 === **`）。
+- `false`（默认）：分割线不添加末尾后缀。
 
 > **注意**：修改设置后需重新打开 `.do` 文件生效。禁用 `numberingAdd` 时，文件中现有序号将被自动移除。
 
@@ -205,7 +200,7 @@ Stata All in One
 
 ## 打赏支持
 
-如果这个扩展对你有帮助，欢迎扫描下方的 **支付宝**（左）、**微信**（中）或 <a href="https://www.buymeacoffee.com/zihaovistonwang" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 25px !important; vertical-align: middle;" ></a>（右）二维码，请我喝杯咖啡 ☕
+如果这个扩展对你有帮助，欢迎扫描下方的 **支付宝**（左）、**微信**（中）或 [**Buy Me A Coffee**](https://www.buymeacoffee.com/zihaovistonwang)（右）二维码，支持一下 ☕
 
 <p align="center">
    <img src="img/sponsorsihp.png" alt="Support QR Code" style="width:600px;" />
@@ -215,9 +210,9 @@ Stata All in One
 
 ## 版本记录
 
-| 版本   | 更新内容 | 发布日期   |
-|--------|----------|------------|
-| 0.2.11 | 新增可选配置：Stata 首次启动时自动 `cd` 到 do 文件所在目录（默认关闭） | 2026-03-02 |
+| 版本   | 更新内容                                                                           | 发布日期   |
+| ------ | ---------------------------------------------------------------------------------- | ---------- |
+| 0.2.11 | 新增可选配置：Stata 首次启动时自动 `cd` 到 do 文件所在目录（默认关闭）             | 2026-03-02 |
 | 0.2.10 | 优化代码运行逻辑（章节/单行/选中运行）；新增运行快捷键可选；新增 F2 变量重命名功能 | 2026-02-27 |
 
 详见 [CHANGELOG.md](CHANGELOG.md) 完整版本记录。

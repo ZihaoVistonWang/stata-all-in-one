@@ -28,7 +28,6 @@ Stata All in One
    <a href="https://github.com/ZihaoVistonWang/stata-all-in-one#sponsor"><img src="https://img.shields.io/badge/BUY%20ME-A%20COFFEE-brightgreen?colorA=363a4f&colorB=e971b7&style=for-the-badge"></a>
 </p>
 
-
 <p align="center">Stata All in One is derived from <a href="https://github.com/ZihaoVistonWang/stata-outline">Stata Outline</a>.</p>
 
 ---
@@ -51,7 +50,7 @@ Stata All in One
 - **Multi-level Outline Recognition**: Automatically detects comment lines from `**#` to `**######` as hierarchical headers, supporting up to **6 levels**.
   - **Shortcuts**: `Ctrl/Cmd + 1-6` to quickly convert to the corresponding header level; `Ctrl/Cmd + 0` to revert to a standard code line.
 - **Cursor Auto-Follow**: The outline view automatically highlights and navigates to the corresponding section as the cursor moves in the editor.
-  - *Setup: Click the "···" button in the top-right of the Outline view and check "Follow Cursor".*[^2]
+  - _Setup: Click the "···" button in the top-right of the Outline view and check "Follow Cursor"._[^2]
 - **Multi-level Numbering**: Optional display of logical numbering (e.g., `1.1`, `1.2.1`) within the outline (must be enabled in settings).
 - **Auto-Sync Numbering**: When enabled, the extension automatically adds or removes numbering directly within the `.do` file based on the outline structure.
 - **`program define` Block Recognition**: Displays program names in the outline view for easy navigation and management of custom programs.
@@ -64,11 +63,11 @@ Stata All in One
 
 - **Platform Support**: Seamlessly integrates with Stata on both **macOS** and **Windows** without requiring additional extensions.
 - **Multi-Scenario Execution Strategies**:
-   - **Section Execution**: When the cursor is on a header line (e.g., `** # Title`), clicking the ▶️ button or pressing `Ctrl/Cmd + D` will execute the entire section from that header to the next same-level or higher-level header.
-   - **Single Line Execution**: When the cursor is on a regular code line (no selection), clicking the ▶️ button or pressing `Ctrl/Cmd + D` will only execute that specific line.
-   - **Selected Code Execution**: When multiple lines of code are selected, clicking the ▶️ button or pressing `Ctrl/Cmd + D` will execute the selected code lines. Supports **fuzzy selection** - no need to precisely select the *first* or *last* line of a code segment; the system will automatically capture and run all lines covered by the selection.
+  - **Section Execution**: When the cursor is on a header line (e.g., `** # Title`), clicking the ▶️ button or pressing `Ctrl/Cmd + D` will execute the entire section from that header to the next same-level or higher-level header.
+  - **Single Line Execution**: When the cursor is on a regular code line (no selection), clicking the ▶️ button or pressing `Ctrl/Cmd + D` will only execute that specific line.
+  - **Selected Code Execution**: When multiple lines of code are selected, clicking the ▶️ button or pressing `Ctrl/Cmd + D` will execute the selected code lines. Supports **fuzzy selection** - no need to precisely select the _first_ or _last_ line of a code segment; the system will automatically capture and run all lines covered by the selection.
 - **⚠️ Note**
-   - On Windows, code execution relies on PowerShell automation. If your machine is slow or occasionally misses keystrokes, consider increasing the step delay (setting `stata-all-in-one.stataStepDelayOnWindows`).
+  - On Windows, code execution relies on PowerShell automation. If your machine is slow or occasionally misses keystrokes, consider increasing the step delay (setting `stata-all-in-one.stataStepDelayOnWindows`).
 
 ### 4. Efficient Separator Lines & Styling
 
@@ -82,7 +81,7 @@ Stata All in One
   - **Blank Line Insertion**: Generates a full-width separator line (length adjustable in settings).
   - **Non-blank Line Insertion**: Pressing the shortcut once inserts above the line; pressing it again inserts below, creating a "wrapped" effect.
   - **Header Decoration**: Select some characters of a header and press the shortcut to generate a title with balanced decorative symbols (e.g., `**# === Title ===`), without affecting outline recognition.
-    - **Centered Header**: If using **Header Decoration** + **Custom *space* separator**, the header content will be automatically centered.
+    - **Centered Header**: If using **Header Decoration** + **Custom _space_ separator**, the header content will be automatically centered.
 
 ### 5. More Features
 
@@ -91,7 +90,6 @@ Stata All in One
    - **Optional Styles**: Defaults to `//`, with support for switching to other valid Stata comment delimiters in settings.
 
 2. Built-in Help
-
    - **Quick Help**: For example, select `regress` and press the shortcut key `Ctrl/Cmd + Shift + H` to open Stata's `regress` help page.
 
 <a id="line-break"></a>
@@ -142,7 +140,6 @@ Search for "Stata All in One" in VS Code settings and configure:
 ### Syntax Highlighting and Code Hints
 
 1. **Custom Command Highlighting** (`stata-all-in-one.customCommands`)
-
    - User-defined Stata commands to highlight as keywords (array of strings). Default: `reghdfe`.
    - Example: `["reghdfe", "ivreghdfe", "gtools", "winsor2", "outreg2"]`
    - **Requires reloading window** after configuration.
@@ -150,58 +147,56 @@ Search for "Stata All in One" in VS Code settings and configure:
 ### Outline & Navigation
 
 2. **Display Multi-level Numbering** (`stata-all-in-one.numberingShow`)
-
    - `true`: Outline displays `1.1`, `1.2.1` style numbering.
    - `false` (default): Displays original headings.
-3. **Auto-update File Content** (`stata-all-in-one.numberingAdd`)
 
+3. **Auto-update File Content** (`stata-all-in-one.numberingAdd`)
    - `true`: When numbering is enabled, automatically update section titles in .do files to include numbers. **Requires reopening .do files**
    - `false` (default): Only displays numbering in outline, doesn't modify file.
 
 ### Code Execution
 
 4. **Show Run Button** (`stata-all-in-one.showRunButton`)
-
    - `true` (default): Whether to show the run button in the editor title bar.
    - `false`: Hides button.
-5. **Stata Version on macOS** (`stata-all-in-one.stataVersionOnMacOS`)
 
+5. **Stata Version on macOS** (`stata-all-in-one.stataVersionOnMacOS`)
    - **[macOS]** Stata version. Select between `StataMP`, `StataIC`, `StataSE`.
    - Default: `StataMP`
+
 6. **Stata Path on Windows** (`stata-all-in-one.stataPathOnWindows`)
-
    - **[Windows]** Path to Stata executable file (e.g., `C:\Program Files\Stata17\StataMP-64.exe`).
+
 7. **Stata Step Delay (Windows)** (`stata-all-in-one.stataStepDelayOnWindows`)
-
    - **[Windows]** Delay between PowerShell automation steps (ms). Default: `100` (min: `50`). Increase if your machine is slower or Stata misses keystrokes.
+
 8. **Active Stata Window After Running Code** (`stata-all-in-one.activateStataWindow`)
+   - `true` (default): Activate the Stata window after running code (bring it to the foreground).
+   - `false`: Does not change focus.
 
-    - `true` (default): Activate the Stata window after running code (bring it to the foreground).
-    - `false`: Does not change focus.
 9. **Enable Ctrl+Shift+D for Run Shortcut** (`stata-all-in-one.enableCtrlShiftD`)
+   - `true`: Use `Ctrl/Cmd+Shift+D` as the run code shortcut.
+   - `false` (default): Use the default `Ctrl/Cmd+D` shortcut.
 
-    - `true`: Use `Ctrl/Cmd+Shift+D` as the run code shortcut.
-    - `false` (default): Use the default `Ctrl/Cmd+D` shortcut.
 10. **Auto cd to Do File Directory** (`stata-all-in-one.cdToDoFileDir`)
-
     - `true`: Automatically `cd` to the do file's directory when Stata is first launched.
     - `false` (default): Stata's working directory is not changed on startup.
 
 ### Code Style
 
 9. **Comment Style** (`stata-all-in-one.commentStyle`)
-
    - `// ` (default): Comment style used for toggling comments. Options include `//`, `*`, or `/* ... */`
+
 10. **Separator Length** (`stata-all-in-one.separatorLength`)
 
-   - Total character length of the separator line (including the '** #' prefix and separators). Default: `60`
+- Total character length of the separator line (including the '\*\* #' prefix and separators). Default: `60`
 
 <a id="separatorSymmetric"></a>
 
 11. **Separator Symmetric** (`stata-all-in-one.separatorSymmetric`)
 
-   - `true`: Add ` **` at the end of separator lines to ensure visual symmetry (e.g., `** === title === **`).
-   - `false` (default): Separator lines without the suffix.
+- `true`: Add ` **` at the end of separator lines to ensure visual symmetry (e.g., `** === title === **`).
+- `false` (default): Separator lines without the suffix.
 
 > **Note**: Changes take effect after reopening `.do` files. When `numberingAdd` is disabled, existing numbering in `.do` files will be automatically removed.
 
@@ -219,9 +214,9 @@ If this extension has been helpful to you, feel free to scan the **Alipay** (lef
 
 ## Changelog
 
-| Version | Changes | Release Date |
-|---------|---------|--------------|
-| 0.2.11  | New optional feature: Auto `cd` to do file directory on first Stata launch (disabled by default). | 2026-03-02 |
-| 0.2.10  | Refined code execution logic (Section/Line/Selection execution); Configurable run shortcut; F2 rename for variables. | 2026-02-27 |
+| Version | Changes                                                                                                              | Release Date |
+| ------- | -------------------------------------------------------------------------------------------------------------------- | ------------ |
+| 0.2.11  | New optional feature: Auto `cd` to do file directory on first Stata launch (disabled by default).                    | 2026-03-02   |
+| 0.2.10  | Refined code execution logic (Section/Line/Selection execution); Configurable run shortcut; F2 rename for variables. | 2026-02-27   |
 
 See [CHANGELOG.md](CHANGELOG.md) for full version history.
