@@ -10,6 +10,7 @@
   "config.customCommands.description": "自定义需要高亮的 Stata 命令（字符串数组）。这些命令会使用与内置命令（如 regress、summarize）**相同的颜色**。支持大小写不敏感。示例：[\"reghdfe\", \"ivreg2\", \"outreg2\"]。**需要重载窗口**（Ctrl+Shift+P → Developer: Reload Window）",
 "config.separatorSymmetric.description": "在分割线末尾添加 ` **` 以保证视觉上的对称（例如 `** === title === **`）。",
     "config.stataStepDelayOnWindows.description": "**[Windows]** PowerShell 每个执行步骤之间的延迟时间（毫秒）。如果在较慢的机器上遇到问题，请增加此值（默认值：100ms，最小值：50ms）。",
+  "config.closeStataOtherWindowsBeforeSendingCode.description": "**[Windows]** 运行代码时，发送命令前是否先关闭 Stata 的其他辅助窗口（如 Viewer、数据编辑器等）。",
     "config.enableCtrlShiftD.description": "启用 `Ctrl/Cmd+Shift+D` 作为运行代码的快捷键（而非默认的 `Ctrl/Cmd+D`）。",
     "config.cdToDoFileDir.description": "是否在 Stata 首次启动时自动 `cd` 到当前 do 文件所在目录。关闭时，Stata 启动后不会更改工作目录。",
   "config.showActionButtons.description": "是否在编辑器标题栏显示 Bug 反馈和打赏支持按钮。",

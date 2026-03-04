@@ -38,7 +38,11 @@ function runOnWindows(codeToRun, tmpFilePath, stataPathOnWindows, docDir = null)
     fs.writeFileSync(tmpFilePath, finalCode, 'utf8');
 
     const extensionPath = vscode.extensions.getExtension('ZihaoVistonWang.stata-all-in-one').extensionPath;
-    const psScriptPath = stripSurroundingQuotes(path.join(extensionPath, 'scripts', 'win_run_do_file.ps1'));
+    const closeOtherWindows = config.getCloseStataOtherWindowsBeforeSendingCode ? config.getCloseStataOtherWindowsBeforeSendingCode() : true;
+    const scriptFileName = closeOtherWindows
+        ? 'win_run_do_file_close_all_windows.ps1'
+        : 'win_run_do_file_with_all_windows.ps1';
+    const psScriptPath = stripSurroundingQuotes(path.join(extensionPath, 'scripts', scriptFileName));
     const cleanDoFilePath = stripSurroundingQuotes(tmpFilePath);
     
     // Get step delay from config, default 100ms
