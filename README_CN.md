@@ -206,7 +206,7 @@ Stata All in One
 
 ## 打赏支持
 
-如果这个扩展对你有帮助，欢迎扫描下方的 **支付宝**（左）、**微信**（中）或 [**Buy Me A Coffee**](https://www.buymeacoffee.com/zihaovistonwang)（右）二维码，支持一下 ☕
+如果这个扩展对你有帮助，欢迎扫描下方的 **支付宝**（左）、**微信**（中）或 [**Buy me a Coffee**](https://www.buymeacoffee.com/zihaovistonwang)（右）二维码，支持一下 ☕
 
 <p align="center">
    <img src="img/sponsorsihp.png" alt="Support QR Code" style="width:600px;" />
