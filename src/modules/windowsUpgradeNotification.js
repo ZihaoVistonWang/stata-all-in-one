@@ -18,12 +18,12 @@ const VERSION_KEY = 'stata-all-in-one.windowsUpgradeNotificationVersion';
 
 const UPGRADE_MESSAGES = {
     en: {
-        message: 'Stata All in One - Windows Code Execution Refactored!\n\n\n\nThe code execution logic for Windows has been refactored for better stability and performance.\n\nIf Stata doesn\'t launch or run code after sending, please try enabling the setting: "Close Stata Other Windows Before Sending Code" (stata-all-in-one.closeStataOtherWindowsBeforeSendingCode).\n\nFor bug reports, please email hi@zihaowang.cn.',
+        message: '🚀 Stata All in One | Windows Execution Code Refactored!\n\n\nThe code execution logic for Windows has been completely rebuilt for better stability.\n\n💡 Pro Tip: If Stata doesn\'t launch or run code, try enabling: "Close Stata Other Windows Before Sending Code" (stata-all-in-one.closeStataOtherWindowsBeforeSendingCode).\n\n✉️ Feedback: hi@zihaowang.cn',
         ok: 'OK',
         remindLater: 'Remind Me Later'
     },
     zh: {
-        message: 'Stata All in One - Windows 代码执行逻辑已重构！\n\n\n\n本次版本重构了 Windows 端执行代码的逻辑，以提供更好的稳定性和性能。\n\n当出现没有唤起 Stata 并运行代码的情况，请首先尝试打开"发送代码前关闭 Stata 其他窗口"选项（设置项 stata-all-in-one.closeStataOtherWindowsBeforeSendingCode）。\n\n如有任何 bug 请反馈给 hi@zihaowang.cn。',
+        message: '🚀 Stata All in One | Windows端代码执行逻辑已重构！\n\n\n本次版本重构了 Windows 端执行代码的逻辑，以提供更好的稳定性和性能。\n\n💡 重要提示: 当出现没有唤起 Stata 并运行代码的情况，请首先尝试打开"发送代码前关闭 Stata 其他窗口"选项（设置项 stata-all-in-one.closeStataOtherWindowsBeforeSendingCode）。\n\n✉️ 如有任何 bug 请反馈给 hi@zihaowang.cn。',
         ok: '确定',
         remindLater: '稍后提醒'
     }
