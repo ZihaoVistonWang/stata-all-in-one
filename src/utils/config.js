@@ -40,11 +40,6 @@ const getShowRunButton = () => getConfigValue('showRunButton', false);
 const getStataVersion = () => getConfigValue('stataVersionOnMacOS', 'StataMP');
 
 /**
- * Get activateStataWindow setting
- */
-const getActivateStataWindow = () => getConfigValue('activateStataWindow', true);
-
-/**
  * Get commentStyle setting
  */
 const getCommentStyle = () => getConfigValue('commentStyle', '// ');
@@ -121,7 +116,6 @@ module.exports = {
     getnumberingAdd,
     getShowRunButton,
     getStataVersion,
-    getActivateStataWindow,
     getCommentStyle,
     getSeparatorLength,
     getStataPathOnWindows: getStataPathOnWindows,

@@ -180,30 +180,26 @@ Search for "Stata All in One" in VS Code settings and configure:
    - **[Windows]** `true`: Close Stata helper windows (such as Viewer/Data Editor) before sending run commands.
    - `false` (default): Keep those windows open and send code directly.
 
-10. **Active Stata Window After Running Code** (`stata-all-in-one.activateStataWindow`)
-   - `true` (default): Activate the Stata window after running code (bring it to the foreground).
-   - `false`: Does not change focus.
-
-11. **Enable Ctrl+Shift+D for Run Shortcut** (`stata-all-in-one.enableCtrlShiftD`)
+10. **Enable Ctrl+Shift+D for Run Shortcut** (`stata-all-in-one.enableCtrlShiftD`)
    - `true`: Use `Ctrl/Cmd+Shift+D` as the run code shortcut.
    - `false` (default): Use the default `Ctrl/Cmd+D` shortcut.
 
-12. **Auto cd to Do File Directory** (`stata-all-in-one.cdToDoFileDir`)
+11. **Auto cd to Do File Directory** (`stata-all-in-one.cdToDoFileDir`)
     - `true`: Automatically `cd` to the do file's directory when Stata is first launched.
     - `false` (default): Stata's working directory is not changed on startup.
 
 ### Code Style
 
-13. **Comment Style** (`stata-all-in-one.commentStyle`)
+12. **Comment Style** (`stata-all-in-one.commentStyle`)
    - `// ` (default): Comment style used for toggling comments. Options include `//`, `*`, or `/* ... */`
 
-14. **Separator Length** (`stata-all-in-one.separatorLength`)
+13. **Separator Length** (`stata-all-in-one.separatorLength`)
 
 - Total character length of the separator line (including the '\*\* #' prefix and separators). Default: `60`
 
 <a id="separatorSymmetric"></a>
 
-15. **Separator Symmetric** (`stata-all-in-one.separatorSymmetric`)
+14. **Separator Symmetric** (`stata-all-in-one.separatorSymmetric`)
 
 - `true`: Add ` **` at the end of separator lines to ensure visual symmetry (e.g., `** === title === **`).
 - `false` (default): Separator lines without the suffix.

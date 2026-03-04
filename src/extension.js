@@ -40,7 +40,6 @@ const CONFIG_MAPPING = [
     { old: 'stata-outline.showRunButton', fresh: 'stata-all-in-one.showRunButton' },
     { old: 'stata-outline.stataVersion', fresh: 'stata-all-in-one.stataVersionOnMacOS' },
     { old: 'stata-outline.stataPathOnWindows', fresh: 'stata-all-in-one.stataPathOnWindows' },
-    { old: 'stata-outline.activateStataWindow', fresh: 'stata-all-in-one.activateStataWindow' },
     { old: 'stata-outline.commentStyle', fresh: 'stata-all-in-one.commentStyle' },
     { old: 'stata-outline.separatorLength', fresh: 'stata-all-in-one.separatorLength' }
 ];

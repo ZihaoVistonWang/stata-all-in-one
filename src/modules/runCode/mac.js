@@ -96,7 +96,6 @@ function isStataRunning(appName) {
  */
 function runOnMac(codeToRun, tmpFilePath, isHelpCommand = false, docDir = null) {
     const stataVersion = config.getStataVersion();
-    const activateStataWindow = config.getActivateStataWindow();
     
     let appName;
 
@@ -138,11 +137,7 @@ function runOnMac(codeToRun, tmpFilePath, isHelpCommand = false, docDir = null) 
 
     // Activate window first if needed, then close help windows and run code
     // 先激活窗口（视觉反馈更快），再执行关闭帮助窗口和运行代码
-    let stataCommand = '';
-    
-    if (isHelpCommand || activateStataWindow) {
-        stataCommand = `osascript -e 'tell application "${appName}" to activate' && `;
-    }
+    let stataCommand = `osascript -e 'tell application "${appName}" to activate' && `;
     
     // Please uncomment the following line if you want to close all help windows before running code
     // 如果需要先关闭帮助窗口，则将下面的命令取消注释

@@ -177,29 +177,25 @@ Stata All in One
    - **[Windows]** `true`：发送运行命令前先关闭 Stata 辅助窗口（如 Viewer、Data Editor）。
    - `false`（默认）：保留这些窗口，直接发送代码。
 
-10. **运行代码后激活 Stata 至前台** (`stata-all-in-one.activateStataWindow`)
-   - `true`（默认）：运行代码后激活Stata窗口（将其带到前台）。
-   - `false`：不激活 Stata 窗口。
-
-11. **启用 Ctrl+Shift+D 作为运行快捷键** (`stata-all-in-one.enableCtrlShiftD`)
+10. **启用 Ctrl+Shift+D 作为运行快捷键** (`stata-all-in-one.enableCtrlShiftD`)
    - `true`：使用 `Ctrl/Cmd+Shift+D` 作为运行代码的快捷键。
    - `false`（默认）：使用默认的 `Ctrl/Cmd+D` 快捷键。
 
-12. **自动 cd 到 do 文件目录** (`stata-all-in-one.cdToDoFileDir`)
+11. **自动 cd 到 do 文件目录** (`stata-all-in-one.cdToDoFileDir`)
     - `true`：Stata 首次启动时自动将工作目录切换到当前 do 文件所在位置。
     - `false`（默认）：Stata 启动后不更改工作目录。
 
 ### 代码风格
 
-13. **注释样式** (`stata-all-in-one.commentStyle`)
+12. **注释样式** (`stata-all-in-one.commentStyle`)
     - `// `（默认）：用于切换注释的样式。选项包括 `//`、`*` 或 `/* ... */`
 
-14. **分隔线长度** (`stata-all-in-one.separatorLength`)
+13. **分隔线长度** (`stata-all-in-one.separatorLength`)
     - 分割线所在行的字符总长度（包括前缀 \'\*\* #\' 和分隔符）。默认值：`60`
 
 <a id="separatorSymmetric"></a>
 
-15. **分隔线对称性** (`stata-all-in-one.separatorSymmetric`)
+14. **分隔线对称性** (`stata-all-in-one.separatorSymmetric`)
 
 - `true`：在分割线末尾添加 ` **` 以保证视觉对称（例如 `** === 标题 === **`）。
 - `false`（默认）：分割线不添加末尾后缀。
