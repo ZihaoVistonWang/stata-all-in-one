@@ -94,6 +94,11 @@ const getStataStepDelayOnWindows = () => {
 };
 
 /**
+ * Get whether to close non-Stata windows before sending run command on Windows
+ */
+const getCloseStataOtherWindowsBeforeSendingCode = () => getConfigValue('closeStataOtherWindowsBeforeSendingCode', true);
+
+/**
  * Get separatorSymmetric setting
  */
 const getSeparatorSymmetric = () => getConfigValue('separatorSymmetric', true);
@@ -122,6 +127,7 @@ module.exports = {
     getStataPathOnWindows: getStataPathOnWindows,
     getCustomCommands,
     getStataStepDelayOnWindows,
+    getCloseStataOtherWindowsBeforeSendingCode,
     getSeparatorSymmetric,
     getEnableCtrlShiftD,
     getCdToDoFileDir

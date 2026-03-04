@@ -69,6 +69,11 @@
           "minimum": 50,
           "markdownDescription": "%config.stataStepDelayOnWindows.description%"
         },
+        "stata-all-in-one.closeStataOtherWindowsBeforeSendingCode": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "%config.closeStataOtherWindowsBeforeSendingCode.description%"
+        },
         "stata-all-in-one.activateStataWindow": {
           "type": "boolean",
           "default": true,
