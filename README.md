@@ -68,6 +68,8 @@ Stata All in One
   - **Selected Code Execution**: When multiple lines of code are selected, clicking the ▶️ button or pressing `Ctrl/Cmd + D` will execute the selected code lines. Supports **fuzzy selection** - no need to precisely select the _first_ or _last_ line of a code segment; the system will automatically capture and run all lines covered by the selection.
 - **⚠️ Note**
   - On Windows, code execution relies on PowerShell automation. If your machine is slow or occasionally misses keystrokes, consider increasing the step delay (setting `stata-all-in-one.stataStepDelayOnWindows`).
+  <a id="close_stata_other_windows"></a>
+  - On Windows, if Stata does not wake up and run the code when running code, please try to set `true` for the `Close Stata other windows before sending code` option (setting `stata-all-in-one.closeStataOtherWindowsBeforeSendingCode`).
 
 ### 4. Efficient Separator Lines & Styling
 
