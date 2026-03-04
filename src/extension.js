@@ -16,6 +16,7 @@ const { registerRenameProvider } = require('./modules/renameProvider');
 const { registerUpdateCheck } = require('./modules/updateNotification');
 const { findStataApp } = require('./modules/runCode/mac');
 const { isMacOS, showInfo, showWarn, msg } = require('./utils/common');
+const { showWindowsUpgradeNotification, forceShowWindowsUpgradeNotification, resetWindowsUpgradeNotification } = require('./modules/windowsUpgradeNotification');
 
 const MIGRATION_MESSAGES = {
     en: {
@@ -203,6 +204,9 @@ function activate(context) {
         console.log('Stata All in One: Stata Outline not installed, skipping migration');
     }
 
+    // Show Windows upgrade notification for v0.2.12
+    showWindowsUpgradeNotification(context);
+
     // Check for updates and show notification
     registerUpdateCheck(context);
 
@@ -382,7 +386,26 @@ function activate(context) {
         }
     );
     context.subscriptions.push(testUpdateCommand);
+    // Register debug command: Force show Windows upgrade notification
+    const forceWindowsNotificationCommand = vscode.commands.registerCommand(
+        'stata-all-in-one.debugForceWindowsUpgradeNotification',
+        async () => {
+            console.log('Stata All in One: Debug force Windows upgrade notification command executed');
+            await forceShowWindowsUpgradeNotification(context);
+        }
+    );
+    context.subscriptions.push(forceWindowsNotificationCommand);
 
+    // Register debug command: Reset Windows upgrade notification
+    const resetWindowsNotificationCommand = vscode.commands.registerCommand(
+        'stata-all-in-one.debugResetWindowsUpgradeNotification',
+        async () => {
+            console.log('Stata All in One: Debug reset Windows upgrade notification command executed');
+            await resetWindowsUpgradeNotification(context);
+            showInfo('Windows upgrade notification reset. It will show again on next extension activation.');
+        }
+    );
+    context.subscriptions.push(resetWindowsNotificationCommand);
     console.log('Stata All in One: All commands registered');
 }
 
