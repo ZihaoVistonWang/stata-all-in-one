@@ -1,4 +1,4 @@
-<!-- markdownlint-disable MD001 MD041 MD033 MD029 MD060 MD038 MD032 MD007 -->
+<!-- markdownlint-disable MD001 MD041 MD033 MD029 MD060 MD038 MD032 MD007 MD049-->
 
 <p align="center">
    <img src="img/icon-wide.png" alt="Stata All in One Icon" style="width:300px;" />
@@ -22,10 +22,10 @@ Stata All in One
 <h3 align="center">一站式 Stata 体验：</br>语法高亮 + 代码提示 + 智能大纲 + 运行代码 + 快捷编辑，<b>All in One</b>!</h3>
 
 <p align="center">
-   <a href="https://marketplace.visualstudio.com/items?itemName=ZihaoVistonWang.stata-all-in-one"><img src="https://img.shields.io/visual-studio-marketplace/i/ZihaoVistonWang.stata-all-in-one?colorA=363a4f&colorB=a6da95&style=for-the-badge&label=被安装次数"></a>
-   <img src="https://img.shields.io/github/commit-activity/t/ZihaoVistonWang/stata-all-in-one?colorA=363a4f&colorB=f5a97f&style=for-the-badge&label=修订次数">
-   <a href="http://xhslink.com/o/4Zs0aSfJSK "><img src="https://img.shields.io/badge/小红书点赞收藏-~500-brightgreen?colorA=363a4f&colorB=b7bdf8&style=for-the-badge"></a>
-   <a href="https://gitee.com/ZihaoVistonWang/stata-all-in-one#打赏支持"><img src="https://img.shields.io/badge/点击-打赏支持-brightgreen?colorA=363a4f&colorB=e971b7&style=for-the-badge"></a>
+   <a href="https://marketplace.visualstudio.com/items?itemName=ZihaoVistonWang.stata-all-in-one"><img src="https://img.shields.io/visual-studio-marketplace/i/ZihaoVistonWang.stata-all-in-one?colorA=363a4f&colorB=a6da95&style=for-the-badge&label=被安装次数" alt="被安装次数"></a>
+   <img src="https://img.shields.io/github/commit-activity/t/ZihaoVistonWang/stata-all-in-one?colorA=363a4f&colorB=f5a97f&style=for-the-badge&label=修订次数" alt="修订次数">
+   <a href="http://xhslink.com/o/4Zs0aSfJSK "><img src="https://img.shields.io/badge/小红书点赞收藏-~500-brightgreen?colorA=363a4f&colorB=b7bdf8&style=for-the-badge" alt="小红书点赞收藏 ~500"></a>
+   <a href="https://gitee.com/ZihaoVistonWang/stata-all-in-one#打赏支持"><img src="https://img.shields.io/badge/点击 - 打赏支持-brightgreen?colorA=363a4f&colorB=e971b7&style=for-the-badge" alt="打赏支持"></a>
 </p>
 
 <p align="center">Stata All in One 源自 <a href="https://github.com/ZihaoVistonWang/stata-outline">Stata Outline</a>，进行了功能扩展和改进。</p>
