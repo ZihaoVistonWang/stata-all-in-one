@@ -6,6 +6,45 @@ param (
 
 $ErrorActionPreference = 'Stop'
 
+# Try to use keybd_event for more reliable key injection (Windows 10/11)
+# Falls back to SendKeys if P/Invoke is not available (e.g., restricted environments)
+$useKeyboardHelper = $false
+try {
+    Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+
+public static class KeyboardHelper {
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
+}
+"@ -ErrorAction Stop
+    $useKeyboardHelper = $true
+} catch {
+    # P/Invoke not available, will use SendKeys fallback
+    $useKeyboardHelper = $false
+}
+
+function Send-CtrlV {
+    if ($useKeyboardHelper) {
+        # Method 1: Use keybd_event for maximum reliability
+        $VK_CONTROL = 0x11
+        $VK_V = 0x56
+        $KEYEVENTF_KEYUP = 0x0002
+
+        [KeyboardHelper]::keybd_event($VK_CONTROL, 0, 0, [UIntPtr]::Zero)
+        Start-Sleep -Milliseconds 20
+        [KeyboardHelper]::keybd_event($VK_V, 0, 0, [UIntPtr]::Zero)
+        Start-Sleep -Milliseconds 20
+        [KeyboardHelper]::keybd_event($VK_V, 0, $KEYEVENTF_KEYUP, [UIntPtr]::Zero)
+        Start-Sleep -Milliseconds 20
+        [KeyboardHelper]::keybd_event($VK_CONTROL, 0, $KEYEVENTF_KEYUP, [UIntPtr]::Zero)
+    } else {
+        # Method 2: Use SendKeys with extended delay (fallback for restricted environments)
+        $global:wshell.SendKeys('^v')
+    }
+}
+
 if (-not $stataPath) {
     Write-Error 'stataPath is required'
     exit 1
@@ -41,6 +80,7 @@ if (-not $proc) {
 }
 
 $wshell = New-Object -ComObject WScript.Shell
+$global:wshell = $wshell
 $dataEditorTitle = ([string]([char]0x6570) + [char]0x636E + [char]0x7F16 + [char]0x8F91 + [char]0x5668)
 $targetTitles = @('Viewer', 'Data Editor', $dataEditorTitle)
 
@@ -73,8 +113,8 @@ if ($activated) {
     $runCommand = 'do ' + $quote + $cleanPath + $quote
 
     Set-Clipboard -Value $runCommand
-    Start-Sleep -Milliseconds $sleepDelay
-    $wshell.SendKeys('^v')
-    Start-Sleep -Milliseconds $sleepDelay
+    Start-Sleep -Milliseconds ($sleepDelay + 50)
+    Send-CtrlV
+    Start-Sleep -Milliseconds ($sleepDelay + 50)
     $wshell.SendKeys('~')
 }
