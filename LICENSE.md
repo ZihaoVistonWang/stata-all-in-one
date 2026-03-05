@@ -1,6 +1,6 @@
 # MIT License
 
-**Copyright (c) 2026 Zihao Viston Wang / 王梓豪**
+Copyright (c) 2026 Zihao Viston Wang / 王梓豪
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -19,11 +19,17 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+## Third-Party Notices
+
+This project includes code and assets from the following third-party project:
+
+- **[Stata Enhanced](https://github.com/kylebarron/language-stata)** (v1.6.1) by Kyle Barron — MIT License. Files incorporated: `grammars/language_config.json` and the contents of the `grammars/` directory, originally from the Stata Enhanced VS Code extension.
+
 ---
 
-# MIT 许可证
+## MIT 许可证
 
-**版权所有 (c) 2026 Zihao Viston Wang / 王梓豪**
+版权所有 (c) 2026 Zihao Viston Wang / 王梓豪
 
 特此授予免费获得本软件及相关文档文件（以下简称"软件"）副本的任何人许可，
 允许不受限制地处理本软件，包括但不限于使用、复制、修改、合并、出版、分发、
@@ -35,3 +41,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 特定用途适用性和非侵权的保证。在任何情况下，作者或版权所有人均不对
 任何索赔、损害或其他责任（无论是合同诉讼、侵权行为或其他原因引起的）
 负责，无论该责任是否因使用本软件而产生或与之相关。
+
+## 第三方权利声明
+
+本项目包含来自以下第三方项目的代码和资产：
+
+- **[Stata Enhanced](https://github.com/kylebarron/language-stata)** (v1.6.1) by Kyle Barron — MIT License. 文件包括：`grammars/language_config.json` 和 `grammars/` 目录下的内容，最初来自 Stata Enhanced VS Code 扩展。
+  
