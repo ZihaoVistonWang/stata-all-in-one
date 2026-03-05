@@ -124,14 +124,14 @@ Click [Keyboard Shortcuts](https://github.com/ZihaoVistonWang/stata-all-in-one/b
 ### Extension Marketplace
 
 1. Search for "Stata All in One" in VS Code extensions and install.
-2. Open any `.do` file and navigate to Outline panel (Explorer → Outline) to view hierarchical structure.
+2. Open any `.do` file and enjoy the enhanced Stata experience!
 
 ### Manual Installation
 
 1. Download `stata-all-in-one-x.x.x.vsix` from [releases page](https://github.com/ZihaoVistonWang/stata-all-in-one/releases).
 2. In VS Code → Extensions panel → `...` → `Install from VSIX...`.
 3. Select the downloaded file to complete installation.
-4. Open any `.do` file and view Outline panel.
+4. Open any `.do` file and enjoy the enhanced Stata experience!
 
 ---
 
