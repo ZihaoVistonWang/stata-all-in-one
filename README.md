@@ -121,17 +121,17 @@ Click [Keyboard Shortcuts](https://github.com/ZihaoVistonWang/stata-all-in-one/b
 
 ## Installation
 
-### Extension Marketplace
+### Install from Extension Marketplace
 
-1. Search for "Stata All in One" in VS Code extensions and install.
-2. Open any `.do` file and enjoy the enhanced Stata experience!
+- **VS Code**: Search for "Stata All in One" in extensions and install.
 
-### Manual Installation
+### Download and Install (for Cursor, Trae and other VSCode-based IDEs)
 
-1. Download `stata-all-in-one-x.x.x.vsix` from [releases page](https://github.com/ZihaoVistonWang/stata-all-in-one/releases).
-2. In VS Code → Extensions panel → `...` → `Install from VSIX...`.
-3. Select the downloaded file to complete installation.
-4. Open any `.do` file and enjoy the enhanced Stata experience!
+1. Download `stata-all-in-one-x.x.x.vsix` from either source:
+   - [Open VSX Registry](https://open-vsx.org/extension/ZihaoVistonWang/stata-all-in-one)
+   - [GitHub Releases Page](https://github.com/ZihaoVistonWang/stata-all-in-one/releases)
+2. Open Extensions panel in your editor → `...` → `Install from VSIX...`.
+3. Select the downloaded `.vsix` file to complete installation.
 
 ---
 

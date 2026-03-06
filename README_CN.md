@@ -121,15 +121,17 @@ Stata All in One
 
 ## 安装
 
-### 扩展市场安装
+### 从扩展市场安装
 
-1. 在 VS Code 扩展中搜索 "Stata All in One" 并安装。
+- **VS Code**: 在扩展中搜索 "Stata All in One" 并安装。
 
-### 手动安装
+### 下载安装（适用于 Cursor、Trae 等基于 VSCode 的 IDE）
 
-1. 从 [发布页面](https://github.com/ZihaoVistonWang/stata-all-in-one/releases) 下载 `stata-all-in-one-x.x.x.vsix`。
-2. VS Code → 扩展面板 → `...` → `从 VSIX 安装...`。
-3. 选择下载的文件完成安装。
+1. 从以下任一来源下载 `stata-all-in-one-x.x.x.vsix`：
+   - [Open VSX Registry](https://open-vsx.org/extension/ZihaoVistonWang/stata-all-in-one)
+   - [GitHub 发布页面](https://github.com/ZihaoVistonWang/stata-all-in-one/releases)
+2. 在编辑器中打开扩展面板 → `...` → `从 VSIX 安装...`。
+3. 选择下载的 `.vsix` 文件完成安装。
 
 ---
 
