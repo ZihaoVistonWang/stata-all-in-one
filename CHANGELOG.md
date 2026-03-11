@@ -3,6 +3,11 @@
 All notable changes to the Stata All in One extension will be documented in this file.
 本文件记录 Stata All in One 扩展的所有重要更改。
 
+## 0.2.13 (2026-03-12)
+
+- **Fixed**: On Windows, running code no longer resets a snapped or maximized Stata window to a smaller size, it will now keep the current window size unchanged
+- **修复**：Windows 下运行代码时，不再把已贴靠或最大化 的 Stata 窗口还原成更小的普通窗口，现会保持 Stata 当前窗口大小不变
+
 ## 0.2.12 (2026-03-05)
 
 - **Refactor**: Execution code logic on Windows system;

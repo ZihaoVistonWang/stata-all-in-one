@@ -10,6 +10,10 @@ const { getUserLanguage } = require('../utils/common');
 // Update changelog: version -> changelog text
 const CHANGELOG = {
     en: {
+        '0.2.13': {
+            ver_info: '✨ Stata All in One (0.2.13): On Windows, running code no longer resets a snapped or maximized Stata window to a smaller size, it will now keep the current window size unchanged.',
+            more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one#Changelog'
+        },
         '0.2.12': {
             ver_info: '✨ Stata All in One (0.2.12): Refactored execution logic on Windows, featuring a new option to to close other Stata windows before sending code; added a setting to show "bug" and "sponsor" buttons.',
             more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one#close_stata_other_windows'
@@ -48,6 +52,10 @@ const CHANGELOG = {
         }
     },
     zh: {
+        '0.2.13': {
+            ver_info: '✨ Stata All in One (0.2.13)：Windows 下运行代码时，不再把已贴靠或最大化 的 Stata 窗口还原成更小的普通窗口，现会保持 Stata 当前窗口大小不变。',
+            more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one#版本记录'
+        },
         '0.2.12': {
             ver_info: '✨ Stata All in One (0.2.12)：重构Windows端的代码执行逻辑；Windows端可配置发送代码前是否关闭stata其他窗口；新增配置是否显示“bug“和“打赏“按钮。',
             more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one#close_stata_other_windows'
