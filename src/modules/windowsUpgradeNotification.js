@@ -12,7 +12,7 @@ const packageJson = require('../../package.json');
 
 // 升级通知的版本号（需要升级提醒的版本）
 // Upgrade notification version - update this when you want to trigger notification for new versions
-const NOTIFICATION_VERSION = '0.2.12';
+const NOTIFICATION_VERSION = '0.2.13';
 
 const VERSION_KEY = 'stata-all-in-one.windowsUpgradeNotificationVersion';
 

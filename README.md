@@ -13,7 +13,7 @@ Stata All in One
 </p>
 
 <p align="center">
-   | <b>Version:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.2.12</a> | <b>Author:</b> <a href="https://zihaowang.cn">Zihao Viston Wang</a> | <b>翻译:</b>
+   | <b>Version:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.2.13</a> | <b>Author:</b> <a href="https://zihaowang.cn">Zihao Viston Wang</a> | <b>翻译:</b>
   <a href="https://gitee.com/ZihaoVistonWang/stata-all-in-one">中文版本</a> |
 </p>
 
@@ -222,6 +222,7 @@ If this extension has been helpful to you, feel free to scan the **Alipay** (lef
 
 | Version | Changes                                                                                                              | Release Date |
 | ------- | -------------------------------------------------------------------------------------------------------------------- | ------------ |
+| 0.2.13  | On Windows, running code no longer resets a snapped or maximized Stata window to a smaller size, it will now keep the current window size unchanged. | 2026-03-12   |
 | 0.2.12  | Windows: Added configurable option to close other Stata windows (Viewer/Data Editor) before sending code; Added configuration to toggle display of "Bug report" and "Sponsor" buttons. | 2026-03-05   |
 | 0.2.11  | New optional feature: Auto `cd` to do file directory on first Stata launch (disabled by default).                    | 2026-03-02   |
 | 0.2.10  | Refined code execution logic (Section/Line/Selection execution); Configurable run shortcut; F2 rename for variables. | 2026-02-27   |
