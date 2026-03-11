@@ -166,8 +166,10 @@ $global:wshell = New-Object -ComObject WScript.Shell
 $dataEditorTitle = ([string]([char]0x6570) + [char]0x636E + [char]0x7F16 + [char]0x8F91 + [char]0x5668)
 $targetTitles = @('Viewer', 'Data Editor', $dataEditorTitle)
 
-# Check if main Stata window was maximized before closing other windows
+# Check the main Stata window state before closing other windows.
+# Only restore the window if it was minimized; otherwise keep the current size.
 $wasMaximized = $false
+$wasMinimized = $false
 if ($proc) {
     $handles = [WindowManager]::GetProcessWindows($proc.Id)
     foreach ($h in $handles) {
@@ -175,6 +177,9 @@ if ($proc) {
         if ($title -match "(?i)^stata") {
             if ([WindowManager]::IsWindowMaximized($h)) {
                 $wasMaximized = $true
+            }
+            if ([WindowManager]::IsWindowMinimized($h)) {
+                $wasMinimized = $true
             }
             break
         }
@@ -211,13 +216,11 @@ foreach ($h in $handles) {
 
 # Activate main window
 if ($mainHandle -ne [IntPtr]::Zero) {
-    # Determine appropriate show command based on previous state
-    if ($wasMaximized) {
-        # If window was maximized before, maximize it again
-        [WindowManager]::ShowWindow($mainHandle, 3) | Out-Null  # SW_MAXIMIZE = 3
-    } else {
-        # If window was not maximized, just restore it
+    if ($wasMinimized) {
+        # Only restore minimized windows. Restoring a snapped window will break its size.
         [WindowManager]::ShowWindow($mainHandle, 9) | Out-Null  # SW_RESTORE = 9
+    } elseif ($wasMaximized) {
+        [WindowManager]::ShowWindow($mainHandle, 3) | Out-Null  # SW_MAXIMIZE = 3
     }
     Start-Sleep -Milliseconds $sleepDelay
     
