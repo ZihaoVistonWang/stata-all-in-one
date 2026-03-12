@@ -34,6 +34,12 @@ public class WindowManager {
     [DllImport("user32.dll")]
     public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 
+    [DllImport("user32.dll")]
+    public static extern bool IsZoomed(IntPtr hWnd); // Checks if window is maximized
+
+    [DllImport("user32.dll")]
+    public static extern bool IsIconic(IntPtr hWnd); // Checks if window is minimized
+
     // Get all visible windows belonging to a specific Process ID
     public static List<IntPtr> GetProcessWindows(uint pid) {
         List<IntPtr> windows = new List<IntPtr>();
@@ -53,6 +59,16 @@ public class WindowManager {
         StringBuilder sb = new StringBuilder(256);
         GetWindowText(hWnd, sb, 256);
         return sb.ToString();
+    }
+
+    // Check if a window is maximized
+    public static bool IsWindowMaximized(IntPtr hWnd) {
+        return IsZoomed(hWnd);
+    }
+
+    // Check if a window is minimized
+    public static bool IsWindowMinimized(IntPtr hWnd) {
+        return IsIconic(hWnd);
     }
 }
 "@
@@ -144,6 +160,8 @@ if (-not $proc) {
 $handles = [WindowManager]::GetProcessWindows($proc.Id)
 $mainHandle = [IntPtr]::Zero
 $foundTitle = ""
+$wasMaximized = $false
+$wasMinimized = $false
 
 # Loop through all windows and find the main window whose title starts with "Stata"
 # Helper windows are usually "Viewer", "Data Editor", etc.
@@ -153,14 +171,24 @@ foreach ($h in $handles) {
     if ($title -match "(?i)^stata") {
         $mainHandle = $h
         $foundTitle = $title
+        if ([WindowManager]::IsWindowMaximized($h)) {
+            $wasMaximized = $true
+        }
+        if ([WindowManager]::IsWindowMinimized($h)) {
+            $wasMinimized = $true
+        }
         break
     }
 }
 
 # 6. Bring main window to foreground
 if ($mainHandle -ne [IntPtr]::Zero) {
-    # Use ShowWindow to restore window if minimized, 9 = SW_RESTORE
-    [WindowManager]::ShowWindow($mainHandle, 9) | Out-Null
+    if ($wasMinimized) {
+        # Only restore minimized windows. Restoring a snapped window will break its size.
+        [WindowManager]::ShowWindow($mainHandle, 9) | Out-Null  # SW_RESTORE = 9
+    } elseif ($wasMaximized) {
+        [WindowManager]::ShowWindow($mainHandle, 3) | Out-Null  # SW_MAXIMIZE = 3
+    }
     Start-Sleep -Milliseconds $sleepDelay
     
     # Set window to foreground

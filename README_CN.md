@@ -109,7 +109,7 @@ Stata All in One
 
 5. 自动 `cd` 到 do 文件目录
    - **自动设置工作目录**：开启后，Stata 首次启动时会自动将工作目录切换到当前 do 文件所在位置。
-   - **默认关闭**：为避免影响习惯在 do 文件开头手动写 `cd` 命令的用户，防止产生意料之外的错误，该功能默认不启用。需要时可在设置中开启 `stata-all-in-one.cdToDoFileDir`。
+   <!-- - **默认关闭**：为避免影响习惯在 do 文件开头手动写 `cd` 命令的用户，防止产生意料之外的错误，该功能默认不启用。需要时可在设置中开启 `stata-all-in-one.cdToDoFileDir`。 -->
 
 ---
 
@@ -184,8 +184,10 @@ Stata All in One
    - `false`（默认）：使用默认的 `Ctrl/Cmd+D` 快捷键。
 
 11. **自动 cd 到 do 文件目录** (`stata-all-in-one.cdToDoFileDir`)
-    - `true`：Stata 首次启动时自动将工作目录切换到当前 do 文件所在位置。
-    - `false`（默认）：Stata 启动后不更改工作目录。
+    <!-- - `true`：Stata 首次启动时自动将工作目录切换到当前 do 文件所在位置。
+    - `false`（默认）：Stata 启动后不更改工作目录。 -->
+    - `true`（默认）：Stata 首次启动时自动将工作目录切换到当前 do 文件所在位置。
+    - `false`：Stata 启动后不更改工作目录。
 
 ### 代码风格
 
