@@ -112,7 +112,7 @@
           },
         "stata-all-in-one.cdToDoFileDir": {
             "type": "boolean",
-            "default": false,
+            "default": true,
             "markdownDescription": "%config.cdToDoFileDir.description%"
           },
         "stata-all-in-one.showActionButtons": {

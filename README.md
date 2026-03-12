@@ -109,7 +109,7 @@ Stata All in One
 
 5. Auto `cd` to Do File Directory
    - **Auto Working Directory**: When enabled, automatically sets Stata's working directory to the do file's location on first launch.
-   - **Disabled by default**: This feature is off by default to avoid unexpected behavior for users who manually write `cd` at the top of their do files. Enable via setting `stata-all-in-one.cdToDoFileDir`.
+   <!-- - **Disabled by default**: This feature is off by default to avoid unexpected behavior for users who manually write `cd` at the top of their do files. Enable via setting `stata-all-in-one.cdToDoFileDir`. -->
 
 ---
 
@@ -185,8 +185,10 @@ Search for "Stata All in One" in VS Code settings and configure:
    - `false` (default): Use the default `Ctrl/Cmd+D` shortcut.
 
 11. **Auto cd to Do File Directory** (`stata-all-in-one.cdToDoFileDir`)
-    - `true`: Automatically `cd` to the do file's directory when Stata is first launched.
-    - `false` (default): Stata's working directory is not changed on startup.
+    <!-- - `true`: Automatically `cd` to the do file's directory when Stata is first launched.
+    - `false` (default): Stata's working directory is not changed on startup. -->
+    - `true` (default): Automatically `cd` to the do file's directory when Stata is first launched.
+    - `false`: Stata's working directory is not changed on startup.
 
 ### Code Style
 
