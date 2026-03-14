@@ -32,6 +32,10 @@ Stata All in One
 
 ---
 
+## Sponsors
+
+Special thanks to RedNote user **Rich\*\*d** and WeChat user **早起\*\*阳光** for their generous donations and support for this project.
+
 ## Features
 
 <p align="center">
@@ -210,7 +214,7 @@ Search for "Stata All in One" in VS Code settings and configure:
 
 ---
 
-## Sponsor
+## Buy me a coffee
 
 If this extension has been helpful to you, feel free to scan the **Alipay** (left) or **WeChat** (middle) or [**Buy me a Coffee**](https://www.buymeacoffee.com/zihaovistonwang) (right) QR code below to buy me a coffee ☕
 
