@@ -22,7 +22,7 @@ Stata All in One
 <h3 align="center">一站式 Stata 体验：</br>语法高亮 + 代码提示 + 智能大纲 + 运行代码 + 快捷编辑，<b>All in One</b>!</h3>
 
 <p align="center">
-   <a href="https://marketplace.visualstudio.com/items?itemName=ZihaoVistonWang.stata-all-in-one"><img src="https://img.shields.io/visual-studio-marketplace/i/ZihaoVistonWang.stata-all-in-one?colorA=363a4f&colorB=a6da95&style=for-the-badge&label=被安装次数" alt="被安装次数"></a>
+   <a href="https://marketplace.visualstudio.com/items?itemName=ZihaoVistonWang.stata-all-in-one"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fapi.zihaowang.cn%2Fvscode-install&style=for-the-badge&labelColor=363a4f&color=a6da95&label=VS Code安装" alt="VS Code 安装次数"></a>
    <img src="https://img.shields.io/github/commit-activity/t/ZihaoVistonWang/stata-all-in-one?colorA=363a4f&colorB=f5a97f&style=for-the-badge&label=修订次数" alt="修订次数">
    <a href="http://xhslink.com/o/4Zs0aSfJSK "><img src="https://img.shields.io/badge/小红书点赞收藏-~500-brightgreen?colorA=363a4f&colorB=b7bdf8&style=for-the-badge" alt="小红书点赞收藏 ~500"></a>
    <a href="https://gitee.com/ZihaoVistonWang/stata-all-in-one#打赏支持"><img src="https://img.shields.io/badge/点击 - 打赏支持-brightgreen?colorA=363a4f&colorB=e971b7&style=for-the-badge" alt="打赏支持"></a>
@@ -34,7 +34,7 @@ Stata All in One
 
 ## 致谢
 
-感谢小红书用户 **Rich\*\*d**、微信用户 **早起\*\*阳光** 对本项目的打赏赞助。
+感谢小红书用户 **Rich\*\*d**、微信用户 **早起\*\*阳光** 、Buy me a coffee 用户 **LB\*\*PG@gmail.com** 对本项目的打赏赞助。
 
 ## 功能概览
 
@@ -227,7 +227,7 @@ Stata All in One
 | 版本   | 更新内容                                                                           | 发布日期   |
 | ------ | ---------------------------------------------------------------------------------- | ---------- |
 | 0.2.13 | Windows 下运行代码时，不再把已贴靠或最大化 的 Stata 窗口还原成更小的普通窗口，现会保持 Stata 当前窗口大小不变 | 2026-03-12 |
-| 0.2.12 | 重构Windows端的代码执行逻辑；Windows端可配置发送代码前是否关闽 Viewer、数据编辑器等辅助窗口；新增配置是否氺示“Bug 反馈”和“打赏支持”按鑀 | 2026-03-05 |
+| 0.2.12 | 重构Windows端的代码执行逻辑；Windows端可配置发送代码前是否关闽 Viewer、数据编辑器等辅助窗口；新增配置是否显示“Bug 反馈”和“打赏支持”按鑀 | 2026-03-05 |
 | 0.2.11 | 新增可选配置：Stata 首次启动时自动 `cd` 到 do 文件所在目录（默认关闭）             | 2026-03-02 |
 | 0.2.10 | 优化代码运行逻辑（章节/单行/选中运行）；新增运行快捷键可选；新增 F2 变量重命名功能 | 2026-02-27 |
 
