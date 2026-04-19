@@ -7,15 +7,19 @@ const vscode = require('vscode');
 const { setHeadingLevel, createDocumentSymbolProvider } = require('./modules/outlineView');
 const { registerSeparatorCommands } = require('./modules/separator');
 const { registerCommentCommand, toggleComment } = require('./modules/comment');
-const { registerRunCommand } = require('./modules/runCode');
+const { registerExecuteCommand } = require('./modules/runCode/execute');
+const { stopCliExecution, forceShutdownCliSession } = require('./modules/runCode/cli/mac');
 const { registerCustomCommandHighlight } = require('./modules/customCommandHighlight');
 const { registerCompletionProvider } = require('./modules/completionProvider');
 const { registerHelpCommand } = require('./modules/helpCommand');
 const { registerLineBreakCommand } = require('./modules/lineBreak');
 const { registerRenameProvider } = require('./modules/renameProvider');
 const { registerUpdateCheck } = require('./modules/updateNotification');
-const { findStataApp } = require('./modules/runCode/mac');
+const { findStataApp } = require('./modules/runCode/gui/mac');
 const { isMacOS, showInfo, showWarn, msg } = require('./utils/common');
+
+// CLI session state context key for "stop" button visibility
+const CLI_SESSION_ACTIVE_KEY = 'stata-all-in-one.cliSessionActive';
 const { showWindowsUpgradeNotification, forceShowWindowsUpgradeNotification, resetWindowsUpgradeNotification } = require('./modules/windowsUpgradeNotification');
 
 const MIGRATION_MESSAGES = {
@@ -190,6 +194,9 @@ async function resetMigrationPrompt(context) {
 function activate(context) {
     console.log('Stata All in One: Extension activated');
     
+    // Initialize CLI session context to false (no CLI session active)
+    vscode.commands.executeCommand('setContext', CLI_SESSION_ACTIVE_KEY, false);
+    
     // Check if Stata Outline is installed
     if (isStataOutlineInstalled()) {
         console.log('Stata All in One: Stata Outline detected, checking for migration');
@@ -288,8 +295,17 @@ function activate(context) {
     );
     console.log('Stata All in One: Custom rename command registered');
 
-    // Register run code command
-    registerRunCommand(context);
+    // Register run code command (uses dispatch layer for CLI/GUI routing)
+    registerExecuteCommand(context);
+    
+    // Register CLI stop execution command
+    const stopCliCommand = vscode.commands.registerCommand(
+        'stata-all-in-one.stopCliExecution',
+        () => {
+            stopCliExecution(context);
+        }
+    );
+    context.subscriptions.push(stopCliCommand);
 
     // Register help command
     registerHelpCommand(context);
@@ -412,6 +428,13 @@ function activate(context) {
 /**
  * Deactivate the extension
  */
-function deactivate() {}
+function deactivate() {
+    // Force shutdown CLI session if active
+    forceShutdownCliSession();
+}
 
-module.exports = { activate, deactivate };
+module.exports = { 
+    activate, 
+    deactivate, 
+    CLI_SESSION_ACTIVE_KEY 
+};

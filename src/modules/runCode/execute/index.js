@@ -1,26 +1,43 @@
 /**
- * Run Code Module
- * Main module for handling code execution across platforms
- * 代码运行模块 - 跨平台处理
+ * Execute Dispatcher Module
+ * 代码执行调度层 - 在 CLI 和 GUI 之间路由
+ * 
+ * Wave 2 实现：创建统一接口，检查 CLI 可用性并路由
  */
 
 const vscode = require('vscode');
-const fs = require('fs');
 const path = require('path');
-const { isWindows, isMacOS, showError, stripSurroundingQuotes, msg } = require('../../utils/common');
-const config = require('../../utils/config');
-const { runOnMac } = require('./mac');
-const { runOnWindows } = require('./windows');
+
+// 工具函数导入
+const { isWindows, isMacOS, showError, stripSurroundingQuotes, msg } = require('../../../utils/common');
+const config = require('../../../utils/config');
+
+// GUI 执行函数导入
+const { runOnMac } = require('../gui/mac');
+const { runOnWindows } = require('../gui/windows');
+
+// CLI 执行函数导入
+const { runOnMacCLI } = require('../cli/mac');
+
+// 临时文件处理
+const { generateTempDoFile, cleanupTempFile } = require('./tempfile');
+
+// Fallback 机制
+const { showCliUnavailableMessage } = require('./fallback');
 
 /**
- * Get code to run based on current selection or section
+ * 获取要运行的代码
+ * 基于当前选择或节来确定要执行的代码范围
+ * 
+ * @param {vscode.TextEditor} editor - VS Code 文本编辑器
+ * @returns {string} - 要执行的代码内容
  */
 function getCodeToRun(editor) {
     const document = editor.document;
     const selection = editor.selection;
 
     if (!selection.isEmpty) {
-        // Run selected code (complete lines)
+        // 运行选中的代码（完整行）
         const startLine = selection.start.line;
         const endLine = selection.end.line;
         
@@ -30,19 +47,19 @@ function getCodeToRun(editor) {
         
         return document.getText(new vscode.Range(startPos, endPos));
     } else {
-        // Unselected: check if current line is a header
+        // 未选中：检查当前行是否是标题行
         const currentLine = editor.selection.active.line;
         const lineText = document.lineAt(currentLine).text;
         const headerRegex = /^\*{1,2}\s*#+/;
         
         if (headerRegex.test(lineText)) {
-            // Current line is a header: run current section
+            // 当前行是标题：运行当前节
             const regex = /^\*{1,2}\s*(#+)\s?(.*)$/;
             
             let sectionStart = -1;
             let sectionLevel = -1;
             
-            // Find the current section header
+            // 找到当前节的标题
             for (let i = currentLine; i >= 0; i--) {
                 const line = document.lineAt(i).text;
                 const match = regex.exec(line);
@@ -58,7 +75,7 @@ function getCodeToRun(editor) {
                 sectionLevel = 0;
             }
             
-            // Find the next section at same or higher level
+            // 找到下一个同级或更高级的节
             let sectionEnd = document.lineCount - 1;
             
             for (let i = sectionStart + 1; i < document.lineCount; i++) {
@@ -83,7 +100,7 @@ function getCodeToRun(editor) {
             
             return document.getText(new vscode.Range(startPos, endPos));
         } else {
-            // Current line is not a header: run only the current line
+            // 当前行不是标题：只运行当前行
             const lineObj = document.lineAt(currentLine);
             const startPos = new vscode.Position(currentLine, 0);
             const endPos = new vscode.Position(currentLine, lineObj.text.length);
@@ -94,18 +111,24 @@ function getCodeToRun(editor) {
 }
 
 /**
- * Main function to run current section
+ * 主调度函数：运行当前节/行/选区
+ * 检查 CLI 可用性，路由到 CLI 或 GUI 执行路径
+ * 
+ * @param {vscode.ExtensionContext} context - VS Code 扩展上下文
+ * @param {vscode.TextEditor} editor - VS Code 文本编辑器（可选，默认使用 activeTextEditor）
+ * @returns {Promise<void>}
  */
-async function runCurrentSection() {
-    const editor = vscode.window.activeTextEditor;
-    if (!editor) {
+async function runCurrentSection(context, editor = null) {
+    // 获取编辑器
+    const activeEditor = editor || vscode.window.activeTextEditor;
+    if (!activeEditor) {
         showError(msg('noEditor'));
         return;
     }
 
-    const document = editor.document;
+    const document = activeEditor.document;
 
-    // Platform check
+    // 平台检查
     const onWindows = isWindows();
     const onMac = isMacOS();
 
@@ -114,13 +137,13 @@ async function runCurrentSection() {
         return;
     }
 
-    // Windows platform specific validation
+    // Windows 平台特定验证
     let stataPathOnWindows = null;
     if (onWindows) {
         const rawPath = config.getStataPathOnWindows();
         stataPathOnWindows = stripSurroundingQuotes(rawPath.trim());
         if (!stataPathOnWindows) {
-            // Prompt user to input Stata path
+            // 提示用户输入 Stata 路径
             const userPath = await vscode.window.showInputBox({
                 prompt: msg('promptWinPath'),
                 placeHolder: msg('promptWinPathPlaceholder'),
@@ -128,10 +151,10 @@ async function runCurrentSection() {
             });
             
             if (!userPath) {
-                return; // User cancelled
+                return; // 用户取消
             }
             
-            // Save the path to settings
+            // 保存路径到设置
             await vscode.workspace.getConfiguration('stata-all-in-one').update(
                 'stataPathOnWindows',
                 userPath.trim(),
@@ -143,11 +166,11 @@ async function runCurrentSection() {
         }
     }
     
-    // macOS platform specific validation
+    // macOS 平台特定验证
     if (onMac) {
         const stataVersion = config.getStataVersion();
         if (!stataVersion || stataVersion.trim() === '') {
-            // Prompt user to select Stata version
+            // 提示用户选择 Stata 版本
             const selectedVersion = await vscode.window.showQuickPick(
                 ['StataMP', 'StataIC', 'StataSE'],
                 {
@@ -157,10 +180,10 @@ async function runCurrentSection() {
             );
             
             if (!selectedVersion) {
-                return; // User cancelled
+                return; // 用户取消
             }
             
-            // Save the version to settings
+            // 保存版本到设置
             await vscode.workspace.getConfiguration('stata-all-in-one').update(
                 'stataVersionOnMacOS',
                 selectedVersion,
@@ -171,33 +194,79 @@ async function runCurrentSection() {
         }
     }
 
-    // Get code to run
-    const codeToRun = getCodeToRun(editor);
+    // 获取要运行的代码
+    const codeToRun = getCodeToRun(activeEditor);
     
-    // Create temporary file
+    // 获取文档目录
     const docDir = path.dirname(document.fileName);
+    
+    // 创建临时文件路径（用于 GUI 模式）
     const tmpFilePath = path.join(docDir, 'stata_all_in_one_temp.do');
     
     try {
+        // === 调度逻辑 ===
+        
         if (onWindows) {
+            // Windows: 总是使用 GUI（CLI 未实现）
             runOnWindows(codeToRun, tmpFilePath, stataPathOnWindows, docDir);
+            
+            // 设置 context 变量：CLI 不可用
+            vscode.commands.executeCommand('setContext', 'stata-all-in-one.cliSessionActive', false);
+            
         } else if (onMac) {
-            runOnMac(codeToRun, tmpFilePath, false, docDir);
+            const cliResult = await runOnMacCLI(codeToRun, tmpFilePath, docDir, context);
+            if (cliResult.success) {
+                vscode.commands.executeCommand('setContext', 'stata-all-in-one.cliSessionActive', true);
+            } else if (cliResult.shouldOfferGuiFallback) {
+                await maybeOfferGuiFallback(codeToRun, tmpFilePath, docDir, context, cliResult.message || 'CLI 执行失败');
+                vscode.commands.executeCommand('setContext', 'stata-all-in-one.cliSessionActive', false);
+            } else {
+                vscode.commands.executeCommand('setContext', 'stata-all-in-one.cliSessionActive', true);
+            }
         }
+        
     } catch (error) {
         showError(msg('tmpFileFailed', { message: error.message }));
+        console.error('[execute] 执行异常:', error.message);
+        vscode.commands.executeCommand('setContext', 'stata-all-in-one.cliSessionActive', false);
+    }
+}
+
+async function maybeOfferGuiFallback(codeToRun, tmpFilePath, docDir, context, reason) {
+    const useGuiLabel = msg('useStataApp');
+    const stayInCliLabel = msg('stayInCli');
+
+    const choice = await vscode.window.showWarningMessage(
+        msg('cliOfferGuiFallback', { reason }),
+        useGuiLabel,
+        stayInCliLabel
+    );
+
+    if (choice === useGuiLabel) {
+        showCliUnavailableMessage(reason);
+        runOnMac(codeToRun, tmpFilePath, false, docDir, context);
     }
 }
 
 /**
- * Register run section command
+ * 注册执行命令
+ * 将 'stata-all-in-one.runSection' 命令绑定到调度函数
+ * 
+ * @param {vscode.ExtensionContext} context - VS Code 扩展上下文
  */
-function registerRunCommand(context) {
-    const disposable = vscode.commands.registerCommand('stata-all-in-one.runSection', runCurrentSection);
+function registerExecuteCommand(context) {
+    const disposable = vscode.commands.registerCommand(
+        'stata-all-in-one.runSection',
+        async () => {
+            await runCurrentSection(context);
+        }
+    );
     context.subscriptions.push(disposable);
 }
 
+// 导出接口
 module.exports = {
     runCurrentSection,
-    registerRunCommand
+    registerExecuteCommand,
+    getCodeToRun  // 导出供测试或其他模块使用
 };

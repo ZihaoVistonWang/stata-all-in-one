@@ -8,8 +8,8 @@ const { exec, execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const vscode = require('vscode');
-const { showError, stripSurroundingQuotes, msg } = require('../../utils/common');
-const config = require('../../utils/config');
+const { showError, stripSurroundingQuotes, msg } = require('../../../utils/common');
+const config = require('../../../utils/config');
 
 /**
  * Check if Stata is currently running on Windows

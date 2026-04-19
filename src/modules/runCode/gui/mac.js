@@ -8,41 +8,65 @@ const { exec, execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const vscode = require('vscode');
-const { showError, showInfo, msg } = require('../../utils/common');
-const config = require('../../utils/config');
+const { showError, showInfo, msg } = require('../../../utils/common');
+const config = require('../../../utils/config');
 
 /**
  * Find available Stata application on macOS
  */
-function findStataApp(preferredName) {
-    const baseDirs = ['/Applications', '/Applications/Stata', '/Applications/StataNow'];
+function findStataApp(preferredName, savedPath = null) {
     const apps = [];
     const seen = new Set();
+    const baseDir = '/Applications';
 
-    // Scan directories for Stata apps
-    for (const dir of baseDirs) {
-        try {
-            if (!fs.existsSync(dir)) continue;
-            
-            const entries = fs.readdirSync(dir, { withFileTypes: true });
-            for (const entry of entries) {
-                if (!entry.isDirectory() || !entry.name.endsWith('.app')) continue;
-                
-                const appName = entry.name.slice(0, -4);
-                if (!/stata/i.test(appName)) continue;
-                
-                const appPath = path.join(dir, entry.name);
+    if (savedPath && fs.existsSync(savedPath)) {
+        const appName = path.basename(savedPath, '.app');
+        return { 
+            name: appName, 
+            path: savedPath, 
+            installed: [], 
+            fromCache: true 
+        };
+    }
+
+    if (!fs.existsSync(baseDir)) {
+        return { name: null, path: null, installed: [], fromCache: false };
+    }
+
+    const entries = fs.readdirSync(baseDir, { withFileTypes: true });
+    
+    for (const entry of entries) {
+        if (entry.isDirectory() && entry.name.endsWith('.app')) {
+            const appName = entry.name.slice(0, -4);
+            if (/stata/i.test(appName)) {
+                const appPath = path.join(baseDir, entry.name);
                 if (!seen.has(appName)) {
                     seen.add(appName);
                     apps.push({ name: appName, path: appPath });
                 }
             }
-        } catch (e) {
-            // Ignore directory read errors
+        }
+        
+        if (entry.isDirectory() && !entry.name.endsWith('.app')) {
+            const subDirPath = path.join(baseDir, entry.name);
+            try {
+                const subEntries = fs.readdirSync(subDirPath, { withFileTypes: true });
+                for (const subEntry of subEntries) {
+                    if (subEntry.isDirectory() && subEntry.name.endsWith('.app')) {
+                        const appName = subEntry.name.slice(0, -4);
+                        if (/stata/i.test(appName)) {
+                            const appPath = path.join(subDirPath, subEntry.name);
+                            if (!seen.has(appName)) {
+                                seen.add(appName);
+                                apps.push({ name: appName, path: appPath });
+                            }
+                        }
+                    }
+                }
+            } catch (e) {}
         }
     }
 
-    // Sort by preferred order
     const preferredOrder = ['StataMP', 'StataSE', 'StataIC', 'StataBE', 'Stata'];
     apps.sort((a, b) => {
         const aIdx = preferredOrder.indexOf(a.name);
@@ -55,7 +79,6 @@ function findStataApp(preferredName) {
 
     const installed = apps.map(app => app.name);
     
-    // Use user's preferred version if found, otherwise use first by priority
     let chosen = { name: null, path: null };
     if (preferredName) {
         const preferred = apps.find(app => app.name === preferredName);
@@ -71,7 +94,8 @@ function findStataApp(preferredName) {
     return { 
         name: chosen.name, 
         path: chosen.path, 
-        installed 
+        installed,
+        fromCache: false
     };
 }
 
@@ -94,13 +118,18 @@ function isStataRunning(appName) {
  * @param {boolean} isHelpCommand - Whether this is a help command (will force window activation)
  * @param {string|null} docDir - Directory of the do file, used to cd on first launch
  */
-function runOnMac(codeToRun, tmpFilePath, isHelpCommand = false, docDir = null) {
+function runOnMac(codeToRun, tmpFilePath, isHelpCommand = false, docDir = null, context = null) {
     const stataVersion = config.getStataVersion();
     
     let appName;
+    let appPath;
 
-    // Only scan if config is empty, otherwise use configured version
-    if (!stataVersion || stataVersion.trim() === '') {
+    const savedPath = context ? context.globalState.get('stataGuiAppPath') : null;
+    
+    if (savedPath && fs.existsSync(savedPath)) {
+        appName = path.basename(savedPath, '.app');
+        appPath = savedPath;
+    } else if (!stataVersion || stataVersion.trim() === '') {
         const foundApp = findStataApp('');
         if (!foundApp.name) {
             const installedList = (foundApp.installed && foundApp.installed.length > 0)
@@ -110,22 +139,25 @@ function runOnMac(codeToRun, tmpFilePath, isHelpCommand = false, docDir = null) 
             return;
         }
         appName = foundApp.name;
+        appPath = foundApp.path;
+        
+        if (context && appPath) {
+            context.globalState.update('stataGuiAppPath', appPath);
+        }
     } else {
-        // Verify configured version exists
-        const candidates = [
-            `/Applications/${stataVersion}.app`,
-            `/Applications/Stata/${stataVersion}.app`,
-            `/Applications/StataNow/${stataVersion}.app`
-        ];
-        const exists = candidates.some(p => fs.existsSync(p));
-        if (!exists) {
+        const foundApp = findStataApp(stataVersion);
+        if (!foundApp.name) {
             showError(msg('stataNotFoundConfigured', { stataVersion }));
             return;
         }
-        appName = stataVersion;
+        appName = foundApp.name;
+        appPath = foundApp.path;
+        
+        if (context && appPath) {
+            context.globalState.update('stataGuiAppPath', appPath);
+        }
     }
 
-    // If enabled and Stata is not running, prepend cd to the do file's directory
     const cdEnabled = config.getCdToDoFileDir ? config.getCdToDoFileDir() : false;
     const running = isStataRunning(appName);
     let finalCode = codeToRun;
@@ -135,18 +167,11 @@ function runOnMac(codeToRun, tmpFilePath, isHelpCommand = false, docDir = null) 
     }
     fs.writeFileSync(tmpFilePath, finalCode, 'utf8');
 
-    // Activate window first if needed, then close help windows and run code
-    // 先激活窗口（视觉反馈更快），再执行关闭帮助窗口和运行代码
     let stataCommand = `osascript -e 'tell application "${appName}" to activate' && `;
     
-    // Please uncomment the following line if you want to close all help windows before running code
-    // 如果需要先关闭帮助窗口，则将下面的命令取消注释
-    // stataCommand += `osascript -e 'tell application "${appName}" to DoCommandAsync "window manage close viewer _all"' && `;
-
     stataCommand += `osascript -e 'tell application "${appName}" to DoCommandAsync "do \\"${tmpFilePath}\\""'`;
 
     exec(stataCommand, (error, stdout, stderr) => {
-        // Clean up temporary file
         setTimeout(() => {
             try {
                 fs.unlinkSync(tmpFilePath);
