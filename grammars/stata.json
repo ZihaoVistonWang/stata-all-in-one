@@ -754,6 +754,9 @@
             ]
         },
         {
+            "include": "#command-options-generic"
+        },
+        {
             "include": "#commands-other"
         }
     ],
@@ -980,6 +983,145 @@
                     "patterns": [
                         {
                             "include": "$self"
+                        }
+                    ]
+                }
+            ]
+        },
+        "command-options-generic": {
+            "patterns": [
+                {
+                    "comment": "Generic command/options highlighting for any command with comma options, supports /// line continuation; prefixes keep their original rules",
+                    "begin": "\\b([\\w&&[^0-9]][\\w.]*)\\b(?=[^\\n]*,)",
+                    "beginCaptures": {
+                        "1": {
+                            "name": "keyword.control.flow.stata"
+                        }
+                    },
+                    "end": "(?<!///)\\n",
+                    "patterns": [
+                        {
+                            "include": "#comments"
+                        },
+                        {
+                            "include": "#string-compound"
+                        },
+                        {
+                            "include": "#string-regular"
+                        },
+                        {
+                            "match": "\\b(using|if|in)\\b",
+                            "name": "keyword.control.flow.stata"
+                        },
+                        {
+                            "begin": ",",
+                            "beginCaptures": {
+                                "0": {
+                                    "name": "punctuation.separator.comma.stata"
+                                }
+                            },
+                            "end": "(?<!///)\\n",
+                            "patterns": [
+                                {
+                                    "include": "#comments"
+                                },
+                                {
+                                    "include": "#string-compound"
+                                },
+                                {
+                                    "include": "#string-regular"
+                                },
+                                {
+                                    "begin": "\\b([\\w&&[^0-9]][\\w.]*)\\s*(\\()",
+                                    "beginCaptures": {
+                                        "1": {
+                                            "name": "support.function.custom.stata"
+                                        },
+                                        "2": {
+                                            "name": "keyword.operator.parentheses.stata"
+                                        }
+                                    },
+                                    "end": "\\)",
+                                    "endCaptures": {
+                                        "0": {
+                                            "name": "keyword.operator.parentheses.stata"
+                                        }
+                                    },
+                                    "patterns": [
+                                        {
+                                            "match": "\\b([\\w&&[^0-9]][\\w.]*)\\b",
+                                            "name": "variable.parameter.function.stata"
+                                        },
+                                        {
+                                            "include": "#subscripts"
+                                        },
+                                        {
+                                            "include": "#constants"
+                                        },
+                                        {
+                                            "include": "#operators"
+                                        },
+                                        {
+                                            "include": "#macro-local"
+                                        },
+                                        {
+                                            "include": "#macro-global"
+                                        },
+                                        {
+                                            "include": "#builtin_variables"
+                                        },
+                                        {
+                                            "include": "#comments"
+                                        },
+                                        {
+                                            "include": "#string-compound"
+                                        },
+                                        {
+                                            "include": "#string-regular"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "match": "\\b([\\w&&[^0-9]][\\w.]*)\\b",
+                                    "name": "support.function.custom.stata"
+                                },
+                                {
+                                    "include": "#subscripts"
+                                },
+                                {
+                                    "include": "#constants"
+                                },
+                                {
+                                    "include": "#operators"
+                                },
+                                {
+                                    "include": "#macro-local"
+                                },
+                                {
+                                    "include": "#macro-global"
+                                },
+                                {
+                                    "include": "#builtin_variables"
+                                }
+                            ]
+                        },
+                        {
+                            "include": "#subscripts"
+                        },
+                        {
+                            "include": "#constants"
+                        },
+                        {
+                            "include": "#operators"
+                        },
+                        {
+                            "include": "#macro-local"
+                        },
+                        {
+                            "include": "#macro-global"
+                        },
+                        {
+                            "include": "#builtin_variables"
                         }
                     ]
                 }
