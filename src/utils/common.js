@@ -39,7 +39,11 @@ const UI_TEXT = {
         helpCommandSent: ({ command }) => `Help command sent to Stata for "${command}"`,
         reportBugInfo: 'If you encounter a bug, please contact hi@zihaowang.cn.',
         cannotRenameCommand: ({ word }) => `Cannot rename "${word}": Built-in or custom Stata command`,
-        cannotRenameOption: ({ word }) => `Cannot rename "${word}": Stata command option`
+        cannotRenameOption: ({ word }) => `Cannot rename "${word}": Stata command option`,
+        cliUnavailable: ({ reason }) => `CLI unavailable, switched to GUI. Reason: ${reason}`,
+        cliOfferGuiFallback: ({ reason }) => `CLI hit an extension error: ${reason}`,
+        useStataApp: 'Use Stata App',
+        stayInCli: 'Stay in CLI'
     },
     zh: {
         lineTooLong: '行长度不足，请在设置中增大分隔线长度。',
@@ -72,7 +76,11 @@ const UI_TEXT = {
         helpCommandSent: ({ command }) => `已向 Stata 发送帮助命令："${command}"`,
         reportBugInfo: '如遇问题或 bug，请联系 hi@zihaowang.cn。',
         cannotRenameCommand: ({ word }) => `无法重命名 "${word}"：这是内置或自定义的 Stata 命令`,
-        cannotRenameOption: ({ word }) => `无法重命名 "${word}"：这是 Stata 命令的选项`
+        cannotRenameOption: ({ word }) => `无法重命名 "${word}"：这是 Stata 命令的选项`,
+        cliUnavailable: ({ reason }) => `CLI 不可用，已切换到 GUI。原因：${reason}`,
+        cliOfferGuiFallback: ({ reason }) => `CLI 遇到扩展错误：${reason}`,
+        useStataApp: '使用 Stata App',
+        stayInCli: '留在 CLI'
     }
 };
 

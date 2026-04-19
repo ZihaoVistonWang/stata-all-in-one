@@ -1,8 +1,30 @@
-kylebarron.stata-enhanced-1.6.1
+# Dependencies
+node_modules/
+
+# Build temp files (keep bin/ for precompiled binary)
+native/stata_bridge/build/
+build_temp/
+
+# IDE
 .history
 .vscode
+
+# Stata files
 *.do
 *.do.stswp
+
+# Package (uncomment to ignore releases)
 # *.vsix
-CLAUDE.md
-.claude
+
+# AI assistant files (do not git)
+AGENTS.md
+.claude/
+.codex/
+.sisyphus/
+
+# Local reference source (do not git)
+pystata/
+
+# OS files
+.DS_Store
+Thumbs.db

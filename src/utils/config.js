@@ -108,6 +108,11 @@ const getEnableCtrlShiftD = () => getConfigValue('enableCtrlShiftD', false);
  */
 const getCdToDoFileDir = () => getConfigValue('cdToDoFileDir', false);
 
+/**
+ * Get preferred CLI terminal panel location
+ */
+const getCliTerminalLocation = () => getConfigValue('cliTerminalLocation', 'right');
+
 module.exports = {
     CONFIG_NAMESPACE,
     getConfig,
@@ -124,5 +129,6 @@ module.exports = {
     getCloseStataOtherWindowsBeforeSendingCode,
     getSeparatorSymmetric,
     getEnableCtrlShiftD,
-    getCdToDoFileDir
+    getCdToDoFileDir,
+    getCliTerminalLocation
 };

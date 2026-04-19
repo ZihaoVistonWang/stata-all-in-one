@@ -9,8 +9,8 @@ const fs = require('fs');
 const path = require('path');
 const { isWindows, isMacOS, showError, stripSurroundingQuotes, msg } = require('../utils/common');
 const config = require('../utils/config');
-const { runOnMac } = require('./runCode/mac');
-const { runOnWindows } = require('./runCode/windows');
+const { runOnMac } = require('./runCode/gui/mac');
+const { runOnWindows } = require('./runCode/gui/windows');
 
 /**
  * Get selected text from editor

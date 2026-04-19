@@ -2,7 +2,7 @@
   "name": "stata-all-in-one",
   "displayName": "Stata All in One",
   "description": "Supercharge your Stata workflow in VS Code. An enhanced version of `Stata Outline` with advanced Syntax Highlighting + Code Hints + Smart Outline + Code Execution + Quick Editing. All your Stata needs in one place.",
-  "version": "0.2.13",
+  "version": "0.3.0",
   "publisher": "ZihaoVistonWang",
   "icon": "img/icon.png",
   "keywords": [
@@ -114,6 +114,16 @@
             "type": "boolean",
             "default": true,
             "markdownDescription": "%config.cdToDoFileDir.description%"
+          },
+        "stata-all-in-one.cliTerminalLocation": {
+            "type": "string",
+            "enum": [
+              "bottom",
+              "right",
+              "left"
+            ],
+            "default": "right",
+            "markdownDescription": "%config.cliTerminalLocation.description%"
           },
         "stata-all-in-one.showActionButtons": {
             "type": "boolean",
@@ -244,6 +254,11 @@
       {
         "command": "stata-all-in-one.rename",
         "title": "Stata All in One: Rename Variable"
+      },
+      {
+        "command": "stata-all-in-one.stopCliExecution",
+        "title": "Stata All in One: Stop CLI Execution",
+        "icon": "$(debug-stop)"
       }
     ],
     "keybindings": [
@@ -367,6 +382,11 @@
           "command": "stata-all-in-one.runSection",
           "when": "editorLangId == stata && config.stata-all-in-one.showRunButton",
           "group": "navigation@2"
+        },
+        {
+          "command": "stata-all-in-one.stopCliExecution",
+          "when": "editorLangId == stata && stata-all-in-one.cliSessionActive",
+          "group": "navigation@3"
         }
       ],
       "view/title": [
@@ -384,5 +404,14 @@
   },
   "changelog": {
     "url": "https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "node-addon-api": "^8.0.0",
+    "node-gyp": "^10.0.0"
+  },
+  "scripts": {
+    "build:native": "bash scripts/build-native.sh",
+    "prepackage": "npm run build:native"
   }
 }
