@@ -1,3 +1,7 @@
+const vscode = require('vscode');
+const fs = require('fs');
+const path = require('path');
+
 const ANSI = {
     reset: '\x1b[0m',
     bold: '\x1b[1m',
@@ -23,6 +27,55 @@ const ANSI = {
     },
     bg: {}
 };
+
+const DEFAULT_SLOT_MAP = {
+    prompt: 'brightBlack',
+    command: 'brightMagenta',
+    keyword: 'brightCyan',
+    string: 'brightYellow',
+    path: 'brightYellow',
+    number: 'brightGreen',
+    comment: 'brightBlack',
+    function: 'brightBlue',
+    operator: 'cyan',
+    default: 'default',
+    error: 'brightRed',
+    header: 'brightCyan',
+    separator: 'brightBlack',
+    time: 'brightCyan',
+    timeValue: 'brightYellow'
+};
+
+const DEFAULT_TERMINAL_COLORS = {
+    black: '#000000',
+    red: '#cd3131',
+    green: '#0dbc79',
+    yellow: '#e5e510',
+    blue: '#2472c8',
+    magenta: '#bc3fbc',
+    cyan: '#11a8cd',
+    white: '#e5e5e5',
+    brightBlack: '#666666',
+    brightRed: '#f14c4c',
+    brightGreen: '#23d18b',
+    brightYellow: '#f5f543',
+    brightBlue: '#3b8eea',
+    brightMagenta: '#d670d6',
+    brightCyan: '#29b8db',
+    brightWhite: '#ffffff'
+};
+
+const TOKEN_SCOPE_CANDIDATES = {
+    command: ['keyword.functions.data.stata', 'keyword.functions.program.stata', 'keyword.control.flow.stata'],
+    keyword: ['keyword.control.conditional.stata', 'keyword.control.flow.stata', 'keyword.other.stata', 'keyword'],
+    function: ['entity.name.function.stata', 'entity.name.function', 'support.function'],
+    string: ['string.quoted.double.stata', 'string.quoted.double.compound.stata', 'string.quoted.single.stata', 'string'],
+    number: ['constant.numeric.stata', 'constant.numeric'],
+    comment: ['comment.line.double-slash.stata', 'comment.block.stata', 'comment'],
+    operator: ['keyword.operator.assignment.stata', 'keyword.operator.arithmetic.stata', 'keyword.operator.parentheses.stata', 'keyword.operator.mata', 'keyword.operator']
+};
+
+let CURRENT_THEME_SLOT_MAP = { ...DEFAULT_SLOT_MAP };
 
 const COMMAND_KEYWORDS = new Set([
     'if', 'in', 'using', 'by', 'bysort', 'quietly', 'qui', 'capture', 'cap',
@@ -57,6 +110,224 @@ function paint(text, style = {}) {
     }
 
     return `${prefix}${text}`;
+}
+
+function hexToRgb(hex) {
+    if (!hex || typeof hex !== 'string') {
+        return null;
+    }
+
+    const normalized = hex.trim().replace(/^#/, '');
+    if (![3, 6, 8].includes(normalized.length)) {
+        return null;
+    }
+
+    const expanded = normalized.length === 3
+        ? normalized.split('').map(char => char + char).join('')
+        : normalized.slice(0, 6);
+
+    const value = Number.parseInt(expanded, 16);
+    if (Number.isNaN(value)) {
+        return null;
+    }
+
+    return {
+        r: (value >> 16) & 0xff,
+        g: (value >> 8) & 0xff,
+        b: value & 0xff
+    };
+}
+
+function colorDistance(a, b) {
+    const dr = a.r - b.r;
+    const dg = a.g - b.g;
+    const db = a.b - b.b;
+    return dr * dr + dg * dg + db * db;
+}
+
+function findClosestAnsiSlot(hexColor, terminalPalette) {
+    const rgb = hexToRgb(hexColor);
+    if (!rgb) {
+        return null;
+    }
+
+    let bestSlot = null;
+    let bestDistance = Number.POSITIVE_INFINITY;
+    for (const [slot, slotColor] of Object.entries(terminalPalette)) {
+        const slotRgb = hexToRgb(slotColor);
+        if (!slotRgb) {
+            continue;
+        }
+        const distance = colorDistance(rgb, slotRgb);
+        if (distance < bestDistance) {
+            bestDistance = distance;
+            bestSlot = slot;
+        }
+    }
+
+    return bestSlot;
+}
+
+function toScopeList(scope) {
+    if (!scope) {
+        return [];
+    }
+    if (Array.isArray(scope)) {
+        return scope.flatMap(item => toScopeList(item));
+    }
+    return String(scope)
+        .split(',')
+        .map(item => item.trim())
+        .filter(Boolean);
+}
+
+function scopeMatches(scopeValue, candidate) {
+    return scopeValue === candidate || scopeValue.startsWith(`${candidate}.`) || candidate.startsWith(`${scopeValue}.`);
+}
+
+function findThemeTokenColor(themeData, candidates) {
+    const tokenColors = Array.isArray(themeData.tokenColors) ? themeData.tokenColors : [];
+    for (const candidate of candidates) {
+        for (const rule of tokenColors) {
+            const scopes = toScopeList(rule.scope);
+            if (!scopes.length) {
+                continue;
+            }
+            if (!scopes.some(scope => scopeMatches(scope, candidate))) {
+                continue;
+            }
+            const foreground = rule.settings && rule.settings.foreground;
+            if (foreground) {
+                return foreground;
+            }
+        }
+    }
+    return null;
+}
+
+function buildTerminalPalette(themeData) {
+    const colors = themeData.colors || {};
+    return {
+        black: colors['terminal.ansiBlack'] || DEFAULT_TERMINAL_COLORS.black,
+        red: colors['terminal.ansiRed'] || DEFAULT_TERMINAL_COLORS.red,
+        green: colors['terminal.ansiGreen'] || DEFAULT_TERMINAL_COLORS.green,
+        yellow: colors['terminal.ansiYellow'] || DEFAULT_TERMINAL_COLORS.yellow,
+        blue: colors['terminal.ansiBlue'] || DEFAULT_TERMINAL_COLORS.blue,
+        magenta: colors['terminal.ansiMagenta'] || DEFAULT_TERMINAL_COLORS.magenta,
+        cyan: colors['terminal.ansiCyan'] || DEFAULT_TERMINAL_COLORS.cyan,
+        white: colors['terminal.ansiWhite'] || DEFAULT_TERMINAL_COLORS.white,
+        brightBlack: colors['terminal.ansiBrightBlack'] || DEFAULT_TERMINAL_COLORS.brightBlack,
+        brightRed: colors['terminal.ansiBrightRed'] || DEFAULT_TERMINAL_COLORS.brightRed,
+        brightGreen: colors['terminal.ansiBrightGreen'] || DEFAULT_TERMINAL_COLORS.brightGreen,
+        brightYellow: colors['terminal.ansiBrightYellow'] || DEFAULT_TERMINAL_COLORS.brightYellow,
+        brightBlue: colors['terminal.ansiBrightBlue'] || DEFAULT_TERMINAL_COLORS.brightBlue,
+        brightMagenta: colors['terminal.ansiBrightMagenta'] || DEFAULT_TERMINAL_COLORS.brightMagenta,
+        brightCyan: colors['terminal.ansiBrightCyan'] || DEFAULT_TERMINAL_COLORS.brightCyan,
+        brightWhite: colors['terminal.ansiBrightWhite'] || DEFAULT_TERMINAL_COLORS.brightWhite
+    };
+}
+
+function findCurrentThemeDefinition() {
+    const themeName = vscode.workspace.getConfiguration('workbench').get('colorTheme');
+    if (!themeName) {
+        return null;
+    }
+
+    for (const extension of vscode.extensions.all) {
+        const themes = extension.packageJSON
+            && extension.packageJSON.contributes
+            && Array.isArray(extension.packageJSON.contributes.themes)
+            ? extension.packageJSON.contributes.themes
+            : [];
+
+        const theme = themes.find(item => {
+            const label = item.label;
+            const id = item.id;
+            return label === themeName
+                || id === themeName
+                || `Default ${id}` === themeName
+                || `Default ${label}` === themeName;
+        });
+        if (theme && theme.path) {
+            return {
+                extensionPath: extension.extensionPath,
+                themePath: path.join(extension.extensionPath, theme.path)
+            };
+        }
+    }
+
+    return null;
+}
+
+function loadThemeData(themePath, visited = new Set()) {
+    if (!themePath || visited.has(themePath) || !fs.existsSync(themePath)) {
+        return {};
+    }
+
+    visited.add(themePath);
+    const themeDir = path.dirname(themePath);
+    const rawTheme = fs.readFileSync(themePath, 'utf8');
+    const themeData = JSON.parse(rawTheme);
+
+    let baseTheme = {};
+    if (themeData.include) {
+        const includePath = path.resolve(themeDir, themeData.include);
+        baseTheme = loadThemeData(includePath, visited);
+    }
+
+    return {
+        ...baseTheme,
+        ...themeData,
+        colors: {
+            ...(baseTheme.colors || {}),
+            ...(themeData.colors || {})
+        },
+        tokenColors: [
+            ...((baseTheme.tokenColors && Array.isArray(baseTheme.tokenColors)) ? baseTheme.tokenColors : []),
+            ...((themeData.tokenColors && Array.isArray(themeData.tokenColors)) ? themeData.tokenColors : [])
+        ]
+    };
+}
+
+function resolveThemeSlotMap(themeData) {
+    const terminalPalette = buildTerminalPalette(themeData);
+    const colors = themeData.colors || {};
+    const slotMap = { ...DEFAULT_SLOT_MAP };
+
+    for (const [tokenType, candidates] of Object.entries(TOKEN_SCOPE_CANDIDATES)) {
+        const themeColor = findThemeTokenColor(themeData, candidates);
+        const nearestSlot = findClosestAnsiSlot(themeColor, terminalPalette);
+        if (nearestSlot) {
+            slotMap[tokenType] = nearestSlot;
+        }
+    }
+
+    const promptColor = colors['editorLineNumber.foreground'] || colors['descriptionForeground'];
+    slotMap.prompt = findClosestAnsiSlot(promptColor, terminalPalette) || slotMap.prompt;
+    slotMap.comment = findClosestAnsiSlot(findThemeTokenColor(themeData, TOKEN_SCOPE_CANDIDATES.comment), terminalPalette) || slotMap.comment;
+    slotMap.error = findClosestAnsiSlot(colors['editorError.foreground'] || colors['errorForeground'], terminalPalette) || slotMap.error;
+    slotMap.header = findClosestAnsiSlot(colors['textLink.foreground'] || findThemeTokenColor(themeData, TOKEN_SCOPE_CANDIDATES.keyword), terminalPalette) || slotMap.header;
+    slotMap.separator = findClosestAnsiSlot(colors['panel.border'] || colors['editorIndentGuide.background'], terminalPalette) || slotMap.separator;
+    slotMap.time = findClosestAnsiSlot(colors['terminal.foreground'] || colors.foreground, terminalPalette) || slotMap.time;
+    slotMap.timeValue = findClosestAnsiSlot(findThemeTokenColor(themeData, TOKEN_SCOPE_CANDIDATES.number), terminalPalette) || slotMap.timeValue;
+
+    return slotMap;
+}
+
+function syncCliTerminalTheme() {
+    try {
+        const themeDefinition = findCurrentThemeDefinition();
+        if (!themeDefinition || !fs.existsSync(themeDefinition.themePath)) {
+            CURRENT_THEME_SLOT_MAP = { ...DEFAULT_SLOT_MAP };
+            return;
+        }
+
+        const themeData = loadThemeData(themeDefinition.themePath);
+        CURRENT_THEME_SLOT_MAP = resolveThemeSlotMap(themeData);
+    } catch (error) {
+        console.error('[renderer] Failed to sync CLI terminal theme:', error.message);
+        CURRENT_THEME_SLOT_MAP = { ...DEFAULT_SLOT_MAP };
+    }
 }
 
 function formatDuration(durationMs) {
@@ -150,7 +421,11 @@ class StataTerminalRenderer {
 
     renderError(text) {
         const body = String(text || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').trimEnd();
-        return `${paint(`error: ${body}`, { fg: 'brightRed', bold: true })}\n${ANSI.reset}`;
+        return `${paint(`error: ${body}`, { fg: CURRENT_THEME_SLOT_MAP.error, bold: true })}\n${ANSI.reset}`;
+    }
+
+    renderBreakLine() {
+        return `${paint('--break--', { fg: CURRENT_THEME_SLOT_MAP.error, bold: true })}\n${ANSI.reset}`;
     }
 
     renderRunFooter(durationMs, width) {
@@ -159,33 +434,152 @@ class StataTerminalRenderer {
         const left = '─ ';
         const rightWidth = Math.max(0, lineWidth - left.length - label.length);
         const separator = `${left}${label}${'─'.repeat(rightWidth)}`;
-        return `\n${paint(separator, { fg: 'brightBlack' })}\n${ANSI.reset}`;
+        return `\n${paint(separator, { fg: CURRENT_THEME_SLOT_MAP.separator })}\n${ANSI.reset}`;
+    }
+
+    _isSeparatorLine(line) {
+        return /^\s*[-=+|]{5,}\s*$/.test(line);
+    }
+
+    _isParenNoteLine(line) {
+        return /^\s*\([^)]+\)\s*$/.test(line);
+    }
+
+    _isSummaryLine(line) {
+        return (line.match(/\s=\s/g) || []).length >= 1;
+    }
+
+    _isTableHeaderLine(line) {
+        return (
+            /\|/.test(line) && /[A-Za-z]/.test(line) && !this._isSeparatorLine(line)
+        ) || /\b(Coefficient|Std\. err\.|Std\. Err\.|P>\|t\||P>\|z\||p-value|Freq|Robust|conf\. interval|Categories|Redundant|Num\. Coefs)\b/i.test(line);
+    }
+
+    _isTableDataLine(line) {
+        const numberCount = (line.match(/(?<![A-Za-z_])[-+]?\d+(?:,\d{3})*(?:\.\d+)?(?:e[+-]?\d+)?\b/gi) || []).length;
+        return numberCount >= 2 && /[A-Za-z_]/.test(line) && !this._isSummaryLine(line);
+    }
+
+    _renderNoteLine(line) {
+        return `${this._highlightInline(line, {
+            defaultStyle: { fg: CURRENT_THEME_SLOT_MAP.comment, dim: true, italic: true },
+            matchers: [
+                {
+                    regex: /\b\d+(?:,\d{3})*(?:\.\d+)?\b/g,
+                    style: { fg: CURRENT_THEME_SLOT_MAP.number }
+                },
+                {
+                    regex: /\b(singleton|converged|iterations?|dropped|observations?)\b/gi,
+                    style: { fg: CURRENT_THEME_SLOT_MAP.keyword, bold: true }
+                }
+            ]
+        })}${ANSI.reset}`;
+    }
+
+    _renderSummaryLine(line) {
+        return `${this._highlightInline(line, {
+            defaultStyle: { fg: CURRENT_THEME_SLOT_MAP.default },
+            matchers: [
+                {
+                    regex: /(^|(?<=\s))(?:[A-Za-z][A-Za-z0-9_.() -]*?)(?=\s=\s)/g,
+                    style: { fg: CURRENT_THEME_SLOT_MAP.header, bold: true }
+                },
+                {
+                    regex: /=/g,
+                    style: { fg: CURRENT_THEME_SLOT_MAP.separator }
+                },
+                {
+                    regex: /(?<![A-Za-z_])[-+]?\d+(?:,\d{3})*(?:\.\d+)?(?:e[+-]?\d+)?\b/gi,
+                    style: { fg: CURRENT_THEME_SLOT_MAP.number, bold: true }
+                }
+            ]
+        })}${ANSI.reset}`;
+    }
+
+    _renderTableHeaderLine(line) {
+        return `${this._highlightInline(line, {
+            defaultStyle: { fg: CURRENT_THEME_SLOT_MAP.header, bold: true },
+            matchers: [
+                {
+                    regex: /\[(?:95|90|99)% conf\. interval\]/gi,
+                    style: { fg: CURRENT_THEME_SLOT_MAP.keyword, bold: true }
+                },
+                {
+                    regex: /(?<![A-Za-z_])\d+(?:\.\d+)?\b/g,
+                    style: { fg: CURRENT_THEME_SLOT_MAP.number, bold: true }
+                }
+            ]
+        })}${ANSI.reset}`;
+    }
+
+    _renderTableDataLine(line) {
+        return `${this._highlightInline(line, {
+            defaultStyle: { fg: CURRENT_THEME_SLOT_MAP.default },
+            matchers: [
+                {
+                    regex: /(?<![A-Za-z_])[-+]?\d+(?:,\d{3})*(?:\.\d+)?(?:e[+-]?\d+)?\b/gi,
+                    style: { fg: CURRENT_THEME_SLOT_MAP.number }
+                }
+            ]
+        })}${ANSI.reset}`;
     }
 
     _renderOutputLine(line, width) {
+        if (/^[.>]\s+\*{2,}#/.test(line) || /^[.>]\s+\*{2,}\s+/.test(line)) {
+            return this._renderCommentCommandLine(line);
+        }
+
+        if (/^\s*--break--\s*$/i.test(line)) {
+            return `${paint(line, { fg: CURRENT_THEME_SLOT_MAP.error, bold: true })}${ANSI.reset}`;
+        }
+
+        if (/^\s*\*\*#/.test(line) || /^\s*\*{2,}\s+/.test(line)) {
+            return `${paint(line, { fg: CURRENT_THEME_SLOT_MAP.comment, dim: true, italic: true })}${ANSI.reset}`;
+        }
+
         if (/^[.>]\s/.test(line)) {
             return this._renderCommandLine(line, width);
         }
 
-        if (/^\s*(error:|r\(\d+\)|.*\berror\b.*)$/i.test(line)) {
-            return `${paint(line, { fg: 'brightRed', bold: true })}${ANSI.reset}`;
+        if (/^\s*(error:|r\(\d+\)\s*;?|.*\berror\b.*)$/i.test(line)) {
+            return `${paint(line, { fg: CURRENT_THEME_SLOT_MAP.error, bold: true })}${ANSI.reset}`;
         }
 
-        if (/^\s*[-=]{5,}\s*$/.test(line)) {
-            return `${paint(line, { fg: 'brightBlack' })}${ANSI.reset}`;
+        if (this._isSeparatorLine(line)) {
+            return `${paint(line, { fg: CURRENT_THEME_SLOT_MAP.separator })}${ANSI.reset}`;
+        }
+
+        if (this._isParenNoteLine(line) || /^\s*\* = /.test(line)) {
+            return this._renderNoteLine(line);
+        }
+
+        if (/^\s*(HDFE Linear regression|Absorbed degrees of freedom:)\s*$/i.test(line)) {
+            return `${paint(line, { fg: CURRENT_THEME_SLOT_MAP.header, bold: true })}${ANSI.reset}`;
+        }
+
+        if (this._isSummaryLine(line)) {
+            return this._renderSummaryLine(line);
+        }
+
+        if (this._isTableHeaderLine(line)) {
+            return this._renderTableHeaderLine(line);
+        }
+
+        if (this._isTableDataLine(line)) {
+            return this._renderTableDataLine(line);
         }
 
         if (/\b(Begin Time:|Over Time:|Time used:)\b/.test(line)) {
             return `${this._highlightInline(line, {
-                defaultStyle: { fg: 'brightCyan', bold: true },
+                defaultStyle: { fg: CURRENT_THEME_SLOT_MAP.time, bold: true },
                 matchers: [
                     {
                         regex: /\b\d+(?:\.\d+)?(?:e[+-]?\d+)?\b/gi,
-                        style: { fg: 'brightYellow', bold: true }
+                        style: { fg: CURRENT_THEME_SLOT_MAP.timeValue, bold: true }
                     },
                     {
                         regex: /\b[A-Z][a-z]{2}\b|\b[A-Z][a-z]{2}\s+\d{4}\b|\b\d{2}:\d{2}:\d{2}\b/g,
-                        style: { fg: 'brightGreen', bold: true }
+                        style: { fg: CURRENT_THEME_SLOT_MAP.number, bold: true }
                     }
                 ]
             })}${ANSI.reset}`;
@@ -193,11 +587,11 @@ class StataTerminalRenderer {
 
         if (/\bVariables\s+\||\bp-value\b|\bFreq\b/.test(line)) {
             return `${this._highlightInline(line, {
-                defaultStyle: { fg: 'brightCyan', bold: true },
+                defaultStyle: { fg: CURRENT_THEME_SLOT_MAP.header, bold: true },
                 matchers: [
                     {
                         regex: /(?<![A-Za-z_])[-+]?\d+(?:\.\d+)?(?:e[+-]?\d+)?\b/gi,
-                        style: { fg: 'brightYellow', bold: true }
+                        style: { fg: CURRENT_THEME_SLOT_MAP.number, bold: true }
                     }
                 ]
             })}${ANSI.reset}`;
@@ -208,21 +602,25 @@ class StataTerminalRenderer {
             matchers: [
                 {
                     regex: /\br\(\d+\)\b/gi,
-                    style: { fg: 'brightRed', bold: true }
+                    style: { fg: CURRENT_THEME_SLOT_MAP.error, bold: true }
                 },
                 {
                     regex: /\berror\b/gi,
-                    style: { fg: 'brightRed', bold: true }
+                    style: { fg: CURRENT_THEME_SLOT_MAP.error, bold: true }
                 },
                 {
                     regex: /(?<![A-Za-z_])[-+]?\d+(?:\.\d+)?(?:e[+-]?\d+)?\b/gi,
-                    style: { fg: 'brightYellow' }
+                    style: { fg: CURRENT_THEME_SLOT_MAP.number }
                 }
             ]
         })}${ANSI.reset}`;
     }
 
     _renderCommandLine(line, width) {
+        if (/^[.>]\s+\*{2,}#/.test(line) || /^[.>]\s+\*{2,}\s+/.test(line)) {
+            return this._renderCommentCommandLine(line);
+        }
+
         const tokens = this._tokenizeCommandLine(line);
         let rendered = '';
 
@@ -238,28 +636,21 @@ class StataTerminalRenderer {
         return `${rendered}${ANSI.reset}`;
     }
 
+    _renderCommentCommandLine(line) {
+        const prompt = line.slice(0, 2);
+        const comment = line.slice(2);
+        return `${paint(prompt, {
+            fg: CURRENT_THEME_SLOT_MAP.prompt,
+            bold: true
+        })}${paint(comment, {
+            fg: CURRENT_THEME_SLOT_MAP.comment,
+            dim: true,
+            italic: true
+        })}${ANSI.reset}`;
+    }
+
     _foregroundForCommandToken(type) {
-        switch (type) {
-            case 'prompt':
-                return 'brightBlack';
-            case 'command':
-                return 'brightMagenta';
-            case 'keyword':
-                return 'brightCyan';
-            case 'string':
-            case 'path':
-                return 'brightYellow';
-            case 'number':
-                return 'brightGreen';
-            case 'comment':
-                return 'brightBlack';
-            case 'function':
-                return 'brightBlue';
-            case 'operator':
-                return 'cyan';
-            default:
-                return 'default';
-        }
+        return CURRENT_THEME_SLOT_MAP[type] || CURRENT_THEME_SLOT_MAP.default;
     }
 
     _tokenizeCommandLine(line) {
@@ -393,5 +784,6 @@ class StataTerminalRenderer {
 
 module.exports = {
     StataTerminalRenderer,
-    formatDuration
+    formatDuration,
+    syncCliTerminalTheme
 };

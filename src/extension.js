@@ -16,6 +16,7 @@ const { registerLineBreakCommand } = require('./modules/lineBreak');
 const { registerRenameProvider } = require('./modules/renameProvider');
 const { registerUpdateCheck } = require('./modules/updateNotification');
 const { findStataApp } = require('./modules/runCode/gui/mac');
+const { syncCliTerminalTheme } = require('./modules/runCode/cli/renderer');
 const { isMacOS, showInfo, showWarn, msg } = require('./utils/common');
 
 // CLI session state context key for "stop" button visibility
@@ -193,6 +194,10 @@ async function resetMigrationPrompt(context) {
  */
 function activate(context) {
     console.log('Stata All in One: Extension activated');
+    syncCliTerminalTheme();
+    context.subscriptions.push(vscode.window.onDidChangeActiveColorTheme(() => {
+        syncCliTerminalTheme();
+    }));
     
     // Initialize CLI session context to false (no CLI session active)
     vscode.commands.executeCommand('setContext', CLI_SESSION_ACTIVE_KEY, false);
