@@ -13,6 +13,65 @@ const { getTempFilePath, cleanupTempFile } = require('../execute/tempfile');
 const config = require('../../../utils/config');
 
 let _stataTerminal = null;
+let _cliStatusBarItem = null;
+let _cliStatusBarAlignment = null;
+const SYNTHETIC_PROGRESS_LINE_WIDTH = 72;
+
+function getCliStatusBarAlignment() {
+    const location = config.getCliTerminalLocation();
+    return location === 'left'
+        ? vscode.StatusBarAlignment.Left
+        : vscode.StatusBarAlignment.Right;
+}
+
+function getOrCreateCliStatusBarItem() {
+    const desiredAlignment = getCliStatusBarAlignment();
+
+    if (_cliStatusBarItem && _cliStatusBarAlignment !== desiredAlignment) {
+        _cliStatusBarItem.dispose();
+        _cliStatusBarItem = null;
+        _cliStatusBarAlignment = null;
+    }
+
+    if (!_cliStatusBarItem) {
+        _cliStatusBarItem = vscode.window.createStatusBarItem(desiredAlignment, 100);
+        _cliStatusBarItem.name = 'Stata CLI Status';
+        _cliStatusBarItem.command = 'workbench.action.terminal.focus';
+        _cliStatusBarAlignment = desiredAlignment;
+    }
+
+    return _cliStatusBarItem;
+}
+
+function showCliRunningStatus() {
+    const item = getOrCreateCliStatusBarItem();
+    item.text = '$(loading~spin) Stata CLI running';
+    item.tooltip = 'Stata CLI is executing code';
+    item.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
+    item.color = new vscode.ThemeColor('statusBarItem.errorForeground');
+    item.show();
+}
+
+function hideCliRunningStatus() {
+    if (_cliStatusBarItem) {
+        _cliStatusBarItem.backgroundColor = undefined;
+        _cliStatusBarItem.color = undefined;
+        _cliStatusBarItem.hide();
+    }
+}
+
+function isNativeProgressOnlyChunk(chunk) {
+    const normalized = String(chunk || '').replace(/\r/g, '');
+    if (!normalized) {
+        return false;
+    }
+
+    return /^[.\s>\n]+$/.test(normalized);
+}
+
+function hasResultPhaseOutput(chunk) {
+    return /\n\s*-Bootstrap|\n\s*Variables \||\n\s*Over Time:|end of do-file/i.test(String(chunk || ''));
+}
 
 function computeIncrementalChunk(emittedOutput, currentOutput) {
     if (!currentOutput) {
@@ -187,7 +246,9 @@ async function runOnMacCLI(codeToRun, tmpFilePath, docDir = null, context = null
     let executionPlan = null;
     let streamedOutput = '';
     let progressTimer = null;
-    let lastChunkAt = 0;
+    let lastRealChunkAt = 0;
+    let syntheticProgressActive = false;
+    let syntheticProgressColumn = 0;
     try {
         const initResult = await ensureCliSession(context);
         if (!initResult.success) {
@@ -217,15 +278,25 @@ async function runOnMacCLI(codeToRun, tmpFilePath, docDir = null, context = null
         await ensureCliBootstrap(cliSession);
         await ensureInitialWorkingDirectory(cliSession, docDir);
         executionPlan = createExecutionPlan(normalizedCode, cliSession.getWorkingDirectory());
-        lastChunkAt = Date.now();
+        lastRealChunkAt = Date.now();
+        showCliRunningStatus();
         progressTimer = setInterval(() => {
-            if (Date.now() - lastChunkAt < 150) {
+            if (!syntheticProgressActive) {
                 return;
             }
 
+            if (Date.now() - lastRealChunkAt < 600) {
+                return;
+            }
+
+            if (syntheticProgressColumn >= SYNTHETIC_PROGRESS_LINE_WIDTH) {
+                terminal.writeOutputChunk('\n> ');
+                syntheticProgressColumn = 0;
+            }
+
             terminal.writeOutputChunk('.');
-            lastChunkAt = Date.now();
-        }, 80);
+            syntheticProgressColumn += 1;
+        }, 300);
 
         const result = await cliSession.execute(executionPlan.command, true, (chunk) => {
             if (!chunk) {
@@ -233,7 +304,25 @@ async function runOnMacCLI(codeToRun, tmpFilePath, docDir = null, context = null
             }
 
             streamedOutput += chunk;
-            lastChunkAt = Date.now();
+            lastRealChunkAt = Date.now();
+
+            if (chunk.includes('Begin Time:')) {
+                syntheticProgressActive = true;
+                syntheticProgressColumn = 0;
+            }
+
+            if (hasResultPhaseOutput(chunk)) {
+                if (syntheticProgressActive && syntheticProgressColumn > 0) {
+                    terminal.writeOutputChunk('\n');
+                }
+                syntheticProgressActive = false;
+                syntheticProgressColumn = 0;
+            }
+
+            if (syntheticProgressActive && isNativeProgressOnlyChunk(chunk)) {
+                return;
+            }
+
             terminal.writeOutputChunk(chunk);
         });
 
@@ -280,6 +369,7 @@ async function runOnMacCLI(codeToRun, tmpFilePath, docDir = null, context = null
         if (progressTimer) {
             clearInterval(progressTimer);
         }
+        hideCliRunningStatus();
 
         if (executionPlan && executionPlan.tempFilePath) {
             cleanupTempFile(executionPlan.tempFilePath).catch(() => {});
