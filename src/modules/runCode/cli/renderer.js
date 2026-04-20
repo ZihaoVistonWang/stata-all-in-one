@@ -77,6 +77,8 @@ const TOKEN_SCOPE_CANDIDATES = {
 
 let CURRENT_THEME_SLOT_MAP = { ...DEFAULT_SLOT_MAP };
 
+const VALUE_NUMBER_REGEX = /(?<![%A-Za-z_])[-+]?\d+(?:,\d{3})*(?:\.\d+)?(?:e[+-]?\d+)?(?![A-Za-z])/gi;
+
 const COMMAND_KEYWORDS = new Set([
     'if', 'in', 'using', 'by', 'bysort', 'quietly', 'qui', 'capture', 'cap',
     'do', 'cd', 'global', 'local', 'replace', 'gen', 'egen', 'keep', 'drop',
@@ -371,9 +373,29 @@ function getDisplayWidth(text) {
     return width;
 }
 
+function truncateToWidth(text, maxWidth) {
+    if (!maxWidth || maxWidth <= 0) {
+        return String(text || '');
+    }
+
+    let result = '';
+    let width = 0;
+    for (const char of String(text || '')) {
+        const charWidth = getDisplayWidth(char);
+        if (width + charWidth > maxWidth) {
+            break;
+        }
+        result += char;
+        width += charWidth;
+    }
+    return result;
+}
+
 class StataTerminalRenderer {
     constructor() {
         this._pendingLine = '';
+        this._lastRenderedLineKind = null;
+        this._describeMode = false;
     }
 
     renderCommand(command, width) {
@@ -416,7 +438,10 @@ class StataTerminalRenderer {
 
         const line = this._pendingLine;
         this._pendingLine = '';
-        return this._renderOutputLine(line, width);
+        const rendered = this._renderOutputLine(line, width);
+        this._lastRenderedLineKind = null;
+        this._describeMode = false;
+        return rendered;
     }
 
     renderError(text) {
@@ -460,12 +485,29 @@ class StataTerminalRenderer {
         return numberCount >= 2 && /[A-Za-z_]/.test(line) && !this._isSummaryLine(line);
     }
 
+    _isDescribeDataLine(line) {
+        return /^\s*[A-Za-z_][A-Za-z0-9_~]*\s+(?:byte|int|long|float|double|str\d+)\s+%[-0-9.]+[sgf]?\s*/i.test(line);
+    }
+
+    _isDescribeSummaryLine(line) {
+        return /^\s*(Observations:|Variables:)\s+/.test(line);
+    }
+
+    _isDescribeSourceLine(line) {
+        return /^\s*Contains data from\s+/.test(line);
+    }
+
+    _isDescribeHeaderLine(line) {
+        return /^\s*Variable\s+Storage\s+Display\s+Value\s+Variable label\s*$/.test(line)
+            || /^\s*name\s+type\s+format\s+label\s*$/.test(line);
+    }
+
     _renderNoteLine(line) {
         return `${this._highlightInline(line, {
             defaultStyle: { fg: CURRENT_THEME_SLOT_MAP.comment, dim: true, italic: true },
             matchers: [
                 {
-                    regex: /\b\d+(?:,\d{3})*(?:\.\d+)?\b/g,
+                    regex: VALUE_NUMBER_REGEX,
                     style: { fg: CURRENT_THEME_SLOT_MAP.number }
                 },
                 {
@@ -489,7 +531,7 @@ class StataTerminalRenderer {
                     style: { fg: CURRENT_THEME_SLOT_MAP.separator }
                 },
                 {
-                    regex: /(?<![A-Za-z_])[-+]?\d+(?:,\d{3})*(?:\.\d+)?(?:e[+-]?\d+)?\b/gi,
+                    regex: VALUE_NUMBER_REGEX,
                     style: { fg: CURRENT_THEME_SLOT_MAP.number, bold: true }
                 }
             ]
@@ -505,7 +547,7 @@ class StataTerminalRenderer {
                     style: { fg: CURRENT_THEME_SLOT_MAP.keyword, bold: true }
                 },
                 {
-                    regex: /(?<![A-Za-z_])\d+(?:\.\d+)?\b/g,
+                    regex: VALUE_NUMBER_REGEX,
                     style: { fg: CURRENT_THEME_SLOT_MAP.number, bold: true }
                 }
             ]
@@ -517,64 +559,188 @@ class StataTerminalRenderer {
             defaultStyle: { fg: CURRENT_THEME_SLOT_MAP.default },
             matchers: [
                 {
-                    regex: /(?<![A-Za-z_])[-+]?\d+(?:,\d{3})*(?:\.\d+)?(?:e[+-]?\d+)?\b/gi,
+                    regex: VALUE_NUMBER_REGEX,
                     style: { fg: CURRENT_THEME_SLOT_MAP.number }
                 }
             ]
         })}${ANSI.reset}`;
     }
 
+    _renderDescribeDataLine(line) {
+        return `${paint(line, { fg: CURRENT_THEME_SLOT_MAP.default })}${ANSI.reset}`;
+    }
+
+    _renderDescribeSourceLine(line) {
+        return `${this._highlightInline(line, {
+            defaultStyle: { fg: CURRENT_THEME_SLOT_MAP.default },
+            matchers: [
+                {
+                    regex: /(?:[A-Za-z]:)?(?:\.{0,2}\/)?[^\s]+\.[A-Za-z0-9]+/g,
+                    style: { fg: CURRENT_THEME_SLOT_MAP.path, bold: true }
+                }
+            ]
+        })}${ANSI.reset}`;
+    }
+
+    _renderDescribeSummaryLine(line) {
+        return `${this._highlightInline(line, {
+            defaultStyle: { fg: CURRENT_THEME_SLOT_MAP.default },
+            matchers: [
+                {
+                    regex: /\b(Observations|Variables):/g,
+                    style: { fg: CURRENT_THEME_SLOT_MAP.default, bold: true }
+                },
+                {
+                    regex: /\b\d+(?:,\d{3})*(?:\.\d+)?\b/g,
+                    style: { fg: CURRENT_THEME_SLOT_MAP.number, bold: true }
+                },
+                {
+                    regex: /\b\d{2}\s+[A-Z][a-z]{2}\s+\d{4}\s+\d{2}:\d{2}\b/g,
+                    style: { fg: CURRENT_THEME_SLOT_MAP.number, bold: true }
+                }
+            ]
+        })}${ANSI.reset}`;
+    }
+
+    _renderDescribeHeaderLine(line) {
+        return `${paint(line, { fg: CURRENT_THEME_SLOT_MAP.default, bold: true })}${ANSI.reset}`;
+    }
+
     _renderOutputLine(line, width) {
+        let lineKind = 'default';
+
         if (/^[.>]\s+\*{2,}#/.test(line) || /^[.>]\s+\*{2,}\s+/.test(line)) {
-            return this._renderCommentCommandLine(line);
+            this._describeMode = false;
+            lineKind = 'comment-command';
+            const rendered = this._renderCommentCommandLine(line);
+            this._lastRenderedLineKind = lineKind;
+            return rendered;
         }
 
         if (/^\s*--break--\s*$/i.test(line)) {
-            return `${paint(line, { fg: CURRENT_THEME_SLOT_MAP.error, bold: true })}${ANSI.reset}`;
+            this._describeMode = false;
+            lineKind = 'error';
+            const rendered = `${paint(line, { fg: CURRENT_THEME_SLOT_MAP.error, bold: true })}${ANSI.reset}`;
+            this._lastRenderedLineKind = lineKind;
+            return rendered;
         }
 
         if (/^\s*\*\*#/.test(line) || /^\s*\*{2,}\s+/.test(line)) {
-            return `${paint(line, { fg: CURRENT_THEME_SLOT_MAP.comment, dim: true, italic: true })}${ANSI.reset}`;
+            this._describeMode = false;
+            lineKind = 'comment';
+            const rendered = `${paint(line, { fg: CURRENT_THEME_SLOT_MAP.comment, dim: true, italic: true })}${ANSI.reset}`;
+            this._lastRenderedLineKind = lineKind;
+            return rendered;
         }
 
         if (/^[.>]\s/.test(line)) {
-            return this._renderCommandLine(line, width);
+            this._describeMode = false;
+            lineKind = 'command';
+            const rendered = this._renderCommandLine(line, width);
+            this._lastRenderedLineKind = lineKind;
+            return rendered;
         }
 
         if (/^\s*(error:|r\(\d+\)\s*;?|.*\berror\b.*)$/i.test(line)) {
-            return `${paint(line, { fg: CURRENT_THEME_SLOT_MAP.error, bold: true })}${ANSI.reset}`;
+            this._describeMode = false;
+            lineKind = 'error';
+            const rendered = `${paint(line, { fg: CURRENT_THEME_SLOT_MAP.error, bold: true })}${ANSI.reset}`;
+            this._lastRenderedLineKind = lineKind;
+            return rendered;
+        }
+
+        if (this._isDescribeSourceLine(line)) {
+            this._describeMode = true;
+            lineKind = 'describe-source';
+            const rendered = this._renderDescribeSourceLine(line);
+            this._lastRenderedLineKind = lineKind;
+            return rendered;
+        }
+
+        if (this._describeMode && this._isDescribeSummaryLine(line)) {
+            lineKind = 'describe-summary';
+            const rendered = this._renderDescribeSummaryLine(line);
+            this._lastRenderedLineKind = lineKind;
+            return rendered;
+        }
+
+        if (this._describeMode && this._isDescribeHeaderLine(line)) {
+            lineKind = 'describe-header';
+            const rendered = this._renderDescribeHeaderLine(line);
+            this._lastRenderedLineKind = lineKind;
+            return rendered;
         }
 
         if (this._isSeparatorLine(line)) {
-            return `${paint(line, { fg: CURRENT_THEME_SLOT_MAP.separator })}${ANSI.reset}`;
+            const separatorLine = truncateToWidth(line, width);
+            if (this._describeMode) {
+                if (this._lastRenderedLineKind === 'separator') {
+                    return '';
+                }
+                lineKind = 'separator';
+                const rendered = `${paint(separatorLine, { fg: CURRENT_THEME_SLOT_MAP.separator, dim: true })}${ANSI.reset}`;
+                this._lastRenderedLineKind = lineKind;
+                return rendered;
+            }
+            if (this._lastRenderedLineKind === 'separator') {
+                return '';
+            }
+            lineKind = 'separator';
+            const rendered = `${paint(separatorLine, { fg: CURRENT_THEME_SLOT_MAP.separator, dim: true })}${ANSI.reset}`;
+            this._lastRenderedLineKind = lineKind;
+            return rendered;
         }
 
         if (this._isParenNoteLine(line) || /^\s*\* = /.test(line)) {
-            return this._renderNoteLine(line);
+            lineKind = 'note';
+            const rendered = this._renderNoteLine(line);
+            this._lastRenderedLineKind = lineKind;
+            return rendered;
         }
 
         if (/^\s*(HDFE Linear regression|Absorbed degrees of freedom:)\s*$/i.test(line)) {
-            return `${paint(line, { fg: CURRENT_THEME_SLOT_MAP.header, bold: true })}${ANSI.reset}`;
+            lineKind = 'header';
+            const rendered = `${paint(line, { fg: CURRENT_THEME_SLOT_MAP.header, bold: true })}${ANSI.reset}`;
+            this._lastRenderedLineKind = lineKind;
+            return rendered;
         }
 
         if (this._isSummaryLine(line)) {
-            return this._renderSummaryLine(line);
+            lineKind = 'summary';
+            const rendered = this._renderSummaryLine(line);
+            this._lastRenderedLineKind = lineKind;
+            return rendered;
         }
 
         if (this._isTableHeaderLine(line)) {
-            return this._renderTableHeaderLine(line);
+            lineKind = 'table-header';
+            const rendered = this._renderTableHeaderLine(line);
+            this._lastRenderedLineKind = lineKind;
+            return rendered;
+        }
+
+        if (this._isDescribeDataLine(line)) {
+            this._describeMode = true;
+            lineKind = 'describe-data';
+            const rendered = this._renderDescribeDataLine(line);
+            this._lastRenderedLineKind = lineKind;
+            return rendered;
         }
 
         if (this._isTableDataLine(line)) {
-            return this._renderTableDataLine(line);
+            lineKind = 'table-data';
+            const rendered = this._renderTableDataLine(line);
+            this._lastRenderedLineKind = lineKind;
+            return rendered;
         }
 
         if (/\b(Begin Time:|Over Time:|Time used:)\b/.test(line)) {
-            return `${this._highlightInline(line, {
+            lineKind = 'time';
+            const rendered = `${this._highlightInline(line, {
                 defaultStyle: { fg: CURRENT_THEME_SLOT_MAP.time, bold: true },
                 matchers: [
                     {
-                        regex: /\b\d+(?:\.\d+)?(?:e[+-]?\d+)?\b/gi,
+                        regex: VALUE_NUMBER_REGEX,
                         style: { fg: CURRENT_THEME_SLOT_MAP.timeValue, bold: true }
                     },
                     {
@@ -583,21 +749,17 @@ class StataTerminalRenderer {
                     }
                 ]
             })}${ANSI.reset}`;
+            this._lastRenderedLineKind = lineKind;
+            return rendered;
         }
 
-        if (/\bVariables\s+\||\bp-value\b|\bFreq\b/.test(line)) {
-            return `${this._highlightInline(line, {
-                defaultStyle: { fg: CURRENT_THEME_SLOT_MAP.header, bold: true },
-                matchers: [
-                    {
-                        regex: /(?<![A-Za-z_])[-+]?\d+(?:\.\d+)?(?:e[+-]?\d+)?\b/gi,
-                        style: { fg: CURRENT_THEME_SLOT_MAP.number, bold: true }
-                    }
-                ]
-            })}${ANSI.reset}`;
+        if (this._describeMode && /^\s*$/.test(line)) {
+            this._lastRenderedLineKind = 'blank';
+            return '';
         }
 
-        return `${this._highlightInline(line, {
+        lineKind = 'default';
+        const rendered = `${this._highlightInline(line, {
             defaultStyle: null,
             matchers: [
                 {
@@ -609,11 +771,13 @@ class StataTerminalRenderer {
                     style: { fg: CURRENT_THEME_SLOT_MAP.error, bold: true }
                 },
                 {
-                    regex: /(?<![A-Za-z_])[-+]?\d+(?:\.\d+)?(?:e[+-]?\d+)?\b/gi,
+                    regex: VALUE_NUMBER_REGEX,
                     style: { fg: CURRENT_THEME_SLOT_MAP.number }
                 }
             ]
         })}${ANSI.reset}`;
+        this._lastRenderedLineKind = lineKind;
+        return rendered;
     }
 
     _renderCommandLine(line, width) {
