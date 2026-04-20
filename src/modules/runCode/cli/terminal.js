@@ -105,7 +105,7 @@ class StataPseudoTerminal {
     }
 
     writeBreak() {
-        this.writeLine('--break--');
+        this.writeRaw(this._renderer.renderBreakLine());
         this.writePrompt();
     }
 
