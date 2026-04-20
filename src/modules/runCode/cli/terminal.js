@@ -2,6 +2,11 @@ const vscode = require('vscode');
 const { StataTerminalRenderer } = require('./renderer');
 
 const STATA_CLI_TERMINAL_NAME = 'Stata CLI';
+const MINIMUM_CLI_COLUMNS = 90;
+const MAX_WIDTH_ADJUST_ATTEMPTS = 10;
+const MAX_STAGNANT_ATTEMPTS = 3;
+const DIMENSION_SETTLE_DELAY_MS = 35;
+const MAX_BURST_RESIZE_STEPS = 3;
 
 class StataPseudoTerminal {
     constructor() {
@@ -12,6 +17,7 @@ class StataPseudoTerminal {
         this._hasWrittenBanner = false;
         this._dimensions = undefined;
         this._renderer = new StataTerminalRenderer();
+        this._hasAutoSizedWidth = false;
 
         this._pty = {
             onDidWrite: this._writeEmitter.event,
@@ -55,6 +61,9 @@ class StataPseudoTerminal {
         const terminal = this.getOrCreateTerminal();
         await this._applyPreferredPanelLocation();
         terminal.show();
+        if (!this._hasAutoSizedWidth) {
+            await this._ensurePreferredWidth();
+        }
         await this._scrollToBottom();
         return terminal;
     }
@@ -165,6 +174,7 @@ class StataPseudoTerminal {
         this._hasWrittenBanner = false;
         this._dimensions = undefined;
         this._renderer = new StataTerminalRenderer();
+        this._hasAutoSizedWidth = false;
 
         this._pty = {
             onDidWrite: this._writeEmitter.event,
@@ -216,6 +226,79 @@ class StataPseudoTerminal {
         try {
             await vscode.commands.executeCommand(command);
         } catch (_) {}
+    }
+
+    async _ensurePreferredWidth() {
+        const config = require('../../../utils/config');
+        const location = config.getCliTerminalLocation();
+
+        if (location !== 'left' && location !== 'right') {
+            this._hasAutoSizedWidth = true;
+            return;
+        }
+
+        let columns = await this._waitForDimensions();
+        if (!columns || columns >= MINIMUM_CLI_COLUMNS) {
+            this._hasAutoSizedWidth = true;
+            return;
+        }
+
+        let stagnantAttempts = 0;
+        for (let attempt = 0; attempt < MAX_WIDTH_ADJUST_ATTEMPTS; attempt++) {
+            const before = columns;
+            const changed = await this._increaseCurrentViewSize(MINIMUM_CLI_COLUMNS - before);
+            if (!changed) {
+                break;
+            }
+
+            columns = await this._waitForDimensions();
+            if (!columns || columns >= MINIMUM_CLI_COLUMNS) {
+                this._hasAutoSizedWidth = true;
+                return;
+            }
+
+            if (columns <= before) {
+                stagnantAttempts += 1;
+                if (stagnantAttempts >= MAX_STAGNANT_ATTEMPTS) {
+                    this._hasAutoSizedWidth = true;
+                    return;
+                }
+            } else {
+                stagnantAttempts = 0;
+            }
+        }
+
+        this._hasAutoSizedWidth = true;
+    }
+
+    async _waitForDimensions() {
+        for (let attempt = 0; attempt < 10; attempt++) {
+            const width = this.getWidth();
+            if (width && Number.isFinite(width)) {
+                return width;
+            }
+            await this._sleep(DIMENSION_SETTLE_DELAY_MS);
+        }
+
+        return this.getWidth();
+    }
+
+    async _increaseCurrentViewSize(columnGap = 0) {
+        const burstSteps = Math.max(1, Math.min(MAX_BURST_RESIZE_STEPS, Math.ceil(columnGap / 8)));
+
+        try {
+            for (let step = 0; step < burstSteps; step++) {
+                await vscode.commands.executeCommand('workbench.action.increaseViewSize');
+            }
+            await this._sleep(DIMENSION_SETTLE_DELAY_MS);
+            return true;
+        } catch (_) {
+            return false;
+        }
+    }
+
+    _sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
     }
 }
 
