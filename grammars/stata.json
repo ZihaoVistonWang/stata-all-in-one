@@ -43,6 +43,9 @@
             "include": "#string-regular"
         },
         {
+            "include": "#file-paths"
+        },
+        {
             "include": "#builtin_variables"
         },
         {
@@ -1005,6 +1008,9 @@
                             "include": "#string-regular"
                         },
                         {
+                            "include": "#file-paths"
+                        },
+                        {
                             "match": "^\\s*\\b([\\w&&[^0-9]][\\w.]*)\\b",
                             "captures": {
                                 "1": {
@@ -1051,6 +1057,9 @@
                                 },
                                 {
                                     "include": "#string-regular"
+                                },
+                                {
+                                    "include": "#file-paths"
                                 },
                                 {
                                     "begin": "\\b([\\w&&[^0-9]][\\w.]*)\\s*(\\()",
@@ -1145,6 +1154,15 @@
                             "include": "#builtin_variables"
                         }
                     ]
+                }
+            ]
+        },
+        "file-paths": {
+            "patterns": [
+                {
+                    "comment": "Highlight unquoted file paths as strings based on path separators plus a file extension",
+                    "match": "(?<![\\w\"'`])((?:~|\\.{1,2}|[A-Za-z]:)?(?:[^\\s,()\\[\\]{}\"']*[\\\\/])+[^\\s,()\\[\\]{}\"']*\\.[A-Za-z0-9]{1,8})(?=(?:\\s|,|\\)|\\]|$))",
+                    "name": "string.quoted.double.stata"
                 }
             ]
         },
