@@ -1,42 +1,6 @@
 const vscode = require('vscode');
 
 const STATA_CLI_TERMINAL_NAME = 'Stata CLI';
-const RECOVERED_SHELL_TERMINAL_NAMES = new Set([
-    'bash',
-    'cmd',
-    'command prompt',
-    'fish',
-    'git bash',
-    'powershell',
-    'pwsh',
-    'shell',
-    'sh',
-    'terminal',
-    'zsh'
-]);
-
-let recoveredShellTerminals = new Set();
-let recoveredShellsDisposed = false;
-
-function registerRecoveredShellTerminals(terminals = []) {
-    recoveredShellTerminals = new Set(
-        terminals.filter(terminal => isRecoveredShellTerminal(terminal))
-    );
-    recoveredShellsDisposed = false;
-}
-
-function isRecoveredShellTerminal(terminal) {
-    if (!terminal || typeof terminal.name !== 'string') {
-        return false;
-    }
-
-    const normalizedName = terminal.name.trim().toLowerCase();
-    if (!normalizedName || normalizedName === STATA_CLI_TERMINAL_NAME.toLowerCase()) {
-        return false;
-    }
-
-    return RECOVERED_SHELL_TERMINAL_NAMES.has(normalizedName);
-}
 
 class StataPseudoTerminal {
     constructor() {
@@ -81,7 +45,6 @@ class StataPseudoTerminal {
     }
 
     async show() {
-        this._disposeRecoveredShellTerminals();
         const terminal = this.getOrCreateTerminal();
         await this._applyPreferredPanelLocation();
         terminal.show();
@@ -113,6 +76,15 @@ class StataPseudoTerminal {
         if (!normalized.endsWith('\r\n')) {
             this.writeRaw('\r\n');
         }
+    }
+
+    writeOutputChunk(text) {
+        const normalized = this._normalizeText(text);
+        if (!normalized) {
+            return;
+        }
+
+        this.writeRaw(normalized);
     }
 
     writeError(text) {
@@ -208,24 +180,8 @@ class StataPseudoTerminal {
             await vscode.commands.executeCommand(command);
         } catch (_) {}
     }
-
-    _disposeRecoveredShellTerminals() {
-        if (recoveredShellsDisposed || recoveredShellTerminals.size === 0) {
-            return;
-        }
-
-        for (const terminal of recoveredShellTerminals) {
-            try {
-                terminal.dispose();
-            } catch (_) {}
-        }
-
-        recoveredShellTerminals.clear();
-        recoveredShellsDisposed = true;
-    }
 }
 
 module.exports = {
-    StataPseudoTerminal,
-    registerRecoveredShellTerminals
+    StataPseudoTerminal
 };

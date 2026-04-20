@@ -124,7 +124,7 @@ class StataCliSession {
      * @param {boolean} echo - 是否回显命令
      * @returns {Promise<{success: boolean, output: string, error?: string}>} - 执行结果对象
      */
-    async execute(code, echo = false) {
+    async execute(code, echo = false, onOutput = null) {
         // 检查是否已初始化
         if (!this._initialized) {
             return {
@@ -144,7 +144,7 @@ class StataCliSession {
         }
 
         try {
-            const result = await native.execute(code, echo);
+            const result = await native.execute(code, echo, onOutput);
             return {
                 success: result.success,
                 returnCode: result.returnCode,

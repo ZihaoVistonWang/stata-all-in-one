@@ -11,10 +11,13 @@
 #include <memory>
 #include <thread>
 #include <mutex>
+#include <atomic>
+#include <chrono>
 
 static void* g_dylib_handle = nullptr;
 static bool g_initialized = false;
 static std::mutex g_stata_mutex;
+static std::mutex g_output_mutex;
 
 typedef int (*StataSO_Main_t)(int argc, char** argv);
 typedef int (*StataSO_Execute_t)(const char* cmd, int echo);
@@ -38,6 +41,29 @@ inline bool AreFunctionsResolved() {
 }
 
 inline bool IsInitialized() { return g_initialized; }
+
+std::string ComputeIncrementalChunk(const std::string& emitted_output, const std::string& current_output) {
+    if (current_output.empty()) {
+        return "";
+    }
+
+    if (emitted_output.empty()) {
+        return current_output;
+    }
+
+    if (current_output.rfind(emitted_output, 0) == 0) {
+        return current_output.substr(emitted_output.size());
+    }
+
+    const size_t max_overlap = std::min(emitted_output.size(), current_output.size());
+    for (size_t overlap = max_overlap; overlap > 0; --overlap) {
+        if (emitted_output.compare(emitted_output.size() - overlap, overlap, current_output, 0, overlap) == 0) {
+            return current_output.substr(overlap);
+        }
+    }
+
+    return current_output;
+}
 
 template<typename T>
 T LoadSymbol(void* handle, const char* symbol_name) {
@@ -228,32 +254,109 @@ Napi::Value Execute(const Napi::CallbackInfo& info) {
     context->echo = echo;
 
     std::thread worker([context, tsfn, has_callback]() {
-        std::lock_guard<std::mutex> lock(g_stata_mutex);
-
-        if (g_StataSO_ClearOutputBuffer) {
-            g_StataSO_ClearOutputBuffer();
-        }
-
-        context->return_code = g_StataSO_Execute(context->code.c_str(), context->echo);
-
-        if (g_StataSO_GetOutputBuffer) {
-            char* output_ptr = g_StataSO_GetOutputBuffer();
-            if (output_ptr) {
-                context->output = std::string(output_ptr);
+        {
+            std::lock_guard<std::mutex> stata_lock(g_stata_mutex);
+            std::lock_guard<std::mutex> output_lock(g_output_mutex);
+            if (g_StataSO_ClearOutputBuffer) {
+                g_StataSO_ClearOutputBuffer();
             }
         }
+
+        std::atomic<bool> execution_finished(false);
+        std::string emitted_output;
+
+        std::thread execute_thread([context, &execution_finished]() {
+            {
+                std::lock_guard<std::mutex> stata_lock(g_stata_mutex);
+                context->return_code = g_StataSO_Execute(context->code.c_str(), context->echo);
+            }
+            execution_finished.store(true);
+        });
+
+        while (!execution_finished.load()) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
+
+            std::string current_output = "";
+            {
+                std::lock_guard<std::mutex> output_lock(g_output_mutex);
+                if (g_StataSO_GetOutputBuffer) {
+                    char* output_ptr = g_StataSO_GetOutputBuffer();
+                    if (output_ptr) {
+                        current_output = std::string(output_ptr);
+                    }
+                }
+            }
+
+            if (!current_output.empty()) {
+                std::string chunk = ComputeIncrementalChunk(emitted_output, current_output);
+                if (!chunk.empty()) {
+                    emitted_output += chunk;
+
+                    if (has_callback) {
+                        tsfn.NonBlockingCall([chunk](Napi::Env env, Napi::Function jsCallback) {
+                            Napi::Object payload = Napi::Object::New(env);
+                            payload.Set("type", Napi::String::New(env, "output"));
+                            payload.Set("data", Napi::String::New(env, chunk));
+                            jsCallback.Call({payload});
+                        });
+                    }
+                }
+            }
+        }
+
+        execute_thread.join();
+
+        std::string output_before_final_drain = emitted_output;
+
+        for (int i = 0; i < 5; i++) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+            std::string current_output = "";
+            {
+                std::lock_guard<std::mutex> output_lock(g_output_mutex);
+                if (g_StataSO_GetOutputBuffer) {
+                    char* output_ptr = g_StataSO_GetOutputBuffer();
+                    if (output_ptr) {
+                        current_output = std::string(output_ptr);
+                    }
+                }
+            }
+
+            if (!current_output.empty()) {
+                std::string chunk = ComputeIncrementalChunk(emitted_output, current_output);
+                if (!chunk.empty()) {
+                    emitted_output += chunk;
+                    continue;
+                }
+            }
+
+            break;
+        }
+
+        context->output = emitted_output;
 
         if (context->return_code != 0) {
             context->error = "StataSO_Execute failed with return code: " + std::to_string(context->return_code);
         }
 
         if (has_callback) {
-            tsfn.NonBlockingCall([context](Napi::Env env, Napi::Function jsCallback) {
-                jsCallback.Call({
-                    Napi::Number::New(env, context->return_code),
-                    Napi::String::New(env, context->output),
-                    Napi::String::New(env, context->error)
+            std::string chunk = ComputeIncrementalChunk(output_before_final_drain, context->output);
+            if (!chunk.empty()) {
+                tsfn.NonBlockingCall([chunk](Napi::Env env, Napi::Function jsCallback) {
+                    Napi::Object payload = Napi::Object::New(env);
+                    payload.Set("type", Napi::String::New(env, "output"));
+                    payload.Set("data", Napi::String::New(env, chunk));
+                    jsCallback.Call({payload});
                 });
+            }
+
+            tsfn.NonBlockingCall([context](Napi::Env env, Napi::Function jsCallback) {
+                Napi::Object payload = Napi::Object::New(env);
+                payload.Set("type", Napi::String::New(env, "done"));
+                payload.Set("returnCode", Napi::Number::New(env, context->return_code));
+                payload.Set("output", Napi::String::New(env, context->output));
+                payload.Set("error", Napi::String::New(env, context->error));
+                jsCallback.Call({payload});
             });
             tsfn.Release();
         }
@@ -285,17 +388,23 @@ Napi::Value ExecuteSync(const Napi::CallbackInfo& info) {
 
     std::lock_guard<std::mutex> lock(g_stata_mutex);
 
-    if (g_StataSO_ClearOutputBuffer) {
-        g_StataSO_ClearOutputBuffer();
+    {
+        std::lock_guard<std::mutex> output_lock(g_output_mutex);
+        if (g_StataSO_ClearOutputBuffer) {
+            g_StataSO_ClearOutputBuffer();
+        }
     }
 
     int return_code = g_StataSO_Execute(code.c_str(), echo);
 
     std::string output = "";
-    if (g_StataSO_GetOutputBuffer) {
-        char* output_ptr = g_StataSO_GetOutputBuffer();
-        if (output_ptr) {
-            output = std::string(output_ptr);
+    {
+        std::lock_guard<std::mutex> output_lock(g_output_mutex);
+        if (g_StataSO_GetOutputBuffer) {
+            char* output_ptr = g_StataSO_GetOutputBuffer();
+            if (output_ptr) {
+                output = std::string(output_ptr);
+            }
         }
     }
 
@@ -316,7 +425,8 @@ Napi::Value ClearOutput(const Napi::CallbackInfo& info) {
         return env.Null();
     }
 
-    std::lock_guard<std::mutex> lock(g_stata_mutex);
+    std::lock_guard<std::mutex> stata_lock(g_stata_mutex);
+    std::lock_guard<std::mutex> output_lock(g_output_mutex);
     if (g_StataSO_ClearOutputBuffer) {
         g_StataSO_ClearOutputBuffer();
     }
@@ -332,7 +442,8 @@ Napi::Value GetOutput(const Napi::CallbackInfo& info) {
         return env.Null();
     }
 
-    std::lock_guard<std::mutex> lock(g_stata_mutex);
+    std::lock_guard<std::mutex> stata_lock(g_stata_mutex);
+    std::lock_guard<std::mutex> output_lock(g_output_mutex);
 
     std::string output = "";
     if (g_StataSO_GetOutputBuffer) {
