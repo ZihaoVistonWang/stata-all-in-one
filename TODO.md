@@ -76,6 +76,9 @@ This file tracks implementation work, validation tasks, and longer-term roadmap 
 - Add graphExportFormat setting (svg/png/pdf)
 - Add persistentSession setting for session lifecycle control
 
+### Ultimate TODO
+- Evaluate and implement a `Webview`-based Stata Console that replaces or complements the current `Terminal` rendering layer so input blocks, output coloring, code highlighting, separators, runtime display, and Codex-like interaction can be fully controlled.
+
 ## Technical Decisions
 - ThreadSafeFunction for async execution (non-blocking)
 - Independent session per VS Code window

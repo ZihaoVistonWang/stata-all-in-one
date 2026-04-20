@@ -249,6 +249,7 @@ async function runOnMacCLI(codeToRun, tmpFilePath, docDir = null, context = null
     let lastRealChunkAt = 0;
     let syntheticProgressActive = false;
     let syntheticProgressColumn = 0;
+    let runStartTime = null;
     try {
         const initResult = await ensureCliSession(context);
         if (!initResult.success) {
@@ -279,6 +280,7 @@ async function runOnMacCLI(codeToRun, tmpFilePath, docDir = null, context = null
         await ensureInitialWorkingDirectory(cliSession, docDir);
         executionPlan = createExecutionPlan(normalizedCode, cliSession.getWorkingDirectory());
         lastRealChunkAt = Date.now();
+        runStartTime = lastRealChunkAt;
         showCliRunningStatus();
         progressTimer = setInterval(() => {
             if (!syntheticProgressActive) {
@@ -290,11 +292,11 @@ async function runOnMacCLI(codeToRun, tmpFilePath, docDir = null, context = null
             }
 
             if (syntheticProgressColumn >= SYNTHETIC_PROGRESS_LINE_WIDTH) {
-                terminal.writeOutputChunk('\n> ');
+                terminal.writeRawChunk('\n> ');
                 syntheticProgressColumn = 0;
             }
 
-            terminal.writeOutputChunk('.');
+            terminal.writeRawChunk('.');
             syntheticProgressColumn += 1;
         }, 300);
 
@@ -313,7 +315,7 @@ async function runOnMacCLI(codeToRun, tmpFilePath, docDir = null, context = null
 
             if (hasResultPhaseOutput(chunk)) {
                 if (syntheticProgressActive && syntheticProgressColumn > 0) {
-                    terminal.writeOutputChunk('\n');
+                    terminal.writeRawChunk('\n');
                 }
                 syntheticProgressActive = false;
                 syntheticProgressColumn = 0;
@@ -333,6 +335,8 @@ async function runOnMacCLI(codeToRun, tmpFilePath, docDir = null, context = null
                 streamedOutput += tailChunk;
             }
         }
+
+        terminal.flushOutput();
 
         if (!result.success) {
             console.error('[mac.js] 执行失败:', result.error);
@@ -370,6 +374,12 @@ async function runOnMacCLI(codeToRun, tmpFilePath, docDir = null, context = null
             clearInterval(progressTimer);
         }
         hideCliRunningStatus();
+
+        const terminal = getOrCreateTerminal();
+        terminal.flushOutput();
+        if (runStartTime !== null) {
+            terminal.writeRunFooter(Date.now() - runStartTime);
+        }
 
         if (executionPlan && executionPlan.tempFilePath) {
             cleanupTempFile(executionPlan.tempFilePath).catch(() => {});
