@@ -77,7 +77,7 @@ function initSession(dylibPath, splash = false, execPath = '', stHome = '') {
  * @param {boolean} echo - Whether Stata should echo the command
  * @returns {Promise<{success: boolean, returnCode: number, output: string, error: string}>}
  */
-function execute(code, echo = false) {
+function execute(code, echo = false, onOutput = null) {
     return new Promise((resolve, reject) => {
         if (!isNativeLoaded()) {
             reject(new Error('Native module not loaded. Please ensure stata_bridge.node is compiled and in the bin directory.'));
@@ -91,22 +91,35 @@ function execute(code, echo = false) {
 
         try {
             clearOutput();
-            const result = nativeModule.executeSync(code, echo);
-            if (result.returnCode === 0) {
-                resolve({
-                    success: true,
-                    returnCode: result.returnCode,
-                    output: result.output || '',
-                    error: ''
-                });
-            } else {
-                resolve({
-                    success: false,
-                    returnCode: result.returnCode,
-                    output: result.output || '',
-                    error: result.error || `Execution failed with return code ${result.returnCode}`
-                });
-            }
+            let latestOutput = '';
+            nativeModule.execute(code, echo, (payload) => {
+                if (!payload || typeof payload !== 'object') {
+                    return;
+                }
+
+                if (payload.type === 'output') {
+                    const chunk = payload.data || '';
+                    if (chunk) {
+                        latestOutput += chunk;
+                        if (typeof onOutput === 'function') {
+                            onOutput(chunk);
+                        }
+                    }
+                    return;
+                }
+
+                if (payload.type === 'done') {
+                    const finalOutput = payload.output || latestOutput || '';
+                    resolve({
+                        success: payload.returnCode === 0,
+                        returnCode: payload.returnCode,
+                        output: finalOutput,
+                        error: payload.error || (payload.returnCode !== 0
+                            ? `Execution failed with return code ${payload.returnCode}`
+                            : '')
+                    });
+                }
+            });
         } catch (error) {
             reject(new Error('Error executing code: ' + error.message));
         }

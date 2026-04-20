@@ -14,6 +14,29 @@ const config = require('../../../utils/config');
 
 let _stataTerminal = null;
 
+function computeIncrementalChunk(emittedOutput, currentOutput) {
+    if (!currentOutput) {
+        return '';
+    }
+
+    if (!emittedOutput) {
+        return currentOutput;
+    }
+
+    if (currentOutput.startsWith(emittedOutput)) {
+        return currentOutput.slice(emittedOutput.length);
+    }
+
+    const maxOverlap = Math.min(emittedOutput.length, currentOutput.length);
+    for (let overlap = maxOverlap; overlap > 0; overlap--) {
+        if (emittedOutput.slice(-overlap) === currentOutput.slice(0, overlap)) {
+            return currentOutput.slice(overlap);
+        }
+    }
+
+    return currentOutput;
+}
+
 function getOrCreateTerminal() {
     if (!_stataTerminal) {
         _stataTerminal = new StataPseudoTerminal();
@@ -162,6 +185,9 @@ async function ensureCliSession(context) {
  */
 async function runOnMacCLI(codeToRun, tmpFilePath, docDir = null, context = null) {
     let executionPlan = null;
+    let streamedOutput = '';
+    let progressTimer = null;
+    let lastChunkAt = 0;
     try {
         const initResult = await ensureCliSession(context);
         if (!initResult.success) {
@@ -191,10 +217,32 @@ async function runOnMacCLI(codeToRun, tmpFilePath, docDir = null, context = null
         await ensureCliBootstrap(cliSession);
         await ensureInitialWorkingDirectory(cliSession, docDir);
         executionPlan = createExecutionPlan(normalizedCode, cliSession.getWorkingDirectory());
+        lastChunkAt = Date.now();
+        progressTimer = setInterval(() => {
+            if (Date.now() - lastChunkAt < 150) {
+                return;
+            }
 
-        const result = await cliSession.execute(executionPlan.command, true);
+            terminal.writeOutputChunk('.');
+            lastChunkAt = Date.now();
+        }, 80);
+
+        const result = await cliSession.execute(executionPlan.command, true, (chunk) => {
+            if (!chunk) {
+                return;
+            }
+
+            streamedOutput += chunk;
+            lastChunkAt = Date.now();
+            terminal.writeOutputChunk(chunk);
+        });
+
         if (result.output) {
-            terminal.writeOutput(result.output);
+            const tailChunk = computeIncrementalChunk(streamedOutput, result.output);
+            if (tailChunk) {
+                terminal.writeOutputChunk(tailChunk);
+                streamedOutput += tailChunk;
+            }
         }
 
         if (!result.success) {
@@ -229,6 +277,10 @@ async function runOnMacCLI(codeToRun, tmpFilePath, docDir = null, context = null
             message: `Stata CLI 执行错误: ${error.message}`
         };
     } finally {
+        if (progressTimer) {
+            clearInterval(progressTimer);
+        }
+
         if (executionPlan && executionPlan.tempFilePath) {
             cleanupTempFile(executionPlan.tempFilePath).catch(() => {});
         }
