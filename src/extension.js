@@ -9,6 +9,7 @@ const { registerSeparatorCommands } = require('./modules/separator');
 const { registerCommentCommand, toggleComment } = require('./modules/comment');
 const { registerExecuteCommand } = require('./modules/runCode/execute');
 const { stopCliExecution, forceShutdownCliSession } = require('./modules/runCode/cli/mac');
+const { registerRecoveredShellTerminals } = require('./modules/runCode/cli/terminal');
 const { registerCustomCommandHighlight } = require('./modules/customCommandHighlight');
 const { registerCompletionProvider } = require('./modules/completionProvider');
 const { registerHelpCommand } = require('./modules/helpCommand');
@@ -196,6 +197,7 @@ function activate(context) {
     
     // Initialize CLI session context to false (no CLI session active)
     vscode.commands.executeCommand('setContext', CLI_SESSION_ACTIVE_KEY, false);
+    registerRecoveredShellTerminals(vscode.window.terminals);
     
     // Check if Stata Outline is installed
     if (isStataOutlineInstalled()) {
