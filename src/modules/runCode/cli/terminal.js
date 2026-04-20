@@ -1,4 +1,5 @@
 const vscode = require('vscode');
+const { StataTerminalRenderer } = require('./renderer');
 
 const STATA_CLI_TERMINAL_NAME = 'Stata CLI';
 
@@ -9,11 +10,14 @@ class StataPseudoTerminal {
         this._terminal = null;
         this._disposed = false;
         this._hasWrittenBanner = false;
+        this._dimensions = undefined;
+        this._renderer = new StataTerminalRenderer();
 
         this._pty = {
             onDidWrite: this._writeEmitter.event,
             onDidClose: this._closeEmitter.event,
-            open: () => {
+            open: (initialDimensions) => {
+                this._dimensions = initialDimensions;
                 if (!this._hasWrittenBanner) {
                     this._hasWrittenBanner = true;
                     this.writeLine('Stata CLI session ready');
@@ -24,6 +28,9 @@ class StataPseudoTerminal {
             },
             handleInput: () => {
                 // Reserved for interactive terminal input in the next phase.
+            },
+            setDimensions: (dimensions) => {
+                this._dimensions = dimensions;
             }
         };
     }
@@ -59,41 +66,38 @@ class StataPseudoTerminal {
             return;
         }
 
-        const lines = text.split(/\r?\n/);
-        lines.forEach((line, index) => {
-            const prompt = index === 0 ? '. ' : '> ';
-            this.writeLine(`${prompt}${line}`);
-        });
+        this.writeRaw(this._renderer.renderCommand(text, this.getWidth()));
     }
 
     writeOutput(text) {
-        const normalized = this._normalizeText(text);
-        if (!normalized) {
+        const rendered = this._renderer.renderOutputChunk(text, this.getWidth());
+        if (!rendered) {
             return;
         }
 
-        this.writeRaw(normalized);
-        if (!normalized.endsWith('\r\n')) {
-            this.writeRaw('\r\n');
+        this.writeRaw(rendered);
+        const flushed = this._renderer.flushPendingOutput(this.getWidth());
+        if (flushed) {
+            this.writeRaw(`${flushed}\n`);
         }
     }
 
     writeOutputChunk(text) {
-        const normalized = this._normalizeText(text);
-        if (!normalized) {
+        const rendered = this._renderer.renderOutputChunk(text, this.getWidth());
+        if (!rendered) {
             return;
         }
 
-        this.writeRaw(normalized);
+        this.writeRaw(rendered);
     }
 
     writeError(text) {
-        const normalized = this._normalizeText(text);
-        if (!normalized) {
+        const rendered = this._renderer.renderError(text);
+        if (!rendered) {
             return;
         }
 
-        this.writeLine(`error: ${normalized.replace(/\r\n/g, '\n').trimEnd()}`);
+        this.writeRaw(rendered);
     }
 
     writePrompt() {
@@ -107,6 +111,33 @@ class StataPseudoTerminal {
 
     writeLine(text = '') {
         this.writeRaw(`${this._normalizeText(text)}\r\n`);
+    }
+
+    writeRawChunk(text) {
+        const normalized = this._normalizeText(text);
+        if (!normalized) {
+            return;
+        }
+
+        this.writeRaw(normalized);
+    }
+
+    flushOutput() {
+        const flushed = this._renderer.flushPendingOutput(this.getWidth());
+        if (flushed) {
+            this.writeRaw(flushed);
+        }
+    }
+
+    writeRunFooter(durationMs) {
+        this.flushOutput();
+        this.writeRaw(this._renderer.renderRunFooter(durationMs, this.getWidth()));
+    }
+
+    getWidth() {
+        return this._dimensions && Number.isFinite(this._dimensions.columns)
+            ? this._dimensions.columns
+            : undefined;
     }
 
     writeRaw(text) {
@@ -132,11 +163,14 @@ class StataPseudoTerminal {
         this._closeEmitter = new vscode.EventEmitter();
         this._disposed = false;
         this._hasWrittenBanner = false;
+        this._dimensions = undefined;
+        this._renderer = new StataTerminalRenderer();
 
         this._pty = {
             onDidWrite: this._writeEmitter.event,
             onDidClose: this._closeEmitter.event,
-            open: () => {
+            open: (initialDimensions) => {
+                this._dimensions = initialDimensions;
                 if (!this._hasWrittenBanner) {
                     this._hasWrittenBanner = true;
                     this.writeLine('Stata CLI session ready');
@@ -147,6 +181,9 @@ class StataPseudoTerminal {
             },
             handleInput: () => {
                 // Reserved for interactive terminal input in the next phase.
+            },
+            setDimensions: (dimensions) => {
+                this._dimensions = dimensions;
             }
         };
     }
