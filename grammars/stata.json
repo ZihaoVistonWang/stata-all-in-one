@@ -991,13 +991,8 @@
         "command-options-generic": {
             "patterns": [
                 {
-                    "comment": "Generic command/options highlighting for any command with comma options, supports /// line continuation; prefixes keep their original rules",
-                    "begin": "\\b([\\w&&[^0-9]][\\w.]*)\\b(?=[^\\n]*,)",
-                    "beginCaptures": {
-                        "1": {
-                            "name": "keyword.control.flow.stata"
-                        }
-                    },
+                    "comment": "Generic comma-option highlighting for any command with comma options; avoid coloring positional arguments like using/varnames",
+                    "begin": "(?=\\b[\\w&&[^0-9]][\\w.]*\\b(?=[^\\n]*,))",
                     "end": "(?<!///)\\n",
                     "patterns": [
                         {
@@ -1010,8 +1005,34 @@
                             "include": "#string-regular"
                         },
                         {
-                            "match": "\\b(using|if|in)\\b",
+                            "match": "^\\s*\\b([\\w&&[^0-9]][\\w.]*)\\b",
+                            "captures": {
+                                "1": {
+                                    "name": "keyword.control.flow.stata"
+                                }
+                            }
+                        },
+                        {
+                            "match": "\\b(if|in)\\b",
                             "name": "keyword.control.flow.stata"
+                        },
+                        {
+                            "match": "\\b(using)\\b(\\s+)([^\\s,]+)",
+                            "captures": {
+                                "1": {
+                                    "name": "keyword.control.flow.stata"
+                                },
+                                "3": {
+                                    "name": "string.quoted.double.stata"
+                                }
+                            }
+                        },
+                        {
+                            "match": "\\b(using)\\b",
+                            "name": "keyword.control.flow.stata"
+                        },
+                        {
+                            "include": "#functions"
                         },
                         {
                             "begin": ",",
