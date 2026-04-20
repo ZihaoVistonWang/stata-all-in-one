@@ -21,9 +21,7 @@ const ANSI = {
         brightCyan: '\x1b[96m',
         brightWhite: '\x1b[97m'
     },
-    bg: {
-        brightBlack: '\x1b[100m'
-    }
+    bg: {}
 };
 
 const COMMAND_KEYWORDS = new Set([
@@ -226,20 +224,15 @@ class StataTerminalRenderer {
 
     _renderCommandLine(line, width) {
         const tokens = this._tokenizeCommandLine(line);
-        const visibleWidth = getDisplayWidth(line);
-        const padSize = width && width > visibleWidth ? width - visibleWidth : 0;
         let rendered = '';
 
         for (const token of tokens) {
             rendered += paint(token.value, {
-                bg: 'brightBlack',
                 fg: this._foregroundForCommandToken(token.type),
-                bold: token.type === 'prompt' || token.type === 'command' || token.type === 'keyword'
+                bold: token.type === 'prompt' || token.type === 'command' || token.type === 'keyword',
+                italic: token.type === 'comment',
+                dim: token.type === 'comment'
             });
-        }
-
-        if (padSize > 0) {
-            rendered += paint(' '.repeat(padSize), { bg: 'brightBlack' });
         }
 
         return `${rendered}${ANSI.reset}`;
@@ -248,10 +241,11 @@ class StataTerminalRenderer {
     _foregroundForCommandToken(type) {
         switch (type) {
             case 'prompt':
-                return 'brightCyan';
+                return 'brightBlack';
             case 'command':
-            case 'keyword':
                 return 'brightMagenta';
+            case 'keyword':
+                return 'brightCyan';
             case 'string':
             case 'path':
                 return 'brightYellow';
@@ -262,9 +256,9 @@ class StataTerminalRenderer {
             case 'function':
                 return 'brightBlue';
             case 'operator':
-                return 'brightWhite';
+                return 'cyan';
             default:
-                return 'white';
+                return 'default';
         }
     }
 
