@@ -13,6 +13,7 @@
     "config.enableCtrlShiftD.description": "启用 `Ctrl/Cmd+Shift+D` 作为运行代码的快捷键（而非默认的 `Ctrl/Cmd+D`）。",
     "config.cdToDoFileDir.description": "是否在 Stata 首次启动时自动 `cd` 到当前 do 文件所在目录。关闭时，Stata 启动后不会更改工作目录。",
   "config.cliTerminalLocation.description": "Stata CLI 终端的面板位置。可选 `bottom`、`right` 或 `left`。",
+  "config.cliTerminalMaxWidth.description": "Stata CLI 终端的最大目标宽度（按字符数计算）。侧边终端会尽量调整到这个宽度。",
   "config.showActionButtons.description": "是否在编辑器标题栏显示 Bug 反馈和打赏支持按钮。",
   "command.reportBug.title": "Stata All in One：反馈 Bug",
   "command.reportBug.short": "Bug",

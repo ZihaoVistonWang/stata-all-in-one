@@ -125,6 +125,12 @@
             "default": "right",
             "markdownDescription": "%config.cliTerminalLocation.description%"
           },
+        "stata-all-in-one.cliTerminalMaxWidth": {
+            "type": "number",
+            "default": 90,
+            "minimum": 40,
+            "markdownDescription": "%config.cliTerminalMaxWidth.description%"
+          },
         "stata-all-in-one.showActionButtons": {
             "type": "boolean",
             "default": true,

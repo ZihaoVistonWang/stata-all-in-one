@@ -104,6 +104,15 @@ function getOrCreateTerminal() {
     return _stataTerminal;
 }
 
+async function ensureCliPreviewForEditor(editor) {
+    if (!editor || editor.document.languageId !== 'stata') {
+        return;
+    }
+
+    const terminal = getOrCreateTerminal();
+    await terminal.showPreviewOnFileOpen();
+}
+
 /**
  * Find Stata dylib on macOS
  * Scans /Applications for Stata MP/SE/BE editions and returns the dylib path
@@ -273,7 +282,7 @@ async function runOnMacCLI(codeToRun, tmpFilePath, docDir = null, context = null
         }
 
         const terminal = getOrCreateTerminal();
-        await terminal.show();
+        await terminal.prepareForExecution();
 
         const normalizedCode = normalizeCodeToRun(codeToRun);
         await ensureCliBootstrap(cliSession);
@@ -361,7 +370,7 @@ async function runOnMacCLI(codeToRun, tmpFilePath, docDir = null, context = null
         console.error('[mac.js] runOnMacCLI 异常:', error.message);
 
         const terminal = getOrCreateTerminal();
-        await terminal.show();
+        await terminal.prepareForExecution();
         terminal.writeError(error.message);
         return {
             success: false,
@@ -614,6 +623,7 @@ function forceShutdownCliSession() {
 module.exports = {
     findStataDylib,
     runOnMacCLI,
+    ensureCliPreviewForEditor,
     initCliSession,
     stopCliExecution,
     getCliSession,
