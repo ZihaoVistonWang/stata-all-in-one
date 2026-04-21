@@ -8,7 +8,7 @@ const { setHeadingLevel, createDocumentSymbolProvider } = require('./modules/out
 const { registerSeparatorCommands } = require('./modules/separator');
 const { registerCommentCommand, toggleComment } = require('./modules/comment');
 const { registerExecuteCommand } = require('./modules/runCode/execute');
-const { stopCliExecution, forceShutdownCliSession } = require('./modules/runCode/cli/mac');
+const { stopCliExecution, forceShutdownCliSession, ensureCliPreviewForEditor } = require('./modules/runCode/cli/mac');
 const { registerCustomCommandHighlight } = require('./modules/customCommandHighlight');
 const { registerCompletionProvider } = require('./modules/completionProvider');
 const { registerHelpCommand } = require('./modules/helpCommand');
@@ -302,6 +302,25 @@ function activate(context) {
 
     // Register run code command (uses dispatch layer for CLI/GUI routing)
     registerExecuteCommand(context);
+
+    let hasInitializedCliPreview = false;
+    const maybeInitCliPreview = async (editor) => {
+        if (!isMacOS() || hasInitializedCliPreview || !editor || editor.document.languageId !== 'stata') {
+            return;
+        }
+
+        hasInitializedCliPreview = true;
+        try {
+            await ensureCliPreviewForEditor(editor);
+        } catch (error) {
+            console.error('Stata All in One: Failed to initialize CLI preview:', error.message);
+        }
+    };
+
+    context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor((editor) => {
+        maybeInitCliPreview(editor);
+    }));
+    maybeInitCliPreview(vscode.window.activeTextEditor);
     
     // Register CLI stop execution command
     const stopCliCommand = vscode.commands.registerCommand(

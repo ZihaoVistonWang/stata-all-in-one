@@ -113,6 +113,17 @@ const getCdToDoFileDir = () => getConfigValue('cdToDoFileDir', false);
  */
 const getCliTerminalLocation = () => getConfigValue('cliTerminalLocation', 'right');
 
+/**
+ * Get preferred CLI terminal max width in characters
+ */
+const getCliTerminalMaxWidth = () => {
+    const width = getConfigValue('cliTerminalMaxWidth', 90);
+    if (typeof width !== 'number' || !isFinite(width) || width < 40) {
+        return 90;
+    }
+    return Math.floor(width);
+};
+
 module.exports = {
     CONFIG_NAMESPACE,
     getConfig,
@@ -130,5 +141,6 @@ module.exports = {
     getSeparatorSymmetric,
     getEnableCtrlShiftD,
     getCdToDoFileDir,
-    getCliTerminalLocation
+    getCliTerminalLocation,
+    getCliTerminalMaxWidth
 };

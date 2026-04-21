@@ -43,7 +43,11 @@ const UI_TEXT = {
         cliUnavailable: ({ reason }) => `CLI unavailable, switched to GUI. Reason: ${reason}`,
         cliOfferGuiFallback: ({ reason }) => `CLI hit an extension error: ${reason}`,
         useStataApp: 'Use Stata App',
-        stayInCli: 'Stay in CLI'
+        stayInCli: 'Stay in CLI',
+        sideLeft: 'left',
+        sideRight: 'right',
+        cliPreviewTooNarrow: ({ side }) => `The current VS Code window is too narrow. Please maximize or widen the window so that the Stata All in One terminal can expand on the ${side}.`,
+        cliPreviewStillNarrow: 'The current VS Code window is still too narrow. The Stata All in One terminal will continue running in the bottom panel.'
     },
     zh: {
         lineTooLong: '行长度不足，请在设置中增大分隔线长度。',
@@ -80,7 +84,11 @@ const UI_TEXT = {
         cliUnavailable: ({ reason }) => `CLI 不可用，已切换到 GUI。原因：${reason}`,
         cliOfferGuiFallback: ({ reason }) => `CLI 遇到扩展错误：${reason}`,
         useStataApp: '使用 Stata App',
-        stayInCli: '留在 CLI'
+        stayInCli: '留在 CLI',
+        sideLeft: '左侧',
+        sideRight: '右侧',
+        cliPreviewTooNarrow: ({ side }) => `检测到 VS Code 窗口宽度不足，建议最大化或适当拉宽窗口，以便 Stata All in One 终端在${side}展开。`,
+        cliPreviewStillNarrow: '检测到 VS Code 窗口宽度仍不足，Stata All in One 终端将继续在下方面板中运行。'
     }
 };
 
