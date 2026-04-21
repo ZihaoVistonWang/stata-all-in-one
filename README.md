@@ -22,7 +22,7 @@ Stata All in One
 <h3 align="center"><b>All-in-one</b> Stata experience: </br>Syntax Highlighting + Code Hints + Smart Outline + Code Execution + Quick Editing!</h3>
 
 <p align="center">
-   <a href="https://marketplace.visualstudio.com/items?itemName=ZihaoVistonWang.stata-all-in-one"><img src="https://img.shields.io/endpoint?url=https://api.zihaowang.cn/vscode-install&style=for-the-badge&labelColor=363a4f&color=a6da95" alt="Marketplace Installs"></a>
+   <a href="https://marketplace.visualstudio.com/items?itemName=ZihaoVistonWang.stata-all-in-one"><img src="https://img.shields.io/endpoint?url=https://api.zihaowang.cn/vscode-install&label=VS%20Code%20installations&style=for-the-badge&labelColor=363a4f&color=a6da95" alt="Marketplace Installs"></a>
    <a href="https://xhslink.com/o/4Zs0aSfJSK"><img src="https://img.shields.io/endpoint?url=https://api.zihaowang.cn/rednote-noteinfo&label=Likes%20and%20collection&labelColor=363a4f&color=b7bdf8&style=for-the-badge" alt="Likes and Collections"></a>
    <img src="https://img.shields.io/github/commit-activity/t/ZihaoVistonWang/stata-all-in-one?colorA=363a4f&colorB=f5a97f&style=for-the-badge" alt="GitHub Commit Activity">
    <a href="https://github.com/ZihaoVistonWang/stata-all-in-one#buy-me-a-coffee"><img src="https://img.shields.io/badge/BUY%20ME-A%20COFFEE-brightgreen?colorA=363a4f&colorB=e971b7&style=for-the-badge" alt="Buy Me A Coffee"></a>
