@@ -23,7 +23,7 @@ Stata All in One
 
 <p align="center">
    <a href="https://marketplace.visualstudio.com/items?itemName=ZihaoVistonWang.stata-all-in-one"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fapi.zihaowang.cn%2Fvscode-install&style=for-the-badge&labelColor=363a4f&color=a6da95&label=VS Code安装" alt="VS Code 安装次数"></a>
-   <a href="https://xhslink.com/o/4Zs0aSfJSK"><img src="https://img.shields.io/endpoint?url=https://api.zihaowang.cn/rednote-noteinfo&label=小红书点赞收藏&labelColor=363a4f&color=b7bdf8&style=for-the-badge" alt="小红书点赞收藏 ~500"></a>
+   <a href="https://xhslink.com/o/4Zs0aSfJSK"><img src="https://img.shields.io/endpoint?url=https://api.zihaowang.cn/rednote-noteinfo&label=小红书点赞收藏&labelColor=363a4f&color=b7bdf8&style=for-the-badge" alt="Rednote点赞收藏 ~500"></a>
    <img src="https://img.shields.io/github/commit-activity/t/ZihaoVistonWang/stata-all-in-one?colorA=363a4f&colorB=f5a97f&style=for-the-badge&label=修订次数" alt="修订次数">
    <a href="https://gitee.com/ZihaoVistonWang/stata-all-in-one#打赏支持"><img src="https://img.shields.io/badge/点击 - 打赏支持-brightgreen?colorA=363a4f&colorB=e971b7&style=for-the-badge" alt="打赏支持"></a>
 </p>
