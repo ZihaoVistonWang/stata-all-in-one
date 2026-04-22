@@ -17,6 +17,7 @@ const { registerRenameProvider } = require('./modules/renameProvider');
 const { registerUpdateCheck } = require('./modules/updateNotification');
 const { findStataApp } = require('./modules/runCode/gui/mac');
 const { syncCliTerminalTheme } = require('./modules/runCode/cli/renderer');
+const { prewarmCliTextmateTokenizer } = require('./modules/runCode/cli/textmateTokenizer');
 const { STATA_CLI_TERMINAL_NAME } = require('./modules/runCode/cli/terminal');
 const { isMacOS, showInfo, showWarn, msg } = require('./utils/common');
 
@@ -301,6 +302,7 @@ function activate(context) {
 
     // Register custom command highlighting (native injection grammar)
     registerCustomCommandHighlight(context);
+    prewarmCliTextmateTokenizer();
 
     // Register completion provider for Stata commands and functions
     registerCompletionProvider(context);
