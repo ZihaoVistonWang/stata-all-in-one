@@ -6,11 +6,13 @@ const config = require('../../../utils/config');
 const { msg } = require('../../../utils/common');
 
 const STATA_CLI_TERMINAL_NAME = 'Stata CLI';
-const DIMENSION_SETTLE_DELAY_MS = 35;
-const DIMENSION_STABLE_SAMPLE_COUNT = 3;
-const MAX_DIMENSION_SETTLE_ATTEMPTS = 24;
-const MAX_VIEW_RESIZE_STEPS = 16;
+const DIMENSION_SETTLE_DELAY_MS = 24;
+const DIMENSION_STABLE_SAMPLE_COUNT = 2;
+const MAX_DIMENSION_SETTLE_ATTEMPTS = 16;
+const MAX_WIDTH_RESIZE_STEPS = 18;
+const MAX_HEIGHT_RESIZE_STEPS = 8;
 const TARGET_WIDTH_TOLERANCE = 1;
+const PREVIEW_HEIGHT_PADDING = 2;
 const ASCII_LOGO_DIR = path.resolve(__dirname, '../../../../ascii_logo');
 
 let ASCII_LOGO_CACHE = null;
@@ -68,6 +70,15 @@ function loadAsciiLogoCatalog() {
 
     ASCII_LOGO_CACHE = catalog;
     return catalog;
+}
+
+function countRenderedLines(text) {
+    const normalized = String(text || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\n$/, '');
+    if (!normalized) {
+        return 0;
+    }
+
+    return normalized.split('\n').length;
 }
 
 class StataPseudoTerminal {
@@ -149,8 +160,8 @@ class StataPseudoTerminal {
 
         this._previewMode = true;
         await this._showAtLocation(terminal, 'bottom', false);
-
         const width = await this._waitForDimensions();
+        await this._ensureBottomPreviewHeight(this._getPreviewTargetHeight(width));
         if ((width || 0) < this._getPromotionThreshold() && !this._hasShownInitialNarrowWarning) {
             this.writeWarningMessage(msg('cliPreviewTooNarrow', {
                 side: msg(preferredLocation === 'left' ? 'sideLeft' : 'sideRight')
@@ -188,6 +199,7 @@ class StataPseudoTerminal {
         const bottomTerminal = this.getOrCreateTerminal();
         await this._showAtLocation(bottomTerminal, 'bottom', false);
         const width = await this._waitForDimensions();
+        await this._ensureBottomPreviewHeight(this._getPreviewTargetHeight(width));
 
         if ((width || 0) < this._getPromotionThreshold()) {
             if (!this._hasShownStillNarrowWarning) {
@@ -322,6 +334,12 @@ class StataPseudoTerminal {
             : undefined;
     }
 
+    getHeight() {
+        return this._dimensions && Number.isFinite(this._dimensions.rows)
+            ? this._dimensions.rows
+            : undefined;
+    }
+
     writeRaw(text) {
         this._writeEmitter.fire(this._normalizeText(text));
         this._scrollToBottom();
@@ -362,6 +380,16 @@ class StataPseudoTerminal {
         return Math.ceil(this._getTargetWidth() * 1.8);
     }
 
+    _getPreviewTargetHeight(width) {
+        const logoGroup = this._pickAsciiLogoGroupForWidth(width || 0);
+        if (!logoGroup) {
+            return 1 + PREVIEW_HEIGHT_PADDING;
+        }
+
+        const renderedHeight = countRenderedLines(logoGroup.upText) + countRenderedLines(logoGroup.downText);
+        return renderedHeight > 0 ? renderedHeight + PREVIEW_HEIGHT_PADDING : 18;
+    }
+
     _shouldAdjustSideWidth(location) {
         if (location !== 'left' && location !== 'right') {
             return false;
@@ -383,12 +411,51 @@ class StataPseudoTerminal {
         await this._applyPanelLocation(location);
         this._currentLocation = location;
         terminal.show();
-        await this._waitForStableDimensions();
         if (adjustWidth && (location === 'left' || location === 'right')) {
+            await this._waitForStableDimensions();
             await this._ensureTargetWidth(location, this._getTargetWidth());
             await this._waitForStableDimensions();
         }
         await this._scrollToBottom();
+    }
+
+    async _ensureBottomPreviewHeight(targetHeight) {
+        let rows = await this._waitForStableRows();
+        if (!rows || !Number.isFinite(rows)) {
+            return;
+        }
+
+        if (Math.abs(targetHeight - rows) <= TARGET_WIDTH_TOLERANCE) {
+            return;
+        }
+
+        try {
+            const initialGap = targetHeight - rows;
+            const command = initialGap > 0
+                ? 'workbench.action.increaseViewSize'
+                : 'workbench.action.decreaseViewSize';
+
+            for (let index = 0; index < MAX_HEIGHT_RESIZE_STEPS; index++) {
+                const gap = targetHeight - rows;
+                if (Math.abs(gap) <= TARGET_WIDTH_TOLERANCE) {
+                    break;
+                }
+
+                await vscode.commands.executeCommand(command);
+                await this._sleep(DIMENSION_SETTLE_DELAY_MS);
+
+                const nextRows = await this._waitForStableRows();
+                if (!nextRows || !Number.isFinite(nextRows) || nextRows === rows) {
+                    break;
+                }
+
+                rows = nextRows;
+
+                if ((initialGap > 0 && rows >= targetHeight) || (initialGap < 0 && rows <= targetHeight)) {
+                    break;
+                }
+            }
+        } catch (_) {}
     }
 
     async _scrollToBottom() {
@@ -434,7 +501,7 @@ class StataPseudoTerminal {
                 ? 'workbench.action.increaseViewSize'
                 : 'workbench.action.decreaseViewSize';
 
-            for (let index = 0; index < MAX_VIEW_RESIZE_STEPS; index++) {
+            for (let index = 0; index < MAX_WIDTH_RESIZE_STEPS; index++) {
                 const gap = targetWidth - columns;
                 if (Math.abs(gap) <= TARGET_WIDTH_TOLERANCE) {
                     break;
@@ -492,6 +559,31 @@ class StataPseudoTerminal {
         }
 
         return this.getWidth();
+    }
+
+    async _waitForStableRows() {
+        let lastRows = null;
+        let stableSamples = 0;
+
+        for (let attempt = 0; attempt < MAX_DIMENSION_SETTLE_ATTEMPTS; attempt++) {
+            const rows = this.getHeight();
+            if (rows && Number.isFinite(rows)) {
+                if (rows === lastRows) {
+                    stableSamples += 1;
+                } else {
+                    lastRows = rows;
+                    stableSamples = 1;
+                }
+
+                if (stableSamples >= DIMENSION_STABLE_SAMPLE_COUNT) {
+                    return rows;
+                }
+            }
+
+            await this._sleep(DIMENSION_SETTLE_DELAY_MS);
+        }
+
+        return this.getHeight();
     }
 
     async _showAsciiLogo(widthOverride = null) {
