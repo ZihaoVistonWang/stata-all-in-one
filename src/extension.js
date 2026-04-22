@@ -17,6 +17,7 @@ const { registerRenameProvider } = require('./modules/renameProvider');
 const { registerUpdateCheck } = require('./modules/updateNotification');
 const { findStataApp } = require('./modules/runCode/gui/mac');
 const { syncCliTerminalTheme } = require('./modules/runCode/cli/renderer');
+const { STATA_CLI_TERMINAL_NAME } = require('./modules/runCode/cli/terminal');
 const { isMacOS, showInfo, showWarn, msg } = require('./utils/common');
 
 // CLI session state context key for "stop" button visibility
@@ -51,6 +52,21 @@ const CONFIG_MAPPING = [
 ];
 
 const MAC_AUTO_DETECT_KEY = 'stata-all-in-one.macAutoDetectDone';
+
+function disposeNonCliWindowTerminals() {
+    const terminals = [...vscode.window.terminals];
+    for (const terminal of terminals) {
+        if (terminal.name === STATA_CLI_TERMINAL_NAME) {
+            continue;
+        }
+
+        try {
+            terminal.dispose();
+        } catch (error) {
+            console.error('Stata All in One: Failed to dispose restored terminal:', error.message);
+        }
+    }
+}
 
 function getUserLanguage() {
     const lang = (vscode.env.language || '').toLowerCase();
@@ -194,6 +210,7 @@ async function resetMigrationPrompt(context) {
  */
 function activate(context) {
     console.log('Stata All in One: Extension activated');
+    disposeNonCliWindowTerminals();
     syncCliTerminalTheme();
     context.subscriptions.push(vscode.window.onDidChangeActiveColorTheme(() => {
         syncCliTerminalTheme();
@@ -453,7 +470,6 @@ function activate(context) {
  * Deactivate the extension
  */
 function deactivate() {
-    // Force shutdown CLI session if active
     forceShutdownCliSession();
 }
 
