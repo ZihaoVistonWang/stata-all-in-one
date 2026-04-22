@@ -477,6 +477,22 @@ class StataTerminalRenderer {
             .join('\n')}\n`;
     }
 
+    renderCommandAccentBlock(text) {
+        return this.renderAccentBlock(text);
+    }
+
+    renderFunctionAccentBlock(text) {
+        const normalized = String(text || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        if (!normalized) {
+            return '';
+        }
+
+        return `${normalized
+            .split('\n')
+            .map(line => `${paint(line, { fg: CURRENT_THEME_SLOT_MAP.function, bold: true })}${ANSI.reset}`)
+            .join('\n')}\n`;
+    }
+
     renderRunFooter(durationMs, width) {
         const label = ` Worked for ${formatDuration(durationMs)} `;
         const lineWidth = Math.max(width || 72, label.length + 8);

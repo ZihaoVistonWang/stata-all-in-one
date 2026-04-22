@@ -47,7 +47,8 @@ const UI_TEXT = {
         sideLeft: 'left',
         sideRight: 'right',
         cliPreviewTooNarrow: ({ side }) => `The current VS Code window is too narrow. Please maximize or widen the window so that the Stata All in One terminal can expand on the ${side}.`,
-        cliPreviewStillNarrow: 'The current VS Code window is still too narrow. The Stata All in One terminal will continue running in the bottom panel.'
+        cliPreviewStillNarrow: 'The current VS Code window is still too narrow. The Stata All in One terminal will continue running in the bottom panel.',
+        cliLogoFallbackStarted: 'Stata All in One Terminal started...'
     },
     zh: {
         lineTooLong: '行长度不足，请在设置中增大分隔线长度。',
@@ -88,7 +89,8 @@ const UI_TEXT = {
         sideLeft: '左侧',
         sideRight: '右侧',
         cliPreviewTooNarrow: ({ side }) => `检测到 VS Code 窗口宽度不足，建议最大化或适当拉宽窗口，以便 Stata All in One 终端在${side}展开。`,
-        cliPreviewStillNarrow: '检测到 VS Code 窗口宽度仍不足，Stata All in One 终端将继续在下方面板中运行。'
+        cliPreviewStillNarrow: '检测到 VS Code 窗口宽度仍不足，Stata All in One 终端将继续在下方面板中运行。',
+        cliLogoFallbackStarted: 'Stata All in One Terminal已启动...'
     }
 };
 
