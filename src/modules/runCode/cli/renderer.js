@@ -1,6 +1,7 @@
 const vscode = require('vscode');
 const fs = require('fs');
 const path = require('path');
+const { tokenizeStataLineWithTheme, setCliTextmateTheme } = require('./textmateTokenizer');
 
 const ANSI = {
     reset: '\x1b[0m',
@@ -28,24 +29,6 @@ const ANSI = {
     bg: {}
 };
 
-const DEFAULT_SLOT_MAP = {
-    prompt: 'brightBlack',
-    command: 'brightMagenta',
-    keyword: 'brightCyan',
-    string: 'brightYellow',
-    path: 'brightYellow',
-    number: 'brightGreen',
-    comment: 'brightBlack',
-    function: 'brightBlue',
-    operator: 'cyan',
-    default: 'default',
-    error: 'brightRed',
-    header: 'brightCyan',
-    separator: 'brightBlack',
-    time: 'brightCyan',
-    timeValue: 'brightYellow'
-};
-
 const DEFAULT_TERMINAL_COLORS = {
     black: '#000000',
     red: '#cd3131',
@@ -65,17 +48,85 @@ const DEFAULT_TERMINAL_COLORS = {
     brightWhite: '#ffffff'
 };
 
-const TOKEN_SCOPE_CANDIDATES = {
-    command: ['keyword.functions.data.stata', 'keyword.functions.program.stata', 'keyword.control.flow.stata'],
-    keyword: ['keyword.control.conditional.stata', 'keyword.control.flow.stata', 'keyword.other.stata', 'keyword'],
-    function: ['entity.name.function.stata', 'entity.name.function', 'support.function'],
-    string: ['string.quoted.double.stata', 'string.quoted.double.compound.stata', 'string.quoted.single.stata', 'string'],
-    number: ['constant.numeric.stata', 'constant.numeric'],
-    comment: ['comment.line.double-slash.stata', 'comment.block.stata', 'comment'],
-    operator: ['keyword.operator.assignment.stata', 'keyword.operator.arithmetic.stata', 'keyword.operator.parentheses.stata', 'keyword.operator.mata', 'keyword.operator']
+const DEFAULT_SLOT_MAP = {
+    prompt: DEFAULT_TERMINAL_COLORS.brightBlack,
+    command: DEFAULT_TERMINAL_COLORS.brightMagenta,
+    keyword: DEFAULT_TERMINAL_COLORS.brightCyan,
+    string: DEFAULT_TERMINAL_COLORS.brightYellow,
+    path: DEFAULT_TERMINAL_COLORS.brightYellow,
+    number: DEFAULT_TERMINAL_COLORS.brightGreen,
+    comment: DEFAULT_TERMINAL_COLORS.brightBlack,
+    function: DEFAULT_TERMINAL_COLORS.brightBlue,
+    option: DEFAULT_TERMINAL_COLORS.brightBlue,
+    variable: DEFAULT_TERMINAL_COLORS.brightYellow,
+    macro: DEFAULT_TERMINAL_COLORS.brightYellow,
+    operator: DEFAULT_TERMINAL_COLORS.cyan,
+    default: null,
+    error: DEFAULT_TERMINAL_COLORS.brightRed,
+    header: DEFAULT_TERMINAL_COLORS.brightCyan,
+    separator: DEFAULT_TERMINAL_COLORS.brightBlack,
+    time: DEFAULT_TERMINAL_COLORS.brightCyan,
+    timeValue: DEFAULT_TERMINAL_COLORS.brightYellow
 };
 
+const TOKEN_SCOPE_CANDIDATES = {
+    command: ['keyword.functions.data.stata', 'keyword.functions.program.stata', 'storage.type.function.stata'],
+    keyword: [
+        'keyword.macro.stata',
+        'keyword.macro.extendedfcn.stata',
+        'keyword.control.conditional.stata',
+        'keyword.control.flow.stata',
+        'keyword.control.block.begin.stata',
+        'keyword.control.block.end.stata',
+        'keyword.control.anchor.stata',
+        'keyword.control.quantifier.stata',
+        'keyword.control.or.stata',
+        'keyword.other.stata',
+        'support.type.stata',
+        'constant.language.factorvars.stata',
+        'keyword'
+    ],
+    macro: ['entity.name.type.class.stata'],
+    function: ['support.function.builtin.stata', 'entity.name.function.stata', 'entity.name.function', 'support.function'],
+    option: ['support.function.custom.stata', 'keyword.other.option-toggle.stata'],
+    variable: ['variable.parameter.function.stata', 'variable.object.stata', 'variable'],
+    string: ['string.quoted.double.stata', 'string.quoted.double.compound.stata', 'string.quoted.single.stata', 'string'],
+    number: ['constant.numeric.stata', 'constant.numeric'],
+    comment: ['comment.line.double-slash.stata', 'comment.line.star.stata', 'comment.line.triple-slash.stata', 'comment.block.stata', 'comment'],
+    operator: [
+        'punctuation.separator.comma.stata',
+        'punctuation.separator.key-value',
+        'punctuation.definition.variable.begin.stata',
+        'punctuation.definition.parameters.begin.stata',
+        'punctuation.definition.parameters.end.stata',
+        'keyword.operator.assignment.stata',
+        'keyword.operator.arithmetic.stata',
+        'keyword.operator.parentheses.stata',
+        'keyword.operator.comparison.stata',
+        'keyword.operator.logical.stata',
+        'keyword.operator.factor-variables.stata',
+        'keyword.operator.mata',
+        'keyword.operator'
+    ]
+};
+
+const COMMAND_TOKEN_SCOPE_CANDIDATES = ['keyword.functions.data.stata', 'keyword.functions.program.stata'];
+const KEYWORD_TOKEN_SCOPE_CANDIDATES = [
+    'keyword.macro.stata',
+    'keyword.macro.extendedfcn.stata',
+    'keyword.control.conditional.stata',
+    'keyword.control.flow.stata',
+    'keyword.control.block.begin.stata',
+    'keyword.control.block.end.stata',
+    'keyword.other.stata',
+    'support.type.stata',
+    'constant.language.factorvars.stata',
+    'keyword'
+];
+
 let CURRENT_THEME_SLOT_MAP = { ...DEFAULT_SLOT_MAP };
+let CURRENT_THEME_DATA = null;
+let CURRENT_THEME_DEFAULT_FOREGROUND = null;
 
 const VALUE_NUMBER_REGEX = /(?<![%A-Za-z_])[-+]?\d+(?:,\d{3})*(?:\.\d+)?(?:e[+-]?\d+)?(?![A-Za-z])/gi;
 
@@ -95,8 +146,13 @@ function paint(text, style = {}) {
     }
 
     let prefix = ANSI.reset;
-    if (style.bg && ANSI.bg[style.bg]) {
-        prefix += ANSI.bg[style.bg];
+    if (style.bg) {
+        const bgRgb = hexToRgb(style.bg);
+        if (bgRgb) {
+            prefix += `\x1b[48;2;${bgRgb.r};${bgRgb.g};${bgRgb.b}m`;
+        } else if (ANSI.bg[style.bg]) {
+            prefix += ANSI.bg[style.bg];
+        }
     }
     if (style.bold) {
         prefix += ANSI.bold;
@@ -107,8 +163,13 @@ function paint(text, style = {}) {
     if (style.italic) {
         prefix += ANSI.italic;
     }
-    if (style.fg && ANSI.fg[style.fg]) {
-        prefix += ANSI.fg[style.fg];
+    if (style.fg) {
+        const fgRgb = hexToRgb(style.fg);
+        if (fgRgb) {
+            prefix += `\x1b[38;2;${fgRgb.r};${fgRgb.g};${fgRgb.b}m`;
+        } else if (ANSI.fg[style.fg]) {
+            prefix += ANSI.fg[style.fg];
+        }
     }
 
     return `${prefix}${text}`;
@@ -190,7 +251,8 @@ function scopeMatches(scopeValue, candidate) {
 function findThemeTokenColor(themeData, candidates) {
     const tokenColors = Array.isArray(themeData.tokenColors) ? themeData.tokenColors : [];
     for (const candidate of candidates) {
-        for (const rule of tokenColors) {
+        for (let index = tokenColors.length - 1; index >= 0; index--) {
+            const rule = tokenColors[index];
             const scopes = toScopeList(rule.scope);
             if (!scopes.length) {
                 continue;
@@ -207,26 +269,37 @@ function findThemeTokenColor(themeData, candidates) {
     return null;
 }
 
-function buildTerminalPalette(themeData) {
-    const colors = themeData.colors || {};
-    return {
-        black: colors['terminal.ansiBlack'] || DEFAULT_TERMINAL_COLORS.black,
-        red: colors['terminal.ansiRed'] || DEFAULT_TERMINAL_COLORS.red,
-        green: colors['terminal.ansiGreen'] || DEFAULT_TERMINAL_COLORS.green,
-        yellow: colors['terminal.ansiYellow'] || DEFAULT_TERMINAL_COLORS.yellow,
-        blue: colors['terminal.ansiBlue'] || DEFAULT_TERMINAL_COLORS.blue,
-        magenta: colors['terminal.ansiMagenta'] || DEFAULT_TERMINAL_COLORS.magenta,
-        cyan: colors['terminal.ansiCyan'] || DEFAULT_TERMINAL_COLORS.cyan,
-        white: colors['terminal.ansiWhite'] || DEFAULT_TERMINAL_COLORS.white,
-        brightBlack: colors['terminal.ansiBrightBlack'] || DEFAULT_TERMINAL_COLORS.brightBlack,
-        brightRed: colors['terminal.ansiBrightRed'] || DEFAULT_TERMINAL_COLORS.brightRed,
-        brightGreen: colors['terminal.ansiBrightGreen'] || DEFAULT_TERMINAL_COLORS.brightGreen,
-        brightYellow: colors['terminal.ansiBrightYellow'] || DEFAULT_TERMINAL_COLORS.brightYellow,
-        brightBlue: colors['terminal.ansiBrightBlue'] || DEFAULT_TERMINAL_COLORS.brightBlue,
-        brightMagenta: colors['terminal.ansiBrightMagenta'] || DEFAULT_TERMINAL_COLORS.brightMagenta,
-        brightCyan: colors['terminal.ansiBrightCyan'] || DEFAULT_TERMINAL_COLORS.brightCyan,
-        brightWhite: colors['terminal.ansiBrightWhite'] || DEFAULT_TERMINAL_COLORS.brightWhite
-    };
+function hasSpecificGrammarScope(scopes) {
+    return Array.isArray(scopes) && scopes.some((scope) => {
+        if (!scope || typeof scope !== 'string') {
+            return false;
+        }
+        return scope !== 'source' && scope !== 'source.stata';
+    });
+}
+
+function findThemeColorForScopes(themeData, scopes) {
+    if (!themeData || !Array.isArray(scopes) || !scopes.length) {
+        return null;
+    }
+
+    const tokenColors = Array.isArray(themeData.tokenColors) ? themeData.tokenColors : [];
+    for (let index = tokenColors.length - 1; index >= 0; index--) {
+        const rule = tokenColors[index];
+        const ruleScopes = toScopeList(rule.scope);
+        if (!ruleScopes.length) {
+            continue;
+        }
+        if (!ruleScopes.some((ruleScope) => scopes.some((scope) => scopeMatches(scope, ruleScope)))) {
+            continue;
+        }
+        const foreground = rule.settings && rule.settings.foreground;
+        if (foreground) {
+            return foreground;
+        }
+    }
+
+    return null;
 }
 
 function findCurrentThemeDefinition() {
@@ -277,6 +350,17 @@ function loadThemeData(themePath, visited = new Set()) {
         baseTheme = loadThemeData(includePath, visited);
     }
 
+    let localTokenColors = [];
+    if (Array.isArray(themeData.tokenColors)) {
+        localTokenColors = themeData.tokenColors;
+    } else if (typeof themeData.tokenColors === 'string') {
+        const tokenColorsPath = path.resolve(themeDir, themeData.tokenColors);
+        const tokenColorTheme = loadThemeData(tokenColorsPath, visited);
+        localTokenColors = Array.isArray(tokenColorTheme.tokenColors) ? tokenColorTheme.tokenColors : [];
+    } else if (Array.isArray(themeData.settings)) {
+        localTokenColors = themeData.settings;
+    }
+
     return {
         ...baseTheme,
         ...themeData,
@@ -286,32 +370,32 @@ function loadThemeData(themePath, visited = new Set()) {
         },
         tokenColors: [
             ...((baseTheme.tokenColors && Array.isArray(baseTheme.tokenColors)) ? baseTheme.tokenColors : []),
-            ...((themeData.tokenColors && Array.isArray(themeData.tokenColors)) ? themeData.tokenColors : [])
+            ...localTokenColors
         ]
     };
 }
 
 function resolveThemeSlotMap(themeData) {
-    const terminalPalette = buildTerminalPalette(themeData);
     const colors = themeData.colors || {};
     const slotMap = { ...DEFAULT_SLOT_MAP };
 
     for (const [tokenType, candidates] of Object.entries(TOKEN_SCOPE_CANDIDATES)) {
         const themeColor = findThemeTokenColor(themeData, candidates);
-        const nearestSlot = findClosestAnsiSlot(themeColor, terminalPalette);
-        if (nearestSlot) {
-            slotMap[tokenType] = nearestSlot;
+        if (themeColor) {
+            slotMap[tokenType] = themeColor;
         }
     }
 
     const promptColor = colors['editorLineNumber.foreground'] || colors['descriptionForeground'];
-    slotMap.prompt = findClosestAnsiSlot(promptColor, terminalPalette) || slotMap.prompt;
-    slotMap.comment = findClosestAnsiSlot(findThemeTokenColor(themeData, TOKEN_SCOPE_CANDIDATES.comment), terminalPalette) || slotMap.comment;
-    slotMap.error = findClosestAnsiSlot(colors['editorError.foreground'] || colors['errorForeground'], terminalPalette) || slotMap.error;
-    slotMap.header = findClosestAnsiSlot(colors['textLink.foreground'] || findThemeTokenColor(themeData, TOKEN_SCOPE_CANDIDATES.keyword), terminalPalette) || slotMap.header;
-    slotMap.separator = findClosestAnsiSlot(colors['panel.border'] || colors['editorIndentGuide.background'], terminalPalette) || slotMap.separator;
-    slotMap.time = findClosestAnsiSlot(colors['terminal.foreground'] || colors.foreground, terminalPalette) || slotMap.time;
-    slotMap.timeValue = findClosestAnsiSlot(findThemeTokenColor(themeData, TOKEN_SCOPE_CANDIDATES.number), terminalPalette) || slotMap.timeValue;
+    slotMap.prompt = promptColor || slotMap.prompt;
+    slotMap.default = colors['editor.foreground'] || colors['terminal.foreground'] || colors.foreground || slotMap.default;
+    slotMap.comment = findThemeTokenColor(themeData, TOKEN_SCOPE_CANDIDATES.comment) || slotMap.comment;
+    slotMap.error = colors['editorError.foreground'] || colors['errorForeground'] || slotMap.error;
+    slotMap.header = colors['textLink.foreground'] || findThemeTokenColor(themeData, TOKEN_SCOPE_CANDIDATES.keyword) || slotMap.header;
+    slotMap.separator = colors['panel.border'] || colors['editorIndentGuide.background'] || slotMap.separator;
+    slotMap.time = colors['terminal.foreground'] || colors.foreground || slotMap.time;
+    slotMap.timeValue = findThemeTokenColor(themeData, TOKEN_SCOPE_CANDIDATES.number) || slotMap.timeValue;
+    slotMap.macro = findThemeTokenColor(themeData, TOKEN_SCOPE_CANDIDATES.macro) || slotMap.variable || slotMap.macro;
 
     return slotMap;
 }
@@ -321,14 +405,20 @@ function syncCliTerminalTheme() {
         const themeDefinition = findCurrentThemeDefinition();
         if (!themeDefinition || !fs.existsSync(themeDefinition.themePath)) {
             CURRENT_THEME_SLOT_MAP = { ...DEFAULT_SLOT_MAP };
+            CURRENT_THEME_DATA = null;
             return;
         }
 
         const themeData = loadThemeData(themeDefinition.themePath);
+        CURRENT_THEME_DATA = themeData;
         CURRENT_THEME_SLOT_MAP = resolveThemeSlotMap(themeData);
+        CURRENT_THEME_DEFAULT_FOREGROUND = CURRENT_THEME_SLOT_MAP.default || null;
+        setCliTextmateTheme(themeData);
     } catch (error) {
         console.error('[renderer] Failed to sync CLI terminal theme:', error.message);
         CURRENT_THEME_SLOT_MAP = { ...DEFAULT_SLOT_MAP };
+        CURRENT_THEME_DATA = null;
+        CURRENT_THEME_DEFAULT_FOREGROUND = null;
     }
 }
 
@@ -825,19 +915,175 @@ class StataTerminalRenderer {
             return this._renderCommentCommandLine(line);
         }
 
-        const tokens = this._tokenizeCommandLine(line);
-        let rendered = '';
+        const prompt = (line.startsWith('. ') || line.startsWith('> ')) ? line.slice(0, 2) : '';
+        const body = prompt ? line.slice(2) : line;
+        const grammarTokens = this._tokenizeCommandLineWithGrammar(body);
+        if (!grammarTokens) {
+            const fallbackTokens = this._tokenizeCommandLine(line);
+            let fallbackRendered = '';
+            for (const token of fallbackTokens) {
+                fallbackRendered += paint(token.value, {
+                    fg: this._foregroundForCommandToken(token.type),
+                    bold: token.type === 'prompt' || token.type === 'command' || token.type === 'keyword',
+                    italic: token.type === 'comment',
+                    dim: token.type === 'comment'
+                });
+            }
+            return `${fallbackRendered}${ANSI.reset}`;
+        }
 
-        for (const token of tokens) {
+        let rendered = '';
+        if (prompt) {
+            rendered += paint(prompt, {
+                fg: this._foregroundForCommandToken('prompt'),
+                bold: true
+            });
+        }
+
+        for (const token of grammarTokens) {
             rendered += paint(token.value, {
-                fg: this._foregroundForCommandToken(token.type),
-                bold: token.type === 'prompt' || token.type === 'command' || token.type === 'keyword',
-                italic: token.type === 'comment',
+                fg: this._foregroundForCommandToken(token.type, token.scopes, token.foreground),
+                bold: typeof token.fontStyle?.bold === 'boolean'
+                    ? token.fontStyle.bold
+                    : token.type === 'prompt' || token.type === 'command' || token.type === 'keyword',
+                italic: typeof token.fontStyle?.italic === 'boolean'
+                    ? token.fontStyle.italic
+                    : token.type === 'comment',
                 dim: token.type === 'comment'
             });
         }
 
         return `${rendered}${ANSI.reset}`;
+    }
+
+    _tokenizeCommandLineWithGrammar(line) {
+        const tmTokens = tokenizeStataLineWithTheme(line);
+        if (!tmTokens || !tmTokens.length) {
+            return null;
+        }
+
+        const renderedTokens = [];
+        let firstIdentifierSeen = false;
+
+        for (const token of tmTokens) {
+            const value = line.slice(token.startIndex, token.endIndex);
+            if (!value) {
+                continue;
+            }
+
+            const scopes = Array.isArray(token.scopes) ? token.scopes : [];
+            const explodedTokens = this._explodeGenericGrammarToken(scopes, value, !firstIdentifierSeen, token.foreground, token.fontStyle);
+            for (const explodedToken of explodedTokens) {
+                renderedTokens.push(explodedToken);
+                if (!firstIdentifierSeen && /[A-Za-z_]/.test(explodedToken.value) && explodedToken.type !== 'comment') {
+                    firstIdentifierSeen = true;
+                }
+            }
+        }
+
+        return renderedTokens;
+    }
+
+    _explodeGenericGrammarToken(scopes, value, isFirstIdentifier, foreground, fontStyle) {
+        const type = this._tokenTypeFromScopes(scopes, value, isFirstIdentifier);
+        if (type !== 'plain') {
+            return [{ type, value, scopes, foreground, fontStyle }];
+        }
+
+        const tokens = [];
+        const pattern = /(\s+|[A-Za-z_][A-Za-z0-9_]*|[-+]?\d+(?:\.\d+)?(?:e[+-]?\d+)?|[=!,+\-*/%&|^~:().\[\]{}<>]+)/gi;
+        let lastIndex = 0;
+        let firstIdentifierAvailable = isFirstIdentifier;
+        let match;
+
+        while ((match = pattern.exec(value)) !== null) {
+            if (match.index > lastIndex) {
+                tokens.push({ type: 'plain', value: value.slice(lastIndex, match.index), foreground, fontStyle });
+            }
+
+            const segment = match[0];
+            let segmentType = 'plain';
+            if (/^\s+$/.test(segment)) {
+                segmentType = 'plain';
+            } else if (/^[-+]?\d/.test(segment)) {
+                segmentType = 'number';
+            } else if (/^[=!,+\-*/%&|^~:().\[\]{}<>]+$/.test(segment)) {
+                segmentType = 'operator';
+            } else if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(segment)) {
+                if (firstIdentifierAvailable) {
+                    segmentType = 'command';
+                    firstIdentifierAvailable = false;
+                } else if (COMMAND_KEYWORDS.has(segment.toLowerCase())) {
+                    segmentType = 'keyword';
+                } else {
+                    segmentType = 'variable';
+                }
+            }
+
+            tokens.push({ type: segmentType, value: segment, foreground, fontStyle });
+            lastIndex = pattern.lastIndex;
+        }
+
+        if (lastIndex < value.length) {
+            tokens.push({ type: 'plain', value: value.slice(lastIndex), foreground, fontStyle });
+        }
+
+        return tokens.length ? tokens : [{ type: 'plain', value, foreground, fontStyle }];
+    }
+
+    _tokenTypeFromScopes(scopes, value, isFirstIdentifier) {
+        if (!value.trim()) {
+            return 'plain';
+        }
+
+        if (scopes.some((scope) => scopeMatches(scope, 'comment'))) {
+            return 'comment';
+        }
+
+        if (scopes.some((scope) => scopeMatches(scope, 'string'))) {
+            return 'string';
+        }
+
+        if (scopes.some((scope) => scopeMatches(scope, 'constant.numeric.stata') || scopeMatches(scope, 'constant.numeric'))) {
+            return 'number';
+        }
+
+        if (
+            scopes.some((scope) => TOKEN_SCOPE_CANDIDATES.macro.some((candidate) => scopeMatches(scope, candidate)))
+            || (value === '$' && scopes.some((scope) => scopeMatches(scope, 'punctuation.definition.string.begin.stata')))
+        ) {
+            return 'macro';
+        }
+
+        if (scopes.some((scope) => TOKEN_SCOPE_CANDIDATES.operator.some((candidate) => scopeMatches(scope, candidate)))) {
+            return 'operator';
+        }
+
+        if (scopes.some((scope) => TOKEN_SCOPE_CANDIDATES.variable.some((candidate) => scopeMatches(scope, candidate)))) {
+            return 'variable';
+        }
+
+        if (scopes.some((scope) => TOKEN_SCOPE_CANDIDATES.option.some((candidate) => scopeMatches(scope, candidate)))) {
+            return 'option';
+        }
+
+        if (scopes.some((scope) => TOKEN_SCOPE_CANDIDATES.function.some((candidate) => scopeMatches(scope, candidate)))) {
+            return 'function';
+        }
+
+        if (isFirstIdentifier && scopes.some((scope) => COMMAND_TOKEN_SCOPE_CANDIDATES.some((candidate) => scopeMatches(scope, candidate)))) {
+            return 'command';
+        }
+
+        if (isFirstIdentifier && /^[A-Za-z_][A-Za-z0-9_.]*$/.test(value)) {
+            return 'command';
+        }
+
+        if (scopes.some((scope) => KEYWORD_TOKEN_SCOPE_CANDIDATES.some((candidate) => scopeMatches(scope, candidate)))) {
+            return 'keyword';
+        }
+
+        return 'plain';
     }
 
     _renderCommentCommandLine(line) {
@@ -853,8 +1099,31 @@ class StataTerminalRenderer {
         })}${ANSI.reset}`;
     }
 
-    _foregroundForCommandToken(type) {
+    _foregroundForCommandToken(type, scopes, tokenForeground) {
+        if (tokenForeground && !this._isDefaultThemeForeground(tokenForeground, type)) {
+            return tokenForeground;
+        }
+
+        if (hasSpecificGrammarScope(scopes)) {
+            const exactThemeColor = findThemeColorForScopes(CURRENT_THEME_DATA, scopes);
+            if (exactThemeColor) {
+                return exactThemeColor;
+            }
+        }
+
         return CURRENT_THEME_SLOT_MAP[type] || CURRENT_THEME_SLOT_MAP.default;
+    }
+
+    _isDefaultThemeForeground(color, type) {
+        if (!color || !CURRENT_THEME_DEFAULT_FOREGROUND) {
+            return false;
+        }
+
+        if (String(color).toUpperCase() !== String(CURRENT_THEME_DEFAULT_FOREGROUND).toUpperCase()) {
+            return false;
+        }
+
+        return type !== 'plain' && type !== 'string' && type !== 'comment';
     }
 
     _tokenizeCommandLine(line) {
@@ -862,6 +1131,9 @@ class StataTerminalRenderer {
         let i = 0;
         let promptConsumed = false;
         let commandConsumed = false;
+        let parenDepth = 0;
+        let bracketDepth = 0;
+        let commaOptionMode = false;
 
         while (i < line.length) {
             if (!promptConsumed && (line.startsWith('. ', i) || line.startsWith('> ', i))) {
@@ -912,10 +1184,14 @@ class StataTerminalRenderer {
                 if (!commandConsumed && promptConsumed) {
                     type = 'command';
                     commandConsumed = true;
+                } else if (commaOptionMode && parenDepth === 0 && bracketDepth === 0) {
+                    type = 'option';
                 } else if (COMMAND_KEYWORDS.has(word.toLowerCase())) {
                     type = 'keyword';
                 } else if (line[i + word.length] === '(') {
                     type = 'function';
+                } else if (parenDepth > 0 || bracketDepth > 0) {
+                    type = 'variable';
                 }
                 tokens.push({ type, value: word });
                 i += word.length;
@@ -923,6 +1199,17 @@ class StataTerminalRenderer {
             }
 
             if (OPERATOR_CHARS.has(line[i])) {
+                if (line[i] === ',') {
+                    commaOptionMode = parenDepth === 0 && bracketDepth === 0;
+                } else if (line[i] === '(') {
+                    parenDepth += 1;
+                } else if (line[i] === ')') {
+                    parenDepth = Math.max(0, parenDepth - 1);
+                } else if (line[i] === '[') {
+                    bracketDepth += 1;
+                } else if (line[i] === ']') {
+                    bracketDepth = Math.max(0, bracketDepth - 1);
+                }
                 tokens.push({ type: 'operator', value: line[i] });
                 i += 1;
                 continue;

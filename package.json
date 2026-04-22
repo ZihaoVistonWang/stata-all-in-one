@@ -100,42 +100,42 @@
           ],
           "markdownDescription": "%config.customCommands.description%"
         },
-"stata-all-in-one.separatorSymmetric": {
-            "type": "boolean",
-            "default": false,
-            "markdownDescription": "%config.separatorSymmetric.description%"
+        "stata-all-in-one.separatorSymmetric": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "%config.separatorSymmetric.description%"
         },
         "stata-all-in-one.enableCtrlShiftD": {
-            "type": "boolean",
-            "default": false,
-            "markdownDescription": "%config.enableCtrlShiftD.description%"
-          },
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "%config.enableCtrlShiftD.description%"
+        },
         "stata-all-in-one.cdToDoFileDir": {
-            "type": "boolean",
-            "default": true,
-            "markdownDescription": "%config.cdToDoFileDir.description%"
-          },
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "%config.cdToDoFileDir.description%"
+        },
         "stata-all-in-one.cliTerminalLocation": {
-            "type": "string",
-            "enum": [
-              "bottom",
-              "right",
-              "left"
-            ],
-            "default": "right",
-            "markdownDescription": "%config.cliTerminalLocation.description%"
-          },
+          "type": "string",
+          "enum": [
+            "bottom",
+            "right",
+            "left"
+          ],
+          "default": "right",
+          "markdownDescription": "%config.cliTerminalLocation.description%"
+        },
         "stata-all-in-one.cliTerminalMaxWidth": {
-            "type": "number",
-            "default": 67,
-            "minimum": 40,
-            "markdownDescription": "%config.cliTerminalMaxWidth.description%"
-          },
+          "type": "number",
+          "default": 67,
+          "minimum": 40,
+          "markdownDescription": "%config.cliTerminalMaxWidth.description%"
+        },
         "stata-all-in-one.showActionButtons": {
-            "type": "boolean",
-            "default": true,
-            "markdownDescription": "%config.showActionButtons.description%"
-          }
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "%config.showActionButtons.description%"
+        }
       }
     },
     "languages": [
@@ -411,7 +411,10 @@
   "changelog": {
     "url": "https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md"
   },
-  "dependencies": {},
+  "dependencies": {
+    "vscode-oniguruma": "^2.0.1",
+    "vscode-textmate": "^9.3.2"
+  },
   "devDependencies": {
     "node-addon-api": "^8.0.0",
     "node-gyp": "^10.0.0"
