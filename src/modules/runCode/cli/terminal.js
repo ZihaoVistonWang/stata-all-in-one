@@ -7,10 +7,11 @@ const { msg } = require('../../../utils/common');
 
 const STATA_CLI_TERMINAL_NAME = 'Stata CLI';
 const DIMENSION_SETTLE_DELAY_MS = 24;
-const DIMENSION_STABLE_SAMPLE_COUNT = 2;
+const PREVIEW_SHRINK_STEP_DELAY_MS = 40;
+const DIMENSION_STABLE_SAMPLE_COUNT = 1;
 const MAX_DIMENSION_SETTLE_ATTEMPTS = 16;
 const MAX_WIDTH_RESIZE_STEPS = 18;
-const MAX_HEIGHT_RESIZE_STEPS = 8;
+const MAX_HEIGHT_RESIZE_STEPS = 64;
 const TARGET_WIDTH_TOLERANCE = 1;
 const PREVIEW_HEIGHT_PADDING = 2;
 const ASCII_LOGO_DIR = path.resolve(__dirname, '../../../../ascii_logo');
@@ -161,14 +162,17 @@ class StataPseudoTerminal {
         if (preferredLocation === 'bottom') {
             this._previewMode = false;
             await this._showAtLocation(terminal, 'bottom', false);
-            await this._showAsciiLogo();
+            const width = await this._waitForStableDimensions();
+            const targetHeight = this._getPreviewTargetHeight(width);
+            await this._showAsciiLogo(width);
+            await this._ensureBottomPreviewHeight(targetHeight);
             return terminal;
         }
 
         this._previewMode = true;
         await this._showAtLocation(terminal, 'bottom', false);
-        const width = await this._waitForDimensions();
-        await this._ensureBottomPreviewHeight(this._getPreviewTargetHeight(width));
+        const width = await this._waitForStableDimensions();
+        const targetHeight = this._getPreviewTargetHeight(width);
         if ((width || 0) < this._getPromotionThreshold() && !this._hasShownInitialNarrowWarning) {
             this.writeWarningMessage(msg('cliPreviewTooNarrow', {
                 side: msg(preferredLocation === 'left' ? 'sideLeft' : 'sideRight')
@@ -177,6 +181,7 @@ class StataPseudoTerminal {
         }
 
         await this._showAsciiLogo(width);
+        await this._ensureBottomPreviewHeight(targetHeight);
         return terminal;
     }
 
@@ -418,6 +423,9 @@ class StataPseudoTerminal {
         await this._applyPanelLocation(location);
         this._currentLocation = location;
         terminal.show();
+        if (location === 'bottom') {
+            await this._waitForStableRows();
+        }
         if (adjustWidth && (location === 'left' || location === 'right')) {
             await this._waitForStableDimensions();
             await this._ensureTargetWidth(location, this._getTargetWidth());
@@ -441,6 +449,9 @@ class StataPseudoTerminal {
             const command = initialGap > 0
                 ? 'workbench.action.increaseViewSize'
                 : 'workbench.action.decreaseViewSize';
+            const stepDelay = initialGap > 0
+                ? DIMENSION_SETTLE_DELAY_MS
+                : PREVIEW_SHRINK_STEP_DELAY_MS;
 
             for (let index = 0; index < MAX_HEIGHT_RESIZE_STEPS; index++) {
                 const gap = targetHeight - rows;
@@ -449,7 +460,7 @@ class StataPseudoTerminal {
                 }
 
                 await vscode.commands.executeCommand(command);
-                await this._sleep(DIMENSION_SETTLE_DELAY_MS);
+                await this._sleep(stepDelay);
 
                 const nextRows = await this._waitForStableRows();
                 if (!nextRows || !Number.isFinite(nextRows) || nextRows === rows) {
@@ -639,5 +650,6 @@ class StataPseudoTerminal {
 }
 
 module.exports = {
-    StataPseudoTerminal
+    StataPseudoTerminal,
+    STATA_CLI_TERMINAL_NAME
 };
