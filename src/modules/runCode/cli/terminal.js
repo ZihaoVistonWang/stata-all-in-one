@@ -14,9 +14,9 @@ const MAX_HEIGHT_RESIZE_STEPS = 8;
 const TARGET_WIDTH_TOLERANCE = 1;
 const PREVIEW_HEIGHT_PADDING = 2;
 const ASCII_LOGO_DIR = path.resolve(__dirname, '../../../../ascii_logo');
+const FIXED_ASCII_LOGO_GROUP = '53x13';
 
 let ASCII_LOGO_CACHE = null;
-let WINDOW_SELECTED_LOGO_GROUP = null;
 
 function loadAsciiLogoCatalog() {
     if (ASCII_LOGO_CACHE) {
@@ -621,23 +621,16 @@ class StataPseudoTerminal {
             return null;
         }
 
-        const available = groups.filter(group => group.width <= width);
-        if (!available.length) {
-            WINDOW_SELECTED_LOGO_GROUP = null;
+        const fixedGroup = groups.find(group => group.groupName === FIXED_ASCII_LOGO_GROUP);
+        if (!fixedGroup) {
             return null;
         }
 
-        if (WINDOW_SELECTED_LOGO_GROUP) {
-            const cached = available.find(group => group.groupName === WINDOW_SELECTED_LOGO_GROUP.groupName);
-            if (cached) {
-                WINDOW_SELECTED_LOGO_GROUP = cached;
-                return cached;
-            }
+        if (fixedGroup.width > width) {
+            return null;
         }
 
-        const selected = available[Math.floor(Math.random() * available.length)];
-        WINDOW_SELECTED_LOGO_GROUP = selected;
-        return selected;
+        return fixedGroup;
     }
 
     _sleep(ms) {
