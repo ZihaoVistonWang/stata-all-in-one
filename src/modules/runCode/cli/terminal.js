@@ -7,45 +7,66 @@ const { msg } = require('../../../utils/common');
 
 const STATA_CLI_TERMINAL_NAME = 'Stata CLI';
 const DIMENSION_SETTLE_DELAY_MS = 35;
+const DIMENSION_STABLE_SAMPLE_COUNT = 3;
+const MAX_DIMENSION_SETTLE_ATTEMPTS = 24;
 const MAX_VIEW_RESIZE_STEPS = 12;
 const TARGET_WIDTH_STEP_SIZE = 8;
-const ASCII_ART_DIR = path.resolve(__dirname, '../../../../ascii_art_files');
-const PREFERRED_ASCII_ART = 'ascii_art_10-72x13.txt';
+const ASCII_LOGO_DIR = path.resolve(__dirname, '../../../../ascii_logo');
 
-let ASCII_ART_CACHE = null;
+let ASCII_LOGO_CACHE = null;
+let WINDOW_SELECTED_LOGO_GROUP = null;
 
-function loadAsciiArtCatalog() {
-    if (ASCII_ART_CACHE) {
-        return ASCII_ART_CACHE;
+function loadAsciiLogoCatalog() {
+    if (ASCII_LOGO_CACHE) {
+        return ASCII_LOGO_CACHE;
     }
 
     const catalog = [];
-    if (!fs.existsSync(ASCII_ART_DIR)) {
-        ASCII_ART_CACHE = catalog;
+    if (!fs.existsSync(ASCII_LOGO_DIR)) {
+        ASCII_LOGO_CACHE = catalog;
         return catalog;
     }
 
-    for (const fileName of fs.readdirSync(ASCII_ART_DIR).sort()) {
-        if (!fileName.endsWith('.txt')) {
+    for (const entryName of fs.readdirSync(ASCII_LOGO_DIR).sort()) {
+        const groupPath = path.join(ASCII_LOGO_DIR, entryName);
+        let stats = null;
+        try {
+            stats = fs.statSync(groupPath);
+        } catch (_) {
             continue;
         }
 
-        const match = fileName.match(/-(\d+)x(\d+)\.txt$/);
+        if (!stats.isDirectory()) {
+            continue;
+        }
+
+        const match = entryName.match(/^(\d+)x(\d+)$/);
         if (!match) {
             continue;
         }
 
-        const filePath = path.join(ASCII_ART_DIR, fileName);
-        const text = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\n$/, '');
+        const upPath = path.join(groupPath, 'up.txt');
+        const downPath = path.join(groupPath, 'down.txt');
+        if (!fs.existsSync(upPath) || !fs.existsSync(downPath)) {
+            continue;
+        }
+
+        const upText = fs.readFileSync(upPath, 'utf8').replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\n$/, '');
+        const downText = fs.readFileSync(downPath, 'utf8').replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\n$/, '');
+        if (!upText || !downText) {
+            continue;
+        }
+
         catalog.push({
-            fileName,
+            groupName: entryName,
             width: Number(match[1]),
             height: Number(match[2]),
-            text
+            upText,
+            downText
         });
     }
 
-    ASCII_ART_CACHE = catalog;
+    ASCII_LOGO_CACHE = catalog;
     return catalog;
 }
 
@@ -243,6 +264,24 @@ class StataPseudoTerminal {
         this.writeRaw(rendered);
     }
 
+    writeCommandAccentBlock(text) {
+        const rendered = this._renderer.renderCommandAccentBlock(text);
+        if (!rendered) {
+            return;
+        }
+
+        this.writeRaw(rendered);
+    }
+
+    writeFunctionAccentBlock(text) {
+        const rendered = this._renderer.renderFunctionAccentBlock(text);
+        if (!rendered) {
+            return;
+        }
+
+        this.writeRaw(rendered);
+    }
+
     writePrompt() {
         this.writeRaw('. ');
     }
@@ -327,8 +366,10 @@ class StataPseudoTerminal {
         await this._applyPanelLocation(location);
         this._currentLocation = location;
         terminal.show();
+        await this._waitForStableDimensions();
         if (adjustWidth && (location === 'left' || location === 'right')) {
             await this._ensureTargetWidth(location, this._getTargetWidth());
+            await this._waitForStableDimensions();
         }
         await this._scrollToBottom();
     }
@@ -361,7 +402,7 @@ class StataPseudoTerminal {
             return;
         }
 
-        const columns = await this._waitForDimensions();
+        const columns = await this._waitForStableDimensions();
         if (!columns || !Number.isFinite(columns)) {
             return;
         }
@@ -384,7 +425,7 @@ class StataPseudoTerminal {
                 await vscode.commands.executeCommand(command);
             }
             await this._sleep(DIMENSION_SETTLE_DELAY_MS);
-            await this._waitForDimensions();
+            await this._waitForStableDimensions();
         } catch (_) {}
     }
 
@@ -400,6 +441,31 @@ class StataPseudoTerminal {
         return this.getWidth();
     }
 
+    async _waitForStableDimensions() {
+        let lastWidth = null;
+        let stableSamples = 0;
+
+        for (let attempt = 0; attempt < MAX_DIMENSION_SETTLE_ATTEMPTS; attempt++) {
+            const width = this.getWidth();
+            if (width && Number.isFinite(width)) {
+                if (width === lastWidth) {
+                    stableSamples += 1;
+                } else {
+                    lastWidth = width;
+                    stableSamples = 1;
+                }
+
+                if (stableSamples >= DIMENSION_STABLE_SAMPLE_COUNT) {
+                    return width;
+                }
+            }
+
+            await this._sleep(DIMENSION_SETTLE_DELAY_MS);
+        }
+
+        return this.getWidth();
+    }
+
     async _showAsciiLogo(widthOverride = null) {
         if (this._hasShownLogoForCurrentTerminal) {
             return;
@@ -407,35 +473,44 @@ class StataPseudoTerminal {
 
         let width = widthOverride || this.getWidth() || 0;
         if (!width) {
-            width = await this._waitForDimensions() || 0;
+            width = await this._waitForStableDimensions() || 0;
         }
-        const art = this._pickAsciiArtForWidth(width);
-        if (!art) {
+
+        const logoGroup = this._pickAsciiLogoGroupForWidth(width);
+        if (!logoGroup) {
+            this.writeWarningMessage(msg('cliLogoFallbackStarted'));
+            this._hasShownLogoForCurrentTerminal = true;
             return;
         }
 
-        this.writeAccentBlock(art.text);
-        this.writeRaw('\r\n');
+        this.writeCommandAccentBlock(logoGroup.upText);
+        this.writeFunctionAccentBlock(logoGroup.downText);
         this._hasShownLogoForCurrentTerminal = true;
     }
 
-    _pickAsciiArtForWidth(width) {
-        const arts = loadAsciiArtCatalog();
-        if (!arts.length) {
+    _pickAsciiLogoGroupForWidth(width) {
+        const groups = loadAsciiLogoCatalog();
+        if (!groups.length) {
             return null;
         }
 
-        const available = arts.filter(art => art.width <= width);
+        const available = groups.filter(group => group.width <= width);
         if (!available.length) {
+            WINDOW_SELECTED_LOGO_GROUP = null;
             return null;
         }
 
-        const preferred = available.find(art => art.fileName === PREFERRED_ASCII_ART);
-        if (preferred) {
-            return preferred;
+        if (WINDOW_SELECTED_LOGO_GROUP) {
+            const cached = available.find(group => group.groupName === WINDOW_SELECTED_LOGO_GROUP.groupName);
+            if (cached) {
+                WINDOW_SELECTED_LOGO_GROUP = cached;
+                return cached;
+            }
         }
 
-        return available[Math.floor(Math.random() * available.length)];
+        const selected = available[Math.floor(Math.random() * available.length)];
+        WINDOW_SELECTED_LOGO_GROUP = selected;
+        return selected;
     }
 
     _sleep(ms) {
