@@ -582,7 +582,7 @@ function stopCliExecution(context) {
         }
 
         if (_stataTerminal) {
-            _stataTerminal.show();
+            _stataTerminal.reveal();
             _stataTerminal.writeBreak();
         }
 
