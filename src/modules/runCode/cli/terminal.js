@@ -8,10 +8,11 @@ const { msg } = require('../../../utils/common');
 const STATA_CLI_TERMINAL_NAME = 'Stata CLI';
 const DIMENSION_SETTLE_DELAY_MS = 24;
 const PREVIEW_SHRINK_STEP_DELAY_MS = 40;
-const DIMENSION_STABLE_SAMPLE_COUNT = 1;
-const MAX_DIMENSION_SETTLE_ATTEMPTS = 16;
-const MAX_WIDTH_RESIZE_STEPS = 18;
+const DIMENSION_STABLE_SAMPLE_COUNT = 2;
+const MAX_DIMENSION_SETTLE_ATTEMPTS = 24;
+const MAX_WIDTH_RESIZE_STEPS = 48;
 const MAX_HEIGHT_RESIZE_STEPS = 64;
+const MAX_RESIZE_STAGNANT_STEPS = 3;
 const TARGET_WIDTH_TOLERANCE = 1;
 const PREVIEW_HEIGHT_PADDING = 2;
 const ASCII_LOGO_DIR = path.resolve(__dirname, '../../../../ascii_logo');
@@ -164,8 +165,8 @@ class StataPseudoTerminal {
             await this._showAtLocation(terminal, 'bottom', false);
             const width = await this._waitForStableDimensions();
             const targetHeight = this._getPreviewTargetHeight(width);
-            await this._showAsciiLogo(width);
             await this._ensureBottomPreviewHeight(targetHeight);
+            await this._showAsciiLogo(width);
             return terminal;
         }
 
@@ -180,8 +181,8 @@ class StataPseudoTerminal {
             this._hasShownInitialNarrowWarning = true;
         }
 
-        await this._showAsciiLogo(width);
         await this._ensureBottomPreviewHeight(targetHeight);
+        await this._showAsciiLogo(width);
         return terminal;
     }
 
@@ -420,13 +421,24 @@ class StataPseudoTerminal {
     }
 
     async _showAtLocation(terminal, location, adjustWidth) {
+        const previousLocation = this._currentLocation;
         await this._applyPanelLocation(location);
         this._currentLocation = location;
         terminal.show();
         if (location === 'bottom') {
+            if (previousLocation && previousLocation !== 'bottom') {
+                await this._sleep(120);
+                await this._waitForStableRows();
+                await this._waitForStableDimensions();
+                await this._sleep(120);
+            }
             await this._waitForStableRows();
+            await this._waitForStableDimensions();
         }
         if (adjustWidth && (location === 'left' || location === 'right')) {
+            if (previousLocation && previousLocation !== location) {
+                await this._sleep(80);
+            }
             await this._waitForStableDimensions();
             await this._ensureTargetWidth(location, this._getTargetWidth());
             await this._waitForStableDimensions();
@@ -452,6 +464,7 @@ class StataPseudoTerminal {
             const stepDelay = initialGap > 0
                 ? DIMENSION_SETTLE_DELAY_MS
                 : PREVIEW_SHRINK_STEP_DELAY_MS;
+            let stagnantSteps = 0;
 
             for (let index = 0; index < MAX_HEIGHT_RESIZE_STEPS; index++) {
                 const gap = targetHeight - rows;
@@ -463,10 +476,23 @@ class StataPseudoTerminal {
                 await this._sleep(stepDelay);
 
                 const nextRows = await this._waitForStableRows();
-                if (!nextRows || !Number.isFinite(nextRows) || nextRows === rows) {
-                    break;
+                if (!nextRows || !Number.isFinite(nextRows)) {
+                    stagnantSteps += 1;
+                    if (stagnantSteps >= MAX_RESIZE_STAGNANT_STEPS) {
+                        break;
+                    }
+                    continue;
                 }
 
+                if (nextRows === rows) {
+                    stagnantSteps += 1;
+                    if (stagnantSteps >= MAX_RESIZE_STAGNANT_STEPS) {
+                        break;
+                    }
+                    continue;
+                }
+
+                stagnantSteps = 0;
                 rows = nextRows;
 
                 if ((initialGap > 0 && rows >= targetHeight) || (initialGap < 0 && rows <= targetHeight)) {
@@ -518,6 +544,7 @@ class StataPseudoTerminal {
             const command = initialGap > 0
                 ? 'workbench.action.increaseViewSize'
                 : 'workbench.action.decreaseViewSize';
+            let stagnantSteps = 0;
 
             for (let index = 0; index < MAX_WIDTH_RESIZE_STEPS; index++) {
                 const gap = targetWidth - columns;
@@ -529,10 +556,23 @@ class StataPseudoTerminal {
                 await this._sleep(DIMENSION_SETTLE_DELAY_MS);
 
                 const nextColumns = await this._waitForStableDimensions();
-                if (!nextColumns || !Number.isFinite(nextColumns) || nextColumns === columns) {
-                    break;
+                if (!nextColumns || !Number.isFinite(nextColumns)) {
+                    stagnantSteps += 1;
+                    if (stagnantSteps >= MAX_RESIZE_STAGNANT_STEPS) {
+                        break;
+                    }
+                    continue;
                 }
 
+                if (nextColumns === columns) {
+                    stagnantSteps += 1;
+                    if (stagnantSteps >= MAX_RESIZE_STAGNANT_STEPS) {
+                        break;
+                    }
+                    continue;
+                }
+
+                stagnantSteps = 0;
                 columns = nextColumns;
 
                 if ((initialGap > 0 && columns >= targetWidth) || (initialGap < 0 && columns <= targetWidth)) {
