@@ -142,6 +142,13 @@ class StataPseudoTerminal {
         return terminal;
     }
 
+    async reveal() {
+        const terminal = this.getOrCreateTerminal();
+        terminal.show();
+        await this._scrollToBottom();
+        return terminal;
+    }
+
     async showPreviewOnFileOpen() {
         if (this._previewInitialized) {
             return this.getOrCreateTerminal();
