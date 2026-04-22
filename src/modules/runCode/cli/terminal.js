@@ -9,8 +9,8 @@ const STATA_CLI_TERMINAL_NAME = 'Stata CLI';
 const DIMENSION_SETTLE_DELAY_MS = 35;
 const DIMENSION_STABLE_SAMPLE_COUNT = 3;
 const MAX_DIMENSION_SETTLE_ATTEMPTS = 24;
-const MAX_VIEW_RESIZE_STEPS = 12;
-const TARGET_WIDTH_STEP_SIZE = 8;
+const MAX_VIEW_RESIZE_STEPS = 16;
+const TARGET_WIDTH_TOLERANCE = 1;
 const ASCII_LOGO_DIR = path.resolve(__dirname, '../../../../ascii_logo');
 
 let ASCII_LOGO_CACHE = null;
@@ -359,7 +359,7 @@ class StataPseudoTerminal {
     }
 
     _getPromotionThreshold() {
-        return this._getTargetWidth() * 2;
+        return Math.ceil(this._getTargetWidth() * 1.8);
     }
 
     async _showAtLocation(terminal, location, adjustWidth) {
@@ -402,30 +402,41 @@ class StataPseudoTerminal {
             return;
         }
 
-        const columns = await this._waitForStableDimensions();
+        let columns = await this._waitForStableDimensions();
         if (!columns || !Number.isFinite(columns)) {
             return;
         }
 
-        const gap = targetWidth - columns;
-        if (gap === 0) {
+        if (Math.abs(targetWidth - columns) <= TARGET_WIDTH_TOLERANCE) {
             return;
         }
 
-        const command = gap > 0
-            ? 'workbench.action.increaseViewSize'
-            : 'workbench.action.decreaseViewSize';
-        const steps = Math.min(
-            MAX_VIEW_RESIZE_STEPS,
-            Math.max(1, Math.ceil(Math.abs(gap) / TARGET_WIDTH_STEP_SIZE))
-        );
-
         try {
-            for (let index = 0; index < steps; index++) {
+            const initialGap = targetWidth - columns;
+            const command = initialGap > 0
+                ? 'workbench.action.increaseViewSize'
+                : 'workbench.action.decreaseViewSize';
+
+            for (let index = 0; index < MAX_VIEW_RESIZE_STEPS; index++) {
+                const gap = targetWidth - columns;
+                if (Math.abs(gap) <= TARGET_WIDTH_TOLERANCE) {
+                    break;
+                }
+
                 await vscode.commands.executeCommand(command);
+                await this._sleep(DIMENSION_SETTLE_DELAY_MS);
+
+                const nextColumns = await this._waitForStableDimensions();
+                if (!nextColumns || !Number.isFinite(nextColumns) || nextColumns === columns) {
+                    break;
+                }
+
+                columns = nextColumns;
+
+                if ((initialGap > 0 && columns >= targetWidth) || (initialGap < 0 && columns <= targetWidth)) {
+                    break;
+                }
             }
-            await this._sleep(DIMENSION_SETTLE_DELAY_MS);
-            await this._waitForStableDimensions();
         } catch (_) {}
     }
 

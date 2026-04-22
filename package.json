@@ -127,7 +127,7 @@
           },
         "stata-all-in-one.cliTerminalMaxWidth": {
             "type": "number",
-            "default": 90,
+            "default": 67,
             "minimum": 40,
             "markdownDescription": "%config.cliTerminalMaxWidth.description%"
           },

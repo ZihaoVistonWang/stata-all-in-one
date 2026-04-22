@@ -117,9 +117,9 @@ const getCliTerminalLocation = () => getConfigValue('cliTerminalLocation', 'righ
  * Get preferred CLI terminal max width in characters
  */
 const getCliTerminalMaxWidth = () => {
-    const width = getConfigValue('cliTerminalMaxWidth', 90);
+    const width = getConfigValue('cliTerminalMaxWidth', 67);
     if (typeof width !== 'number' || !isFinite(width) || width < 40) {
-        return 90;
+        return 67;
     }
     return Math.floor(width);
 };
