@@ -180,7 +180,7 @@ class StataPseudoTerminal {
 
         if (!this._previewMode) {
             const terminal = this.getOrCreateTerminal();
-            await this._showAtLocation(terminal, preferredLocation, true);
+            await this._showAtLocation(terminal, preferredLocation, this._shouldAdjustSideWidth(preferredLocation));
             await this._showAsciiLogo();
             return terminal;
         }
@@ -360,6 +360,23 @@ class StataPseudoTerminal {
 
     _getPromotionThreshold() {
         return Math.ceil(this._getTargetWidth() * 1.8);
+    }
+
+    _shouldAdjustSideWidth(location) {
+        if (location !== 'left' && location !== 'right') {
+            return false;
+        }
+
+        if (this._currentLocation !== location) {
+            return true;
+        }
+
+        const width = this.getWidth();
+        if (!width || !Number.isFinite(width)) {
+            return true;
+        }
+
+        return width < this._getTargetWidth() - TARGET_WIDTH_TOLERANCE;
     }
 
     async _showAtLocation(terminal, location, adjustWidth) {
