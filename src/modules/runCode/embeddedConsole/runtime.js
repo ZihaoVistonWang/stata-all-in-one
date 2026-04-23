@@ -1,6 +1,6 @@
 /**
- * macOS Webview Stata Runner
- * 使用 Stata 会话执行代码，并通过 Webview 显示输出
+ * macOS Embedded Console Runner
+ * 使用 Stata 会话执行代码，并通过 Stata All in One Console 显示输出
  */
 
 const vscode = require('vscode');
@@ -28,7 +28,7 @@ function getOrCreateStatusBarItem() {
 
     if (!_statusBarItem) {
         _statusBarItem = vscode.window.createStatusBarItem(desiredAlignment, 100);
-        _statusBarItem.name = 'Stata Webview Status';
+        _statusBarItem.name = 'Stata All in One Console Status';
         _statusBarItem.command = 'workbench.action.focusSecondEditorGroup';
         _statusBarAlignment = desiredAlignment;
     }
@@ -38,8 +38,8 @@ function getOrCreateStatusBarItem() {
 
 function showCliRunningStatus() {
     const item = getOrCreateStatusBarItem();
-    item.text = '$(loading~spin) Stata running';
-    item.tooltip = 'Stata is executing code in the webview terminal';
+    item.text = '$(loading~spin) Stata All in One Console is running';
+    item.tooltip = 'Stata is executing code in Stata All in One Console';
     item.command = 'workbench.action.focusSecondEditorGroup';
     item.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
     item.color = new vscode.ThemeColor('statusBarItem.errorForeground');
@@ -225,7 +225,7 @@ async function ensureCliSession(context) {
 }
 
 /**
- * Run code on macOS via Webview-backed session
+ * Run code on macOS via Embedded Console-backed session
  * @param {string} codeToRun - The code to execute
  * @param {string} tmpFilePath - Path to temporary file (unused in webview mode)
  * @param {string|null} docDir - Directory of the do file

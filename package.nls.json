@@ -12,7 +12,7 @@
   "config.closeStataOtherWindowsBeforeSendingCode.description": "**[Windows]** When running code, close Stata other windows (such as Viewer/Data Editor) before sending commands.",
     "config.enableCtrlShiftD.description": "Enable `Ctrl/Cmd+Shift+D` as the run code shortcut (instead of the default `Ctrl/Cmd+D`).",
   "config.cdToDoFileDir.description": "Whether to automatically `cd` to the do file's directory when Stata is first launched. If disabled, Stata's working directory is not changed on startup.",
-  "config.runMode.description": "Choose how Stata code is executed and displayed. `GUI` runs via the Stata app, and `Webview` shows output in the dedicated right-side Stata terminal.",
+  "config.runMode.description": "Choose how Stata code is executed. `External App` sends code to the external Stata application installed on your system. `Embedded Console` runs code through the built-in Stata All in One Console on the right side of VS Code, where you can view output and interact directly.",
   "config.showActionButtons.description": "Whether to show the Bug report and Sponsor buttons in the editor title bar.",
   "command.reportBug.title": "Stata All in One: Report Bug",
   "command.reportBug.short": "Bug",

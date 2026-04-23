@@ -9,17 +9,17 @@ const { registerSeparatorCommands } = require('./modules/separator');
 const { registerCommentCommand, toggleComment } = require('./modules/comment');
 const { registerExecuteCommand } = require('./modules/runCode/execute');
 const { runArbitraryCode } = require('./modules/runCode/execute');
-const { stopCliExecution, forceShutdownCliSession } = require('./modules/runCode/webview/runtime');
-const { setWebviewCommandHandler } = require('./modules/runCode/webview/panel');
+const { stopCliExecution, forceShutdownCliSession } = require('./modules/runCode/embeddedConsole/runtime');
+const { setWebviewCommandHandler } = require('./modules/runCode/embeddedConsole/panel');
 const { registerCustomCommandHighlight } = require('./modules/customCommandHighlight');
 const { registerCompletionProvider } = require('./modules/completionProvider');
 const { registerHelpCommand } = require('./modules/helpCommand');
 const { registerLineBreakCommand } = require('./modules/lineBreak');
 const { registerRenameProvider } = require('./modules/renameProvider');
 const { registerUpdateCheck } = require('./modules/updateNotification');
-const { findStataApp } = require('./modules/runCode/gui/mac');
-const { syncCliTerminalTheme } = require('./modules/runCode/webview/renderer');
-const { prewarmCliTextmateTokenizer } = require('./modules/runCode/webview/textmateTokenizer');
+const { findStataApp } = require('./modules/runCode/externalApp/mac');
+const { syncCliTerminalTheme } = require('./modules/runCode/embeddedConsole/renderer');
+const { prewarmCliTextmateTokenizer } = require('./modules/runCode/embeddedConsole/textmateTokenizer');
 const { isMacOS, showInfo, showWarn, msg } = require('./utils/common');
 const config = require('./utils/config');
 
@@ -305,11 +305,11 @@ function activate(context) {
     );
     console.log('Stata All in One: Custom rename command registered');
 
-    // Register run code command (uses dispatch layer for Webview/GUI routing)
+    // Register run code command (uses dispatch layer for Embedded Console/External App routing)
     registerExecuteCommand(context);
     setWebviewCommandHandler(async (code) => {
         await runArbitraryCode(context, code, {
-            outputMode: config.RUN_MODES.webview
+            outputMode: config.RUN_MODES.embeddedConsole
         });
     });
 

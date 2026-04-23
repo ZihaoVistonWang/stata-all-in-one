@@ -1,8 +1,8 @@
 /**
  * Execute Dispatcher Module
- * 代码执行调度层 - 在 Webview 和 GUI 之间路由
+ * 代码执行调度层 - 在 Embedded Console 和 External App 之间路由
  * 
- * Wave 2 实现：创建统一接口，检查 Webview 可用性并路由
+ * Wave 2 实现：创建统一接口，检查 Embedded Console 可用性并路由
  */
 
 const vscode = require('vscode');
@@ -13,12 +13,12 @@ const path = require('path');
 const { isWindows, isMacOS, showError, stripSurroundingQuotes, msg } = require('../../../utils/common');
 const config = require('../../../utils/config');
 
-// GUI 执行函数导入
-const { runOnMac } = require('../gui/mac');
-const { runOnWindows } = require('../gui/windows');
+// External App 执行函数导入
+const { runOnMac } = require('../externalApp/mac');
+const { runOnWindows } = require('../externalApp/windows');
 
-// Webview 执行函数导入
-const { runOnMacWebview } = require('../webview/runtime');
+// Embedded Console 执行函数导入
+const { runOnMacWebview } = require('../embeddedConsole/runtime');
 
 // 临时文件处理
 const { generateTempDoFile, cleanupTempFile } = require('./tempfile');
@@ -113,7 +113,7 @@ function getCodeToRun(editor) {
 
 /**
  * 主调度函数：运行当前节/行/选区
- * 检查 Webview 可用性，路由到 Webview 或 GUI 执行路径
+ * 检查 Embedded Console 可用性，路由到 Embedded Console 或 External App 执行路径
  * 
  * @param {vscode.ExtensionContext} context - VS Code 扩展上下文
  * @param {vscode.TextEditor} editor - VS Code 文本编辑器（可选，默认使用 activeTextEditor）
@@ -150,23 +150,23 @@ async function runCurrentSection(context, editor = null) {
     // 获取文档目录
     const docDir = path.dirname(document.fileName);
     
-    // 创建临时文件路径（用于 GUI 模式）
+    // 创建临时文件路径（用于 External App 模式）
     const tmpFilePath = path.join(docDir, 'stata_all_in_one_temp.do');
     
     try {
         // === 调度逻辑 ===
         
         if (onWindows) {
-            if (runMode !== config.RUN_MODES.gui) {
+            if (runMode !== config.RUN_MODES.externalApp) {
                 vscode.window.showWarningMessage(msg('runModeUnsupportedOnWindows', {
-                    mode: 'Webview'
+                    mode: 'Embedded Console'
                 }));
             }
 
             runOnWindows(codeToRun, tmpFilePath, stataPathOnWindows, docDir);
             vscode.commands.executeCommand('setContext', 'stata-all-in-one.cliSessionActive', false);
         } else if (onMac) {
-            if (runMode === config.RUN_MODES.gui) {
+            if (runMode === config.RUN_MODES.externalApp) {
                 runOnMac(codeToRun, tmpFilePath, false, docDir, context);
                 vscode.commands.executeCommand('setContext', 'stata-all-in-one.cliSessionActive', false);
             } else {
@@ -175,7 +175,7 @@ async function runCurrentSection(context, editor = null) {
                 if (cliResult.success) {
                     vscode.commands.executeCommand('setContext', 'stata-all-in-one.cliSessionActive', true);
                 } else if (cliResult.shouldOfferGuiFallback) {
-                    await maybeOfferGuiFallback(codeToRun, tmpFilePath, docDir, context, cliResult.message || 'Webview 执行失败');
+                    await maybeOfferGuiFallback(codeToRun, tmpFilePath, docDir, context, cliResult.message || 'Embedded Console 执行失败');
                     vscode.commands.executeCommand('setContext', 'stata-all-in-one.cliSessionActive', false);
                 } else {
                     vscode.commands.executeCommand('setContext', 'stata-all-in-one.cliSessionActive', true);
@@ -283,9 +283,9 @@ async function runArbitraryCode(context, code, options = {}) {
 
     try {
         if (onWindows) {
-            if (runMode !== config.RUN_MODES.gui) {
+            if (runMode !== config.RUN_MODES.externalApp) {
                 vscode.window.showWarningMessage(msg('runModeUnsupportedOnWindows', {
-                    mode: 'Webview'
+                    mode: 'Embedded Console'
                 }));
             }
             runOnWindows(normalizedCode, tmpFilePath, stataPathOnWindows, docDir);
@@ -293,7 +293,7 @@ async function runArbitraryCode(context, code, options = {}) {
             return { success: true };
         }
 
-        if (runMode === config.RUN_MODES.gui) {
+        if (runMode === config.RUN_MODES.externalApp) {
             runOnMac(normalizedCode, tmpFilePath, false, docDir, context);
             await vscode.commands.executeCommand('setContext', 'stata-all-in-one.cliSessionActive', false);
             return { success: true };
@@ -306,7 +306,7 @@ async function runArbitraryCode(context, code, options = {}) {
             return cliResult;
         }
         if (cliResult.shouldOfferGuiFallback) {
-            await maybeOfferGuiFallback(normalizedCode, tmpFilePath, docDir, context, cliResult.message || 'Webview 执行失败');
+            await maybeOfferGuiFallback(normalizedCode, tmpFilePath, docDir, context, cliResult.message || 'Embedded Console 执行失败');
             await vscode.commands.executeCommand('setContext', 'stata-all-in-one.cliSessionActive', false);
         }
         return cliResult;

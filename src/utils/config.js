@@ -2,8 +2,8 @@ const vscode = require('vscode');
 
 const CONFIG_NAMESPACE = 'stata-all-in-one';
 const RUN_MODES = Object.freeze({
-    gui: 'gui',
-    webview: 'webview'
+    externalApp: 'externalApp',
+    embeddedConsole: 'embeddedConsole'
 });
 
 /**
@@ -116,8 +116,8 @@ const getCdToDoFileDir = () => getConfigValue('cdToDoFileDir', false);
  * Get preferred code execution mode
  */
 const getRunMode = () => {
-    const mode = String(getConfigValue('runMode', RUN_MODES.webview) || '').trim().toLowerCase();
-    return Object.values(RUN_MODES).includes(mode) ? mode : RUN_MODES.webview;
+    const mode = String(getConfigValue('runMode', RUN_MODES.embeddedConsole) || '').trim();
+    return Object.values(RUN_MODES).includes(mode) ? mode : RUN_MODES.embeddedConsole;
 };
 
 module.exports = {

@@ -43,7 +43,7 @@ function ensurePanel() {
             try {
                 await _commandHandler(String(message.code || ''));
             } catch (error) {
-                console.error('Stata All in One: Webview input execution failed:', error.message);
+                console.error('Stata All in One: Embedded Console input execution failed:', error.message);
             }
         }
     });
