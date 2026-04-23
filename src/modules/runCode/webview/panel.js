@@ -7,6 +7,7 @@ const PANEL_VIEW_TYPE = 'stata-all-in-one.webviewTerminal';
 let _panel = null;
 let _history = [];
 let _status = 'idle';
+let _commandHandler = null;
 
 function getPanelTitle() {
     return msg('webviewPanelTitle');
@@ -35,9 +36,15 @@ function ensurePanel() {
     _panel.onDidDispose(() => {
         _panel = null;
     });
-    _panel.webview.onDidReceiveMessage((message) => {
+    _panel.webview.onDidReceiveMessage(async (message) => {
         if (message && message.type === 'ready') {
             postState();
+        } else if (message && message.type === 'executeInput' && typeof _commandHandler === 'function') {
+            try {
+                await _commandHandler(String(message.code || ''));
+            } catch (error) {
+                console.error('Stata All in One: Webview input execution failed:', error.message);
+            }
         }
     });
 
@@ -163,15 +170,18 @@ class WebviewTerminalSink {
             return;
         }
         appendEntries(normalized.split('\n').map(line => ({
-            kind: 'raw',
+            kind: /^[.]+$/.test(line)
+                ? 'raw-progress'
+                : (/^>\s?$/.test(line) ? 'raw-prompt' : 'raw'),
             segments: line
                 ? [{
                     text: line,
-                    className: '',
+                    tokenType: /^>\s?$/.test(line) ? 'prompt' : 'plain',
+                    className: /^>\s?$/.test(line) ? 'tok tok-prompt is-bold' : 'tok tok-plain',
                     style: {
                         color: null,
                         backgroundColor: null,
-                        bold: false,
+                        bold: /^>\s?$/.test(line),
                         italic: false,
                         dim: false
                     }
@@ -198,6 +208,10 @@ class WebviewTerminalSink {
 
 function getWebviewTerminalSink() {
     return new WebviewTerminalSink();
+}
+
+function setWebviewCommandHandler(handler) {
+    _commandHandler = typeof handler === 'function' ? handler : null;
 }
 
 function getWebviewHtml() {
@@ -372,6 +386,56 @@ function getWebviewHtml() {
         .line-blank {
             min-height: 0.8em;
         }
+        .line-raw-progress {
+            color: var(--stata-comment);
+        }
+        .line-raw-prompt {
+            color: var(--stata-prompt);
+        }
+        .composer {
+            border-top: 1px solid var(--vscode-panel-border);
+            background: color-mix(in srgb, var(--vscode-editor-background) 92%, var(--vscode-sideBar-background));
+            padding: 10px 12px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .composer-label {
+            font-size: 11px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--vscode-descriptionForeground);
+            font-weight: 700;
+        }
+        #input {
+            width: 100%;
+            min-height: 72px;
+            max-height: 240px;
+            resize: vertical;
+            box-sizing: border-box;
+            border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
+            background: var(--vscode-input-background);
+            color: var(--vscode-input-foreground);
+            border-radius: 8px;
+            padding: 10px 12px;
+            outline: none;
+            font: inherit;
+            line-height: 1.5;
+        }
+        #input:focus {
+            border-color: var(--vscode-focusBorder);
+        }
+        .composer-meta {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            font-size: 11px;
+            color: var(--vscode-descriptionForeground);
+        }
+        .composer-meta code {
+            font-family: inherit;
+            font-size: inherit;
+        }
     </style>
 </head>
 <body>
@@ -380,12 +444,23 @@ function getWebviewHtml() {
         <div id="status-label" class="label">${escapeHtml(msg('webviewIdle'))}</div>
     </div>
     <div id="output"><div id="placeholder">${escapeHtml(msg('webviewWaiting'))}</div></div>
+    <div class="composer">
+        <div class="composer-label">Stata Input</div>
+        <textarea id="input" spellcheck="false" placeholder=". regress y x1 x2"></textarea>
+        <div class="composer-meta">
+            <span><code>Enter</code> run, <code>Shift+Enter</code> newline</span>
+            <span><code>Up/Down</code> history</span>
+        </div>
+    </div>
     <script nonce="${nonce}">
         const vscode = acquireVsCodeApi();
         const output = document.getElementById('output');
         const placeholder = document.getElementById('placeholder');
         const dot = document.getElementById('status-dot');
         const label = document.getElementById('status-label');
+        const input = document.getElementById('input');
+        const inputHistory = [];
+        let historyIndex = -1;
 
         const STATUS_LABELS = {
             idle: ${JSON.stringify(msg('webviewIdle'))},
@@ -396,6 +471,7 @@ function getWebviewHtml() {
         function setStatus(status) {
             dot.className = 'dot ' + (status || 'idle');
             label.textContent = STATUS_LABELS[status] || STATUS_LABELS.idle;
+            input.disabled = status === 'running';
         }
 
         function ensurePlaceholderVisibility() {
@@ -452,6 +528,72 @@ function getWebviewHtml() {
             return fragment;
         }
 
+        function pushHistory(code) {
+            const normalized = String(code || '').trim();
+            if (!normalized) {
+                return;
+            }
+            if (inputHistory[0] !== normalized) {
+                inputHistory.unshift(normalized);
+            }
+            if (inputHistory.length > 100) {
+                inputHistory.length = 100;
+            }
+            historyIndex = -1;
+        }
+
+        function replaceInputFromHistory(direction) {
+            if (!inputHistory.length) {
+                return;
+            }
+            if (direction < 0) {
+                historyIndex = Math.min(historyIndex + 1, inputHistory.length - 1);
+            } else if (historyIndex > -1) {
+                historyIndex -= 1;
+            }
+
+            if (historyIndex === -1) {
+                input.value = '';
+                return;
+            }
+
+            input.value = inputHistory[historyIndex] || '';
+            input.selectionStart = input.value.length;
+            input.selectionEnd = input.value.length;
+        }
+
+        function executeInput() {
+            const code = String(input.value || '');
+            if (!code.trim() || input.disabled) {
+                return;
+            }
+            pushHistory(code);
+            vscode.postMessage({
+                type: 'executeInput',
+                code
+            });
+            input.value = '';
+        }
+
+        input.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                executeInput();
+                return;
+            }
+
+            if (event.key === 'ArrowUp' && input.selectionStart === 0 && input.selectionEnd === 0) {
+                event.preventDefault();
+                replaceInputFromHistory(-1);
+                return;
+            }
+
+            if (event.key === 'ArrowDown' && input.selectionStart === input.value.length && input.selectionEnd === input.value.length) {
+                event.preventDefault();
+                replaceInputFromHistory(1);
+            }
+        });
+
         window.addEventListener('message', event => {
             const message = event.data || {};
             if (message.type === 'append') {
@@ -484,6 +626,7 @@ function escapeHtml(text) {
 module.exports = {
     revealWebviewTerminalPanel: revealPanel,
     getWebviewTerminalSink,
+    setWebviewCommandHandler,
     clearWebviewTerminalPanel: clearPanel,
     setWebviewTerminalStatus: setStatus
 };
