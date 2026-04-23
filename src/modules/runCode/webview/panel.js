@@ -1,5 +1,5 @@
 const vscode = require('vscode');
-const { StataTerminalRenderer } = require('../cli/renderer');
+const { StataTerminalRenderer, getWebviewThemeVariables } = require('../cli/renderer');
 const { msg } = require('../../../utils/common');
 
 const PANEL_VIEW_TYPE = 'stata-all-in-one.webviewTerminal';
@@ -52,7 +52,7 @@ function postState() {
     _panel.webview.postMessage({
         type: 'reset',
         status: _status,
-        chunks: _history
+        entries: _history
     });
 }
 
@@ -73,13 +73,13 @@ function setStatus(status) {
     }
 }
 
-function appendAnsiChunk(chunk) {
-    const normalized = String(chunk || '');
-    if (!normalized) {
+function appendEntries(entries) {
+    const normalized = Array.isArray(entries) ? entries.filter(Boolean) : [];
+    if (!normalized.length) {
         return;
     }
 
-    _history.push(normalized);
+    _history.push(...normalized);
     if (_history.length > 1200) {
         _history = _history.slice(-1200);
     }
@@ -87,7 +87,7 @@ function appendAnsiChunk(chunk) {
     if (_panel) {
         _panel.webview.postMessage({
             type: 'append',
-            chunk: normalized
+            entries: normalized
         });
     }
 }
@@ -117,60 +117,79 @@ class WebviewTerminalSink {
     }
 
     writeCommand(command) {
-        appendAnsiChunk(this._renderer.renderCommand(command, this._width));
+        appendEntries(this._renderer.renderCommandSegments(command, this._width));
     }
 
     writeOutputChunk(text) {
-        const rendered = this._renderer.renderOutputChunk(text, this._width);
-        if (rendered) {
-            appendAnsiChunk(rendered);
+        const rendered = this._renderer.renderOutputChunkSegments(text, this._width);
+        if (rendered.length) {
+            appendEntries(rendered);
         }
     }
 
     writeError(text) {
         setStatus('error');
-        appendAnsiChunk(this._renderer.renderError(text));
+        appendEntries(this._renderer.renderErrorSegments(text));
     }
 
     writeWarningMessage(text) {
-        appendAnsiChunk(this._renderer.renderWarningBlock(text));
+        appendEntries(this._renderer.renderWarningBlockSegments(text));
     }
 
     writeAccentBlock(text) {
-        appendAnsiChunk(this._renderer.renderAccentBlock(text));
+        appendEntries(this._renderer.renderAccentBlockSegments(text));
     }
 
     writeCommandAccentBlock(text) {
-        appendAnsiChunk(this._renderer.renderCommandAccentBlock(text));
+        appendEntries(this._renderer.renderAccentBlockSegments(text));
     }
 
     writeFunctionAccentBlock(text) {
-        appendAnsiChunk(this._renderer.renderFunctionAccentBlock(text));
+        appendEntries(this._renderer.renderFunctionAccentBlockSegments(text));
     }
 
     writePrompt() {
-        appendAnsiChunk('. ');
+        appendEntries(this._renderer.renderCommandSegments('', this._width));
     }
 
     writeBreak() {
-        appendAnsiChunk(this._renderer.renderBreakLine());
-        appendAnsiChunk('. ');
+        appendEntries(this._renderer.renderBreakLineSegments());
+        this.writePrompt();
     }
 
     writeRawChunk(text) {
-        appendAnsiChunk(text);
+        const normalized = String(text || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        if (!normalized) {
+            return;
+        }
+        appendEntries(normalized.split('\n').map(line => ({
+            kind: 'raw',
+            segments: line
+                ? [{
+                    text: line,
+                    className: '',
+                    style: {
+                        color: null,
+                        backgroundColor: null,
+                        bold: false,
+                        italic: false,
+                        dim: false
+                    }
+                }]
+                : []
+        })));
     }
 
     flushOutput() {
-        const flushed = this._renderer.flushPendingOutput(this._width);
-        if (flushed) {
-            appendAnsiChunk(flushed);
+        const flushed = this._renderer.flushPendingOutputSegments(this._width);
+        if (flushed.length) {
+            appendEntries(flushed);
         }
     }
 
     writeRunFooter(durationMs) {
         this.flushOutput();
-        appendAnsiChunk(this._renderer.renderRunFooter(durationMs, this._width));
+        appendEntries(this._renderer.renderRunFooterSegments(durationMs, this._width));
         setStatus('idle');
     }
 
@@ -183,6 +202,7 @@ function getWebviewTerminalSink() {
 
 function getWebviewHtml() {
     const nonce = String(Date.now());
+    const themeVars = getWebviewThemeVariables();
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -193,6 +213,25 @@ function getWebviewHtml() {
     <style>
         :root {
             color-scheme: light dark;
+            --stata-prompt: ${themeVars.prompt || 'var(--vscode-descriptionForeground)'};
+            --stata-command: ${themeVars.command || 'var(--vscode-terminal-ansiMagenta)'};
+            --stata-keyword: ${themeVars.keyword || 'var(--vscode-terminal-ansiCyan)'};
+            --stata-string: ${themeVars.string || 'var(--vscode-terminal-ansiYellow)'};
+            --stata-path: ${themeVars.path || 'var(--vscode-terminal-ansiYellow)'};
+            --stata-number: ${themeVars.number || 'var(--vscode-terminal-ansiGreen)'};
+            --stata-comment: ${themeVars.comment || 'var(--vscode-descriptionForeground)'};
+            --stata-function: ${themeVars.function || 'var(--vscode-terminal-ansiBlue)'};
+            --stata-option: ${themeVars.option || 'var(--stata-function)'};
+            --stata-variable: ${themeVars.variable || 'var(--stata-string)'};
+            --stata-macro: ${themeVars.macro || 'var(--stata-variable)'};
+            --stata-operator: ${themeVars.operator || 'var(--vscode-terminal-ansiCyan)'};
+            --stata-plain: ${themeVars.plain || 'var(--vscode-editor-foreground)'};
+            --stata-default: ${themeVars.default || 'var(--vscode-editor-foreground)'};
+            --stata-error: ${themeVars.error || 'var(--vscode-errorForeground)'};
+            --stata-header: ${themeVars.header || 'var(--vscode-textLink-foreground)'};
+            --stata-separator: ${themeVars.separator || 'var(--vscode-panel-border)'};
+            --stata-time: ${themeVars.time || 'var(--vscode-editor-foreground)'};
+            --stata-time-value: ${themeVars.timeValue || 'var(--stata-number)'};
         }
         html, body {
             height: 100%;
@@ -255,8 +294,83 @@ function getWebviewHtml() {
         .line {
             min-height: 1.5em;
         }
-        .dim {
+        .tok {
+            color: var(--stata-default);
+        }
+        .tok-plain,
+        .tok-default {
+            color: var(--stata-plain);
+        }
+        .tok-prompt {
+            color: var(--stata-prompt);
+        }
+        .tok-command {
+            color: var(--stata-command);
+        }
+        .tok-keyword {
+            color: var(--stata-keyword);
+        }
+        .tok-string {
+            color: var(--stata-string);
+        }
+        .tok-path {
+            color: var(--stata-path);
+        }
+        .tok-number {
+            color: var(--stata-number);
+        }
+        .tok-comment {
+            color: var(--stata-comment);
+        }
+        .tok-function {
+            color: var(--stata-function);
+        }
+        .tok-option {
+            color: var(--stata-option);
+        }
+        .tok-variable {
+            color: var(--stata-variable);
+        }
+        .tok-macro {
+            color: var(--stata-macro);
+        }
+        .tok-operator {
+            color: var(--stata-operator);
+        }
+        .tok-error {
+            color: var(--stata-error);
+        }
+        .tok-header {
+            color: var(--stata-header);
+        }
+        .tok-separator {
+            color: var(--stata-separator);
+        }
+        .tok-time {
+            color: var(--stata-time);
+        }
+        .tok-timeValue {
+            color: var(--stata-time-value);
+        }
+        .is-dim {
             opacity: 0.72;
+        }
+        .is-bold {
+            font-weight: 700;
+        }
+        .is-italic {
+            font-style: italic;
+        }
+        .line-error,
+        .line-break,
+        .line-warning {
+            color: var(--stata-error);
+        }
+        .line-footer {
+            margin-top: 0.2rem;
+        }
+        .line-blank {
+            min-height: 0.8em;
         }
     </style>
 </head>
@@ -288,13 +402,13 @@ function getWebviewHtml() {
             placeholder.style.display = output.childElementCount > 1 ? 'none' : '';
         }
 
-        function appendAnsiChunk(chunk) {
-            if (!chunk) {
+        function appendEntries(entries) {
+            if (!Array.isArray(entries) || entries.length === 0) {
                 return;
             }
 
             const shouldStick = output.scrollTop + output.clientHeight >= output.scrollHeight - 24;
-            const fragment = renderAnsiToFragment(chunk);
+            const fragment = renderEntriesToFragment(entries);
             output.appendChild(fragment);
             ensurePlaceholderVisibility();
             if (shouldStick) {
@@ -302,170 +416,53 @@ function getWebviewHtml() {
             }
         }
 
-        function resetOutput(chunks) {
+        function resetOutput(entries) {
             while (output.firstChild) {
                 output.removeChild(output.firstChild);
             }
             output.appendChild(placeholder);
-            for (const chunk of chunks || []) {
-                appendAnsiChunk(chunk);
-            }
+            appendEntries(entries || []);
             ensurePlaceholderVisibility();
         }
 
-        function renderAnsiToFragment(text) {
+        function renderEntriesToFragment(entries) {
             const fragment = document.createDocumentFragment();
-            const normalized = String(text || '').replace(/\\r\\n/g, '\\n').replace(/\\r/g, '\\n');
-            let line = document.createElement('div');
-            line.className = 'line';
-            fragment.appendChild(line);
-
-            let style = createDefaultStyle();
-            const ansiRegex = /\\x1b\\[([0-9;]*)m/g;
-            let lastIndex = 0;
-            let match;
-
-            while ((match = ansiRegex.exec(normalized)) !== null) {
-                if (match.index > lastIndex) {
-                    appendText(line, normalized.slice(lastIndex, match.index), style, fragment);
-                    line = getCurrentLine(fragment);
-                }
-                style = applyAnsiCodes(style, match[1]);
-                lastIndex = ansiRegex.lastIndex;
-            }
-
-            if (lastIndex < normalized.length) {
-                appendText(line, normalized.slice(lastIndex), style, fragment);
-            }
-
-            return fragment;
-        }
-
-        function appendText(line, text, style, fragment) {
-            const parts = String(text).split('\\n');
-            for (let index = 0; index < parts.length; index++) {
-                const part = parts[index];
-                if (part) {
+            for (const entry of entries) {
+                const line = document.createElement('div');
+                line.className = 'line line-' + String((entry && entry.kind) || 'default');
+                const segments = Array.isArray(entry && entry.segments) ? entry.segments : [];
+                for (const segment of segments) {
                     const span = document.createElement('span');
+                    const className = String(segment && segment.className || '').trim();
+                    if (className) {
+                        span.className = className;
+                    }
+                    const style = segment && segment.style || {};
                     if (style.color) {
                         span.style.color = style.color;
                     }
                     if (style.backgroundColor) {
                         span.style.backgroundColor = style.backgroundColor;
                     }
-                    if (style.bold) {
-                        span.style.fontWeight = '700';
-                    }
-                    if (style.italic) {
-                        span.style.fontStyle = 'italic';
-                    }
-                    if (style.dim) {
-                        span.classList.add('dim');
-                    }
-                    span.textContent = part;
+                    span.textContent = String(segment && segment.text || '');
                     line.appendChild(span);
                 }
-                if (index < parts.length - 1) {
-                    line = document.createElement('div');
-                    line.className = 'line';
-                    fragment.appendChild(line);
-                }
+                fragment.appendChild(line);
             }
+            return fragment;
         }
-
-        function getCurrentLine(fragment) {
-            return fragment.lastChild;
-        }
-
-        function createDefaultStyle() {
-            return {
-                color: '',
-                backgroundColor: '',
-                bold: false,
-                italic: false,
-                dim: false
-            };
-        }
-
-        function applyAnsiCodes(currentStyle, codes) {
-            const nextStyle = { ...currentStyle };
-            const values = (codes || '0').split(';').filter(Boolean).map(value => Number.parseInt(value, 10));
-            if (!values.length) {
-                return createDefaultStyle();
-            }
-
-            for (let index = 0; index < values.length; index++) {
-                const code = values[index];
-                if (code === 0) {
-                    Object.assign(nextStyle, createDefaultStyle());
-                } else if (code === 1) {
-                    nextStyle.bold = true;
-                } else if (code === 2) {
-                    nextStyle.dim = true;
-                } else if (code === 3) {
-                    nextStyle.italic = true;
-                } else if (code === 22) {
-                    nextStyle.bold = false;
-                    nextStyle.dim = false;
-                } else if (code === 23) {
-                    nextStyle.italic = false;
-                } else if (code === 39) {
-                    nextStyle.color = '';
-                } else if (code === 49) {
-                    nextStyle.backgroundColor = '';
-                } else if (code === 38 && values[index + 1] === 2) {
-                    nextStyle.color = rgbString(values[index + 2], values[index + 3], values[index + 4]);
-                    index += 4;
-                } else if (code === 48 && values[index + 1] === 2) {
-                    nextStyle.backgroundColor = rgbString(values[index + 2], values[index + 3], values[index + 4]);
-                    index += 4;
-                } else if (code >= 30 && code <= 37) {
-                    nextStyle.color = ANSI_PALETTE[code] || '';
-                } else if (code >= 90 && code <= 97) {
-                    nextStyle.color = ANSI_PALETTE[code] || '';
-                }
-            }
-
-            return nextStyle;
-        }
-
-        function rgbString(r, g, b) {
-            if ([r, g, b].some(value => !Number.isFinite(value))) {
-                return '';
-            }
-            return 'rgb(' + r + ', ' + g + ', ' + b + ')';
-        }
-
-        const ANSI_PALETTE = {
-            30: '#000000',
-            31: '#cd3131',
-            32: '#0dbc79',
-            33: '#e5e510',
-            34: '#2472c8',
-            35: '#bc3fbc',
-            36: '#11a8cd',
-            37: '#e5e5e5',
-            90: '#666666',
-            91: '#f14c4c',
-            92: '#23d18b',
-            93: '#f5f543',
-            94: '#3b8eea',
-            95: '#d670d6',
-            96: '#29b8db',
-            97: '#ffffff'
-        };
 
         window.addEventListener('message', event => {
             const message = event.data || {};
             if (message.type === 'append') {
-                appendAnsiChunk(message.chunk);
+                appendEntries(message.entries || []);
             } else if (message.type === 'status') {
                 setStatus(message.status);
             } else if (message.type === 'clear') {
                 resetOutput([]);
             } else if (message.type === 'reset') {
                 setStatus(message.status);
-                resetOutput(message.chunks || []);
+                resetOutput(message.entries || []);
             }
         });
 

@@ -422,6 +422,30 @@ function syncCliTerminalTheme() {
     }
 }
 
+function getWebviewThemeVariables() {
+    return {
+        prompt: CURRENT_THEME_SLOT_MAP.prompt || DEFAULT_SLOT_MAP.prompt,
+        command: CURRENT_THEME_SLOT_MAP.command || DEFAULT_SLOT_MAP.command,
+        keyword: CURRENT_THEME_SLOT_MAP.keyword || DEFAULT_SLOT_MAP.keyword,
+        string: CURRENT_THEME_SLOT_MAP.string || DEFAULT_SLOT_MAP.string,
+        path: CURRENT_THEME_SLOT_MAP.path || DEFAULT_SLOT_MAP.path,
+        number: CURRENT_THEME_SLOT_MAP.number || DEFAULT_SLOT_MAP.number,
+        comment: CURRENT_THEME_SLOT_MAP.comment || DEFAULT_SLOT_MAP.comment,
+        function: CURRENT_THEME_SLOT_MAP.function || DEFAULT_SLOT_MAP.function,
+        option: CURRENT_THEME_SLOT_MAP.option || DEFAULT_SLOT_MAP.option,
+        variable: CURRENT_THEME_SLOT_MAP.variable || DEFAULT_SLOT_MAP.variable,
+        macro: CURRENT_THEME_SLOT_MAP.macro || DEFAULT_SLOT_MAP.macro,
+        operator: CURRENT_THEME_SLOT_MAP.operator || DEFAULT_SLOT_MAP.operator,
+        plain: CURRENT_THEME_SLOT_MAP.default || DEFAULT_SLOT_MAP.default,
+        default: CURRENT_THEME_SLOT_MAP.default || DEFAULT_SLOT_MAP.default,
+        error: CURRENT_THEME_SLOT_MAP.error || DEFAULT_SLOT_MAP.error,
+        header: CURRENT_THEME_SLOT_MAP.header || DEFAULT_SLOT_MAP.header,
+        separator: CURRENT_THEME_SLOT_MAP.separator || DEFAULT_SLOT_MAP.separator,
+        time: CURRENT_THEME_SLOT_MAP.time || DEFAULT_SLOT_MAP.time,
+        timeValue: CURRENT_THEME_SLOT_MAP.timeValue || DEFAULT_SLOT_MAP.timeValue
+    };
+}
+
 function formatDuration(durationMs) {
     if (!Number.isFinite(durationMs) || durationMs < 0) {
         return '0.0s';
@@ -496,6 +520,12 @@ class StataTerminalRenderer {
             .join('\n') + '\n';
     }
 
+    renderCommandSegments(command, width) {
+        const normalized = String(command || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        const lines = normalized.split('\n');
+        return lines.map((line, index) => this._segmentCommandLine(`${index === 0 ? '. ' : '> '}${line}`, width));
+    }
+
     renderOutputChunk(text, width) {
         const normalized = String(text || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
         if (!normalized) {
@@ -521,6 +551,33 @@ class StataTerminalRenderer {
         return rendered ? `${rendered}${endsWithNewline ? '\n' : ''}` : '';
     }
 
+    renderOutputChunkSegments(text, width) {
+        const normalized = String(text || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        if (!normalized) {
+            return [];
+        }
+
+        if (!normalized.includes('\n') && !this._pendingLine && /^[.\s>]+$/.test(normalized)) {
+            return [{
+                kind: 'raw',
+                segments: [this._segment(normalized, this._styleForTokenType('plain'))]
+            }];
+        }
+
+        const combined = this._pendingLine + normalized;
+        const endsWithNewline = combined.endsWith('\n');
+        const parts = combined.split('\n');
+
+        if (!endsWithNewline) {
+            this._pendingLine = parts.pop() || '';
+        } else {
+            this._pendingLine = '';
+            parts.pop();
+        }
+
+        return parts.map(line => this._segmentOutputLine(line, width)).filter(Boolean);
+    }
+
     flushPendingOutput(width) {
         if (!this._pendingLine) {
             return '';
@@ -534,13 +591,41 @@ class StataTerminalRenderer {
         return rendered;
     }
 
+    flushPendingOutputSegments(width) {
+        if (!this._pendingLine) {
+            return [];
+        }
+
+        const line = this._pendingLine;
+        this._pendingLine = '';
+        const rendered = this._segmentOutputLine(line, width);
+        this._lastRenderedLineKind = null;
+        this._describeMode = false;
+        return rendered ? [rendered] : [];
+    }
+
     renderError(text) {
         const body = String(text || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').trimEnd();
         return `${paint(`error: ${body}`, { fg: CURRENT_THEME_SLOT_MAP.error, bold: true })}\n${ANSI.reset}`;
     }
 
+    renderErrorSegments(text) {
+        const body = String(text || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').trimEnd();
+        return [{
+            kind: 'error',
+            segments: [this._segment(`error: ${body}`, this._styleForTokenType('error', { bold: true }))]
+        }];
+    }
+
     renderBreakLine() {
         return `${paint('--break--', { fg: CURRENT_THEME_SLOT_MAP.error, bold: true })}\n${ANSI.reset}`;
+    }
+
+    renderBreakLineSegments() {
+        return [{
+            kind: 'break',
+            segments: [this._segment('--break--', this._styleForTokenType('error', { bold: true }))]
+        }];
     }
 
     renderWarningBlock(text) {
@@ -555,6 +640,10 @@ class StataTerminalRenderer {
             .join('\n')}\n`;
     }
 
+    renderWarningBlockSegments(text) {
+        return this._segmentBlock(text, 'warning', this._styleForTokenType('error', { bold: true }));
+    }
+
     renderAccentBlock(text) {
         const normalized = String(text || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
         if (!normalized) {
@@ -565,6 +654,10 @@ class StataTerminalRenderer {
             .split('\n')
             .map(line => `${paint(line, { fg: CURRENT_THEME_SLOT_MAP.command, bold: true })}${ANSI.reset}`)
             .join('\n')}\n`;
+    }
+
+    renderAccentBlockSegments(text) {
+        return this._segmentBlock(text, 'accent', this._styleForTokenType('command', { bold: true }));
     }
 
     renderCommandAccentBlock(text) {
@@ -583,6 +676,10 @@ class StataTerminalRenderer {
             .join('\n')}\n`;
     }
 
+    renderFunctionAccentBlockSegments(text) {
+        return this._segmentBlock(text, 'accent-function', this._styleForTokenType('function', { bold: true }));
+    }
+
     renderRunFooter(durationMs, width) {
         const label = ` Worked for ${formatDuration(durationMs)} `;
         const lineWidth = Math.max(width || 72, label.length + 8);
@@ -590,6 +687,21 @@ class StataTerminalRenderer {
         const rightWidth = Math.max(0, lineWidth - left.length - label.length);
         const separator = `${left}${label}${'─'.repeat(rightWidth)}`;
         return `\n${paint(separator, { fg: CURRENT_THEME_SLOT_MAP.separator })}\n${ANSI.reset}`;
+    }
+
+    renderRunFooterSegments(durationMs, width) {
+        const label = ` Worked for ${formatDuration(durationMs)} `;
+        const lineWidth = Math.max(width || 72, label.length + 8);
+        const left = '─ ';
+        const rightWidth = Math.max(0, lineWidth - left.length - label.length);
+        const separator = `${left}${label}${'─'.repeat(rightWidth)}`;
+        return [
+            { kind: 'blank', segments: [] },
+            {
+                kind: 'footer',
+                segments: [this._segment(separator, this._styleForTokenType('separator'))]
+            }
+        ];
     }
 
     _isSeparatorLine(line) {
@@ -734,6 +846,291 @@ class StataTerminalRenderer {
 
     _renderDescribeHeaderLine(line) {
         return `${paint(line, { fg: CURRENT_THEME_SLOT_MAP.default, bold: true })}${ANSI.reset}`;
+    }
+
+    _segmentOutputLine(line, width) {
+        let lineKind = 'default';
+
+        if (/^[.>]\s+\*{2,}#/.test(line) || /^[.>]\s+\*{2,}\s+/.test(line)) {
+            this._describeMode = false;
+            lineKind = 'comment-command';
+            const rendered = this._segmentCommentCommandLine(line);
+            this._lastRenderedLineKind = lineKind;
+            return rendered;
+        }
+
+        if (/^\s*--break--\s*$/i.test(line)) {
+            this._describeMode = false;
+            lineKind = 'error';
+            const rendered = {
+                kind: lineKind,
+                segments: [this._segment(line, this._styleForTokenType('error', { bold: true }))]
+            };
+            this._lastRenderedLineKind = lineKind;
+            return rendered;
+        }
+
+        if (/^\s*\*\*#/.test(line) || /^\s*\*{2,}\s+/.test(line)) {
+            this._describeMode = false;
+            lineKind = 'comment';
+            const rendered = {
+                kind: lineKind,
+                segments: [this._segment(line, this._styleForTokenType('comment', { italic: true, dim: true }))]
+            };
+            this._lastRenderedLineKind = lineKind;
+            return rendered;
+        }
+
+        if (/^[.>]\s/.test(line)) {
+            this._describeMode = false;
+            lineKind = 'command';
+            const rendered = this._segmentCommandLine(line, width);
+            this._lastRenderedLineKind = lineKind;
+            return rendered;
+        }
+
+        if (/^\s*(error:|r\(\d+\)\s*;?|.*\berror\b.*)$/i.test(line)) {
+            this._describeMode = false;
+            lineKind = 'error';
+            const rendered = {
+                kind: lineKind,
+                segments: [this._segment(line, this._styleForTokenType('error', { bold: true }))]
+            };
+            this._lastRenderedLineKind = lineKind;
+            return rendered;
+        }
+
+        if (this._isDescribeSourceLine(line)) {
+            this._describeMode = true;
+            lineKind = 'describe-source';
+            const rendered = {
+                kind: lineKind,
+                segments: this._segmentInline(line, {
+                    defaultStyle: this._styleForTokenType('default'),
+                    matchers: [
+                        {
+                            regex: /(?:[A-Za-z]:)?(?:\.{0,2}\/)?[^\s]+\.[A-Za-z0-9]+/g,
+                            style: this._styleForTokenType('path', { bold: true })
+                        }
+                    ]
+                })
+            };
+            this._lastRenderedLineKind = lineKind;
+            return rendered;
+        }
+
+        if (this._describeMode && this._isDescribeSummaryLine(line)) {
+            lineKind = 'describe-summary';
+            const rendered = {
+                kind: lineKind,
+                segments: this._segmentInline(line, {
+                    defaultStyle: this._styleForTokenType('default'),
+                    matchers: [
+                        {
+                            regex: /\b(Observations|Variables):/g,
+                            style: this._styleForTokenType('default', { bold: true })
+                        },
+                        {
+                            regex: /\b\d+(?:,\d{3})*(?:\.\d+)?\b/g,
+                            style: this._styleForTokenType('number', { bold: true })
+                        },
+                        {
+                            regex: /\b\d{2}\s+[A-Z][a-z]{2}\s+\d{4}\s+\d{2}:\d{2}\b/g,
+                            style: this._styleForTokenType('number', { bold: true })
+                        }
+                    ]
+                })
+            };
+            this._lastRenderedLineKind = lineKind;
+            return rendered;
+        }
+
+        if (this._describeMode && this._isDescribeHeaderLine(line)) {
+            lineKind = 'describe-header';
+            const rendered = {
+                kind: lineKind,
+                segments: [this._segment(line, this._styleForTokenType('default', { bold: true }))]
+            };
+            this._lastRenderedLineKind = lineKind;
+            return rendered;
+        }
+
+        if (this._isSeparatorLine(line)) {
+            const separatorLine = truncateToWidth(line, width);
+            if (this._describeMode && this._lastRenderedLineKind === 'separator') {
+                return null;
+            }
+            if (this._lastRenderedLineKind === 'separator') {
+                return null;
+            }
+            lineKind = 'separator';
+            const rendered = {
+                kind: lineKind,
+                segments: [this._segment(separatorLine, this._styleForTokenType('separator', { dim: true }))]
+            };
+            this._lastRenderedLineKind = lineKind;
+            return rendered;
+        }
+
+        if (this._isParenNoteLine(line) || /^\s*\* = /.test(line)) {
+            lineKind = 'note';
+            const rendered = {
+                kind: lineKind,
+                segments: this._segmentInline(line, {
+                    defaultStyle: this._styleForTokenType('comment', { dim: true, italic: true }),
+                    matchers: [
+                        {
+                            regex: VALUE_NUMBER_REGEX,
+                            style: this._styleForTokenType('number')
+                        },
+                        {
+                            regex: /\b(singleton|converged|iterations?|dropped|observations?)\b/gi,
+                            style: this._styleForTokenType('keyword', { bold: true })
+                        }
+                    ]
+                })
+            };
+            this._lastRenderedLineKind = lineKind;
+            return rendered;
+        }
+
+        if (/^\s*(HDFE Linear regression|Absorbed degrees of freedom:)\s*$/i.test(line)) {
+            lineKind = 'header';
+            const rendered = {
+                kind: lineKind,
+                segments: [this._segment(line, this._styleForTokenType('header', { bold: true }))]
+            };
+            this._lastRenderedLineKind = lineKind;
+            return rendered;
+        }
+
+        if (this._isSummaryLine(line)) {
+            lineKind = 'summary';
+            const rendered = {
+                kind: lineKind,
+                segments: this._segmentInline(line, {
+                    defaultStyle: this._styleForTokenType('default'),
+                    matchers: [
+                        {
+                            regex: /(^|(?<=\s))(?:[A-Za-z][A-Za-z0-9_.() -]*?)(?=\s=\s)/g,
+                            style: this._styleForTokenType('header', { bold: true })
+                        },
+                        {
+                            regex: /=/g,
+                            style: this._styleForTokenType('separator')
+                        },
+                        {
+                            regex: VALUE_NUMBER_REGEX,
+                            style: this._styleForTokenType('number', { bold: true })
+                        }
+                    ]
+                })
+            };
+            this._lastRenderedLineKind = lineKind;
+            return rendered;
+        }
+
+        if (this._isTableHeaderLine(line)) {
+            lineKind = 'table-header';
+            const rendered = {
+                kind: lineKind,
+                segments: this._segmentInline(line, {
+                    defaultStyle: this._styleForTokenType('header', { bold: true }),
+                    matchers: [
+                        {
+                            regex: /\[(?:95|90|99)% conf\. interval\]/gi,
+                            style: this._styleForTokenType('keyword', { bold: true })
+                        },
+                        {
+                            regex: VALUE_NUMBER_REGEX,
+                            style: this._styleForTokenType('number', { bold: true })
+                        }
+                    ]
+                })
+            };
+            this._lastRenderedLineKind = lineKind;
+            return rendered;
+        }
+
+        if (this._isDescribeDataLine(line)) {
+            this._describeMode = true;
+            lineKind = 'describe-data';
+            const rendered = {
+                kind: lineKind,
+                segments: [this._segment(line, this._styleForTokenType('default'))]
+            };
+            this._lastRenderedLineKind = lineKind;
+            return rendered;
+        }
+
+        if (this._isTableDataLine(line)) {
+            lineKind = 'table-data';
+            const rendered = {
+                kind: lineKind,
+                segments: this._segmentInline(line, {
+                    defaultStyle: this._styleForTokenType('default'),
+                    matchers: [
+                        {
+                            regex: VALUE_NUMBER_REGEX,
+                            style: this._styleForTokenType('number')
+                        }
+                    ]
+                })
+            };
+            this._lastRenderedLineKind = lineKind;
+            return rendered;
+        }
+
+        if (/\b(Begin Time:|Over Time:|Time used:)\b/.test(line)) {
+            lineKind = 'time';
+            const rendered = {
+                kind: lineKind,
+                segments: this._segmentInline(line, {
+                    defaultStyle: this._styleForTokenType('time', { bold: true }),
+                    matchers: [
+                        {
+                            regex: VALUE_NUMBER_REGEX,
+                            style: this._styleForTokenType('timeValue', { bold: true })
+                        },
+                        {
+                            regex: /\b[A-Z][a-z]{2}\b|\b[A-Z][a-z]{2}\s+\d{4}\b|\b\d{2}:\d{2}:\d{2}\b/g,
+                            style: this._styleForTokenType('number', { bold: true })
+                        }
+                    ]
+                })
+            };
+            this._lastRenderedLineKind = lineKind;
+            return rendered;
+        }
+
+        if (this._describeMode && /^\s*$/.test(line)) {
+            this._lastRenderedLineKind = 'blank';
+            return { kind: 'blank', segments: [] };
+        }
+
+        lineKind = 'default';
+        const rendered = {
+            kind: lineKind,
+            segments: this._segmentInline(line, {
+                defaultStyle: null,
+                matchers: [
+                    {
+                        regex: /\br\(\d+\)\b/gi,
+                        style: this._styleForTokenType('error', { bold: true })
+                    },
+                    {
+                        regex: /\berror\b/gi,
+                        style: this._styleForTokenType('error', { bold: true })
+                    },
+                    {
+                        regex: VALUE_NUMBER_REGEX,
+                        style: this._styleForTokenType('number')
+                    }
+                ]
+            })
+        };
+        this._lastRenderedLineKind = lineKind;
+        return rendered;
     }
 
     _renderOutputLine(line, width) {
@@ -943,12 +1340,8 @@ class StataTerminalRenderer {
         for (const token of grammarTokens) {
             rendered += paint(token.value, {
                 fg: this._foregroundForCommandToken(token.type, token.scopes, token.foreground),
-                bold: typeof token.fontStyle?.bold === 'boolean'
-                    ? token.fontStyle.bold
-                    : token.type === 'prompt' || token.type === 'command' || token.type === 'keyword',
-                italic: typeof token.fontStyle?.italic === 'boolean'
-                    ? token.fontStyle.italic
-                    : token.type === 'comment',
+                bold: token.type === 'prompt' || token.type === 'command' || token.type === 'keyword',
+                italic: token.type === 'comment',
                 dim: token.type === 'comment'
             });
         }
@@ -1097,6 +1490,52 @@ class StataTerminalRenderer {
             dim: true,
             italic: true
         })}${ANSI.reset}`;
+    }
+
+    _segmentCommandLine(line) {
+        if (/^[.>]\s+\*{2,}#/.test(line) || /^[.>]\s+\*{2,}\s+/.test(line)) {
+            return this._segmentCommentCommandLine(line);
+        }
+
+        const prompt = (line.startsWith('. ') || line.startsWith('> ')) ? line.slice(0, 2) : '';
+        const body = prompt ? line.slice(2) : line;
+        const segments = [];
+
+        if (prompt) {
+            segments.push(this._segment(prompt, this._styleForTokenType('prompt', { bold: true })));
+        }
+
+        const grammarTokens = this._tokenizeCommandLineWithGrammar(body);
+        const tokens = grammarTokens || this._tokenizeCommandLine(line).filter((token, index) => !(index === 0 && token.type === 'prompt'));
+        for (const token of tokens) {
+            const type = token.type === 'plain' ? 'plain' : token.type;
+            segments.push(this._segment(token.value, this._styleForTokenType(
+                type,
+                {
+                    fg: this._foregroundForCommandToken(token.type, token.scopes, token.foreground),
+                    bold: token.type === 'prompt' || token.type === 'command' || token.type === 'keyword',
+                    italic: token.type === 'comment',
+                    dim: token.type === 'comment'
+                }
+            )));
+        }
+
+        return {
+            kind: 'command',
+            segments
+        };
+    }
+
+    _segmentCommentCommandLine(line) {
+        const prompt = line.slice(0, 2);
+        const comment = line.slice(2);
+        return {
+            kind: 'comment-command',
+            segments: [
+                this._segment(prompt, this._styleForTokenType('prompt', { bold: true })),
+                this._segment(comment, this._styleForTokenType('comment', { dim: true, italic: true }))
+            ]
+        };
     }
 
     _foregroundForCommandToken(type, scopes, tokenForeground) {
@@ -1271,10 +1710,130 @@ class StataTerminalRenderer {
 
         return result;
     }
+
+    _segmentInline(line, { defaultStyle, matchers }) {
+        const matches = [];
+
+        for (const matcher of matchers) {
+            const regex = new RegExp(matcher.regex.source, matcher.regex.flags);
+            let match;
+            while ((match = regex.exec(line)) !== null) {
+                if (!match[0]) {
+                    regex.lastIndex += 1;
+                    continue;
+                }
+                matches.push({
+                    start: match.index,
+                    end: match.index + match[0].length,
+                    style: matcher.style
+                });
+            }
+        }
+
+        matches.sort((a, b) => a.start - b.start || (b.end - b.start) - (a.end - a.start));
+
+        const merged = [];
+        let cursor = 0;
+        for (const match of matches) {
+            if (match.start < cursor) {
+                continue;
+            }
+            merged.push(match);
+            cursor = match.end;
+        }
+
+        const result = [];
+        let index = 0;
+        for (const match of merged) {
+            if (match.start > index) {
+                const plain = line.slice(index, match.start);
+                if (plain) {
+                    result.push(this._segment(plain, defaultStyle || this._styleForTokenType('plain')));
+                }
+            }
+            result.push(this._segment(line.slice(match.start, match.end), match.style));
+            index = match.end;
+        }
+
+        if (index < line.length) {
+            const rest = line.slice(index);
+            if (rest) {
+                result.push(this._segment(rest, defaultStyle || this._styleForTokenType('plain')));
+            }
+        }
+
+        return result;
+    }
+
+    _segmentBlock(text, kind, style) {
+        const normalized = String(text || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        if (!normalized) {
+            return [];
+        }
+
+        return normalized.split('\n').map(line => ({
+            kind,
+            segments: [this._segment(line, style)]
+        }));
+    }
+
+    _segment(text, style = {}) {
+        const tokenType = style.tokenType || 'plain';
+        const defaultColor = CURRENT_THEME_SLOT_MAP[tokenType] || CURRENT_THEME_SLOT_MAP.default || null;
+        const explicitColor = style.fg && style.fg !== defaultColor ? style.fg : null;
+        return {
+            text,
+            tokenType,
+            className: this._classNameForStyle(style),
+            style: {
+                color: explicitColor,
+                backgroundColor: style.bg || null,
+                bold: Boolean(style.bold),
+                italic: Boolean(style.italic),
+                dim: Boolean(style.dim)
+            }
+        };
+    }
+
+    _styleForTokenType(type, overrides = {}) {
+        const style = { tokenType: type || 'plain' };
+        const foreground = overrides.fg || CURRENT_THEME_SLOT_MAP[type];
+        if (foreground) {
+            style.fg = foreground;
+        }
+        if (overrides.bg) {
+            style.bg = overrides.bg;
+        }
+        if (overrides.bold) {
+            style.bold = true;
+        }
+        if (overrides.italic) {
+            style.italic = true;
+        }
+        if (overrides.dim) {
+            style.dim = true;
+        }
+        return style;
+    }
+
+    _classNameForStyle(style = {}) {
+        const classNames = ['tok', `tok-${style.tokenType || 'plain'}`];
+        if (style.bold) {
+            classNames.push('is-bold');
+        }
+        if (style.italic) {
+            classNames.push('is-italic');
+        }
+        if (style.dim) {
+            classNames.push('is-dim');
+        }
+        return classNames.join(' ');
+    }
 }
 
 module.exports = {
     StataTerminalRenderer,
     formatDuration,
-    syncCliTerminalTheme
+    syncCliTerminalTheme,
+    getWebviewThemeVariables
 };
