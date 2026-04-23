@@ -1,4 +1,6 @@
 const vscode = require('vscode');
+const fs = require('fs');
+const path = require('path');
 const { StataTerminalRenderer, getWebviewThemeVariables } = require('./renderer');
 const { msg } = require('../../../utils/common');
 
@@ -8,33 +10,24 @@ let _panel = null;
 let _history = [];
 let _status = 'idle';
 let _commandHandler = null;
+let _asciiLogo53x13Cache = null;
 
 function getPanelTitle() {
     return msg('webviewPanelTitle');
 }
 
-function ensurePanel() {
-    if (_panel) {
-        _panel.title = getPanelTitle();
-        return _panel;
-    }
-
-    _panel = vscode.window.createWebviewPanel(
-        PANEL_VIEW_TYPE,
-        getPanelTitle(),
-        {
-            viewColumn: vscode.ViewColumn.Beside,
-            preserveFocus: true
-        },
-        {
-            enableScripts: true,
-            retainContextWhenHidden: true
-        }
-    );
-
+function attachPanel(panel) {
+    _panel = panel;
+    _panel.title = getPanelTitle();
+    _panel.webview.options = {
+        enableScripts: true,
+        retainContextWhenHidden: true
+    };
     _panel.webview.html = getWebviewHtml(_panel.webview);
     _panel.onDidDispose(() => {
-        _panel = null;
+        if (_panel === panel) {
+            _panel = null;
+        }
     });
     _panel.webview.onDidReceiveMessage(async (message) => {
         if (message && message.type === 'ready') {
@@ -47,8 +40,29 @@ function ensurePanel() {
             }
         }
     });
-
     return _panel;
+}
+
+function ensurePanel() {
+    if (_panel) {
+        _panel.title = getPanelTitle();
+        return _panel;
+    }
+
+    const panel = vscode.window.createWebviewPanel(
+        PANEL_VIEW_TYPE,
+        getPanelTitle(),
+        {
+            viewColumn: vscode.ViewColumn.Beside,
+            preserveFocus: true
+        },
+        {
+            enableScripts: true,
+            retainContextWhenHidden: true
+        }
+    );
+
+    return attachPanel(panel);
 }
 
 function postState() {
@@ -214,9 +228,44 @@ function setWebviewCommandHandler(handler) {
     _commandHandler = typeof handler === 'function' ? handler : null;
 }
 
+function registerWebviewPanelSerializer(context) {
+    context.subscriptions.push(
+        vscode.window.registerWebviewPanelSerializer(PANEL_VIEW_TYPE, {
+            async deserializeWebviewPanel(panel) {
+                attachPanel(panel);
+                postState();
+            }
+        })
+    );
+}
+
+function getAsciiLogo53x13() {
+    if (_asciiLogo53x13Cache) {
+        return _asciiLogo53x13Cache;
+    }
+
+    const logoDir = path.resolve(__dirname, '../../../../ascii_logo/53x13');
+    const fallback = { up: 'STATA', down: 'ALL IN ONE' };
+
+    try {
+        _asciiLogo53x13Cache = {
+            up: fs.readFileSync(path.join(logoDir, 'up.txt'), 'utf8').replace(/\r\n/g, '\n').replace(/\s+$/, ''),
+            down: fs.readFileSync(path.join(logoDir, 'down.txt'), 'utf8').replace(/\r\n/g, '\n').replace(/\s+$/, '')
+        };
+        return _asciiLogo53x13Cache;
+    } catch (error) {
+        console.error('Stata All in One: Failed to load ascii_logo/53x13:', error.message);
+        _asciiLogo53x13Cache = fallback;
+        return _asciiLogo53x13Cache;
+    }
+}
+
 function getWebviewHtml() {
     const nonce = String(Date.now());
     const themeVars = getWebviewThemeVariables();
+    const asciiLogo = getAsciiLogo53x13();
+    const asciiLogoTop = escapeHtml(asciiLogo.up);
+    const asciiLogoBottom = escapeHtml(asciiLogo.down);
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -302,8 +351,40 @@ function getWebviewHtml() {
             word-break: break-word;
         }
         #placeholder {
+            min-height: calc(100% - 8px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px 8px 24px;
+            box-sizing: border-box;
+        }
+        .placeholder-shell {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+            max-width: 100%;
             color: var(--vscode-descriptionForeground);
+        }
+        .placeholder-logo {
+            margin: 0;
+            font-family: var(--vscode-editor-font-family, Menlo, Monaco, monospace);
+            font-size: clamp(7px, 1.15vw, 11px);
+            line-height: 1.12;
+            white-space: pre;
+            letter-spacing: 0;
+            user-select: none;
+            text-shadow: 0 0 18px color-mix(in srgb, currentColor 10%, transparent);
+        }
+        .placeholder-logo-top {
+            color: var(--stata-command);
+        }
+        .placeholder-logo-bottom {
+            color: var(--stata-function);
+        }
+        .placeholder-copy {
             font-style: italic;
+            text-align: center;
         }
         .line {
             min-height: 1.5em;
@@ -443,7 +524,15 @@ function getWebviewHtml() {
         <div id="status-dot" class="dot idle"></div>
         <div id="status-label" class="label">${escapeHtml(msg('webviewIdle'))}</div>
     </div>
-    <div id="output"><div id="placeholder">${escapeHtml(msg('webviewWaiting'))}</div></div>
+    <div id="output">
+        <div id="placeholder">
+            <div class="placeholder-shell">
+                <pre class="placeholder-logo placeholder-logo-top">${asciiLogoTop}</pre>
+                <pre class="placeholder-logo placeholder-logo-bottom">${asciiLogoBottom}</pre>
+                <div class="placeholder-copy">${escapeHtml(msg('webviewWaiting'))}</div>
+            </div>
+        </div>
+    </div>
     <div class="composer">
         <div class="composer-label">Stata Input</div>
         <textarea id="input" spellcheck="false" placeholder=". regress y x1 x2"></textarea>
@@ -627,6 +716,7 @@ module.exports = {
     revealWebviewTerminalPanel: revealPanel,
     getWebviewTerminalSink,
     setWebviewCommandHandler,
+    registerWebviewPanelSerializer,
     clearWebviewTerminalPanel: clearPanel,
     setWebviewTerminalStatus: setStatus
 };
