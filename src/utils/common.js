@@ -48,7 +48,13 @@ const UI_TEXT = {
         sideRight: 'right',
         cliPreviewTooNarrow: ({ side }) => `The current VS Code window is too narrow. Please maximize or widen the window so that the Stata All in One terminal can expand on the ${side}.`,
         cliPreviewStillNarrow: 'The current VS Code window is still too narrow. The Stata All in One terminal will continue running in the bottom panel.',
-        cliLogoFallbackStarted: 'Stata All in One Terminal started...'
+        cliLogoFallbackStarted: 'Stata All in One Terminal started...',
+        runModeUnsupportedOnWindows: ({ mode }) => `${mode} mode is currently unavailable on Windows. Switched to GUI.`,
+        webviewPanelTitle: 'Stata Terminal',
+        webviewWaiting: 'Waiting for Stata output...',
+        webviewRunning: 'Running',
+        webviewIdle: 'Idle',
+        webviewError: 'Error'
     },
     zh: {
         lineTooLong: '行长度不足，请在设置中增大分隔线长度。',
@@ -90,7 +96,13 @@ const UI_TEXT = {
         sideRight: '右侧',
         cliPreviewTooNarrow: ({ side }) => `检测到 VS Code 窗口宽度不足，建议最大化或适当拉宽窗口，以便 Stata All in One 终端在${side}展开。`,
         cliPreviewStillNarrow: '检测到 VS Code 窗口宽度仍不足，Stata All in One 终端将继续在下方面板中运行。',
-        cliLogoFallbackStarted: 'Stata All in One Terminal已启动...'
+        cliLogoFallbackStarted: 'Stata All in One Terminal已启动...',
+        runModeUnsupportedOnWindows: ({ mode }) => `${mode} 模式当前在 Windows 上不可用，已切换到 GUI。`,
+        webviewPanelTitle: 'Stata Terminal',
+        webviewWaiting: '等待 Stata 输出...',
+        webviewRunning: '运行中',
+        webviewIdle: '空闲',
+        webviewError: '错误'
     }
 };
 

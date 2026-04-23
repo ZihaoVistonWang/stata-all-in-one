@@ -196,6 +196,7 @@ async function runCurrentSection(context, editor = null) {
 
     // 获取要运行的代码
     const codeToRun = getCodeToRun(activeEditor);
+    const runMode = config.getRunMode();
     
     // 获取文档目录
     const docDir = path.dirname(document.fileName);
@@ -207,21 +208,31 @@ async function runCurrentSection(context, editor = null) {
         // === 调度逻辑 ===
         
         if (onWindows) {
-            // Windows: 总是使用 GUI（CLI 未实现）
+            if (runMode !== config.RUN_MODES.gui) {
+                vscode.window.showWarningMessage(msg('runModeUnsupportedOnWindows', {
+                    mode: runMode === config.RUN_MODES.webview ? 'Webview' : 'CLI'
+                }));
+            }
+
             runOnWindows(codeToRun, tmpFilePath, stataPathOnWindows, docDir);
-            
-            // 设置 context 变量：CLI 不可用
             vscode.commands.executeCommand('setContext', 'stata-all-in-one.cliSessionActive', false);
-            
         } else if (onMac) {
-            const cliResult = await runOnMacCLI(codeToRun, tmpFilePath, docDir, context);
-            if (cliResult.success) {
-                vscode.commands.executeCommand('setContext', 'stata-all-in-one.cliSessionActive', true);
-            } else if (cliResult.shouldOfferGuiFallback) {
-                await maybeOfferGuiFallback(codeToRun, tmpFilePath, docDir, context, cliResult.message || 'CLI 执行失败');
+            if (runMode === config.RUN_MODES.gui) {
+                runOnMac(codeToRun, tmpFilePath, false, docDir, context);
                 vscode.commands.executeCommand('setContext', 'stata-all-in-one.cliSessionActive', false);
             } else {
                 vscode.commands.executeCommand('setContext', 'stata-all-in-one.cliSessionActive', true);
+                const cliResult = await runOnMacCLI(codeToRun, tmpFilePath, docDir, context, {
+                    outputMode: runMode
+                });
+                if (cliResult.success) {
+                    vscode.commands.executeCommand('setContext', 'stata-all-in-one.cliSessionActive', true);
+                } else if (cliResult.shouldOfferGuiFallback) {
+                    await maybeOfferGuiFallback(codeToRun, tmpFilePath, docDir, context, cliResult.message || 'CLI 执行失败');
+                    vscode.commands.executeCommand('setContext', 'stata-all-in-one.cliSessionActive', false);
+                } else {
+                    vscode.commands.executeCommand('setContext', 'stata-all-in-one.cliSessionActive', true);
+                }
             }
         }
         

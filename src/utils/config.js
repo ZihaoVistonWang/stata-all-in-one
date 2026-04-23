@@ -1,6 +1,11 @@
 const vscode = require('vscode');
 
 const CONFIG_NAMESPACE = 'stata-all-in-one';
+const RUN_MODES = Object.freeze({
+    gui: 'gui',
+    cli: 'cli',
+    webview: 'webview'
+});
 
 /**
  * Configuration management for Stata All in One extension
@@ -124,8 +129,17 @@ const getCliTerminalMaxWidth = () => {
     return Math.floor(width);
 };
 
+/**
+ * Get preferred code execution mode
+ */
+const getRunMode = () => {
+    const mode = String(getConfigValue('runMode', RUN_MODES.cli) || '').trim().toLowerCase();
+    return Object.values(RUN_MODES).includes(mode) ? mode : RUN_MODES.cli;
+};
+
 module.exports = {
     CONFIG_NAMESPACE,
+    RUN_MODES,
     getConfig,
     getConfigValue,
     getnumberingShow,
@@ -141,6 +155,7 @@ module.exports = {
     getSeparatorSymmetric,
     getEnableCtrlShiftD,
     getCdToDoFileDir,
+    getRunMode,
     getCliTerminalLocation,
     getCliTerminalMaxWidth
 };

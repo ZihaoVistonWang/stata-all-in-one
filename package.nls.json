@@ -12,6 +12,7 @@
   "config.closeStataOtherWindowsBeforeSendingCode.description": "**[Windows]** When running code, close Stata other windows (such as Viewer/Data Editor) before sending commands.",
     "config.enableCtrlShiftD.description": "Enable `Ctrl/Cmd+Shift+D` as the run code shortcut (instead of the default `Ctrl/Cmd+D`).",
   "config.cdToDoFileDir.description": "Whether to automatically `cd` to the do file's directory when Stata is first launched. If disabled, Stata's working directory is not changed on startup.",
+  "config.runMode.description": "Choose how Stata code is executed and displayed. `GUI` runs via the Stata app, `CLI` uses the VS Code terminal, and `Webview` shows output in a dedicated right-side webview terminal.",
   "config.cliTerminalLocation.description": "Preferred panel location for the Stata CLI terminal. Choose `bottom`, `right`, or `left`.",
   "config.cliTerminalMaxWidth.description": "Maximum preferred width of the Stata CLI terminal in characters. The side-panel terminal will be resized toward this width.",
   "config.showActionButtons.description": "Whether to show the Bug report and Sponsor buttons in the editor title bar.",
