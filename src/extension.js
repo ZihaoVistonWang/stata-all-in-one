@@ -10,7 +10,7 @@ const { registerCommentCommand, toggleComment } = require('./modules/comment');
 const { registerExecuteCommand } = require('./modules/runCode/execute');
 const { runArbitraryCode } = require('./modules/runCode/execute');
 const { stopCliExecution, forceShutdownCliSession } = require('./modules/runCode/embeddedConsole/mac');
-const { setWebviewCommandHandler } = require('./modules/runCode/embeddedConsole/panel');
+const { setWebviewCommandHandler, registerWebviewPanelSerializer } = require('./modules/runCode/embeddedConsole/panel');
 const { registerCustomCommandHighlight } = require('./modules/customCommandHighlight');
 const { registerCompletionProvider } = require('./modules/completionProvider');
 const { registerHelpCommand } = require('./modules/helpCommand');
@@ -307,6 +307,7 @@ function activate(context) {
 
     // Register run code command (uses dispatch layer for Embedded Console/External App routing)
     registerExecuteCommand(context);
+    registerWebviewPanelSerializer(context);
     setWebviewCommandHandler(async (code) => {
         await runArbitraryCode(context, code, {
             outputMode: config.RUN_MODES.embeddedConsole
