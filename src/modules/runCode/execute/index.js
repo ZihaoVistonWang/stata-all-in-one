@@ -18,13 +18,11 @@ const { runOnMac } = require('../externalApp/mac');
 const { runOnWindows } = require('../externalApp/windows');
 
 // Embedded Console 执行函数导入
-const { runOnMacWebview } = require('../embeddedConsole/runtime');
+const { runOnMacWebview } = require('../embeddedConsole/mac');
+const { runOnWindowsEmbeddedConsole } = require('../embeddedConsole/windows');
 
 // 临时文件处理
-const { generateTempDoFile, cleanupTempFile } = require('./tempfile');
-
-// Fallback 机制
-const { showCliUnavailableMessage } = require('./fallback');
+const { cleanupTempFile } = require('./tempfile');
 
 /**
  * 获取要运行的代码
@@ -158,9 +156,12 @@ async function runCurrentSection(context, editor = null) {
         
         if (onWindows) {
             if (runMode !== config.RUN_MODES.externalApp) {
-                vscode.window.showWarningMessage(msg('runModeUnsupportedOnWindows', {
-                    mode: 'Embedded Console'
-                }));
+                const embeddedConsoleResult = await runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir, context);
+                if (embeddedConsoleResult.shouldOfferExternalAppFallback) {
+                    vscode.window.showWarningMessage(msg('runModeUnsupportedOnWindows', {
+                        mode: 'Embedded Console'
+                    }));
+                }
             }
 
             runOnWindows(codeToRun, tmpFilePath, stataPathOnWindows, docDir);
@@ -284,9 +285,12 @@ async function runArbitraryCode(context, code, options = {}) {
     try {
         if (onWindows) {
             if (runMode !== config.RUN_MODES.externalApp) {
-                vscode.window.showWarningMessage(msg('runModeUnsupportedOnWindows', {
-                    mode: 'Embedded Console'
-                }));
+                const embeddedConsoleResult = await runOnWindowsEmbeddedConsole(normalizedCode, tmpFilePath, docDir, context);
+                if (embeddedConsoleResult.shouldOfferExternalAppFallback) {
+                    vscode.window.showWarningMessage(msg('runModeUnsupportedOnWindows', {
+                        mode: 'Embedded Console'
+                    }));
+                }
             }
             runOnWindows(normalizedCode, tmpFilePath, stataPathOnWindows, docDir);
             await vscode.commands.executeCommand('setContext', 'stata-all-in-one.cliSessionActive', false);
@@ -329,7 +333,7 @@ async function maybeOfferGuiFallback(codeToRun, tmpFilePath, docDir, context, re
     );
 
     if (choice === useGuiLabel) {
-        showCliUnavailableMessage(reason);
+        showError(msg('cliUnavailable', { reason }));
         runOnMac(codeToRun, tmpFilePath, false, docDir, context);
     }
 }
