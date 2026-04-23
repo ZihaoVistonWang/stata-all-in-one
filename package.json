@@ -118,14 +118,14 @@
         "stata-all-in-one.runMode": {
           "type": "string",
           "enum": [
-            "gui",
-            "webview"
+            "externalApp",
+            "embeddedConsole"
           ],
           "enumItemLabels": [
-            "GUI",
-            "Webview"
+            "External App",
+            "Embedded Console"
           ],
-          "default": "webview",
+          "default": "embeddedConsole",
           "markdownDescription": "%config.runMode.description%"
         },
         "stata-all-in-one.showActionButtons": {

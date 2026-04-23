@@ -1,7 +1,7 @@
 /**
- * Windows Stata Runner
- * Handles code execution on Windows via PowerShell
- * Windows Stata 代码运行
+ * Windows External App Runner
+ * Handles code execution on Windows via the external Stata app
+ * Windows 外部 Stata 应用运行
  */
 
 const { exec, execSync } = require('child_process');

@@ -1,7 +1,7 @@
 /**
- * macOS Stata Runner
- * Handles code execution on macOS via AppleScript
- * macOS Stata 代码运行
+ * macOS External App Runner
+ * Handles code execution on macOS via the external Stata app
+ * macOS 外部 Stata 应用运行
  */
 
 const { exec, execSync } = require('child_process');

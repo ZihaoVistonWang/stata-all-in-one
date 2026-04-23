@@ -1,6 +1,6 @@
 /**
- * Stata Webview Session Manager
- * 管理单个 VS Code 窗口的 Stata Webview 会话实例
+ * Stata Embedded Console Session Manager
+ * 管理单个 VS Code 窗口的 Stata Embedded Console 会话实例
  * 
  * 提供单例模式的会话管理，封装原生模块的异步 API
  */
@@ -12,7 +12,7 @@ let _cliSessionInstance = null;
 
 /**
  * StataCliSession 类
- * 管理 Stata Webview 会话的初始化、执行和关闭
+ * 管理 Stata Embedded Console 会话的初始化、执行和关闭
  */
 class StataCliSession {
     /**
