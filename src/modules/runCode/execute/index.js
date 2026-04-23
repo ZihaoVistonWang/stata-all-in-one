@@ -6,6 +6,7 @@
  */
 
 const vscode = require('vscode');
+const os = require('os');
 const path = require('path');
 
 // 工具函数导入
@@ -137,61 +138,9 @@ async function runCurrentSection(context, editor = null) {
         return;
     }
 
-    // Windows 平台特定验证
-    let stataPathOnWindows = null;
-    if (onWindows) {
-        const rawPath = config.getStataPathOnWindows();
-        stataPathOnWindows = stripSurroundingQuotes(rawPath.trim());
-        if (!stataPathOnWindows) {
-            // 提示用户输入 Stata 路径
-            const userPath = await vscode.window.showInputBox({
-                prompt: msg('promptWinPath'),
-                placeHolder: msg('promptWinPathPlaceholder'),
-                ignoreFocusOut: true
-            });
-            
-            if (!userPath) {
-                return; // 用户取消
-            }
-            
-            // 保存路径到设置
-            await vscode.workspace.getConfiguration('stata-all-in-one').update(
-                'stataPathOnWindows',
-                userPath.trim(),
-                vscode.ConfigurationTarget.Global
-            );
-            
-            stataPathOnWindows = stripSurroundingQuotes(userPath.trim());
-            vscode.window.showInformationMessage(msg('configSaved'));
-        }
-    }
-    
-    // macOS 平台特定验证
-    if (onMac) {
-        const stataVersion = config.getStataVersion();
-        if (!stataVersion || stataVersion.trim() === '') {
-            // 提示用户选择 Stata 版本
-            const selectedVersion = await vscode.window.showQuickPick(
-                ['StataMP', 'StataIC', 'StataSE'],
-                {
-                    placeHolder: msg('promptMacVersion'),
-                    ignoreFocusOut: true
-                }
-            );
-            
-            if (!selectedVersion) {
-                return; // 用户取消
-            }
-            
-            // 保存版本到设置
-            await vscode.workspace.getConfiguration('stata-all-in-one').update(
-                'stataVersionOnMacOS',
-                selectedVersion,
-                vscode.ConfigurationTarget.Global
-            );
-            
-            vscode.window.showInformationMessage(msg('configSaved'));
-        }
+    const stataPathOnWindows = await ensurePlatformExecutionReady({ onWindows, onMac });
+    if (onWindows && !stataPathOnWindows) {
+        return;
     }
 
     // 获取要运行的代码
@@ -243,6 +192,136 @@ async function runCurrentSection(context, editor = null) {
     }
 }
 
+async function ensurePlatformExecutionReady({ onWindows, onMac }) {
+    if (onWindows) {
+        const rawPath = config.getStataPathOnWindows();
+        let stataPathOnWindows = stripSurroundingQuotes(rawPath.trim());
+        if (!stataPathOnWindows) {
+            const userPath = await vscode.window.showInputBox({
+                prompt: msg('promptWinPath'),
+                placeHolder: msg('promptWinPathPlaceholder'),
+                ignoreFocusOut: true
+            });
+
+            if (!userPath) {
+                return null;
+            }
+
+            await vscode.workspace.getConfiguration('stata-all-in-one').update(
+                'stataPathOnWindows',
+                userPath.trim(),
+                vscode.ConfigurationTarget.Global
+            );
+
+            stataPathOnWindows = stripSurroundingQuotes(userPath.trim());
+            vscode.window.showInformationMessage(msg('configSaved'));
+        }
+        return stataPathOnWindows;
+    }
+
+    if (onMac) {
+        const stataVersion = config.getStataVersion();
+        if (!stataVersion || stataVersion.trim() === '') {
+            const selectedVersion = await vscode.window.showQuickPick(
+                ['StataMP', 'StataIC', 'StataSE'],
+                {
+                    placeHolder: msg('promptMacVersion'),
+                    ignoreFocusOut: true
+                }
+            );
+
+            if (!selectedVersion) {
+                return null;
+            }
+
+            await vscode.workspace.getConfiguration('stata-all-in-one').update(
+                'stataVersionOnMacOS',
+                selectedVersion,
+                vscode.ConfigurationTarget.Global
+            );
+
+            vscode.window.showInformationMessage(msg('configSaved'));
+        }
+    }
+
+    return '';
+}
+
+function resolveExecutionDirectory() {
+    const activeEditor = vscode.window.activeTextEditor;
+    if (activeEditor && activeEditor.document && !activeEditor.document.isUntitled) {
+        return path.dirname(activeEditor.document.fileName);
+    }
+
+    const workspaceFolder = vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders[0];
+    if (workspaceFolder) {
+        return workspaceFolder.uri.fsPath;
+    }
+
+    return os.tmpdir();
+}
+
+async function runArbitraryCode(context, code, options = {}) {
+    const normalizedCode = String(code || '');
+    if (!normalizedCode.trim()) {
+        return { success: false, skipped: true };
+    }
+
+    const onWindows = isWindows();
+    const onMac = isMacOS();
+    if (!onWindows && !onMac) {
+        showError(msg('unsupportedPlatform'));
+        return { success: false };
+    }
+
+    const stataPathOnWindows = await ensurePlatformExecutionReady({ onWindows, onMac });
+    if (onWindows && !stataPathOnWindows) {
+        return { success: false };
+    }
+
+    const runMode = options.outputMode || config.getRunMode();
+    const docDir = options.docDir || resolveExecutionDirectory();
+    const tmpFilePath = path.join(docDir, 'stata_all_in_one_temp.do');
+
+    try {
+        if (onWindows) {
+            if (runMode !== config.RUN_MODES.gui) {
+                vscode.window.showWarningMessage(msg('runModeUnsupportedOnWindows', {
+                    mode: runMode === config.RUN_MODES.webview ? 'Webview' : 'CLI'
+                }));
+            }
+            runOnWindows(normalizedCode, tmpFilePath, stataPathOnWindows, docDir);
+            await vscode.commands.executeCommand('setContext', 'stata-all-in-one.cliSessionActive', false);
+            return { success: true };
+        }
+
+        if (runMode === config.RUN_MODES.gui) {
+            runOnMac(normalizedCode, tmpFilePath, false, docDir, context);
+            await vscode.commands.executeCommand('setContext', 'stata-all-in-one.cliSessionActive', false);
+            return { success: true };
+        }
+
+        await vscode.commands.executeCommand('setContext', 'stata-all-in-one.cliSessionActive', true);
+        const cliResult = await runOnMacCLI(normalizedCode, tmpFilePath, docDir, context, {
+            outputMode: runMode
+        });
+        if (cliResult.success) {
+            await vscode.commands.executeCommand('setContext', 'stata-all-in-one.cliSessionActive', true);
+            return cliResult;
+        }
+        if (cliResult.shouldOfferGuiFallback) {
+            await maybeOfferGuiFallback(normalizedCode, tmpFilePath, docDir, context, cliResult.message || 'CLI 执行失败');
+            await vscode.commands.executeCommand('setContext', 'stata-all-in-one.cliSessionActive', false);
+        }
+        return cliResult;
+    } catch (error) {
+        showError(msg('tmpFileFailed', { message: error.message }));
+        console.error('[execute] 任意代码执行异常:', error.message);
+        await vscode.commands.executeCommand('setContext', 'stata-all-in-one.cliSessionActive', false);
+        return { success: false, error };
+    }
+}
+
 async function maybeOfferGuiFallback(codeToRun, tmpFilePath, docDir, context, reason) {
     const useGuiLabel = msg('useStataApp');
     const stayInCliLabel = msg('stayInCli');
@@ -278,6 +357,7 @@ function registerExecuteCommand(context) {
 // 导出接口
 module.exports = {
     runCurrentSection,
+    runArbitraryCode,
     registerExecuteCommand,
     getCodeToRun  // 导出供测试或其他模块使用
 };

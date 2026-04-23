@@ -8,7 +8,9 @@ const { setHeadingLevel, createDocumentSymbolProvider } = require('./modules/out
 const { registerSeparatorCommands } = require('./modules/separator');
 const { registerCommentCommand, toggleComment } = require('./modules/comment');
 const { registerExecuteCommand } = require('./modules/runCode/execute');
+const { runArbitraryCode } = require('./modules/runCode/execute');
 const { stopCliExecution, forceShutdownCliSession, ensureCliPreviewForEditor } = require('./modules/runCode/cli/mac');
+const { setWebviewCommandHandler } = require('./modules/runCode/webview/panel');
 const { registerCustomCommandHighlight } = require('./modules/customCommandHighlight');
 const { registerCompletionProvider } = require('./modules/completionProvider');
 const { registerHelpCommand } = require('./modules/helpCommand');
@@ -322,6 +324,11 @@ function activate(context) {
 
     // Register run code command (uses dispatch layer for CLI/GUI routing)
     registerExecuteCommand(context);
+    setWebviewCommandHandler(async (code) => {
+        await runArbitraryCode(context, code, {
+            outputMode: config.RUN_MODES.webview
+        });
+    });
 
     let hasInitializedCliPreview = false;
     const maybeInitCliPreview = async (editor) => {
