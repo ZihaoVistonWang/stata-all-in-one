@@ -11,6 +11,7 @@ let _history = [];
 let _status = 'idle';
 let _commandHandler = null;
 let _asciiLogo53x13Cache = null;
+let _lastRunFailed = false;
 
 function getPanelTitle() {
     return msg('webviewPanelTitle');
@@ -115,6 +116,7 @@ function appendEntries(entries) {
 
 function clearPanel() {
     _history = [];
+    _lastRunFailed = false;
     if (_panel) {
         _panel.webview.postMessage({
             type: 'clear'
@@ -130,6 +132,7 @@ class WebviewTerminalSink {
 
     async prepareForExecution() {
         await revealPanel(true);
+        _lastRunFailed = false;
         setStatus('running');
     }
 
@@ -149,6 +152,7 @@ class WebviewTerminalSink {
     }
 
     writeError(text) {
+        _lastRunFailed = true;
         setStatus('error');
         appendEntries(this._renderer.renderErrorSegments(text));
     }
@@ -214,7 +218,7 @@ class WebviewTerminalSink {
     writeRunFooter(durationMs) {
         this.flushOutput();
         appendEntries(this._renderer.renderRunFooterSegments(durationMs, this._width));
-        setStatus('idle');
+        setStatus(_lastRunFailed ? 'error' : 'success');
     }
 
     dispose() {}
@@ -307,6 +311,16 @@ function getWebviewHtml() {
             display: flex;
             flex-direction: column;
         }
+        body[data-status="running"] .tok-prompt {
+            color: #d7ba7d;
+            animation: prompt-pulse 1.1s ease-in-out infinite;
+        }
+        body[data-status="success"] .tok-prompt {
+            color: #4ec9b0;
+        }
+        body[data-status="error"] .tok-prompt {
+            color: #f14c4c;
+        }
         .statusbar {
             display: flex;
             align-items: center;
@@ -324,15 +338,40 @@ function getWebviewHtml() {
             border-radius: 999px;
             background: var(--vscode-descriptionForeground);
             box-shadow: 0 0 0 2px color-mix(in srgb, currentColor 18%, transparent);
+            transition: background-color 120ms ease, box-shadow 120ms ease, opacity 120ms ease;
         }
         .dot.running {
             background: #d7ba7d;
+            animation: status-pulse 1.1s ease-in-out infinite;
+        }
+        .dot.success {
+            background: #4ec9b0;
         }
         .dot.idle {
-            background: #4ec9b0;
+            background: var(--vscode-descriptionForeground);
         }
         .dot.error {
             background: #f14c4c;
+        }
+        @keyframes status-pulse {
+            0%,
+            100% {
+                opacity: 1;
+                box-shadow: 0 0 0 2px color-mix(in srgb, currentColor 18%, transparent);
+            }
+            50% {
+                opacity: 0.42;
+                box-shadow: 0 0 0 6px color-mix(in srgb, currentColor 10%, transparent);
+            }
+        }
+        @keyframes prompt-pulse {
+            0%,
+            100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.38;
+            }
         }
         .label {
             font-size: 12px;
@@ -343,12 +382,16 @@ function getWebviewHtml() {
         #output {
             flex: 1;
             overflow: auto;
-            padding: 12px;
+            padding: 16px 18px 22px 6px;
             font-family: var(--vscode-editor-font-family, var(--vscode-editor-font-family), Menlo, Monaco, monospace);
             font-size: var(--vscode-editor-font-size, 13px);
             line-height: 1.5;
             white-space: pre-wrap;
             word-break: break-word;
+        }
+        #output-shell {
+            max-width: 100%;
+            padding-left: 4px;
         }
         #placeholder {
             min-height: calc(100% - 8px);
@@ -388,6 +431,21 @@ function getWebviewHtml() {
         }
         .line {
             min-height: 1.5em;
+            margin: 0;
+            padding-left: 0.9rem;
+            white-space: pre-wrap;
+            tab-size: 4;
+        }
+        .line-command,
+        .line-comment-command,
+        .line-raw-progress,
+        .line-raw-prompt {
+            padding-left: 0;
+        }
+        .line-command,
+        .line-comment-command {
+            padding-left: 1.4rem;
+            text-indent: -1.4rem;
         }
         .tok {
             color: var(--stata-default);
@@ -463,6 +521,7 @@ function getWebviewHtml() {
         }
         .line-footer {
             margin-top: 0.2rem;
+            padding-left: 0;
         }
         .line-blank {
             min-height: 0.8em;
@@ -525,11 +584,13 @@ function getWebviewHtml() {
         <div id="status-label" class="label">${escapeHtml(msg('webviewIdle'))}</div>
     </div>
     <div id="output">
-        <div id="placeholder">
-            <div class="placeholder-shell">
-                <pre class="placeholder-logo placeholder-logo-top">${asciiLogoTop}</pre>
-                <pre class="placeholder-logo placeholder-logo-bottom">${asciiLogoBottom}</pre>
-                <div class="placeholder-copy">${escapeHtml(msg('webviewWaiting'))}</div>
+        <div id="output-shell">
+            <div id="placeholder">
+                <div class="placeholder-shell">
+                    <pre class="placeholder-logo placeholder-logo-top">${asciiLogoTop}</pre>
+                    <pre class="placeholder-logo placeholder-logo-bottom">${asciiLogoBottom}</pre>
+                    <div class="placeholder-copy">${escapeHtml(msg('webviewWaiting'))}</div>
+                </div>
             </div>
         </div>
     </div>
@@ -544,6 +605,7 @@ function getWebviewHtml() {
     <script nonce="${nonce}">
         const vscode = acquireVsCodeApi();
         const output = document.getElementById('output');
+        const outputShell = document.getElementById('output-shell');
         const placeholder = document.getElementById('placeholder');
         const dot = document.getElementById('status-dot');
         const label = document.getElementById('status-label');
@@ -553,18 +615,20 @@ function getWebviewHtml() {
 
         const STATUS_LABELS = {
             idle: ${JSON.stringify(msg('webviewIdle'))},
+            success: ${JSON.stringify(msg('webviewIdle'))},
             running: ${JSON.stringify(msg('webviewRunning'))},
             error: ${JSON.stringify(msg('webviewError'))}
         };
 
         function setStatus(status) {
+            document.body.dataset.status = status || 'idle';
             dot.className = 'dot ' + (status || 'idle');
             label.textContent = STATUS_LABELS[status] || STATUS_LABELS.idle;
             input.disabled = status === 'running';
         }
 
         function ensurePlaceholderVisibility() {
-            placeholder.style.display = output.childElementCount > 1 ? 'none' : '';
+            placeholder.style.display = outputShell.childElementCount > 1 ? 'none' : '';
         }
 
         function appendEntries(entries) {
@@ -574,7 +638,7 @@ function getWebviewHtml() {
 
             const shouldStick = output.scrollTop + output.clientHeight >= output.scrollHeight - 24;
             const fragment = renderEntriesToFragment(entries);
-            output.appendChild(fragment);
+            outputShell.appendChild(fragment);
             ensurePlaceholderVisibility();
             if (shouldStick) {
                 output.scrollTop = output.scrollHeight;
@@ -582,10 +646,10 @@ function getWebviewHtml() {
         }
 
         function resetOutput(entries) {
-            while (output.firstChild) {
-                output.removeChild(output.firstChild);
+            while (outputShell.firstChild) {
+                outputShell.removeChild(outputShell.firstChild);
             }
-            output.appendChild(placeholder);
+            outputShell.appendChild(placeholder);
             appendEntries(entries || []);
             ensurePlaceholderVisibility();
         }
