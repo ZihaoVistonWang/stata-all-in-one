@@ -1,5 +1,5 @@
 const vscode = require('vscode');
-const { StataTerminalRenderer, getWebviewThemeVariables } = require('../cli/renderer');
+const { StataTerminalRenderer, getWebviewThemeVariables } = require('./renderer');
 const { msg } = require('../../../utils/common');
 
 const PANEL_VIEW_TYPE = 'stata-all-in-one.webviewTerminal';

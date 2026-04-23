@@ -1,5 +1,5 @@
 /**
- * Stata Native Session Wrapper
+ * Stata Webview Native Session Wrapper
  * Loads the compiled .node native module and provides Promise-based API
  * 加载编译后的 .node 原生模块并提供 Promise 封装的 API
  */

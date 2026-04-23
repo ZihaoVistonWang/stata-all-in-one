@@ -1,8 +1,8 @@
 /**
  * Execute Dispatcher Module
- * 代码执行调度层 - 在 CLI 和 GUI 之间路由
+ * 代码执行调度层 - 在 Webview 和 GUI 之间路由
  * 
- * Wave 2 实现：创建统一接口，检查 CLI 可用性并路由
+ * Wave 2 实现：创建统一接口，检查 Webview 可用性并路由
  */
 
 const vscode = require('vscode');
@@ -17,8 +17,8 @@ const config = require('../../../utils/config');
 const { runOnMac } = require('../gui/mac');
 const { runOnWindows } = require('../gui/windows');
 
-// CLI 执行函数导入
-const { runOnMacCLI } = require('../cli/mac');
+// Webview 执行函数导入
+const { runOnMacWebview } = require('../webview/runtime');
 
 // 临时文件处理
 const { generateTempDoFile, cleanupTempFile } = require('./tempfile');
@@ -113,7 +113,7 @@ function getCodeToRun(editor) {
 
 /**
  * 主调度函数：运行当前节/行/选区
- * 检查 CLI 可用性，路由到 CLI 或 GUI 执行路径
+ * 检查 Webview 可用性，路由到 Webview 或 GUI 执行路径
  * 
  * @param {vscode.ExtensionContext} context - VS Code 扩展上下文
  * @param {vscode.TextEditor} editor - VS Code 文本编辑器（可选，默认使用 activeTextEditor）
@@ -159,7 +159,7 @@ async function runCurrentSection(context, editor = null) {
         if (onWindows) {
             if (runMode !== config.RUN_MODES.gui) {
                 vscode.window.showWarningMessage(msg('runModeUnsupportedOnWindows', {
-                    mode: runMode === config.RUN_MODES.webview ? 'Webview' : 'CLI'
+                    mode: 'Webview'
                 }));
             }
 
@@ -171,13 +171,11 @@ async function runCurrentSection(context, editor = null) {
                 vscode.commands.executeCommand('setContext', 'stata-all-in-one.cliSessionActive', false);
             } else {
                 vscode.commands.executeCommand('setContext', 'stata-all-in-one.cliSessionActive', true);
-                const cliResult = await runOnMacCLI(codeToRun, tmpFilePath, docDir, context, {
-                    outputMode: runMode
-                });
+                const cliResult = await runOnMacWebview(codeToRun, tmpFilePath, docDir, context);
                 if (cliResult.success) {
                     vscode.commands.executeCommand('setContext', 'stata-all-in-one.cliSessionActive', true);
                 } else if (cliResult.shouldOfferGuiFallback) {
-                    await maybeOfferGuiFallback(codeToRun, tmpFilePath, docDir, context, cliResult.message || 'CLI 执行失败');
+                    await maybeOfferGuiFallback(codeToRun, tmpFilePath, docDir, context, cliResult.message || 'Webview 执行失败');
                     vscode.commands.executeCommand('setContext', 'stata-all-in-one.cliSessionActive', false);
                 } else {
                     vscode.commands.executeCommand('setContext', 'stata-all-in-one.cliSessionActive', true);
@@ -287,7 +285,7 @@ async function runArbitraryCode(context, code, options = {}) {
         if (onWindows) {
             if (runMode !== config.RUN_MODES.gui) {
                 vscode.window.showWarningMessage(msg('runModeUnsupportedOnWindows', {
-                    mode: runMode === config.RUN_MODES.webview ? 'Webview' : 'CLI'
+                    mode: 'Webview'
                 }));
             }
             runOnWindows(normalizedCode, tmpFilePath, stataPathOnWindows, docDir);
@@ -302,15 +300,13 @@ async function runArbitraryCode(context, code, options = {}) {
         }
 
         await vscode.commands.executeCommand('setContext', 'stata-all-in-one.cliSessionActive', true);
-        const cliResult = await runOnMacCLI(normalizedCode, tmpFilePath, docDir, context, {
-            outputMode: runMode
-        });
+        const cliResult = await runOnMacWebview(normalizedCode, tmpFilePath, docDir, context);
         if (cliResult.success) {
             await vscode.commands.executeCommand('setContext', 'stata-all-in-one.cliSessionActive', true);
             return cliResult;
         }
         if (cliResult.shouldOfferGuiFallback) {
-            await maybeOfferGuiFallback(normalizedCode, tmpFilePath, docDir, context, cliResult.message || 'CLI 执行失败');
+            await maybeOfferGuiFallback(normalizedCode, tmpFilePath, docDir, context, cliResult.message || 'Webview 执行失败');
             await vscode.commands.executeCommand('setContext', 'stata-all-in-one.cliSessionActive', false);
         }
         return cliResult;

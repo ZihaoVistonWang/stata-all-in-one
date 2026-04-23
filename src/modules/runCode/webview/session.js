@@ -1,6 +1,6 @@
 /**
- * Stata CLI Session Manager
- * 管理单个 VS Code 窗口的 Stata CLI 会话实例
+ * Stata Webview Session Manager
+ * 管理单个 VS Code 窗口的 Stata Webview 会话实例
  * 
  * 提供单例模式的会话管理，封装原生模块的异步 API
  */
@@ -12,7 +12,7 @@ let _cliSessionInstance = null;
 
 /**
  * StataCliSession 类
- * 管理 Stata CLI 会话的初始化、执行和关闭
+ * 管理 Stata Webview 会话的初始化、执行和关闭
  */
 class StataCliSession {
     /**
@@ -72,7 +72,7 @@ class StataCliSession {
     }
 
     /**
-     * 初始化 Stata CLI 会话
+     * 初始化 Stata 会话
      * 异步初始化，不阻塞扩展激活
      * @param {string} dylibPath - Stata dylib/shared library 路径
      * @returns {Promise<boolean>} - 初始化成功返回 true，失败返回 false（不抛出异常）
@@ -265,7 +265,7 @@ class StataCliSession {
 }
 
 /**
- * 获取或创建 CLI 会话单例
+ * 获取或创建会话单例
  * 每个 VS Code 窗口只有一个实例
  * @param {vscode.ExtensionContext} context - VS Code 扩展上下文
  * @returns {StataCliSession}
@@ -278,7 +278,7 @@ function getCliSession(context) {
 }
 
 /**
- * 初始化 CLI 会话单例
+ * 初始化会话单例
  * 创建单例并尝试初始化
  * @param {vscode.ExtensionContext} context - VS Code 扩展上下文
  * @param {string} dylibPath - Stata dylib 路径

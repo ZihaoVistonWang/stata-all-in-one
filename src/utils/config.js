@@ -3,7 +3,6 @@ const vscode = require('vscode');
 const CONFIG_NAMESPACE = 'stata-all-in-one';
 const RUN_MODES = Object.freeze({
     gui: 'gui',
-    cli: 'cli',
     webview: 'webview'
 });
 
@@ -114,27 +113,11 @@ const getEnableCtrlShiftD = () => getConfigValue('enableCtrlShiftD', false);
 const getCdToDoFileDir = () => getConfigValue('cdToDoFileDir', false);
 
 /**
- * Get preferred CLI terminal panel location
- */
-const getCliTerminalLocation = () => getConfigValue('cliTerminalLocation', 'right');
-
-/**
- * Get preferred CLI terminal max width in characters
- */
-const getCliTerminalMaxWidth = () => {
-    const width = getConfigValue('cliTerminalMaxWidth', 67);
-    if (typeof width !== 'number' || !isFinite(width) || width < 40) {
-        return 67;
-    }
-    return Math.floor(width);
-};
-
-/**
  * Get preferred code execution mode
  */
 const getRunMode = () => {
-    const mode = String(getConfigValue('runMode', RUN_MODES.cli) || '').trim().toLowerCase();
-    return Object.values(RUN_MODES).includes(mode) ? mode : RUN_MODES.cli;
+    const mode = String(getConfigValue('runMode', RUN_MODES.webview) || '').trim().toLowerCase();
+    return Object.values(RUN_MODES).includes(mode) ? mode : RUN_MODES.webview;
 };
 
 module.exports = {
@@ -155,7 +138,5 @@ module.exports = {
     getSeparatorSymmetric,
     getEnableCtrlShiftD,
     getCdToDoFileDir,
-    getRunMode,
-    getCliTerminalLocation,
-    getCliTerminalMaxWidth
+    getRunMode
 };
