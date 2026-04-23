@@ -9,7 +9,7 @@ const { registerSeparatorCommands } = require('./modules/separator');
 const { registerCommentCommand, toggleComment } = require('./modules/comment');
 const { registerExecuteCommand } = require('./modules/runCode/execute');
 const { runArbitraryCode } = require('./modules/runCode/execute');
-const { stopCliExecution, forceShutdownCliSession, ensureCliPreviewForEditor } = require('./modules/runCode/cli/mac');
+const { stopCliExecution, forceShutdownCliSession } = require('./modules/runCode/webview/runtime');
 const { setWebviewCommandHandler } = require('./modules/runCode/webview/panel');
 const { registerCustomCommandHighlight } = require('./modules/customCommandHighlight');
 const { registerCompletionProvider } = require('./modules/completionProvider');
@@ -18,13 +18,12 @@ const { registerLineBreakCommand } = require('./modules/lineBreak');
 const { registerRenameProvider } = require('./modules/renameProvider');
 const { registerUpdateCheck } = require('./modules/updateNotification');
 const { findStataApp } = require('./modules/runCode/gui/mac');
-const { syncCliTerminalTheme } = require('./modules/runCode/cli/renderer');
-const { prewarmCliTextmateTokenizer } = require('./modules/runCode/cli/textmateTokenizer');
-const { STATA_CLI_TERMINAL_NAME } = require('./modules/runCode/cli/terminal');
+const { syncCliTerminalTheme } = require('./modules/runCode/webview/renderer');
+const { prewarmCliTextmateTokenizer } = require('./modules/runCode/webview/textmateTokenizer');
 const { isMacOS, showInfo, showWarn, msg } = require('./utils/common');
 const config = require('./utils/config');
 
-// CLI session state context key for "stop" button visibility
+// Execution session state context key for "stop" button visibility
 const CLI_SESSION_ACTIVE_KEY = 'stata-all-in-one.cliSessionActive';
 const { showWindowsUpgradeNotification, forceShowWindowsUpgradeNotification, resetWindowsUpgradeNotification } = require('./modules/windowsUpgradeNotification');
 
@@ -56,21 +55,6 @@ const CONFIG_MAPPING = [
 ];
 
 const MAC_AUTO_DETECT_KEY = 'stata-all-in-one.macAutoDetectDone';
-
-function disposeNonCliWindowTerminals() {
-    const terminals = [...vscode.window.terminals];
-    for (const terminal of terminals) {
-        if (terminal.name === STATA_CLI_TERMINAL_NAME) {
-            continue;
-        }
-
-        try {
-            terminal.dispose();
-        } catch (error) {
-            console.error('Stata All in One: Failed to dispose restored terminal:', error.message);
-        }
-    }
-}
 
 function getUserLanguage() {
     const lang = (vscode.env.language || '').toLowerCase();
@@ -214,13 +198,12 @@ async function resetMigrationPrompt(context) {
  */
 function activate(context) {
     console.log('Stata All in One: Extension activated');
-    disposeNonCliWindowTerminals();
     syncCliTerminalTheme();
     context.subscriptions.push(vscode.window.onDidChangeActiveColorTheme(() => {
         syncCliTerminalTheme();
     }));
     
-    // Initialize CLI session context to false (no CLI session active)
+    // Initialize execution session context to false
     vscode.commands.executeCommand('setContext', CLI_SESSION_ACTIVE_KEY, false);
     
     // Check if Stata Outline is installed
@@ -322,7 +305,7 @@ function activate(context) {
     );
     console.log('Stata All in One: Custom rename command registered');
 
-    // Register run code command (uses dispatch layer for CLI/GUI routing)
+    // Register run code command (uses dispatch layer for Webview/GUI routing)
     registerExecuteCommand(context);
     setWebviewCommandHandler(async (code) => {
         await runArbitraryCode(context, code, {
@@ -330,37 +313,7 @@ function activate(context) {
         });
     });
 
-    let hasInitializedCliPreview = false;
-    const maybeInitCliPreview = async (editor) => {
-        if (
-            !isMacOS()
-            || hasInitializedCliPreview
-            || !editor
-            || editor.document.languageId !== 'stata'
-            || config.getRunMode() !== config.RUN_MODES.cli
-        ) {
-            return;
-        }
-
-        hasInitializedCliPreview = true;
-        try {
-            await ensureCliPreviewForEditor(editor);
-        } catch (error) {
-            console.error('Stata All in One: Failed to initialize CLI preview:', error.message);
-        }
-    };
-
-    context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor((editor) => {
-        maybeInitCliPreview(editor);
-    }));
-    context.subscriptions.push(vscode.workspace.onDidChangeConfiguration((event) => {
-        if (event.affectsConfiguration('stata-all-in-one.runMode') && config.getRunMode() === config.RUN_MODES.cli) {
-            maybeInitCliPreview(vscode.window.activeTextEditor);
-        }
-    }));
-    maybeInitCliPreview(vscode.window.activeTextEditor);
-    
-    // Register CLI stop execution command
+    // Register stop execution command
     const stopCliCommand = vscode.commands.registerCommand(
         'stata-all-in-one.stopCliExecution',
         () => {

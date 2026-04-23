@@ -119,32 +119,14 @@
           "type": "string",
           "enum": [
             "gui",
-            "cli",
             "webview"
           ],
           "enumItemLabels": [
             "GUI",
-            "CLI",
             "Webview"
           ],
           "default": "webview",
           "markdownDescription": "%config.runMode.description%"
-        },
-        "stata-all-in-one.cliTerminalLocation": {
-          "type": "string",
-          "enum": [
-            "bottom",
-            "right",
-            "left"
-          ],
-          "default": "right",
-          "markdownDescription": "%config.cliTerminalLocation.description%"
-        },
-        "stata-all-in-one.cliTerminalMaxWidth": {
-          "type": "number",
-          "default": 67,
-          "minimum": 40,
-          "markdownDescription": "%config.cliTerminalMaxWidth.description%"
         },
         "stata-all-in-one.showActionButtons": {
           "type": "boolean",
@@ -278,7 +260,7 @@
       },
       {
         "command": "stata-all-in-one.stopCliExecution",
-        "title": "Stata All in One: Stop CLI Execution",
+        "title": "Stata All in One: Stop Stata Execution",
         "icon": "$(debug-stop)"
       }
     ],

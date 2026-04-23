@@ -1,6 +1,6 @@
 /**
- * macOS CLI Stata Runner
- * 使用 Stata CLI Session 执行代码，并通过 Pseudoterminal 显示输出
+ * macOS Webview Stata Runner
+ * 使用 Stata 会话执行代码，并通过 Webview 显示输出
  */
 
 const vscode = require('vscode');
@@ -8,64 +8,49 @@ const fs = require('fs');
 const path = require('path');
 
 const session = require('./session');
-const { StataPseudoTerminal } = require('./terminal');
 const { getTempFilePath, cleanupTempFile } = require('../execute/tempfile');
 const config = require('../../../utils/config');
-const { getWebviewTerminalSink } = require('../webview/panel');
+const { getWebviewTerminalSink } = require('./panel');
 
-let _stataTerminal = null;
-let _cliStatusBarItem = null;
-let _cliStatusBarAlignment = null;
+let _statusBarItem = null;
+let _statusBarAlignment = null;
 let _activeOutputSink = null;
 const SYNTHETIC_PROGRESS_LINE_WIDTH = 72;
 
-function getCliStatusBarAlignment() {
-    const location = config.getCliTerminalLocation();
-    return location === 'left'
-        ? vscode.StatusBarAlignment.Left
-        : vscode.StatusBarAlignment.Right;
-}
+function getOrCreateStatusBarItem() {
+    const desiredAlignment = vscode.StatusBarAlignment.Right;
 
-function getOrCreateCliStatusBarItem() {
-    const desiredAlignment = getCliStatusBarAlignment();
-
-    if (_cliStatusBarItem && _cliStatusBarAlignment !== desiredAlignment) {
-        _cliStatusBarItem.dispose();
-        _cliStatusBarItem = null;
-        _cliStatusBarAlignment = null;
+    if (_statusBarItem && _statusBarAlignment !== desiredAlignment) {
+        _statusBarItem.dispose();
+        _statusBarItem = null;
+        _statusBarAlignment = null;
     }
 
-    if (!_cliStatusBarItem) {
-        _cliStatusBarItem = vscode.window.createStatusBarItem(desiredAlignment, 100);
-        _cliStatusBarItem.name = 'Stata CLI Status';
-        _cliStatusBarItem.command = 'workbench.action.terminal.focus';
-        _cliStatusBarAlignment = desiredAlignment;
+    if (!_statusBarItem) {
+        _statusBarItem = vscode.window.createStatusBarItem(desiredAlignment, 100);
+        _statusBarItem.name = 'Stata Webview Status';
+        _statusBarItem.command = 'workbench.action.focusSecondEditorGroup';
+        _statusBarAlignment = desiredAlignment;
     }
 
-    return _cliStatusBarItem;
+    return _statusBarItem;
 }
 
-function showCliRunningStatus(outputMode = config.RUN_MODES.cli) {
-    const item = getOrCreateCliStatusBarItem();
-    item.text = outputMode === config.RUN_MODES.webview
-        ? '$(loading~spin) Stata running'
-        : '$(loading~spin) Stata CLI running';
-    item.tooltip = outputMode === config.RUN_MODES.webview
-        ? 'Stata is executing code in the webview terminal'
-        : 'Stata CLI is executing code';
-    item.command = outputMode === config.RUN_MODES.webview
-        ? 'workbench.action.focusSecondEditorGroup'
-        : 'workbench.action.terminal.focus';
+function showCliRunningStatus() {
+    const item = getOrCreateStatusBarItem();
+    item.text = '$(loading~spin) Stata running';
+    item.tooltip = 'Stata is executing code in the webview terminal';
+    item.command = 'workbench.action.focusSecondEditorGroup';
     item.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
     item.color = new vscode.ThemeColor('statusBarItem.errorForeground');
     item.show();
 }
 
 function hideCliRunningStatus() {
-    if (_cliStatusBarItem) {
-        _cliStatusBarItem.backgroundColor = undefined;
-        _cliStatusBarItem.color = undefined;
-        _cliStatusBarItem.hide();
+    if (_statusBarItem) {
+        _statusBarItem.backgroundColor = undefined;
+        _statusBarItem.color = undefined;
+        _statusBarItem.hide();
     }
 }
 
@@ -105,29 +90,8 @@ function computeIncrementalChunk(emittedOutput, currentOutput) {
     return currentOutput;
 }
 
-function getOrCreateTerminal() {
-    if (!_stataTerminal) {
-        _stataTerminal = new StataPseudoTerminal();
-    }
-
-    return _stataTerminal;
-}
-
-function getOutputSink(outputMode) {
-    if (outputMode === config.RUN_MODES.webview) {
-        return getWebviewTerminalSink();
-    }
-
-    return getOrCreateTerminal();
-}
-
-async function ensureCliPreviewForEditor(editor) {
-    if (!editor || editor.document.languageId !== 'stata' || config.getRunMode() !== config.RUN_MODES.cli) {
-        return;
-    }
-
-    const terminal = getOrCreateTerminal();
-    await terminal.showPreviewOnFileOpen();
+function getOutputSink() {
+    return getWebviewTerminalSink();
 }
 
 /**
@@ -246,10 +210,10 @@ async function ensureCliSession(context) {
 
     const success = await session.initCliSession(context, dylibInfo.path);
     if (!success) {
-        console.error('[mac.js] CLI 会话初始化失败');
+        console.error('[runtime] 会话初始化失败');
         return {
             success: false,
-            reason: `Stata CLI 会话初始化失败。请检查 Stata ${dylibInfo.edition ? dylibInfo.edition.toUpperCase() : ''} 是否正确安装。`
+            reason: `Stata 会话初始化失败。请检查 Stata ${dylibInfo.edition ? dylibInfo.edition.toUpperCase() : ''} 是否正确安装。`
         };
     }
 
@@ -261,14 +225,14 @@ async function ensureCliSession(context) {
 }
 
 /**
- * Run code on macOS via CLI
+ * Run code on macOS via Webview-backed session
  * @param {string} codeToRun - The code to execute
- * @param {string} tmpFilePath - Path to temporary file (unused in CLI mode)
+ * @param {string} tmpFilePath - Path to temporary file (unused in webview mode)
  * @param {string|null} docDir - Directory of the do file
  * @param {vscode.ExtensionContext} context - VS Code extension context
  * @returns {Promise<boolean>} - 执行成功返回 true，失败返回 false
  */
-async function runOnMacCLI(codeToRun, tmpFilePath, docDir = null, context = null, options = {}) {
+async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = null, options = {}) {
     let executionPlan = null;
     let streamedOutput = '';
     let progressTimer = null;
@@ -276,10 +240,7 @@ async function runOnMacCLI(codeToRun, tmpFilePath, docDir = null, context = null
     let syntheticProgressActive = false;
     let syntheticProgressColumn = 0;
     let runStartTime = null;
-    const outputMode = options.outputMode === config.RUN_MODES.webview
-        ? config.RUN_MODES.webview
-        : config.RUN_MODES.cli;
-    const outputSink = getOutputSink(outputMode);
+    const outputSink = getOutputSink();
 
     try {
         const initResult = await ensureCliSession(context);
@@ -294,12 +255,12 @@ async function runOnMacCLI(codeToRun, tmpFilePath, docDir = null, context = null
 
         const cliSession = session.getCliSession(context);
         if (!cliSession || !cliSession.isInitialized()) {
-            console.error('[mac.js] 无法获取有效的 CLI 会话');
+            console.error('[runtime] 无法获取有效的 Stata 会话');
             return {
                 success: false,
                 shouldOfferGuiFallback: true,
                 errorType: 'extension',
-                message: '无法获取有效的 CLI 会话。'
+                message: '无法获取有效的 Stata 会话。'
             };
         }
 
@@ -307,12 +268,12 @@ async function runOnMacCLI(codeToRun, tmpFilePath, docDir = null, context = null
         await outputSink.prepareForExecution();
 
         const normalizedCode = normalizeCodeToRun(codeToRun);
-        await ensureCliBootstrap(cliSession);
+        await ensureWebviewBootstrap(cliSession);
         await ensureInitialWorkingDirectory(cliSession, docDir);
         executionPlan = createExecutionPlan(normalizedCode, cliSession.getWorkingDirectory());
         lastRealChunkAt = Date.now();
         runStartTime = lastRealChunkAt;
-        showCliRunningStatus(outputMode);
+        showCliRunningStatus();
         progressTimer = setInterval(() => {
             if (!syntheticProgressActive) {
                 return;
@@ -389,7 +350,7 @@ async function runOnMacCLI(codeToRun, tmpFilePath, docDir = null, context = null
             shouldOfferGuiFallback: false
         };
     } catch (error) {
-        console.error('[mac.js] runOnMacCLI 异常:', error.message);
+        console.error('[runtime] runOnMacWebview 异常:', error.message);
 
         _activeOutputSink = outputSink;
         await outputSink.prepareForExecution();
@@ -398,7 +359,7 @@ async function runOnMacCLI(codeToRun, tmpFilePath, docDir = null, context = null
             success: false,
             shouldOfferGuiFallback: true,
             errorType: 'extension',
-            message: `Stata CLI 执行错误: ${error.message}`
+            message: `Stata 执行错误: ${error.message}`
         };
     } finally {
         if (progressTimer) {
@@ -440,7 +401,7 @@ async function ensureInitialWorkingDirectory(cliSession, docDir) {
     cliSession.setWorkingDirectory(docDir);
 }
 
-async function ensureCliBootstrap(cliSession) {
+async function ensureWebviewBootstrap(cliSession) {
     if (cliSession.isBootstrapped()) {
         return;
     }
@@ -564,7 +525,7 @@ function shouldUseDoFileForSingleLine(line) {
 }
 
 /**
- * Initialize CLI session for Stata
+ * Initialize Stata session
  * @param {vscode.ExtensionContext} context - VS Code extension context
  * @returns {Promise<boolean>} - 初始化成功返回 true，失败返回 false
  */
@@ -578,20 +539,20 @@ async function initCliSession(context) {
 
         if (!result.fromExisting) {
             vscode.window.showInformationMessage(
-                `Stata CLI (${result.edition ? result.edition.toUpperCase() : 'CLI'}) 已初始化成功。`
+                `Stata ${result.edition ? result.edition.toUpperCase() : ''} 会话已初始化成功。`
             );
         }
 
         return true;
     } catch (error) {
-        console.error('[mac.js] initCliSession 异常:', error.message);
-        vscode.window.showErrorMessage(`Stata CLI 初始化错误: ${error.message}`);
+        console.error('[runtime] initCliSession 异常:', error.message);
+        vscode.window.showErrorMessage(`Stata 初始化错误: ${error.message}`);
         return false;
     }
 }
 
 /**
- * Stop CLI execution
+ * Stop Stata execution
  * @param {vscode.ExtensionContext} context - VS Code extension context
  * @returns {boolean} - 成功返回 true
  */
@@ -605,9 +566,6 @@ function stopCliExecution(context) {
         if (_activeOutputSink) {
             _activeOutputSink.reveal();
             _activeOutputSink.writeBreak();
-        } else if (_stataTerminal) {
-            _stataTerminal.reveal();
-            _stataTerminal.writeBreak();
         }
 
         return true;
@@ -618,26 +576,21 @@ function stopCliExecution(context) {
 }
 
 /**
- * Get current CLI session
+ * Get current Stata session
  * @param {vscode.ExtensionContext} context - VS Code extension context
- * @returns {StataCliSession|null} - CLI 会话实例或 null
+ * @returns {StataCliSession|null} - 会话实例或 null
  */
 function getCliSession(context) {
     return session.getCliSession(context);
 }
 
 /**
- * 强制关闭 CLI 会话
+ * 强制关闭 Stata 会话
  * @returns {boolean} - 成功返回 true
  */
 function forceShutdownCliSession() {
     try {
         _activeOutputSink = null;
-        if (_stataTerminal) {
-            _stataTerminal.dispose();
-            _stataTerminal = null;
-        }
-
         return session.forceShutdownCliSession();
     } catch (error) {
         console.error('[mac.js] forceShutdownCliSession 异常:', error.message);
@@ -647,8 +600,7 @@ function forceShutdownCliSession() {
 
 module.exports = {
     findStataDylib,
-    runOnMacCLI,
-    ensureCliPreviewForEditor,
+    runOnMacWebview,
     initCliSession,
     stopCliExecution,
     getCliSession,
