@@ -94,14 +94,8 @@ const TOKEN_SCOPE_CANDIDATES = {
     number: ['constant.numeric.stata', 'constant.numeric'],
     comment: ['comment.line.double-slash.stata', 'comment.line.star.stata', 'comment.line.triple-slash.stata', 'comment.block.stata', 'comment'],
     operator: [
-        'punctuation.separator.comma.stata',
-        'punctuation.separator.key-value',
-        'punctuation.definition.variable.begin.stata',
-        'punctuation.definition.parameters.begin.stata',
-        'punctuation.definition.parameters.end.stata',
         'keyword.operator.assignment.stata',
         'keyword.operator.arithmetic.stata',
-        'keyword.operator.parentheses.stata',
         'keyword.operator.comparison.stata',
         'keyword.operator.logical.stata',
         'keyword.operator.factor-variables.stata',
@@ -122,6 +116,14 @@ const KEYWORD_TOKEN_SCOPE_CANDIDATES = [
     'support.type.stata',
     'constant.language.factorvars.stata',
     'keyword'
+];
+const PLAIN_PUNCTUATION_SCOPE_CANDIDATES = [
+    'keyword.operator.parentheses.stata',
+    'punctuation.definition.parameters.begin.stata',
+    'punctuation.definition.parameters.end.stata',
+    'punctuation.separator.comma.stata',
+    'punctuation.separator.key-value',
+    'punctuation.definition.variable.begin.stata'
 ];
 
 let CURRENT_THEME_SLOT_MAP = { ...DEFAULT_SLOT_MAP };
@@ -1448,6 +1450,10 @@ class StataTerminalRenderer {
             return 'macro';
         }
 
+        if (scopes.some((scope) => PLAIN_PUNCTUATION_SCOPE_CANDIDATES.some((candidate) => scopeMatches(scope, candidate)))) {
+            return 'plain';
+        }
+
         if (scopes.some((scope) => TOKEN_SCOPE_CANDIDATES.operator.some((candidate) => scopeMatches(scope, candidate)))) {
             return 'operator';
         }
@@ -1513,6 +1519,7 @@ class StataTerminalRenderer {
                 type,
                 {
                     fg: this._foregroundForCommandToken(token.type, token.scopes, token.foreground),
+                    forceForeground: hasSpecificGrammarScope(token.scopes),
                     bold: token.type === 'prompt' || token.type === 'command' || token.type === 'keyword',
                     italic: token.type === 'comment',
                     dim: token.type === 'comment'
@@ -1539,30 +1546,15 @@ class StataTerminalRenderer {
     }
 
     _foregroundForCommandToken(type, scopes, tokenForeground) {
-        if (tokenForeground && !this._isDefaultThemeForeground(tokenForeground, type)) {
-            return tokenForeground;
-        }
-
         if (hasSpecificGrammarScope(scopes)) {
-            const exactThemeColor = findThemeColorForScopes(CURRENT_THEME_DATA, scopes);
-            if (exactThemeColor) {
-                return exactThemeColor;
+            if (tokenForeground) {
+                return tokenForeground;
             }
+
+            return CURRENT_THEME_DEFAULT_FOREGROUND || CURRENT_THEME_SLOT_MAP.default;
         }
 
         return CURRENT_THEME_SLOT_MAP[type] || CURRENT_THEME_SLOT_MAP.default;
-    }
-
-    _isDefaultThemeForeground(color, type) {
-        if (!color || !CURRENT_THEME_DEFAULT_FOREGROUND) {
-            return false;
-        }
-
-        if (String(color).toUpperCase() !== String(CURRENT_THEME_DEFAULT_FOREGROUND).toUpperCase()) {
-            return false;
-        }
-
-        return type !== 'plain' && type !== 'string' && type !== 'comment';
     }
 
     _tokenizeCommandLine(line) {
@@ -1780,7 +1772,9 @@ class StataTerminalRenderer {
     _segment(text, style = {}) {
         const tokenType = style.tokenType || 'plain';
         const defaultColor = CURRENT_THEME_SLOT_MAP[tokenType] || CURRENT_THEME_SLOT_MAP.default || null;
-        const explicitColor = style.fg && style.fg !== defaultColor ? style.fg : null;
+        const explicitColor = style.forceForeground
+            ? (style.fg || CURRENT_THEME_DEFAULT_FOREGROUND || CURRENT_THEME_SLOT_MAP.default || null)
+            : (style.fg && style.fg !== defaultColor ? style.fg : null);
         return {
             text,
             tokenType,
@@ -1800,6 +1794,9 @@ class StataTerminalRenderer {
         const foreground = overrides.fg || CURRENT_THEME_SLOT_MAP[type];
         if (foreground) {
             style.fg = foreground;
+        }
+        if (overrides.forceForeground) {
+            style.forceForeground = true;
         }
         if (overrides.bg) {
             style.bg = overrides.bg;
