@@ -11,10 +11,12 @@ const session = require('./session');
 const { StataPseudoTerminal } = require('./terminal');
 const { getTempFilePath, cleanupTempFile } = require('../execute/tempfile');
 const config = require('../../../utils/config');
+const { getWebviewTerminalSink } = require('../webview/panel');
 
 let _stataTerminal = null;
 let _cliStatusBarItem = null;
 let _cliStatusBarAlignment = null;
+let _activeOutputSink = null;
 const SYNTHETIC_PROGRESS_LINE_WIDTH = 72;
 
 function getCliStatusBarAlignment() {
@@ -43,10 +45,17 @@ function getOrCreateCliStatusBarItem() {
     return _cliStatusBarItem;
 }
 
-function showCliRunningStatus() {
+function showCliRunningStatus(outputMode = config.RUN_MODES.cli) {
     const item = getOrCreateCliStatusBarItem();
-    item.text = '$(loading~spin) Stata CLI running';
-    item.tooltip = 'Stata CLI is executing code';
+    item.text = outputMode === config.RUN_MODES.webview
+        ? '$(loading~spin) Stata running'
+        : '$(loading~spin) Stata CLI running';
+    item.tooltip = outputMode === config.RUN_MODES.webview
+        ? 'Stata is executing code in the webview terminal'
+        : 'Stata CLI is executing code';
+    item.command = outputMode === config.RUN_MODES.webview
+        ? 'workbench.action.focusSecondEditorGroup'
+        : 'workbench.action.terminal.focus';
     item.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
     item.color = new vscode.ThemeColor('statusBarItem.errorForeground');
     item.show();
@@ -104,8 +113,16 @@ function getOrCreateTerminal() {
     return _stataTerminal;
 }
 
+function getOutputSink(outputMode) {
+    if (outputMode === config.RUN_MODES.webview) {
+        return getWebviewTerminalSink();
+    }
+
+    return getOrCreateTerminal();
+}
+
 async function ensureCliPreviewForEditor(editor) {
-    if (!editor || editor.document.languageId !== 'stata') {
+    if (!editor || editor.document.languageId !== 'stata' || config.getRunMode() !== config.RUN_MODES.cli) {
         return;
     }
 
@@ -251,7 +268,7 @@ async function ensureCliSession(context) {
  * @param {vscode.ExtensionContext} context - VS Code extension context
  * @returns {Promise<boolean>} - 执行成功返回 true，失败返回 false
  */
-async function runOnMacCLI(codeToRun, tmpFilePath, docDir = null, context = null) {
+async function runOnMacCLI(codeToRun, tmpFilePath, docDir = null, context = null, options = {}) {
     let executionPlan = null;
     let streamedOutput = '';
     let progressTimer = null;
@@ -259,6 +276,11 @@ async function runOnMacCLI(codeToRun, tmpFilePath, docDir = null, context = null
     let syntheticProgressActive = false;
     let syntheticProgressColumn = 0;
     let runStartTime = null;
+    const outputMode = options.outputMode === config.RUN_MODES.webview
+        ? config.RUN_MODES.webview
+        : config.RUN_MODES.cli;
+    const outputSink = getOutputSink(outputMode);
+
     try {
         const initResult = await ensureCliSession(context);
         if (!initResult.success) {
@@ -281,8 +303,8 @@ async function runOnMacCLI(codeToRun, tmpFilePath, docDir = null, context = null
             };
         }
 
-        const terminal = getOrCreateTerminal();
-        await terminal.prepareForExecution();
+        _activeOutputSink = outputSink;
+        await outputSink.prepareForExecution();
 
         const normalizedCode = normalizeCodeToRun(codeToRun);
         await ensureCliBootstrap(cliSession);
@@ -290,7 +312,7 @@ async function runOnMacCLI(codeToRun, tmpFilePath, docDir = null, context = null
         executionPlan = createExecutionPlan(normalizedCode, cliSession.getWorkingDirectory());
         lastRealChunkAt = Date.now();
         runStartTime = lastRealChunkAt;
-        showCliRunningStatus();
+        showCliRunningStatus(outputMode);
         progressTimer = setInterval(() => {
             if (!syntheticProgressActive) {
                 return;
@@ -301,11 +323,11 @@ async function runOnMacCLI(codeToRun, tmpFilePath, docDir = null, context = null
             }
 
             if (syntheticProgressColumn >= SYNTHETIC_PROGRESS_LINE_WIDTH) {
-                terminal.writeRawChunk('\n> ');
+                outputSink.writeRawChunk('\n> ');
                 syntheticProgressColumn = 0;
             }
 
-            terminal.writeRawChunk('.');
+            outputSink.writeRawChunk('.');
             syntheticProgressColumn += 1;
         }, 300);
 
@@ -324,7 +346,7 @@ async function runOnMacCLI(codeToRun, tmpFilePath, docDir = null, context = null
 
             if (hasResultPhaseOutput(chunk)) {
                 if (syntheticProgressActive && syntheticProgressColumn > 0) {
-                    terminal.writeRawChunk('\n');
+                    outputSink.writeRawChunk('\n');
                 }
                 syntheticProgressActive = false;
                 syntheticProgressColumn = 0;
@@ -334,23 +356,23 @@ async function runOnMacCLI(codeToRun, tmpFilePath, docDir = null, context = null
                 return;
             }
 
-            terminal.writeOutputChunk(chunk);
+            outputSink.writeOutputChunk(chunk);
         });
 
         if (result.output) {
             const tailChunk = computeIncrementalChunk(streamedOutput, result.output);
             if (tailChunk) {
-                terminal.writeOutputChunk(tailChunk);
+                outputSink.writeOutputChunk(tailChunk);
                 streamedOutput += tailChunk;
             }
         }
 
-        terminal.flushOutput();
+        outputSink.flushOutput();
 
         if (!result.success) {
             console.error('[mac.js] 执行失败:', result.error);
             if (!result.output) {
-                terminal.writeError(result.error || `Execution failed (${result.returnCode})`);
+                outputSink.writeError(result.error || `Execution failed (${result.returnCode})`);
             }
             return {
                 success: false,
@@ -369,9 +391,9 @@ async function runOnMacCLI(codeToRun, tmpFilePath, docDir = null, context = null
     } catch (error) {
         console.error('[mac.js] runOnMacCLI 异常:', error.message);
 
-        const terminal = getOrCreateTerminal();
-        await terminal.prepareForExecution();
-        terminal.writeError(error.message);
+        _activeOutputSink = outputSink;
+        await outputSink.prepareForExecution();
+        outputSink.writeError(error.message);
         return {
             success: false,
             shouldOfferGuiFallback: true,
@@ -384,10 +406,9 @@ async function runOnMacCLI(codeToRun, tmpFilePath, docDir = null, context = null
         }
         hideCliRunningStatus();
 
-        const terminal = getOrCreateTerminal();
-        terminal.flushOutput();
+        outputSink.flushOutput();
         if (runStartTime !== null) {
-            terminal.writeRunFooter(Date.now() - runStartTime);
+            outputSink.writeRunFooter(Date.now() - runStartTime);
         }
 
         if (executionPlan && executionPlan.tempFilePath) {
@@ -581,7 +602,10 @@ function stopCliExecution(context) {
             cliSession.stop();
         }
 
-        if (_stataTerminal) {
+        if (_activeOutputSink) {
+            _activeOutputSink.reveal();
+            _activeOutputSink.writeBreak();
+        } else if (_stataTerminal) {
             _stataTerminal.reveal();
             _stataTerminal.writeBreak();
         }
@@ -608,6 +632,7 @@ function getCliSession(context) {
  */
 function forceShutdownCliSession() {
     try {
+        _activeOutputSink = null;
         if (_stataTerminal) {
             _stataTerminal.dispose();
             _stataTerminal = null;

@@ -115,6 +115,21 @@
           "default": true,
           "markdownDescription": "%config.cdToDoFileDir.description%"
         },
+        "stata-all-in-one.runMode": {
+          "type": "string",
+          "enum": [
+            "gui",
+            "cli",
+            "webview"
+          ],
+          "enumItemLabels": [
+            "GUI",
+            "CLI",
+            "Webview"
+          ],
+          "default": "webview",
+          "markdownDescription": "%config.runMode.description%"
+        },
         "stata-all-in-one.cliTerminalLocation": {
           "type": "string",
           "enum": [

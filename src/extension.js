@@ -20,6 +20,7 @@ const { syncCliTerminalTheme } = require('./modules/runCode/cli/renderer');
 const { prewarmCliTextmateTokenizer } = require('./modules/runCode/cli/textmateTokenizer');
 const { STATA_CLI_TERMINAL_NAME } = require('./modules/runCode/cli/terminal');
 const { isMacOS, showInfo, showWarn, msg } = require('./utils/common');
+const config = require('./utils/config');
 
 // CLI session state context key for "stop" button visibility
 const CLI_SESSION_ACTIVE_KEY = 'stata-all-in-one.cliSessionActive';
@@ -324,7 +325,13 @@ function activate(context) {
 
     let hasInitializedCliPreview = false;
     const maybeInitCliPreview = async (editor) => {
-        if (!isMacOS() || hasInitializedCliPreview || !editor || editor.document.languageId !== 'stata') {
+        if (
+            !isMacOS()
+            || hasInitializedCliPreview
+            || !editor
+            || editor.document.languageId !== 'stata'
+            || config.getRunMode() !== config.RUN_MODES.cli
+        ) {
             return;
         }
 
@@ -338,6 +345,11 @@ function activate(context) {
 
     context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor((editor) => {
         maybeInitCliPreview(editor);
+    }));
+    context.subscriptions.push(vscode.workspace.onDidChangeConfiguration((event) => {
+        if (event.affectsConfiguration('stata-all-in-one.runMode') && config.getRunMode() === config.RUN_MODES.cli) {
+            maybeInitCliPreview(vscode.window.activeTextEditor);
+        }
     }));
     maybeInitCliPreview(vscode.window.activeTextEditor);
     
