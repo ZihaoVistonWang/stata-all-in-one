@@ -1309,7 +1309,7 @@ class StataTerminalRenderer {
 
         const prompt = (line.startsWith('. ') || line.startsWith('> ')) ? line.slice(0, 2) : '';
         const body = prompt ? line.slice(2) : line;
-        const grammarTokens = this._tokenizeCommandLineWithGrammar(body);
+        const grammarTokens = this._tokenizeCommandBodyWithCommentFallback(body);
         if (!grammarTokens) {
             const fallbackTokens = this._tokenizeCommandLine(line);
             let fallbackRendered = '';
@@ -1370,6 +1370,54 @@ class StataTerminalRenderer {
         }
 
         return renderedTokens;
+    }
+
+    _tokenizeCommandBodyWithCommentFallback(line) {
+        const grammarTokens = this._tokenizeCommandLineWithGrammar(line);
+        if (!grammarTokens || !grammarTokens.length) {
+            return grammarTokens;
+        }
+
+        if (grammarTokens.some((token) => token.type === 'comment')) {
+            return grammarTokens;
+        }
+
+        const commentIndex = this._findInlineDoubleSlashCommentIndex(line);
+        if (commentIndex < 0) {
+            return grammarTokens;
+        }
+
+        const codePart = line.slice(0, commentIndex);
+        const commentPart = line.slice(commentIndex);
+        const codeTokens = codePart ? (this._tokenizeCommandLineWithGrammar(codePart) || []) : [];
+
+        return [
+            ...codeTokens,
+            { type: 'comment', value: commentPart, scopes: ['comment.line.double-slash.stata'] }
+        ];
+    }
+
+    _findInlineDoubleSlashCommentIndex(line) {
+        const text = String(line || '');
+        let inDoubleQuote = false;
+
+        for (let i = 0; i < text.length - 1; i++) {
+            const ch = text[i];
+            if (ch === '"') {
+                inDoubleQuote = !inDoubleQuote;
+                continue;
+            }
+
+            if (inDoubleQuote) {
+                continue;
+            }
+
+            if (text[i] === '/' && text[i + 1] === '/' && text[i + 2] !== '/') {
+                return i;
+            }
+        }
+
+        return -1;
     }
 
     _explodeGenericGrammarToken(scopes, value, isFirstIdentifier, foreground, fontStyle) {
@@ -1503,7 +1551,7 @@ class StataTerminalRenderer {
             segments.push(this._segment(prompt, this._styleForTokenType('prompt', { bold: true })));
         }
 
-        const grammarTokens = this._tokenizeCommandLineWithGrammar(body);
+        const grammarTokens = this._tokenizeCommandBodyWithCommentFallback(body);
         const tokens = grammarTokens || this._tokenizeCommandLine(line).filter((token, index) => !(index === 0 && token.type === 'prompt'));
         for (const token of tokens) {
             const type = token.type === 'plain' ? 'plain' : token.type;
@@ -1543,7 +1591,7 @@ class StataTerminalRenderer {
                 return tokenForeground;
             }
 
-            return CURRENT_THEME_DEFAULT_FOREGROUND || CURRENT_THEME_SLOT_MAP.default;
+            return CURRENT_THEME_SLOT_MAP[type] || CURRENT_THEME_DEFAULT_FOREGROUND || CURRENT_THEME_SLOT_MAP.default;
         }
 
         return CURRENT_THEME_SLOT_MAP[type] || CURRENT_THEME_SLOT_MAP.default;
