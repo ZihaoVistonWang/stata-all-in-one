@@ -1079,6 +1079,53 @@
                                     },
                                     "patterns": [
                                         {
+                                            "begin": "\\(",
+                                            "beginCaptures": {
+                                                "0": {
+                                                    "name": "keyword.operator.parentheses.stata"
+                                                }
+                                            },
+                                            "end": "\\)",
+                                            "endCaptures": {
+                                                "0": {
+                                                    "name": "keyword.operator.parentheses.stata"
+                                                }
+                                            },
+                                            "patterns": [
+                                                {
+                                                    "match": "\\b([\\w&&[^0-9]][\\w.]*)\\b",
+                                                    "name": "variable.parameter.function.stata"
+                                                },
+                                                {
+                                                    "include": "#subscripts"
+                                                },
+                                                {
+                                                    "include": "#constants"
+                                                },
+                                                {
+                                                    "include": "#operators"
+                                                },
+                                                {
+                                                    "include": "#macro-local"
+                                                },
+                                                {
+                                                    "include": "#macro-global"
+                                                },
+                                                {
+                                                    "include": "#builtin_variables"
+                                                },
+                                                {
+                                                    "include": "#comments"
+                                                },
+                                                {
+                                                    "include": "#string-compound"
+                                                },
+                                                {
+                                                    "include": "#string-regular"
+                                                }
+                                            ]
+                                        },
+                                        {
                                             "match": "\\b([\\w&&[^0-9]][\\w.]*)\\b",
                                             "name": "variable.parameter.function.stata"
                                         },
