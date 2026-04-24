@@ -669,15 +669,15 @@ function getWebviewHtml() {
             display: flex;
         }
         .working-bullet {
-            color: var(--stata-separator);
+            color: var(--stata-comment);
             flex: 0 0 auto;
         }
         .working-text {
             font-weight: 700;
-            color: var(--vscode-foreground);
+            color: var(--stata-option);
         }
         .working-meta {
-            color: var(--vscode-descriptionForeground);
+            color: var(--stata-comment);
         }
         body[data-status="running"] .working-text {
             animation: working-pulse 1.1s ease-in-out infinite;
@@ -691,7 +691,7 @@ function getWebviewHtml() {
             50% {
                 opacity: 1;
                 transform: translateX(0.6px);
-                text-shadow: 0 0 10px color-mix(in srgb, white 18%, var(--stata-function));
+                text-shadow: 0 0 10px color-mix(in srgb, var(--stata-option) 55%, transparent);
             }
             100% {
                 opacity: 0.76;
