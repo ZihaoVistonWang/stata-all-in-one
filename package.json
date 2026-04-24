@@ -167,35 +167,35 @@
     "commands": [
       {
         "command": "stata-all-in-one.setLevel1",
-        "title": "Stata All in One: Set as Level 1 Heading"
+        "title": "%command.setLevel1.title%"
       },
       {
         "command": "stata-all-in-one.setLevel2",
-        "title": "Stata All in One: Set as Level 2 Heading"
+        "title": "%command.setLevel2.title%"
       },
       {
         "command": "stata-all-in-one.setLevel3",
-        "title": "Stata All in One: Set as Level 3 Heading"
+        "title": "%command.setLevel3.title%"
       },
       {
         "command": "stata-all-in-one.setLevel4",
-        "title": "Stata All in One: Set as Level 4 Heading"
+        "title": "%command.setLevel4.title%"
       },
       {
         "command": "stata-all-in-one.setLevel5",
-        "title": "Stata All in One: Set as Level 5 Heading"
+        "title": "%command.setLevel5.title%"
       },
       {
         "command": "stata-all-in-one.setLevel6",
-        "title": "Stata All in One: Set as Level 6 Heading"
+        "title": "%command.setLevel6.title%"
       },
       {
         "command": "stata-all-in-one.clearHeading",
-        "title": "Stata All in One: Clear Heading"
+        "title": "%command.clearHeading.title%"
       },
       {
         "command": "stata-all-in-one.runSection",
-        "title": "Stata All in One: Run Current Section",
+        "title": "%command.runSection.title%",
         "icon": "$(play)"
       },
       {
@@ -208,51 +208,51 @@
       },
       {
         "command": "stata-all-in-one.insertCustomSeparator",
-        "title": "Stata All in One: Insert Custom Separator"
+        "title": "%command.insertCustomSeparator.title%"
       },
       {
         "command": "stata-all-in-one.insertSeparatorDash",
-        "title": "Stata All in One: Insert Dash Separator"
+        "title": "%command.insertSeparatorDash.title%"
       },
       {
         "command": "stata-all-in-one.insertSeparatorEqual",
-        "title": "Stata All in One: Insert Equal Separator"
+        "title": "%command.insertSeparatorEqual.title%"
       },
       {
         "command": "stata-all-in-one.insertSeparatorStar",
-        "title": "Stata All in One: Insert Star Separator"
+        "title": "%command.insertSeparatorStar.title%"
       },
       {
         "command": "stata-all-in-one.updateAllSeparators",
-        "title": "Stata All in One: Update All Separators"
+        "title": "%command.updateAllSeparators.title%"
       },
       {
         "command": "stata-all-in-one.showHelp",
-        "title": "Stata All in One: Show Help for Selected Command"
+        "title": "%command.showHelp.title%"
       },
       {
         "command": "stata-all-in-one.insertLineBreak",
-        "title": "Stata All in One: Insert Stata Line Break"
+        "title": "%command.insertLineBreak.title%"
       },
       {
         "command": "stata-all-in-one.resetStataVersionOnMacOS",
-        "title": "Stata All in One: Reset Stata Version on macOS"
+        "title": "%command.resetStataVersionOnMacOS.title%"
       },
       {
         "command": "stata-all-in-one.debugResetMigrationPrompt",
-        "title": "Stata All in One: Debug Reset Migration Prompt"
+        "title": "%command.debugResetMigrationPrompt.title%"
       },
       {
         "command": "stata-all-in-one.debugTestUpdateNotification",
-        "title": "Stata All in One: Debug Test Update Notification"
+        "title": "%command.debugTestUpdateNotification.title%"
       },
       {
         "command": "stata-all-in-one.debugForceWindowsUpgradeNotification",
-        "title": "Stata All in One: Debug Force Windows Upgrade Notification"
+        "title": "%command.debugForceWindowsUpgradeNotification.title%"
       },
       {
         "command": "stata-all-in-one.debugResetWindowsUpgradeNotification",
-        "title": "Stata All in One: Debug Reset Windows Upgrade Notification"
+        "title": "%command.debugResetWindowsUpgradeNotification.title%"
       },
       {
         "command": "stata-all-in-one.debugResetEmbeddedConsoleOverflowNotice",
@@ -260,11 +260,11 @@
       },
       {
         "command": "stata-all-in-one.rename",
-        "title": "Stata All in One: Rename Variable"
+        "title": "%command.rename.title%"
       },
       {
         "command": "stata-all-in-one.stopConsoleExecution",
-        "title": "Stata All in One: Stop Console Execution",
+        "title": "%command.stopConsoleExecution.title%",
         "icon": "$(stop-circle)"
       }
     ],
