@@ -3,7 +3,6 @@
  * 使用 Stata 会话执行代码，并通过 Stata All in One Console 显示输出
  */
 
-const vscode = require('vscode');
 const fs = require('fs');
 const path = require('path');
 
@@ -12,46 +11,7 @@ const { getTempFilePath, cleanupTempFile } = require('../execute/tempfile');
 const config = require('../../../utils/config');
 const { getWebviewTerminalSink } = require('./panel');
 
-let _statusBarItem = null;
-let _statusBarAlignment = null;
 let _activeOutputSink = null;
-
-function getOrCreateStatusBarItem() {
-    const desiredAlignment = vscode.StatusBarAlignment.Right;
-
-    if (_statusBarItem && _statusBarAlignment !== desiredAlignment) {
-        _statusBarItem.dispose();
-        _statusBarItem = null;
-        _statusBarAlignment = null;
-    }
-
-    if (!_statusBarItem) {
-        _statusBarItem = vscode.window.createStatusBarItem(desiredAlignment, 100);
-        _statusBarItem.name = 'Stata All in One Console Status';
-        _statusBarItem.command = 'workbench.action.focusSecondEditorGroup';
-        _statusBarAlignment = desiredAlignment;
-    }
-
-    return _statusBarItem;
-}
-
-function showConsoleRunningStatus() {
-    const item = getOrCreateStatusBarItem();
-    item.text = '$(loading~spin) Stata All in One Console is running';
-    item.tooltip = 'Stata is executing code in Stata All in One Console';
-    item.command = 'workbench.action.focusSecondEditorGroup';
-    item.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
-    item.color = new vscode.ThemeColor('statusBarItem.errorForeground');
-    item.show();
-}
-
-function hideConsoleRunningStatus() {
-    if (_statusBarItem) {
-        _statusBarItem.backgroundColor = undefined;
-        _statusBarItem.color = undefined;
-        _statusBarItem.hide();
-    }
-}
 
 function isNativeProgressOnlyChunk(chunk) {
     const normalized = String(chunk || '').replace(/\r/g, '');
@@ -270,7 +230,6 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
         executionPlan = createExecutionPlan(normalizedCode, consoleSession.getWorkingDirectory());
         lastRealChunkAt = Date.now();
         runStartTime = lastRealChunkAt;
-        showConsoleRunningStatus();
         const result = await consoleSession.execute(executionPlan.command, true, (chunk) => {
             if (!chunk) {
                 return;
@@ -336,8 +295,6 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
             message: `Stata 执行错误: ${error.message}`
         };
     } finally {
-        hideConsoleRunningStatus();
-
         outputSink.flushOutput();
         if (runStartTime !== null) {
             outputSink.writeRunFooter(Date.now() - runStartTime);
