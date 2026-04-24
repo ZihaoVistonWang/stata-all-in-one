@@ -190,6 +190,10 @@ class WebviewTerminalSink {
         appendEntries(this._renderer.renderWarningBlockSegments(text));
     }
 
+    setStatus(status) {
+        setStatus(status);
+    }
+
     writeAccentBlock(text) {
         appendEntries(this._renderer.renderAccentBlockSegments(text));
     }
@@ -653,6 +657,48 @@ function getWebviewHtml() {
         .line-raw-prompt {
             color: var(--stata-prompt);
         }
+        #working-indicator {
+            display: none;
+            align-items: center;
+            gap: 10px;
+            padding: 0 2ch;
+            min-height: 1.5em;
+            color: var(--vscode-descriptionForeground);
+        }
+        body[data-status="running"] #working-indicator {
+            display: flex;
+        }
+        .working-bullet {
+            color: var(--stata-separator);
+            flex: 0 0 auto;
+        }
+        .working-text {
+            font-weight: 700;
+            color: var(--vscode-foreground);
+        }
+        .working-meta {
+            color: var(--vscode-descriptionForeground);
+        }
+        body[data-status="running"] .working-text {
+            animation: working-pulse 1.1s ease-in-out infinite;
+        }
+        @keyframes working-pulse {
+            0% {
+                opacity: 0.76;
+                transform: translateX(0);
+                text-shadow: none;
+            }
+            50% {
+                opacity: 1;
+                transform: translateX(0.6px);
+                text-shadow: 0 0 10px color-mix(in srgb, white 18%, var(--stata-function));
+            }
+            100% {
+                opacity: 0.76;
+                transform: translateX(0);
+                text-shadow: none;
+            }
+        }
         .composer {
             border-top: 1px solid var(--vscode-panel-border);
             background: color-mix(in srgb, var(--vscode-editor-background) 92%, var(--vscode-sideBar-background));
@@ -739,6 +785,11 @@ function getWebviewHtml() {
                 </div>
             </div>
         </div>
+        <div id="working-indicator" aria-hidden="true">
+            <span class="working-bullet">•</span>
+            <span class="working-text">Working</span>
+            <span class="working-meta">(<span id="working-seconds">0s</span> • esc to interrupt)</span>
+        </div>
     </div>
     <div class="composer">
         <div class="composer-label">Stata Input</div>
@@ -752,6 +803,8 @@ function getWebviewHtml() {
         const vscode = acquireVsCodeApi();
         const output = document.getElementById('output');
         const outputShell = document.getElementById('output-shell');
+        const workingIndicator = document.getElementById('working-indicator');
+        const workingSeconds = document.getElementById('working-seconds');
         const placeholder = document.getElementById('placeholder');
         const dot = document.getElementById('status-dot');
         const label = document.getElementById('status-label');
@@ -763,6 +816,9 @@ function getWebviewHtml() {
         let overflowNoticeSuppressed = false;
         let overflowNoticeDismissedForCurrentView = false;
         let renderedEntries = [];
+        let activeResultBlock = null;
+        let runningStartedAt = 0;
+        let workingTimer = null;
 
         const STATUS_LABELS = {
             idle: ${JSON.stringify(msg('webviewIdle'))},
@@ -771,12 +827,46 @@ function getWebviewHtml() {
             error: ${JSON.stringify(msg('webviewError'))}
         };
 
+        function updateWorkingMeta() {
+            if (!runningStartedAt) {
+                workingSeconds.textContent = '0s';
+                return;
+            }
+            const elapsedSeconds = Math.max(0, Math.floor((Date.now() - runningStartedAt) / 1000));
+            workingSeconds.textContent = elapsedSeconds + 's';
+        }
+
+        function startWorkingIndicator() {
+            runningStartedAt = Date.now();
+            workingIndicator.style.display = 'flex';
+            updateWorkingMeta();
+            if (workingTimer) {
+                clearInterval(workingTimer);
+            }
+            workingTimer = setInterval(updateWorkingMeta, 250);
+        }
+
+        function stopWorkingIndicator() {
+            runningStartedAt = 0;
+            if (workingTimer) {
+                clearInterval(workingTimer);
+                workingTimer = null;
+            }
+            updateWorkingMeta();
+            workingIndicator.style.display = 'none';
+        }
+
         function setStatus(status) {
             document.body.dataset.status = status || 'idle';
             dot.className = 'dot ' + (status || 'idle');
             label.textContent = STATUS_LABELS[status] || STATUS_LABELS.idle;
             input.disabled = status === 'running';
             stopButton.disabled = status !== 'running';
+            if (status === 'running') {
+                startWorkingIndicator();
+            } else {
+                stopWorkingIndicator();
+            }
         }
 
         function ensurePlaceholderVisibility() {
@@ -813,7 +903,8 @@ function getWebviewHtml() {
 
             const shouldStick = output.scrollTop + output.clientHeight >= output.scrollHeight - 24;
             renderedEntries = renderedEntries.concat(entries);
-            renderAllEntries();
+            appendRenderedEntries(entries);
+            ensurePlaceholderVisibility();
             if (shouldStick) {
                 output.scrollTop = output.scrollHeight;
             }
@@ -832,46 +923,40 @@ function getWebviewHtml() {
                 outputShell.removeChild(outputShell.firstChild);
             }
             outputShell.appendChild(placeholder);
+            activeResultBlock = null;
             if (renderedEntries.length) {
-                outputShell.appendChild(renderEntriesToFragment(renderedEntries));
+                appendRenderedEntries(renderedEntries);
             }
             ensurePlaceholderVisibility();
         }
 
-        function renderEntriesToFragment(entries) {
+        function appendRenderedEntries(entries) {
             const fragment = document.createDocumentFragment();
-            let index = 0;
+            let currentResultBlock = activeResultBlock;
 
-            if (entries.length > 0 && !isCommandEntry(entries[0])) {
-                const leadingEntries = [];
-                while (index < entries.length && !isCommandEntry(entries[index])) {
-                    leadingEntries.push(entries[index]);
-                    index += 1;
-                }
-                const leadingBlock = renderResultBlock(leadingEntries);
-                if (leadingBlock) {
-                    fragment.appendChild(leadingBlock);
-                }
-            }
-
-            while (index < entries.length) {
+            for (let index = 0; index < entries.length; index += 1) {
                 const entry = entries[index];
 
                 if (isCommandEntry(entry)) {
+                    currentResultBlock = null;
                     fragment.appendChild(renderEntry(entry, entries[index + 1] || null));
-                    index += 1;
-                    const resultEntries = [];
-                    while (index < entries.length && !isCommandEntry(entries[index])) {
-                        resultEntries.push(entries[index]);
-                        index += 1;
-                    }
-                    const block = renderResultBlock(resultEntries);
-                    if (block) {
-                        fragment.appendChild(block);
-                    }
+                    continue;
                 }
+
+                if (!currentResultBlock) {
+                    currentResultBlock = document.createElement('div');
+                    fragment.appendChild(currentResultBlock);
+                }
+
+                if (isTableEntry(entry)) {
+                    currentResultBlock.className = 'result-block-scroll';
+                }
+
+                currentResultBlock.appendChild(renderEntry(entry, entries[index + 1] || null));
             }
-            return fragment;
+
+            outputShell.appendChild(fragment);
+            activeResultBlock = currentResultBlock;
         }
 
         function isTableEntry(entry) {
@@ -882,23 +967,6 @@ function getWebviewHtml() {
         function isCommandEntry(entry) {
             const kind = String((entry && entry.kind) || '');
             return kind === 'command' || kind === 'comment-command' || kind === 'raw-progress' || kind === 'raw-prompt';
-        }
-
-        function renderResultBlock(entries) {
-            if (!Array.isArray(entries) || entries.length === 0) {
-                return null;
-            }
-
-            const block = document.createElement('div');
-            if (entries.some(isTableEntry)) {
-                block.className = 'result-block-scroll';
-            }
-
-            for (let index = 0; index < entries.length; index += 1) {
-                block.appendChild(renderEntry(entries[index], entries[index + 1] || null));
-            }
-
-            return block;
         }
 
         function renderEntry(entry, nextEntry) {
@@ -1006,6 +1074,13 @@ function getWebviewHtml() {
 
         window.addEventListener('resize', () => {
             updateOverflowNotice();
+        });
+
+        window.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && document.body.dataset.status === 'running') {
+                event.preventDefault();
+                vscode.postMessage({ type: 'stopExecution' });
+            }
         });
 
         window.addEventListener('message', event => {
