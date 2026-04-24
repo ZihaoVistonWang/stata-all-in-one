@@ -10,7 +10,7 @@ const { registerCommentCommand, toggleComment } = require('./modules/comment');
 const { registerExecuteCommand } = require('./modules/runCode/execute');
 const { runArbitraryCode } = require('./modules/runCode/execute');
 const { stopCliExecution, forceShutdownCliSession } = require('./modules/runCode/embeddedConsole/mac');
-const { setWebviewCommandHandler, registerWebviewPanelSerializer } = require('./modules/runCode/embeddedConsole/panel');
+const { setWebviewCommandHandler, setWebviewActionHandler, setOverflowNoticeSuppressed, registerWebviewPanelSerializer, clearWebviewTerminalPanel, setWebviewTerminalStatus } = require('./modules/runCode/embeddedConsole/panel');
 const { registerCustomCommandHighlight } = require('./modules/customCommandHighlight');
 const { registerCompletionProvider } = require('./modules/completionProvider');
 const { registerHelpCommand } = require('./modules/helpCommand');
@@ -55,6 +55,7 @@ const CONFIG_MAPPING = [
 ];
 
 const MAC_AUTO_DETECT_KEY = 'stata-all-in-one.macAutoDetectDone';
+const EMBEDDED_CONSOLE_OVERFLOW_NOTICE_SUPPRESSED_KEY = 'stata-all-in-one.embeddedConsoleOverflowNoticeSuppressed';
 
 function getUserLanguage() {
     const lang = (vscode.env.language || '').toLowerCase();
@@ -308,10 +309,28 @@ function activate(context) {
     // Register run code command (uses dispatch layer for Embedded Console/External App routing)
     registerExecuteCommand(context);
     registerWebviewPanelSerializer(context);
+    setOverflowNoticeSuppressed(Boolean(context.globalState.get(EMBEDDED_CONSOLE_OVERFLOW_NOTICE_SUPPRESSED_KEY, false)));
     setWebviewCommandHandler(async (code) => {
         await runArbitraryCode(context, code, {
             outputMode: config.RUN_MODES.embeddedConsole
         });
+    });
+    setWebviewActionHandler(async (action) => {
+        if (action === 'stopExecution') {
+            stopCliExecution(context);
+            return;
+        }
+
+        if (action === 'clearConsole') {
+            clearWebviewTerminalPanel();
+            setWebviewTerminalStatus('idle');
+            return;
+        }
+
+        if (action === 'suppressOverflowNoticeForever') {
+            await context.globalState.update(EMBEDDED_CONSOLE_OVERFLOW_NOTICE_SUPPRESSED_KEY, true);
+            setOverflowNoticeSuppressed(true);
+        }
     });
 
     // Register stop execution command
@@ -438,6 +457,17 @@ function activate(context) {
         }
     );
     context.subscriptions.push(resetWindowsNotificationCommand);
+
+    const resetEmbeddedConsoleOverflowNoticeCommand = vscode.commands.registerCommand(
+        'stata-all-in-one.debugResetEmbeddedConsoleOverflowNotice',
+        async () => {
+            console.log('Stata All in One: Debug reset embedded console overflow notice command executed');
+            await context.globalState.update(EMBEDDED_CONSOLE_OVERFLOW_NOTICE_SUPPRESSED_KEY, false);
+            setOverflowNoticeSuppressed(false);
+            showInfo('Embedded console overflow notice reset. It will show again when output overflows.');
+        }
+    );
+    context.subscriptions.push(resetEmbeddedConsoleOverflowNoticeCommand);
     console.log('Stata All in One: All commands registered');
 }
 

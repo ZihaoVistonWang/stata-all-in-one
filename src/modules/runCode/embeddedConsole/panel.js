@@ -10,8 +10,10 @@ let _panel = null;
 let _history = [];
 let _status = 'idle';
 let _commandHandler = null;
+let _actionHandler = null;
 let _asciiLogo53x13Cache = null;
 let _lastRunFailed = false;
+let _overflowNoticeSuppressed = false;
 
 function getPanelTitle() {
     return msg('webviewPanelTitle');
@@ -38,6 +40,12 @@ function attachPanel(panel) {
                 await _commandHandler(String(message.code || ''));
             } catch (error) {
                 console.error('Stata All in One: Embedded Console input execution failed:', error.message);
+            }
+        } else if (message && (message.type === 'stopExecution' || message.type === 'clearConsole') && typeof _actionHandler === 'function') {
+            try {
+                await _actionHandler(message.type);
+            } catch (error) {
+                console.error('Stata All in One: Embedded Console action failed:', error.message);
             }
         }
     });
@@ -74,7 +82,8 @@ function postState() {
     _panel.webview.postMessage({
         type: 'reset',
         status: _status,
-        entries: _history
+        entries: _history,
+        overflowNoticeSuppressed: _overflowNoticeSuppressed
     });
 }
 
@@ -117,9 +126,14 @@ function appendEntries(entries) {
 function clearPanel() {
     _history = [];
     _lastRunFailed = false;
+    _status = 'idle';
     if (_panel) {
         _panel.webview.postMessage({
             type: 'clear'
+        });
+        _panel.webview.postMessage({
+            type: 'status',
+            status: 'idle'
         });
     }
 }
@@ -230,6 +244,20 @@ function getWebviewTerminalSink() {
 
 function setWebviewCommandHandler(handler) {
     _commandHandler = typeof handler === 'function' ? handler : null;
+}
+
+function setWebviewActionHandler(handler) {
+    _actionHandler = typeof handler === 'function' ? handler : null;
+}
+
+function setOverflowNoticeSuppressed(suppressed) {
+    _overflowNoticeSuppressed = Boolean(suppressed);
+    if (_panel) {
+        _panel.webview.postMessage({
+            type: 'overflowNoticePreference',
+            suppressed: _overflowNoticeSuppressed
+        });
+    }
 }
 
 function registerWebviewPanelSerializer(context) {
@@ -379,22 +407,53 @@ function getWebviewHtml() {
             letter-spacing: 0.02em;
             text-transform: uppercase;
         }
+        .statusbar-spacer {
+            flex: 1;
+        }
+        .statusbar-actions {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .statusbar-button {
+            border: 1px solid var(--vscode-toolbar-hoverBackground);
+            background: transparent;
+            color: var(--vscode-foreground);
+            border-radius: 6px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 11px;
+            line-height: 1.2;
+            cursor: pointer;
+        }
+        .statusbar-button:hover {
+            background: var(--vscode-toolbar-hoverBackground);
+        }
+        .statusbar-button:disabled {
+            opacity: 0.45;
+            cursor: default;
+        }
         #output {
             flex: 1;
-            overflow: auto;
+            overflow-y: auto;
+            overflow-x: hidden;
             padding: 16px 18px 22px 6px;
             font-family: var(--vscode-editor-font-family, var(--vscode-editor-font-family), Menlo, Monaco, monospace);
             font-size: var(--vscode-editor-font-size, 13px);
             line-height: 1.5;
-            white-space: pre-wrap;
-            word-break: break-word;
+            white-space: normal;
+            word-break: normal;
         }
         #output-shell {
             max-width: 100%;
             padding-left: 4px;
+            min-height: 100%;
+            display: flex;
+            flex-direction: column;
         }
         #placeholder {
             min-height: calc(100% - 8px);
+            flex: 1;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -435,12 +494,15 @@ function getWebviewHtml() {
             padding-left: 0.9rem;
             white-space: pre-wrap;
             tab-size: 4;
+            word-break: break-word;
         }
         .line-command,
         .line-comment-command,
         .line-raw-progress,
         .line-raw-prompt {
             padding-left: 0;
+            white-space: pre-wrap;
+            word-break: break-word;
         }
         .line-command,
         .line-comment-command {
@@ -520,11 +582,27 @@ function getWebviewHtml() {
             color: var(--stata-error);
         }
         .line-footer {
-            margin-top: 0.2rem;
+            margin-top: 0.35rem;
             padding-left: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .line-footer::before,
+        .line-footer::after {
+            content: '';
+            flex: 1 1 auto;
+            min-width: 24px;
+            border-top: 1px solid color-mix(in srgb, var(--stata-separator) 80%, transparent);
+        }
+        .line-footer > span {
+            flex: 0 0 auto;
         }
         .line-blank {
             min-height: 0.8em;
+        }
+        .line-command-gap {
+            margin-bottom: 0.32rem;
         }
         .line-raw-progress {
             color: var(--stata-comment);
@@ -576,12 +654,67 @@ function getWebviewHtml() {
             font-family: inherit;
             font-size: inherit;
         }
+        .overflow-notice {
+            position: fixed;
+            right: 14px;
+            bottom: 14px;
+            width: min(360px, calc(100vw - 28px));
+            padding: 12px 12px 10px;
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: 10px;
+            background: color-mix(in srgb, var(--vscode-editor-background) 92%, var(--vscode-sideBar-background));
+            box-shadow: 0 10px 30px color-mix(in srgb, black 18%, transparent);
+            z-index: 4;
+        }
+        .overflow-notice[hidden] {
+            display: none;
+        }
+        .overflow-notice-copy {
+            font-size: 12px;
+            line-height: 1.45;
+            color: var(--vscode-foreground);
+        }
+        .overflow-notice-actions {
+            margin-top: 10px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+        .overflow-notice-button {
+            border: 1px solid var(--vscode-button-border, var(--vscode-panel-border));
+            background: transparent;
+            color: var(--vscode-foreground);
+            border-radius: 6px;
+            padding: 4px 10px;
+            font: inherit;
+            font-size: 11px;
+            cursor: pointer;
+        }
+        .overflow-notice-button:hover {
+            background: var(--vscode-toolbar-hoverBackground);
+        }
+        .result-block-scroll {
+            overflow-x: auto;
+            overflow-y: hidden;
+            margin: 0.15rem 0 0.35rem;
+            padding-bottom: 2px;
+        }
+        .result-block-scroll .line {
+            min-width: max-content;
+            white-space: pre;
+            word-break: normal;
+        }
     </style>
 </head>
 <body>
     <div class="statusbar">
         <div id="status-dot" class="dot idle"></div>
         <div id="status-label" class="label">${escapeHtml(msg('webviewIdle'))}</div>
+        <div class="statusbar-spacer"></div>
+        <div class="statusbar-actions">
+            <button id="stop-button" class="statusbar-button" type="button">Break</button>
+            <button id="clear-button" class="statusbar-button" type="button">Clear</button>
+        </div>
     </div>
     <div id="output">
         <div id="output-shell">
@@ -602,6 +735,13 @@ function getWebviewHtml() {
             <span><code>Up/Down</code> history</span>
         </div>
     </div>
+    <div id="overflow-notice" class="overflow-notice" hidden>
+        <div class="overflow-notice-copy">${escapeHtml(msg('webviewOverflowNotice'))}</div>
+        <div class="overflow-notice-actions">
+            <button id="overflow-ok" class="overflow-notice-button" type="button">${escapeHtml(msg('webviewOverflowConfirm'))}</button>
+            <button id="overflow-never" class="overflow-notice-button" type="button">${escapeHtml(msg('webviewOverflowDismissForever'))}</button>
+        </div>
+    </div>
     <script nonce="${nonce}">
         const vscode = acquireVsCodeApi();
         const output = document.getElementById('output');
@@ -610,8 +750,16 @@ function getWebviewHtml() {
         const dot = document.getElementById('status-dot');
         const label = document.getElementById('status-label');
         const input = document.getElementById('input');
+        const stopButton = document.getElementById('stop-button');
+        const clearButton = document.getElementById('clear-button');
+        const overflowNotice = document.getElementById('overflow-notice');
+        const overflowOk = document.getElementById('overflow-ok');
+        const overflowNever = document.getElementById('overflow-never');
         const inputHistory = [];
         let historyIndex = -1;
+        let overflowNoticeSuppressed = false;
+        let overflowNoticeDismissedForCurrentView = false;
+        let renderedEntries = [];
 
         const STATUS_LABELS = {
             idle: ${JSON.stringify(msg('webviewIdle'))},
@@ -625,10 +773,29 @@ function getWebviewHtml() {
             dot.className = 'dot ' + (status || 'idle');
             label.textContent = STATUS_LABELS[status] || STATUS_LABELS.idle;
             input.disabled = status === 'running';
+            stopButton.disabled = status !== 'running';
         }
 
         function ensurePlaceholderVisibility() {
             placeholder.style.display = outputShell.childElementCount > 1 ? 'none' : '';
+        }
+
+        function hasOverflowingScrollableResultBlock() {
+            const blocks = outputShell.querySelectorAll('.result-block-scroll');
+            for (const block of blocks) {
+                if (block.scrollWidth > block.clientWidth + 4) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function updateOverflowNotice() {
+            const shouldShow = !overflowNoticeSuppressed
+                && !overflowNoticeDismissedForCurrentView
+                && outputShell.childElementCount > 1
+                && hasOverflowingScrollableResultBlock();
+            overflowNotice.hidden = !shouldShow;
         }
 
         function appendEntries(entries) {
@@ -637,48 +804,122 @@ function getWebviewHtml() {
             }
 
             const shouldStick = output.scrollTop + output.clientHeight >= output.scrollHeight - 24;
-            const fragment = renderEntriesToFragment(entries);
-            outputShell.appendChild(fragment);
-            ensurePlaceholderVisibility();
+            renderedEntries = renderedEntries.concat(entries);
+            renderAllEntries();
             if (shouldStick) {
                 output.scrollTop = output.scrollHeight;
             }
+            requestAnimationFrame(updateOverflowNotice);
         }
 
         function resetOutput(entries) {
+            renderedEntries = Array.isArray(entries) ? entries.slice() : [];
+            overflowNoticeDismissedForCurrentView = false;
+            renderAllEntries();
+            requestAnimationFrame(updateOverflowNotice);
+        }
+
+        function renderAllEntries() {
             while (outputShell.firstChild) {
                 outputShell.removeChild(outputShell.firstChild);
             }
             outputShell.appendChild(placeholder);
-            appendEntries(entries || []);
+            if (renderedEntries.length) {
+                outputShell.appendChild(renderEntriesToFragment(renderedEntries));
+            }
             ensurePlaceholderVisibility();
         }
 
         function renderEntriesToFragment(entries) {
             const fragment = document.createDocumentFragment();
-            for (const entry of entries) {
-                const line = document.createElement('div');
-                line.className = 'line line-' + String((entry && entry.kind) || 'default');
-                const segments = Array.isArray(entry && entry.segments) ? entry.segments : [];
-                for (const segment of segments) {
-                    const span = document.createElement('span');
-                    const className = String(segment && segment.className || '').trim();
-                    if (className) {
-                        span.className = className;
-                    }
-                    const style = segment && segment.style || {};
-                    if (style.color) {
-                        span.style.color = style.color;
-                    }
-                    if (style.backgroundColor) {
-                        span.style.backgroundColor = style.backgroundColor;
-                    }
-                    span.textContent = String(segment && segment.text || '');
-                    line.appendChild(span);
+            let index = 0;
+
+            if (entries.length > 0 && !isCommandEntry(entries[0])) {
+                const leadingEntries = [];
+                while (index < entries.length && !isCommandEntry(entries[index])) {
+                    leadingEntries.push(entries[index]);
+                    index += 1;
                 }
-                fragment.appendChild(line);
+                const leadingBlock = renderResultBlock(leadingEntries);
+                if (leadingBlock) {
+                    fragment.appendChild(leadingBlock);
+                }
+            }
+
+            while (index < entries.length) {
+                const entry = entries[index];
+
+                if (isCommandEntry(entry)) {
+                    fragment.appendChild(renderEntry(entry, entries[index + 1] || null));
+                    index += 1;
+                    const resultEntries = [];
+                    while (index < entries.length && !isCommandEntry(entries[index])) {
+                        resultEntries.push(entries[index]);
+                        index += 1;
+                    }
+                    const block = renderResultBlock(resultEntries);
+                    if (block) {
+                        fragment.appendChild(block);
+                    }
+                }
             }
             return fragment;
+        }
+
+        function isTableEntry(entry) {
+            const kind = String((entry && entry.kind) || '');
+            return kind === 'separator' || kind === 'table-header' || kind === 'table-data';
+        }
+
+        function isCommandEntry(entry) {
+            const kind = String((entry && entry.kind) || '');
+            return kind === 'command' || kind === 'comment-command' || kind === 'raw-progress' || kind === 'raw-prompt';
+        }
+
+        function renderResultBlock(entries) {
+            if (!Array.isArray(entries) || entries.length === 0) {
+                return null;
+            }
+
+            const block = document.createElement('div');
+            if (entries.some(isTableEntry)) {
+                block.className = 'result-block-scroll';
+            }
+
+            for (let index = 0; index < entries.length; index += 1) {
+                block.appendChild(renderEntry(entries[index], entries[index + 1] || null));
+            }
+
+            return block;
+        }
+
+        function renderEntry(entry, nextEntry) {
+            const line = document.createElement('div');
+            const kind = String((entry && entry.kind) || 'default');
+            line.className = 'line line-' + kind;
+            if ((kind === 'command' || kind === 'comment-command') && (!nextEntry || !['command', 'comment-command'].includes(String(nextEntry.kind || '')))) {
+                line.classList.add('line-command-gap');
+            }
+
+            const segments = Array.isArray(entry && entry.segments) ? entry.segments : [];
+            for (const segment of segments) {
+                const span = document.createElement('span');
+                const className = String(segment && segment.className || '').trim();
+                if (className) {
+                    span.className = className;
+                }
+                const style = segment && segment.style || {};
+                if (style.color) {
+                    span.style.color = style.color;
+                }
+                if (style.backgroundColor) {
+                    span.style.backgroundColor = style.backgroundColor;
+                }
+                span.textContent = String(segment && segment.text || '');
+                line.appendChild(span);
+            }
+
+            return line;
         }
 
         function pushHistory(code) {
@@ -747,6 +988,30 @@ function getWebviewHtml() {
             }
         });
 
+        stopButton.addEventListener('click', () => {
+            vscode.postMessage({ type: 'stopExecution' });
+        });
+
+        clearButton.addEventListener('click', () => {
+            vscode.postMessage({ type: 'clearConsole' });
+        });
+
+        overflowOk.addEventListener('click', () => {
+            overflowNoticeDismissedForCurrentView = true;
+            updateOverflowNotice();
+        });
+
+        overflowNever.addEventListener('click', () => {
+            overflowNoticeDismissedForCurrentView = true;
+            overflowNoticeSuppressed = true;
+            updateOverflowNotice();
+            vscode.postMessage({ type: 'suppressOverflowNoticeForever' });
+        });
+
+        window.addEventListener('resize', () => {
+            updateOverflowNotice();
+        });
+
         window.addEventListener('message', event => {
             const message = event.data || {};
             if (message.type === 'append') {
@@ -757,7 +1022,15 @@ function getWebviewHtml() {
                 resetOutput([]);
             } else if (message.type === 'reset') {
                 setStatus(message.status);
+                overflowNoticeSuppressed = Boolean(message.overflowNoticeSuppressed);
+                overflowNoticeDismissedForCurrentView = false;
                 resetOutput(message.entries || []);
+            } else if (message.type === 'overflowNoticePreference') {
+                overflowNoticeSuppressed = Boolean(message.suppressed);
+                if (overflowNoticeSuppressed) {
+                    overflowNoticeDismissedForCurrentView = true;
+                }
+                updateOverflowNotice();
             }
         });
 
@@ -780,6 +1053,8 @@ module.exports = {
     revealWebviewTerminalPanel: revealPanel,
     getWebviewTerminalSink,
     setWebviewCommandHandler,
+    setWebviewActionHandler,
+    setOverflowNoticeSuppressed,
     registerWebviewPanelSerializer,
     clearWebviewTerminalPanel: clearPanel,
     setWebviewTerminalStatus: setStatus

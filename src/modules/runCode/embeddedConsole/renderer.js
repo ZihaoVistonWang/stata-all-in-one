@@ -683,25 +683,20 @@ class StataTerminalRenderer {
     }
 
     renderRunFooter(durationMs, width) {
-        const label = ` Worked for ${formatDuration(durationMs)} `;
+        const label = `Worked for ${formatDuration(durationMs)}`;
         const lineWidth = Math.max(width || 72, label.length + 8);
-        const left = '─ ';
-        const rightWidth = Math.max(0, lineWidth - left.length - label.length);
-        const separator = `${left}${label}${'─'.repeat(rightWidth)}`;
+        const sideWidth = Math.max(3, Math.floor((lineWidth - label.length - 2) / 2));
+        const separator = `${'─'.repeat(sideWidth)} ${label} ${'─'.repeat(sideWidth)}`;
         return `\n${paint(separator, { fg: CURRENT_THEME_SLOT_MAP.separator })}\n${ANSI.reset}`;
     }
 
     renderRunFooterSegments(durationMs, width) {
-        const label = ` Worked for ${formatDuration(durationMs)} `;
-        const lineWidth = Math.max(width || 72, label.length + 8);
-        const left = '─ ';
-        const rightWidth = Math.max(0, lineWidth - left.length - label.length);
-        const separator = `${left}${label}${'─'.repeat(rightWidth)}`;
+        const label = `Worked for ${formatDuration(durationMs)}`;
         return [
             { kind: 'blank', segments: [] },
             {
                 kind: 'footer',
-                segments: [this._segment(separator, this._styleForTokenType('separator'))]
+                segments: [this._segment(label, this._styleForTokenType('separator'))]
             }
         ];
     }
@@ -877,7 +872,7 @@ class StataTerminalRenderer {
             lineKind = 'comment';
             const rendered = {
                 kind: lineKind,
-                segments: [this._segment(line, this._styleForTokenType('comment', { italic: true, dim: true }))]
+                segments: [this._segment(line, this._styleForTokenType('comment', { italic: true }))]
             };
             this._lastRenderedLineKind = lineKind;
             return rendered;
@@ -1157,7 +1152,7 @@ class StataTerminalRenderer {
         if (/^\s*\*\*#/.test(line) || /^\s*\*{2,}\s+/.test(line)) {
             this._describeMode = false;
             lineKind = 'comment';
-            const rendered = `${paint(line, { fg: CURRENT_THEME_SLOT_MAP.comment, dim: true, italic: true })}${ANSI.reset}`;
+            const rendered = `${paint(line, { fg: CURRENT_THEME_SLOT_MAP.comment, italic: true })}${ANSI.reset}`;
             this._lastRenderedLineKind = lineKind;
             return rendered;
         }
@@ -1493,7 +1488,6 @@ class StataTerminalRenderer {
             bold: true
         })}${paint(comment, {
             fg: CURRENT_THEME_SLOT_MAP.comment,
-            dim: true,
             italic: true
         })}${ANSI.reset}`;
     }
@@ -1522,7 +1516,7 @@ class StataTerminalRenderer {
                     forceForeground: hasSpecificGrammarScope(token.scopes),
                     bold: token.type === 'prompt' || token.type === 'command' || token.type === 'keyword',
                     italic: token.type === 'comment',
-                    dim: token.type === 'comment'
+                    dim: false
                 }
             )));
         }
@@ -1540,7 +1534,7 @@ class StataTerminalRenderer {
             kind: 'comment-command',
             segments: [
                 this._segment(prompt, this._styleForTokenType('prompt', { bold: true })),
-                this._segment(comment, this._styleForTokenType('comment', { dim: true, italic: true }))
+                this._segment(comment, this._styleForTokenType('comment', { italic: true }))
             ]
         };
     }

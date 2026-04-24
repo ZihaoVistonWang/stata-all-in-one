@@ -54,7 +54,10 @@ const UI_TEXT = {
         webviewWaiting: 'Waiting for Stata output...',
         webviewRunning: 'Stata All in One Console is running',
         webviewIdle: 'Idle',
-        webviewError: 'Error'
+        webviewError: 'Error',
+        webviewOverflowNotice: 'Output is wider than the current view. Scroll horizontally to inspect it, or widen the Console panel for a better fit.',
+        webviewOverflowConfirm: 'OK',
+        webviewOverflowDismissForever: 'Don\'t show again'
     },
     zh: {
         lineTooLong: '行长度不足，请在设置中增大分隔线长度。',
@@ -102,7 +105,10 @@ const UI_TEXT = {
         webviewWaiting: '等待 Stata 输出...',
         webviewRunning: 'Stata All in One Console 运行中',
         webviewIdle: '空闲',
-        webviewError: '错误'
+        webviewError: '错误',
+        webviewOverflowNotice: '输出内容超出了当前宽度，请横向滑动查看。也可以拉宽 Console 面板以更好地适配输出。',
+        webviewOverflowConfirm: '确认',
+        webviewOverflowDismissForever: '不再提示'
     }
 };
 
