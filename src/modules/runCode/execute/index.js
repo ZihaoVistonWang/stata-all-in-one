@@ -165,21 +165,21 @@ async function runCurrentSection(context, editor = null) {
             }
 
             runOnWindows(codeToRun, tmpFilePath, stataPathOnWindows, docDir);
-            vscode.commands.executeCommand('setContext', 'stata-all-in-one.cliSessionActive', false);
+            vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', false);
         } else if (onMac) {
             if (runMode === config.RUN_MODES.externalApp) {
                 runOnMac(codeToRun, tmpFilePath, false, docDir, context);
-                vscode.commands.executeCommand('setContext', 'stata-all-in-one.cliSessionActive', false);
+                vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', false);
             } else {
-                vscode.commands.executeCommand('setContext', 'stata-all-in-one.cliSessionActive', true);
-                const cliResult = await runOnMacWebview(codeToRun, tmpFilePath, docDir, context);
-                if (cliResult.success) {
-                    vscode.commands.executeCommand('setContext', 'stata-all-in-one.cliSessionActive', true);
-                } else if (cliResult.shouldOfferGuiFallback) {
-                    await maybeOfferGuiFallback(codeToRun, tmpFilePath, docDir, context, cliResult.message || 'Embedded Console 执行失败');
-                    vscode.commands.executeCommand('setContext', 'stata-all-in-one.cliSessionActive', false);
+                vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
+                const consoleResult = await runOnMacWebview(codeToRun, tmpFilePath, docDir, context);
+                if (consoleResult.success) {
+                    vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
+                } else if (consoleResult.shouldOfferGuiFallback) {
+                    await maybeOfferGuiFallback(codeToRun, tmpFilePath, docDir, context, consoleResult.message || 'Embedded Console 执行失败');
+                    vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', false);
                 } else {
-                    vscode.commands.executeCommand('setContext', 'stata-all-in-one.cliSessionActive', true);
+                    vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
                 }
             }
         }
@@ -187,7 +187,7 @@ async function runCurrentSection(context, editor = null) {
     } catch (error) {
         showError(msg('tmpFileFailed', { message: error.message }));
         console.error('[execute] 执行异常:', error.message);
-        vscode.commands.executeCommand('setContext', 'stata-all-in-one.cliSessionActive', false);
+        vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', false);
     }
 }
 
@@ -293,47 +293,47 @@ async function runArbitraryCode(context, code, options = {}) {
                 }
             }
             runOnWindows(normalizedCode, tmpFilePath, stataPathOnWindows, docDir);
-            await vscode.commands.executeCommand('setContext', 'stata-all-in-one.cliSessionActive', false);
+            await vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', false);
             return { success: true };
         }
 
         if (runMode === config.RUN_MODES.externalApp) {
             runOnMac(normalizedCode, tmpFilePath, false, docDir, context);
-            await vscode.commands.executeCommand('setContext', 'stata-all-in-one.cliSessionActive', false);
+            await vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', false);
             return { success: true };
         }
 
-        await vscode.commands.executeCommand('setContext', 'stata-all-in-one.cliSessionActive', true);
-        const cliResult = await runOnMacWebview(normalizedCode, tmpFilePath, docDir, context);
-        if (cliResult.success) {
-            await vscode.commands.executeCommand('setContext', 'stata-all-in-one.cliSessionActive', true);
-            return cliResult;
+        await vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
+        const consoleResult = await runOnMacWebview(normalizedCode, tmpFilePath, docDir, context);
+        if (consoleResult.success) {
+            await vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
+            return consoleResult;
         }
-        if (cliResult.shouldOfferGuiFallback) {
-            await maybeOfferGuiFallback(normalizedCode, tmpFilePath, docDir, context, cliResult.message || 'Embedded Console 执行失败');
-            await vscode.commands.executeCommand('setContext', 'stata-all-in-one.cliSessionActive', false);
+        if (consoleResult.shouldOfferGuiFallback) {
+            await maybeOfferGuiFallback(normalizedCode, tmpFilePath, docDir, context, consoleResult.message || 'Embedded Console 执行失败');
+            await vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', false);
         }
-        return cliResult;
+        return consoleResult;
     } catch (error) {
         showError(msg('tmpFileFailed', { message: error.message }));
         console.error('[execute] 任意代码执行异常:', error.message);
-        await vscode.commands.executeCommand('setContext', 'stata-all-in-one.cliSessionActive', false);
+        await vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', false);
         return { success: false, error };
     }
 }
 
 async function maybeOfferGuiFallback(codeToRun, tmpFilePath, docDir, context, reason) {
     const useGuiLabel = msg('useStataApp');
-    const stayInCliLabel = msg('stayInCli');
+    const stayInConsoleLabel = msg('stayInConsole');
 
     const choice = await vscode.window.showWarningMessage(
-        msg('cliOfferGuiFallback', { reason }),
+        msg('consoleOfferGuiFallback', { reason }),
         useGuiLabel,
-        stayInCliLabel
+        stayInConsoleLabel
     );
 
     if (choice === useGuiLabel) {
-        showError(msg('cliUnavailable', { reason }));
+        showError(msg('consoleUnavailable', { reason }));
         runOnMac(codeToRun, tmpFilePath, false, docDir, context);
     }
 }

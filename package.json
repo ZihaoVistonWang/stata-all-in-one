@@ -263,9 +263,9 @@
         "title": "Stata All in One: Rename Variable"
       },
       {
-        "command": "stata-all-in-one.stopCliExecution",
-        "title": "Stata All in One: Stop Stata Execution",
-        "icon": "$(debug-stop)"
+        "command": "stata-all-in-one.stopConsoleExecution",
+        "title": "Stata All in One: Stop Console Execution",
+        "icon": "$(stop-circle)"
       }
     ],
     "keybindings": [
@@ -389,11 +389,6 @@
           "command": "stata-all-in-one.runSection",
           "when": "editorLangId == stata && config.stata-all-in-one.showRunButton",
           "group": "navigation@2"
-        },
-        {
-          "command": "stata-all-in-one.stopCliExecution",
-          "when": "editorLangId == stata && stata-all-in-one.cliSessionActive",
-          "group": "navigation@3"
         }
       ],
       "view/title": [
