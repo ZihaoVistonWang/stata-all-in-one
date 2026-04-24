@@ -15,7 +15,6 @@ const { getWebviewTerminalSink } = require('./panel');
 let _statusBarItem = null;
 let _statusBarAlignment = null;
 let _activeOutputSink = null;
-const SYNTHETIC_PROGRESS_LINE_WIDTH = 72;
 
 function getOrCreateStatusBarItem() {
     const desiredAlignment = vscode.StatusBarAlignment.Right;
@@ -235,10 +234,8 @@ async function ensureConsoleSession(context) {
 async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = null, options = {}) {
     let executionPlan = null;
     let streamedOutput = '';
-    let progressTimer = null;
     let lastRealChunkAt = 0;
     let syntheticProgressActive = false;
-    let syntheticProgressColumn = 0;
     let runStartTime = null;
     const outputSink = getOutputSink();
 
@@ -274,24 +271,6 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
         lastRealChunkAt = Date.now();
         runStartTime = lastRealChunkAt;
         showConsoleRunningStatus();
-        progressTimer = setInterval(() => {
-            if (!syntheticProgressActive) {
-                return;
-            }
-
-            if (Date.now() - lastRealChunkAt < 600) {
-                return;
-            }
-
-            if (syntheticProgressColumn >= SYNTHETIC_PROGRESS_LINE_WIDTH) {
-                outputSink.writeRawChunk('\n> ');
-                syntheticProgressColumn = 0;
-            }
-
-            outputSink.writeRawChunk('.');
-            syntheticProgressColumn += 1;
-        }, 300);
-
         const result = await consoleSession.execute(executionPlan.command, true, (chunk) => {
             if (!chunk) {
                 return;
@@ -302,15 +281,10 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
 
             if (chunk.includes('Begin Time:')) {
                 syntheticProgressActive = true;
-                syntheticProgressColumn = 0;
             }
 
             if (hasResultPhaseOutput(chunk)) {
-                if (syntheticProgressActive && syntheticProgressColumn > 0) {
-                    outputSink.writeRawChunk('\n');
-                }
                 syntheticProgressActive = false;
-                syntheticProgressColumn = 0;
             }
 
             if (syntheticProgressActive && isNativeProgressOnlyChunk(chunk)) {
@@ -362,9 +336,6 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
             message: `Stata 执行错误: ${error.message}`
         };
     } finally {
-        if (progressTimer) {
-            clearInterval(progressTimer);
-        }
         hideConsoleRunningStatus();
 
         outputSink.flushOutput();
@@ -556,7 +527,7 @@ async function initConsoleSession(context) {
  * @param {vscode.ExtensionContext} context - VS Code extension context
  * @returns {boolean} - 成功返回 true
  */
-function stopConsoleExecution(context) {
+async function stopConsoleExecution(context) {
     try {
         if (session.hasActiveConsoleSession()) {
             const consoleSession = session.getConsoleSession(context);
@@ -564,8 +535,9 @@ function stopConsoleExecution(context) {
         }
 
         if (_activeOutputSink) {
-            _activeOutputSink.reveal();
-            _activeOutputSink.writeBreak();
+            if (typeof _activeOutputSink.setStatus === 'function') {
+                _activeOutputSink.setStatus('idle');
+            }
         }
 
         return true;
