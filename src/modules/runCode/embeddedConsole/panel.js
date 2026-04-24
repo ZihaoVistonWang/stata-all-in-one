@@ -280,8 +280,8 @@ function registerWebviewPanelSerializer(context) {
     context.subscriptions.push(
         vscode.window.registerWebviewPanelSerializer(PANEL_VIEW_TYPE, {
             async deserializeWebviewPanel(panel) {
+                clearPanel();
                 attachPanel(panel);
-                postState();
             }
         })
     );
