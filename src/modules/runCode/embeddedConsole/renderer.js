@@ -379,7 +379,7 @@ function loadThemeData(themePath, visited = new Set()) {
 
 function resolveThemeSlotMap(themeData) {
     const colors = themeData.colors || {};
-    const slotMap = { ...DEFAULT_SLOT_MAP };
+    const slotMap = {};
 
     for (const [tokenType, candidates] of Object.entries(TOKEN_SCOPE_CANDIDATES)) {
         const themeColor = findThemeTokenColor(themeData, candidates);
@@ -388,16 +388,13 @@ function resolveThemeSlotMap(themeData) {
         }
     }
 
-    const promptColor = colors['editorLineNumber.foreground'] || colors['descriptionForeground'];
-    slotMap.prompt = promptColor || slotMap.prompt;
-    slotMap.default = colors['editor.foreground'] || colors['terminal.foreground'] || colors.foreground || slotMap.default;
-    slotMap.comment = findThemeTokenColor(themeData, TOKEN_SCOPE_CANDIDATES.comment) || slotMap.comment;
-    slotMap.error = colors['editorError.foreground'] || colors['errorForeground'] || slotMap.error;
-    slotMap.header = colors['textLink.foreground'] || findThemeTokenColor(themeData, TOKEN_SCOPE_CANDIDATES.keyword) || slotMap.header;
-    slotMap.separator = colors['panel.border'] || colors['editorIndentGuide.background'] || slotMap.separator;
-    slotMap.time = colors['terminal.foreground'] || colors.foreground || slotMap.time;
-    slotMap.timeValue = findThemeTokenColor(themeData, TOKEN_SCOPE_CANDIDATES.number) || slotMap.timeValue;
-    slotMap.macro = findThemeTokenColor(themeData, TOKEN_SCOPE_CANDIDATES.macro) || slotMap.variable || slotMap.macro;
+    slotMap.default = colors['editor.foreground'] || colors['terminal.foreground'] || colors.foreground || null;
+    slotMap.prompt = colors['editorLineNumber.foreground'] || colors['descriptionForeground'] || null;
+    slotMap.error = colors['editorError.foreground'] || colors['errorForeground'] || DEFAULT_SLOT_MAP.error;
+    slotMap.header = colors['textLink.foreground'] || slotMap.keyword || null;
+    slotMap.separator = colors['panel.border'] || colors['editorIndentGuide.background'] || null;
+    slotMap.time = colors['terminal.foreground'] || colors.foreground || null;
+    slotMap.timeValue = slotMap.number || null;
 
     return slotMap;
 }
@@ -406,8 +403,9 @@ function syncCliTerminalTheme() {
     try {
         const themeDefinition = findCurrentThemeDefinition();
         if (!themeDefinition || !fs.existsSync(themeDefinition.themePath)) {
-            CURRENT_THEME_SLOT_MAP = { ...DEFAULT_SLOT_MAP };
+            CURRENT_THEME_SLOT_MAP = {};
             CURRENT_THEME_DATA = null;
+            CURRENT_THEME_DEFAULT_FOREGROUND = null;
             return;
         }
 
@@ -418,7 +416,7 @@ function syncCliTerminalTheme() {
         setCliTextmateTheme(themeData);
     } catch (error) {
         console.error('[renderer] Failed to sync CLI terminal theme:', error.message);
-        CURRENT_THEME_SLOT_MAP = { ...DEFAULT_SLOT_MAP };
+        CURRENT_THEME_SLOT_MAP = {};
         CURRENT_THEME_DATA = null;
         CURRENT_THEME_DEFAULT_FOREGROUND = null;
     }
@@ -427,24 +425,24 @@ function syncCliTerminalTheme() {
 function getWebviewThemeVariables() {
     return {
         prompt: CURRENT_THEME_SLOT_MAP.prompt || DEFAULT_SLOT_MAP.prompt,
-        command: CURRENT_THEME_SLOT_MAP.command || DEFAULT_SLOT_MAP.command,
-        keyword: CURRENT_THEME_SLOT_MAP.keyword || DEFAULT_SLOT_MAP.keyword,
-        string: CURRENT_THEME_SLOT_MAP.string || DEFAULT_SLOT_MAP.string,
-        path: CURRENT_THEME_SLOT_MAP.path || DEFAULT_SLOT_MAP.path,
-        number: CURRENT_THEME_SLOT_MAP.number || DEFAULT_SLOT_MAP.number,
-        comment: CURRENT_THEME_SLOT_MAP.comment || DEFAULT_SLOT_MAP.comment,
-        function: CURRENT_THEME_SLOT_MAP.function || DEFAULT_SLOT_MAP.function,
-        option: CURRENT_THEME_SLOT_MAP.option || DEFAULT_SLOT_MAP.option,
-        variable: CURRENT_THEME_SLOT_MAP.variable || DEFAULT_SLOT_MAP.variable,
-        macro: CURRENT_THEME_SLOT_MAP.macro || DEFAULT_SLOT_MAP.macro,
-        operator: CURRENT_THEME_SLOT_MAP.operator || DEFAULT_SLOT_MAP.operator,
-        plain: CURRENT_THEME_SLOT_MAP.default || DEFAULT_SLOT_MAP.default,
-        default: CURRENT_THEME_SLOT_MAP.default || DEFAULT_SLOT_MAP.default,
+        command: CURRENT_THEME_SLOT_MAP.command || null,
+        keyword: CURRENT_THEME_SLOT_MAP.keyword || null,
+        string: CURRENT_THEME_SLOT_MAP.string || null,
+        path: CURRENT_THEME_SLOT_MAP.path || null,
+        number: CURRENT_THEME_SLOT_MAP.number || null,
+        comment: CURRENT_THEME_SLOT_MAP.comment || null,
+        function: CURRENT_THEME_SLOT_MAP.function || null,
+        option: CURRENT_THEME_SLOT_MAP.option || null,
+        variable: CURRENT_THEME_SLOT_MAP.variable || null,
+        macro: CURRENT_THEME_SLOT_MAP.macro || null,
+        operator: CURRENT_THEME_SLOT_MAP.operator || null,
+        plain: CURRENT_THEME_SLOT_MAP.default || null,
+        default: CURRENT_THEME_SLOT_MAP.default || null,
         error: CURRENT_THEME_SLOT_MAP.error || DEFAULT_SLOT_MAP.error,
-        header: CURRENT_THEME_SLOT_MAP.header || DEFAULT_SLOT_MAP.header,
+        header: CURRENT_THEME_SLOT_MAP.header || null,
         separator: CURRENT_THEME_SLOT_MAP.separator || DEFAULT_SLOT_MAP.separator,
-        time: CURRENT_THEME_SLOT_MAP.time || DEFAULT_SLOT_MAP.time,
-        timeValue: CURRENT_THEME_SLOT_MAP.timeValue || DEFAULT_SLOT_MAP.timeValue
+        time: CURRENT_THEME_SLOT_MAP.time || null,
+        timeValue: CURRENT_THEME_SLOT_MAP.timeValue || null
     };
 }
 

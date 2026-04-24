@@ -309,17 +309,17 @@ function getWebviewHtml() {
         :root {
             color-scheme: light dark;
             --stata-prompt: ${themeVars.prompt || 'var(--vscode-descriptionForeground)'};
-            --stata-command: ${themeVars.command || 'var(--vscode-terminal-ansiMagenta)'};
-            --stata-keyword: ${themeVars.keyword || 'var(--vscode-terminal-ansiCyan)'};
-            --stata-string: ${themeVars.string || 'var(--vscode-terminal-ansiYellow)'};
-            --stata-path: ${themeVars.path || 'var(--vscode-terminal-ansiYellow)'};
-            --stata-number: ${themeVars.number || 'var(--vscode-terminal-ansiGreen)'};
+            --stata-command: ${themeVars.command || 'var(--vscode-editor-foreground)'};
+            --stata-keyword: ${themeVars.keyword || 'var(--vscode-editor-foreground)'};
+            --stata-string: ${themeVars.string || 'var(--vscode-editor-foreground)'};
+            --stata-path: ${themeVars.path || 'var(--vscode-editor-foreground)'};
+            --stata-number: ${themeVars.number || 'var(--vscode-editor-foreground)'};
             --stata-comment: ${themeVars.comment || 'var(--vscode-descriptionForeground)'};
-            --stata-function: ${themeVars.function || 'var(--vscode-terminal-ansiBlue)'};
+            --stata-function: ${themeVars.function || 'var(--vscode-editor-foreground)'};
             --stata-option: ${themeVars.option || 'var(--stata-function)'};
-            --stata-variable: ${themeVars.variable || 'var(--stata-string)'};
+            --stata-variable: ${themeVars.variable || 'var(--vscode-editor-foreground)'};
             --stata-macro: ${themeVars.macro || 'var(--stata-variable)'};
-            --stata-operator: ${themeVars.operator || 'var(--vscode-terminal-ansiCyan)'};
+            --stata-operator: ${themeVars.operator || 'var(--vscode-editor-foreground)'};
             --stata-plain: ${themeVars.plain || 'var(--vscode-editor-foreground)'};
             --stata-default: ${themeVars.default || 'var(--vscode-editor-foreground)'};
             --stata-error: ${themeVars.error || 'var(--vscode-errorForeground)'};
