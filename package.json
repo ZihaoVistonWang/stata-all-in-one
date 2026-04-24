@@ -255,6 +255,10 @@
         "title": "Stata All in One: Debug Reset Windows Upgrade Notification"
       },
       {
+        "command": "stata-all-in-one.debugResetEmbeddedConsoleOverflowNotice",
+        "title": "%command.debugResetEmbeddedConsoleOverflowNotice.title%"
+      },
+      {
         "command": "stata-all-in-one.rename",
         "title": "Stata All in One: Rename Variable"
       },
