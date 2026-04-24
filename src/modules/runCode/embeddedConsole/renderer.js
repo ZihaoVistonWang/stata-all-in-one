@@ -695,7 +695,8 @@ class StataTerminalRenderer {
             {
                 kind: 'footer',
                 segments: [this._segment(label, this._styleForTokenType('separator'))]
-            }
+            },
+            { kind: 'blank', segments: [] }
         ];
     }
 

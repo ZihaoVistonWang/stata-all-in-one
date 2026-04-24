@@ -548,8 +548,8 @@ function getWebviewHtml() {
         }
         .line-command,
         .line-comment-command {
-            padding-left: 1.4rem;
-            text-indent: -1.4rem;
+            padding-left: 2ch;
+            text-indent: -2ch;
         }
         .tok {
             color: var(--stata-default);
@@ -625,7 +625,8 @@ function getWebviewHtml() {
         }
         .line-footer {
             margin-top: 0.35rem;
-            padding-left: 0;
+            padding-left: 2ch;
+            padding-right: 2ch;
             display: flex;
             align-items: center;
             gap: 10px;
