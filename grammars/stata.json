@@ -1093,6 +1093,9 @@
                                             },
                                             "patterns": [
                                                 {
+                                                    "include": "#functions"
+                                                },
+                                                {
                                                     "match": "\\b([\\w&&[^0-9]][\\w.]*)\\b",
                                                     "name": "variable.parameter.function.stata"
                                                 },
@@ -1124,6 +1127,9 @@
                                                     "include": "#string-regular"
                                                 }
                                             ]
+                                        },
+                                        {
+                                            "include": "#functions"
                                         },
                                         {
                                             "match": "\\b([\\w&&[^0-9]][\\w.]*)\\b",
