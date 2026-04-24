@@ -327,9 +327,18 @@ function activate(context) {
             return;
         }
 
-        if (action === 'suppressOverflowNoticeForever') {
-            await context.globalState.update(EMBEDDED_CONSOLE_OVERFLOW_NOTICE_SUPPRESSED_KEY, true);
-            setOverflowNoticeSuppressed(true);
+        if (action === 'showOverflowNotice') {
+            const dismissForeverLabel = msg('webviewOverflowDismissForever');
+            const choice = await vscode.window.showInformationMessage(
+                msg('webviewOverflowNotice'),
+                msg('webviewOverflowConfirm'),
+                dismissForeverLabel
+            );
+
+            if (choice === dismissForeverLabel) {
+                await context.globalState.update(EMBEDDED_CONSOLE_OVERFLOW_NOTICE_SUPPRESSED_KEY, true);
+                setOverflowNoticeSuppressed(true);
+            }
         }
     });
 

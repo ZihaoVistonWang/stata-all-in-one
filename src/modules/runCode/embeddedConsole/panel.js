@@ -55,7 +55,7 @@ function attachPanel(panel) {
             } catch (error) {
                 console.error('Stata All in One: Embedded Console input execution failed:', error.message);
             }
-        } else if (message && (message.type === 'stopExecution' || message.type === 'clearConsole') && typeof _actionHandler === 'function') {
+        } else if (message && (message.type === 'stopExecution' || message.type === 'clearConsole' || message.type === 'showOverflowNotice') && typeof _actionHandler === 'function') {
             try {
                 await _actionHandler(message.type);
             } catch (error) {
@@ -696,45 +696,6 @@ function getWebviewHtml() {
             font-family: inherit;
             font-size: inherit;
         }
-        .overflow-notice {
-            position: fixed;
-            right: 14px;
-            bottom: 14px;
-            width: min(360px, calc(100vw - 28px));
-            padding: 12px 12px 10px;
-            border: 1px solid var(--vscode-panel-border);
-            border-radius: 10px;
-            background: color-mix(in srgb, var(--vscode-editor-background) 92%, var(--vscode-sideBar-background));
-            box-shadow: 0 10px 30px color-mix(in srgb, black 18%, transparent);
-            z-index: 4;
-        }
-        .overflow-notice[hidden] {
-            display: none;
-        }
-        .overflow-notice-copy {
-            font-size: 12px;
-            line-height: 1.45;
-            color: var(--vscode-foreground);
-        }
-        .overflow-notice-actions {
-            margin-top: 10px;
-            display: flex;
-            justify-content: flex-end;
-            gap: 8px;
-        }
-        .overflow-notice-button {
-            border: 1px solid var(--vscode-button-border, var(--vscode-panel-border));
-            background: transparent;
-            color: var(--vscode-foreground);
-            border-radius: 6px;
-            padding: 4px 10px;
-            font: inherit;
-            font-size: 11px;
-            cursor: pointer;
-        }
-        .overflow-notice-button:hover {
-            background: var(--vscode-toolbar-hoverBackground);
-        }
         .result-block-scroll {
             overflow-x: auto;
             overflow-y: hidden;
@@ -786,13 +747,6 @@ function getWebviewHtml() {
             <span><code>Up/Down</code> history</span>
         </div>
     </div>
-    <div id="overflow-notice" class="overflow-notice" hidden>
-        <div class="overflow-notice-copy">${escapeHtml(msg('webviewOverflowNotice'))}</div>
-        <div class="overflow-notice-actions">
-            <button id="overflow-ok" class="overflow-notice-button" type="button">${escapeHtml(msg('webviewOverflowConfirm'))}</button>
-            <button id="overflow-never" class="overflow-notice-button" type="button">${escapeHtml(msg('webviewOverflowDismissForever'))}</button>
-        </div>
-    </div>
     <script nonce="${nonce}">
         const vscode = acquireVsCodeApi();
         const output = document.getElementById('output');
@@ -803,9 +757,6 @@ function getWebviewHtml() {
         const input = document.getElementById('input');
         const stopButton = document.getElementById('stop-button');
         const clearButton = document.getElementById('clear-button');
-        const overflowNotice = document.getElementById('overflow-notice');
-        const overflowOk = document.getElementById('overflow-ok');
-        const overflowNever = document.getElementById('overflow-never');
         const inputHistory = [];
         let historyIndex = -1;
         let overflowNoticeSuppressed = false;
@@ -846,7 +797,12 @@ function getWebviewHtml() {
                 && !overflowNoticeDismissedForCurrentView
                 && outputShell.childElementCount > 1
                 && hasOverflowingScrollableResultBlock();
-            overflowNotice.hidden = !shouldShow;
+            if (!shouldShow) {
+                return;
+            }
+
+            overflowNoticeDismissedForCurrentView = true;
+            vscode.postMessage({ type: 'showOverflowNotice' });
         }
 
         function appendEntries(entries) {
@@ -1045,18 +1001,6 @@ function getWebviewHtml() {
 
         clearButton.addEventListener('click', () => {
             vscode.postMessage({ type: 'clearConsole' });
-        });
-
-        overflowOk.addEventListener('click', () => {
-            overflowNoticeDismissedForCurrentView = true;
-            updateOverflowNotice();
-        });
-
-        overflowNever.addEventListener('click', () => {
-            overflowNoticeDismissedForCurrentView = true;
-            overflowNoticeSuppressed = true;
-            updateOverflowNotice();
-            vscode.postMessage({ type: 'suppressOverflowNoticeForever' });
         });
 
         window.addEventListener('resize', () => {
