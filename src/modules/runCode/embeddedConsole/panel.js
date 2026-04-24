@@ -14,14 +14,28 @@ let _actionHandler = null;
 let _asciiLogo53x13Cache = null;
 let _lastRunFailed = false;
 let _overflowNoticeSuppressed = false;
+let _extensionUri = null;
 
 function getPanelTitle() {
     return msg('webviewPanelTitle');
 }
 
+function getPanelIconPath() {
+    if (!_extensionUri) {
+        return undefined;
+    }
+
+    const iconUri = vscode.Uri.joinPath(_extensionUri, 'img', 'console-tab.svg');
+    return {
+        light: iconUri,
+        dark: iconUri
+    };
+}
+
 function attachPanel(panel) {
     _panel = panel;
     _panel.title = getPanelTitle();
+    _panel.iconPath = getPanelIconPath();
     _panel.webview.options = {
         enableScripts: true,
         retainContextWhenHidden: true
@@ -55,6 +69,7 @@ function attachPanel(panel) {
 function ensurePanel() {
     if (_panel) {
         _panel.title = getPanelTitle();
+        _panel.iconPath = getPanelIconPath();
         return _panel;
     }
 
@@ -261,6 +276,7 @@ function setOverflowNoticeSuppressed(suppressed) {
 }
 
 function registerWebviewPanelSerializer(context) {
+    _extensionUri = context.extensionUri;
     context.subscriptions.push(
         vscode.window.registerWebviewPanelSerializer(PANEL_VIEW_TYPE, {
             async deserializeWebviewPanel(panel) {
