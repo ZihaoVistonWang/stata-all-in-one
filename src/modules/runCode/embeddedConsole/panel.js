@@ -416,15 +416,27 @@ function getWebviewHtml() {
             gap: 6px;
         }
         .statusbar-button {
-            border: 1px solid var(--vscode-toolbar-hoverBackground);
+            border: none;
             background: transparent;
             color: var(--vscode-foreground);
             border-radius: 6px;
-            padding: 3px 8px;
-            font: inherit;
-            font-size: 11px;
-            line-height: 1.2;
+            width: 24px;
+            height: 24px;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
             cursor: pointer;
+        }
+        .statusbar-button:focus-visible {
+            outline: 1px solid var(--vscode-focusBorder);
+            outline-offset: 1px;
+        }
+        .statusbar-icon {
+            width: 18px;
+            height: 18px;
+            fill: currentColor;
+            pointer-events: none;
         }
         .statusbar-button:hover {
             background: var(--vscode-toolbar-hoverBackground);
@@ -432,6 +444,20 @@ function getWebviewHtml() {
         .statusbar-button:disabled {
             opacity: 0.45;
             cursor: default;
+        }
+        #clear-button {
+            color: color-mix(in srgb, var(--vscode-foreground) 72%, transparent);
+            transition: color 120ms ease, background-color 120ms ease;
+        }
+        #clear-button:hover {
+            color: var(--vscode-foreground);
+        }
+        #stop-button {
+            color: #f14c4c66;
+            transition: color 120ms ease;
+        }
+        body[data-status="running"] #stop-button {
+            color: #f14c4c;
         }
         #output {
             flex: 1;
@@ -712,8 +738,17 @@ function getWebviewHtml() {
         <div id="status-label" class="label">${escapeHtml(msg('webviewIdle'))}</div>
         <div class="statusbar-spacer"></div>
         <div class="statusbar-actions">
-            <button id="stop-button" class="statusbar-button" type="button">Break</button>
-            <button id="clear-button" class="statusbar-button" type="button">Clear</button>
+            <button id="stop-button" class="statusbar-button" type="button" title="${escapeHtml(msg('webviewStop'))}">
+                <svg class="statusbar-icon" viewBox="0 0 16 16" aria-hidden="true">
+                    <path d="M8 1.5a6.5 6.5 0 1 0 6.5 6.5A6.5 6.5 0 0 0 8 1.5zm0 12a5.5 5.5 0 1 1 5.5-5.5A5.5 5.5 0 0 1 8 13.5z"></path>
+                    <rect x="5.5" y="5.5" width="5" height="5" rx="1"></rect>
+                </svg>
+            </button>
+            <button id="clear-button" class="statusbar-button" type="button" title="${escapeHtml(msg('webviewClear'))}">
+                <svg class="statusbar-icon" viewBox="0 0 16 16" aria-hidden="true">
+                    <path d="M2 3h12v1H2V3zm0 4h12v1H2V7zm0 4h7v1H2v-1zm9.85-1.71 1.15-1.15.71.71-1.14 1.15 1.14 1.14-.71.71-1.15-1.14-1.14 1.14-.71-.71 1.14-1.14-1.14-1.15.71-.71 1.14 1.15z"></path>
+                </svg>
+            </button>
         </div>
     </div>
     <div id="output">

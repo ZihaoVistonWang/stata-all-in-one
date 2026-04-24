@@ -36,7 +36,7 @@ function getOrCreateStatusBarItem() {
     return _statusBarItem;
 }
 
-function showCliRunningStatus() {
+function showConsoleRunningStatus() {
     const item = getOrCreateStatusBarItem();
     item.text = '$(loading~spin) Stata All in One Console is running';
     item.tooltip = 'Stata is executing code in Stata All in One Console';
@@ -46,7 +46,7 @@ function showCliRunningStatus() {
     item.show();
 }
 
-function hideCliRunningStatus() {
+function hideConsoleRunningStatus() {
     if (_statusBarItem) {
         _statusBarItem.backgroundColor = undefined;
         _statusBarItem.color = undefined;
@@ -184,15 +184,15 @@ function findStataDylib(preferredEdition = null, savedPath = null) {
     };
 }
 
-async function ensureCliSession(context) {
-    if (session.hasActiveCliSession()) {
+async function ensureConsoleSession(context) {
+    if (session.hasActiveConsoleSession()) {
         return {
             success: true,
             fromExisting: true
         };
     }
 
-    const savedPath = context ? context.globalState.get('stataCliDylibPath') : null;
+    const savedPath = context ? context.globalState.get('stataConsoleDylibPath') : null;
     const dylibInfo = findStataDylib(null, savedPath);
 
     if (!dylibInfo.path) {
@@ -204,11 +204,11 @@ async function ensureCliSession(context) {
     }
 
     if (context && !dylibInfo.fromCache) {
-        await context.globalState.update('stataCliDylibPath', dylibInfo.path);
+        await context.globalState.update('stataConsoleDylibPath', dylibInfo.path);
         console.log('[mac.js] 已保存 dylib 路径:', dylibInfo.path);
     }
 
-    const success = await session.initCliSession(context, dylibInfo.path);
+    const success = await session.initConsoleSession(context, dylibInfo.path);
     if (!success) {
         console.error('[runtime] 会话初始化失败');
         return {
@@ -243,7 +243,7 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
     const outputSink = getOutputSink();
 
     try {
-        const initResult = await ensureCliSession(context);
+        const initResult = await ensureConsoleSession(context);
         if (!initResult.success) {
             return {
                 success: false,
@@ -253,8 +253,8 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
             };
         }
 
-        const cliSession = session.getCliSession(context);
-        if (!cliSession || !cliSession.isInitialized()) {
+        const consoleSession = session.getConsoleSession(context);
+        if (!consoleSession || !consoleSession.isInitialized()) {
             console.error('[runtime] 无法获取有效的 Stata 会话');
             return {
                 success: false,
@@ -268,12 +268,12 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
         await outputSink.prepareForExecution();
 
         const normalizedCode = normalizeCodeToRun(codeToRun);
-        await ensureWebviewBootstrap(cliSession);
-        await ensureInitialWorkingDirectory(cliSession, docDir);
-        executionPlan = createExecutionPlan(normalizedCode, cliSession.getWorkingDirectory());
+        await ensureWebviewBootstrap(consoleSession);
+        await ensureInitialWorkingDirectory(consoleSession, docDir);
+        executionPlan = createExecutionPlan(normalizedCode, consoleSession.getWorkingDirectory());
         lastRealChunkAt = Date.now();
         runStartTime = lastRealChunkAt;
-        showCliRunningStatus();
+        showConsoleRunningStatus();
         progressTimer = setInterval(() => {
             if (!syntheticProgressActive) {
                 return;
@@ -292,7 +292,7 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
             syntheticProgressColumn += 1;
         }, 300);
 
-        const result = await cliSession.execute(executionPlan.command, true, (chunk) => {
+        const result = await consoleSession.execute(executionPlan.command, true, (chunk) => {
             if (!chunk) {
                 return;
             }
@@ -344,7 +344,7 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
             };
         }
 
-        updateWorkingDirectoryFromCode(cliSession, normalizedCode);
+        updateWorkingDirectoryFromCode(consoleSession, normalizedCode);
         return {
             success: true,
             shouldOfferGuiFallback: false
@@ -365,7 +365,7 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
         if (progressTimer) {
             clearInterval(progressTimer);
         }
-        hideCliRunningStatus();
+        hideConsoleRunningStatus();
 
         outputSink.flushOutput();
         if (runStartTime !== null) {
@@ -387,22 +387,22 @@ function normalizeCodeToRun(code) {
         .trim();
 }
 
-async function ensureInitialWorkingDirectory(cliSession, docDir) {
-    if (cliSession.getWorkingDirectory() || !docDir || !config.getCdToDoFileDir()) {
+async function ensureInitialWorkingDirectory(consoleSession, docDir) {
+    if (consoleSession.getWorkingDirectory() || !docDir || !config.getCdToDoFileDir()) {
         return;
     }
 
     const escapedDir = String(docDir).replace(/"/g, '""');
-    const cdResult = await cliSession.execute(`quietly cd "${escapedDir}"`, false);
+    const cdResult = await consoleSession.execute(`quietly cd "${escapedDir}"`, false);
     if (!cdResult.success) {
         throw new Error(cdResult.error || 'Failed to initialize working directory.');
     }
 
-    cliSession.setWorkingDirectory(docDir);
+    consoleSession.setWorkingDirectory(docDir);
 }
 
-async function ensureWebviewBootstrap(cliSession) {
-    if (cliSession.isBootstrapped()) {
+async function ensureWebviewBootstrap(consoleSession) {
+    if (consoleSession.isBootstrapped()) {
         return;
     }
 
@@ -412,19 +412,19 @@ async function ensureWebviewBootstrap(cliSession) {
     ];
 
     for (const command of bootstrapCommands) {
-        const result = await cliSession.execute(command, false);
+        const result = await consoleSession.execute(command, false);
         if (!result.success) {
             throw new Error(result.error || `Failed to run bootstrap command: ${command}`);
         }
     }
 
-    cliSession.setBootstrapped(true);
+    consoleSession.setBootstrapped(true);
 }
 
-function updateWorkingDirectoryFromCode(cliSession, codeToRun) {
-    const nextWorkingDirectory = extractLastCdTarget(codeToRun, cliSession.getWorkingDirectory());
+function updateWorkingDirectoryFromCode(consoleSession, codeToRun) {
+    const nextWorkingDirectory = extractLastCdTarget(codeToRun, consoleSession.getWorkingDirectory());
     if (nextWorkingDirectory) {
-        cliSession.setWorkingDirectory(nextWorkingDirectory);
+        consoleSession.setWorkingDirectory(nextWorkingDirectory);
     }
 }
 
@@ -529,9 +529,9 @@ function shouldUseDoFileForSingleLine(line) {
  * @param {vscode.ExtensionContext} context - VS Code extension context
  * @returns {Promise<boolean>} - 初始化成功返回 true，失败返回 false
  */
-async function initCliSession(context) {
+async function initConsoleSession(context) {
     try {
-        const result = await ensureCliSession(context);
+        const result = await ensureConsoleSession(context);
         if (!result.success) {
             vscode.window.showErrorMessage(result.reason);
             return false;
@@ -545,22 +545,22 @@ async function initCliSession(context) {
 
         return true;
     } catch (error) {
-        console.error('[runtime] initCliSession 异常:', error.message);
+        console.error('[runtime] initConsoleSession 异常:', error.message);
         vscode.window.showErrorMessage(`Stata 初始化错误: ${error.message}`);
         return false;
     }
 }
 
 /**
- * Stop Stata execution
+ * Stop Stata execution in embedded console
  * @param {vscode.ExtensionContext} context - VS Code extension context
  * @returns {boolean} - 成功返回 true
  */
-function stopCliExecution(context) {
+function stopConsoleExecution(context) {
     try {
-        if (session.hasActiveCliSession()) {
-            const cliSession = session.getCliSession(context);
-            cliSession.stop();
+        if (session.hasActiveConsoleSession()) {
+            const consoleSession = session.getConsoleSession(context);
+            consoleSession.stop();
         }
 
         if (_activeOutputSink) {
@@ -570,7 +570,7 @@ function stopCliExecution(context) {
 
         return true;
     } catch (error) {
-        console.error('[mac.js] stopCliExecution 异常:', error.message);
+        console.error('[mac.js] stopConsoleExecution 异常:', error.message);
         return false;
     }
 }
@@ -578,22 +578,22 @@ function stopCliExecution(context) {
 /**
  * Get current Stata session
  * @param {vscode.ExtensionContext} context - VS Code extension context
- * @returns {StataCliSession|null} - 会话实例或 null
+ * @returns {StataConsoleSession|null} - 会话实例或 null
  */
-function getCliSession(context) {
-    return session.getCliSession(context);
+function getConsoleSession(context) {
+    return session.getConsoleSession(context);
 }
 
 /**
  * 强制关闭 Stata 会话
  * @returns {boolean} - 成功返回 true
  */
-function forceShutdownCliSession() {
+function forceShutdownConsoleSession() {
     try {
         _activeOutputSink = null;
-        return session.forceShutdownCliSession();
+        return session.forceShutdownConsoleSession();
     } catch (error) {
-        console.error('[mac.js] forceShutdownCliSession 异常:', error.message);
+        console.error('[mac.js] forceShutdownConsoleSession 异常:', error.message);
         return false;
     }
 }
@@ -601,8 +601,8 @@ function forceShutdownCliSession() {
 module.exports = {
     findStataDylib,
     runOnMacWebview,
-    initCliSession,
-    stopCliExecution,
-    getCliSession,
-    forceShutdownCliSession
+    initConsoleSession,
+    stopConsoleExecution,
+    getConsoleSession,
+    forceShutdownConsoleSession
 };

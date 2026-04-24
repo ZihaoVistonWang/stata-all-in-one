@@ -9,7 +9,7 @@ const { registerSeparatorCommands } = require('./modules/separator');
 const { registerCommentCommand, toggleComment } = require('./modules/comment');
 const { registerExecuteCommand } = require('./modules/runCode/execute');
 const { runArbitraryCode } = require('./modules/runCode/execute');
-const { stopCliExecution, forceShutdownCliSession } = require('./modules/runCode/embeddedConsole/mac');
+const { stopConsoleExecution, forceShutdownConsoleSession } = require('./modules/runCode/embeddedConsole/mac');
 const { setWebviewCommandHandler, setWebviewActionHandler, setOverflowNoticeSuppressed, registerWebviewPanelSerializer, clearWebviewTerminalPanel, setWebviewTerminalStatus } = require('./modules/runCode/embeddedConsole/panel');
 const { registerCustomCommandHighlight } = require('./modules/customCommandHighlight');
 const { registerCompletionProvider } = require('./modules/completionProvider');
@@ -18,13 +18,13 @@ const { registerLineBreakCommand } = require('./modules/lineBreak');
 const { registerRenameProvider } = require('./modules/renameProvider');
 const { registerUpdateCheck } = require('./modules/updateNotification');
 const { findStataApp } = require('./modules/runCode/externalApp/mac');
-const { syncCliTerminalTheme } = require('./modules/runCode/embeddedConsole/renderer');
-const { prewarmCliTextmateTokenizer } = require('./modules/runCode/embeddedConsole/textmateTokenizer');
+const { syncConsoleTerminalTheme } = require('./modules/runCode/embeddedConsole/renderer');
+const { prewarmConsoleTextmateTokenizer } = require('./modules/runCode/embeddedConsole/textmateTokenizer');
 const { isMacOS, showInfo, showWarn, msg } = require('./utils/common');
 const config = require('./utils/config');
 
 // Execution session state context key for "stop" button visibility
-const CLI_SESSION_ACTIVE_KEY = 'stata-all-in-one.cliSessionActive';
+const CONSOLE_SESSION_ACTIVE_KEY = 'stata-all-in-one.consoleSessionActive';
 const { showWindowsUpgradeNotification, forceShowWindowsUpgradeNotification, resetWindowsUpgradeNotification } = require('./modules/windowsUpgradeNotification');
 
 const MIGRATION_MESSAGES = {
@@ -199,13 +199,13 @@ async function resetMigrationPrompt(context) {
  */
 function activate(context) {
     console.log('Stata All in One: Extension activated');
-    syncCliTerminalTheme();
+    syncConsoleTerminalTheme();
     context.subscriptions.push(vscode.window.onDidChangeActiveColorTheme(() => {
-        syncCliTerminalTheme();
+        syncConsoleTerminalTheme();
     }));
     
     // Initialize execution session context to false
-    vscode.commands.executeCommand('setContext', CLI_SESSION_ACTIVE_KEY, false);
+    vscode.commands.executeCommand('setContext', CONSOLE_SESSION_ACTIVE_KEY, false);
     
     // Check if Stata Outline is installed
     if (isStataOutlineInstalled()) {
@@ -289,7 +289,7 @@ function activate(context) {
 
     // Register custom command highlighting (native injection grammar)
     registerCustomCommandHighlight(context);
-    prewarmCliTextmateTokenizer();
+    prewarmConsoleTextmateTokenizer();
 
     // Register completion provider for Stata commands and functions
     registerCompletionProvider(context);
@@ -317,7 +317,7 @@ function activate(context) {
     });
     setWebviewActionHandler(async (action) => {
         if (action === 'stopExecution') {
-            stopCliExecution(context);
+            stopConsoleExecution(context);
             return;
         }
 
@@ -334,13 +334,13 @@ function activate(context) {
     });
 
     // Register stop execution command
-    const stopCliCommand = vscode.commands.registerCommand(
-        'stata-all-in-one.stopCliExecution',
+    const stopConsoleCommand = vscode.commands.registerCommand(
+        'stata-all-in-one.stopConsoleExecution',
         () => {
-            stopCliExecution(context);
+            stopConsoleExecution(context);
         }
     );
-    context.subscriptions.push(stopCliCommand);
+    context.subscriptions.push(stopConsoleCommand);
 
     // Register help command
     registerHelpCommand(context);
@@ -475,11 +475,11 @@ function activate(context) {
  * Deactivate the extension
  */
 function deactivate() {
-    forceShutdownCliSession();
+    forceShutdownConsoleSession();
 }
 
 module.exports = { 
     activate, 
     deactivate, 
-    CLI_SESSION_ACTIVE_KEY 
+    CONSOLE_SESSION_ACTIVE_KEY 
 };

@@ -1,5 +1,5 @@
 /**
- * stata_bridge.cc - C++ N-API Native Module for Stata CLI Session on macOS
+ * stata_bridge.cc - C++ N-API Native Module for Stata Console Session on macOS
  * Bridges Node.js with Stata C API (libstata-*.dylib) via dlopen/dlsym
  * Author: Zihao Viston Wang | License: MIT
  */

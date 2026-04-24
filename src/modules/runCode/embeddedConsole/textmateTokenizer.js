@@ -146,7 +146,7 @@ function tokenizeStataLine(line) {
     return result && Array.isArray(result.tokens) ? result.tokens : null;
 }
 
-function setCliTextmateTheme(themeData) {
+function setConsoleTextmateTheme(themeData) {
     pendingThemeData = themeData || null;
     if (!loadedRegistry || !themeData) {
         return;
@@ -224,7 +224,7 @@ function tokenizeStataLineWithTheme(line) {
     return themedTokens;
 }
 
-async function prewarmCliTextmateTokenizer() {
+async function prewarmConsoleTextmateTokenizer() {
     try {
         await ensureGrammarLoadStarted();
     } catch (error) {
@@ -233,8 +233,8 @@ async function prewarmCliTextmateTokenizer() {
 }
 
 module.exports = {
-    prewarmCliTextmateTokenizer,
-    setCliTextmateTheme,
+    prewarmConsoleTextmateTokenizer,
+    setConsoleTextmateTheme,
     tokenizeStataLine,
     tokenizeStataLineWithTheme
 };
