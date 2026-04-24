@@ -856,6 +856,10 @@ function getWebviewHtml() {
             workingIndicator.style.display = 'none';
         }
 
+        function scrollOutputToBottom() {
+            output.scrollTop = output.scrollHeight;
+        }
+
         function setStatus(status) {
             document.body.dataset.status = status || 'idle';
             dot.className = 'dot ' + (status || 'idle');
@@ -864,6 +868,7 @@ function getWebviewHtml() {
             stopButton.disabled = status !== 'running';
             if (status === 'running') {
                 startWorkingIndicator();
+                requestAnimationFrame(scrollOutputToBottom);
             } else {
                 stopWorkingIndicator();
             }
@@ -1038,6 +1043,7 @@ function getWebviewHtml() {
                 return;
             }
             pushHistory(code);
+            scrollOutputToBottom();
             vscode.postMessage({
                 type: 'executeInput',
                 code
