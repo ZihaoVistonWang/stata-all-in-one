@@ -4,19 +4,20 @@ This file tracks implementation work, validation tasks, and longer-term roadmap 
 
 ## Phase 1 Remaining TODOs
 
-### CLI / Terminal UX
-- Re-verify that the dedicated `Stata CLI` path remains the only execution path even when VS Code restores a default shell terminal from the previous session, and make the terminal experience single-path and predictable.
-- Decide whether the `Stata CLI` terminal should support direct interactive command input. If interactive input is intended, implement and validate a clear input path; if not, document that the terminal is output-only in Phase 1 and defer interactive input explicitly.
+### Console / Terminal UX
+- Make terminal code highlighting truly match the editor path. Current investigation shows some identifiers such as `gen ln_both_AI = ...` left-hand variables and plain varlists after commands like `winsor2 ...` are only `source.stata` in the grammar, so editor and terminal can diverge across themes. Re-check the editor highlighting path first, then decide whether to fix this in `grammars/stata.json`, the terminal renderer fallback, or both.
+- Re-verify that the dedicated `Stata Console` path remains the only execution path even when VS Code restores a default shell terminal from the previous session, and make the terminal experience single-path and predictable.
+- Decide whether the `Stata Console` terminal should support direct interactive command input. If interactive input is intended, implement and validate a clear input path; if not, document that the terminal is output-only in Phase 1 and defer interactive input explicitly.
 - Add a terminal width warning. If the visible terminal width is narrower than 80 columns when code runs, append a warning line telling the user that the terminal is too narrow and should be widened.
-- Keep the default `Stata CLI` panel location on the right, but improve the UX around width persistence since VS Code panel width is not reliably remembered in the current flow.
-- Revisit terminal output colors, especially table/statistical output, so the CLI view is easier to read and closer to a usable Stata console experience.
+- Keep the default `Stata Console` panel location on the right, but improve the UX around width persistence since VS Code panel width is not reliably remembered in the current flow.
+- Revisit terminal output colors, especially table/statistical output, so the Console view is easier to read and closer to a usable Stata console experience.
 
-### CLI Execution Semantics
-- Re-verify that first-run behavior both starts the CLI session and executes the requested code in one action.
+### Console Execution Semantics
+- Re-verify that first-run behavior both starts the console session and executes the requested code in one action.
 - Re-verify session working-directory semantics:
-- On first CLI startup, default to the current `.do` file directory when `cdToDoFileDir` is enabled.
+- On first console startup, default to the current `.do` file directory when `cdToDoFileDir` is enabled.
 - After a failed relative-path command, a later manual `cd` followed by the same relative-path command must succeed in the same session.
-- Keep Stata command failures in CLI output only (`r(xxx)` etc.), and only offer GUI fallback for extension/backend failures.
+- Keep Stata command failures in console output only (`r(xxx)` etc.), and only offer GUI fallback for extension/backend failures.
 - Continue aligning temporary do-file behavior with GUI mode:
 - Use the same filename (`stata_all_in_one_temp.do`)
 - Place it in the working/document directory when possible
@@ -25,14 +26,14 @@ This file tracks implementation work, validation tasks, and longer-term roadmap 
 
 ### Manual Regression Checks Required By This Repo
 - Press `F5` and validate the changed execution flow in real `.do` files inside Extension Development Host.
-- Validate changed commands and keybindings, especially `runSection` / `Cmd+D`, CLI stop behavior, and any fallback prompts.
-- Validate `showHelp` / `Cmd+Shift+H` behavior, including whether help output appears in the expected place and whether CLI/GUI execution changes affected it.
+- Validate changed commands and keybindings, especially `runSection` / `Cmd+D`, console stop behavior, and any fallback prompts.
+- Validate `showHelp` / `Cmd+Shift+H` behavior, including whether help output appears in the expected place and whether console/GUI execution changes affected it.
 - Validate outline behavior was not regressed while changing run-code modules.
 - Validate platform logic under `src/modules/runCode/`:
-- macOS CLI main path
+- macOS console main path
 - macOS GUI fallback path
 - Windows GUI-only path and its user-facing messaging
-- Validate CLI compatibility assumptions across different Stata macOS editions/versions:
+- Validate console compatibility assumptions across different Stata macOS editions/versions:
 - Confirm whether non-StataNow editions also ship the required dylib/runtime entry points for the current native bridge approach
 - Clarify whether extra precompiled native binaries or version-specific handling are needed for older/different Stata releases
 - Record that current testing hardware only has the latest StataNow on macOS, so cross-version verification is still pending and requires another installation or another machine
@@ -46,11 +47,12 @@ This file tracks implementation work, validation tasks, and longer-term roadmap 
 
 ## Future Roadmap
 
-### Phase 2: Windows CLI Implementation
-- Implement Windows CLI path using StataSO DLL (libstata-*.dll)
-- Cross-platform native module compilation
-- Windows dylib discovery logic
-- Integration with Windows PowerShell automation fallback
+### Phase 2: Windows Console Implementation
+- Implement the Windows console path using the StataSO DLL (libstata-*.dll)
+- Add cross-platform native-module build and packaging support
+- Implement Windows library discovery and initialization logic
+- Keep Windows PowerShell automation as the fallback path
+- Add in-extension Stata graph display by integrating PyStata’s graph export/display capability, and validate a VS Code rendering path based on `svg/png` output
 
 ### Phase 3: Data/Frame/Mata JavaScript API
 - Implement Data class for dataset manipulation
@@ -65,13 +67,13 @@ This file tracks implementation work, validation tasks, and longer-term roadmap 
 - Integrate with NumPy for matrix data
 
 ### Phase 5: Status Visualization
-- Add VS Code status bar indicator for CLI session state
+- Add VS Code status bar indicator for console session state
 - Show initialization status, dylib path, execution state
 - Add showBackendStatus command with detailed info panel
-- Optional: Add retryCliSelfCheck command for manual reconnection
+- Optional: Add retryConsoleSelfCheck command for manual reconnection
 
 ### Phase 6: Configuration Options
-- Add executionMode setting (auto/cli/gui)
+- Add executionMode setting (auto/console/gui)
 - Add pollingInterval setting for output buffer
 - Add graphExportFormat setting (svg/png/pdf)
 - Add persistentSession setting for session lifecycle control

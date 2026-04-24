@@ -1,7 +1,7 @@
 const vscode = require('vscode');
 const fs = require('fs');
 const path = require('path');
-const { tokenizeStataLineWithTheme, setCliTextmateTheme } = require('./textmateTokenizer');
+const { tokenizeStataLineWithTheme, setConsoleTextmateTheme } = require('./textmateTokenizer');
 
 const ANSI = {
     reset: '\x1b[0m',
@@ -399,7 +399,7 @@ function resolveThemeSlotMap(themeData) {
     return slotMap;
 }
 
-function syncCliTerminalTheme() {
+function syncConsoleTerminalTheme() {
     try {
         const themeDefinition = findCurrentThemeDefinition();
         if (!themeDefinition || !fs.existsSync(themeDefinition.themePath)) {
@@ -413,9 +413,9 @@ function syncCliTerminalTheme() {
         CURRENT_THEME_DATA = themeData;
         CURRENT_THEME_SLOT_MAP = resolveThemeSlotMap(themeData);
         CURRENT_THEME_DEFAULT_FOREGROUND = CURRENT_THEME_SLOT_MAP.default || null;
-        setCliTextmateTheme(themeData);
+        setConsoleTextmateTheme(themeData);
     } catch (error) {
-        console.error('[renderer] Failed to sync CLI terminal theme:', error.message);
+        console.error('[renderer] Failed to sync console terminal theme:', error.message);
         CURRENT_THEME_SLOT_MAP = {};
         CURRENT_THEME_DATA = null;
         CURRENT_THEME_DEFAULT_FOREGROUND = null;
@@ -1823,6 +1823,6 @@ class StataTerminalRenderer {
 module.exports = {
     StataTerminalRenderer,
     formatDuration,
-    syncCliTerminalTheme,
+    syncConsoleTerminalTheme,
     getWebviewThemeVariables
 };

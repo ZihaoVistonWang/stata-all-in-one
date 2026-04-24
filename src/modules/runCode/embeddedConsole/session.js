@@ -8,13 +8,13 @@
 const native = require('./native/stata_session');
 
 // 模块级单例变量
-let _cliSessionInstance = null;
+let _consoleSessionInstance = null;
 
 /**
- * StataCliSession 类
+ * StataConsoleSession 类
  * 管理 Stata Embedded Console 会话的初始化、执行和关闭
  */
-class StataCliSession {
+class StataConsoleSession {
     /**
      * 构造函数
      * @param {vscode.ExtensionContext} context - VS Code 扩展上下文，用于状态存储
@@ -39,7 +39,7 @@ class StataCliSession {
     _restoreState() {
         if (this._context) {
             // 检查全局状态中是否有已初始化的会话
-            const storedDylibPath = this._context.globalState.get('stataCliDylibPath');
+            const storedDylibPath = this._context.globalState.get('stataConsoleDylibPath');
             if (storedDylibPath && native.isInitialized()) {
                 this._initialized = native.isInitialized();
                 this._dylibPath = storedDylibPath;
@@ -53,7 +53,7 @@ class StataCliSession {
      */
     _saveState() {
         if (this._context) {
-            this._context.globalState.update('stataCliDylibPath', this._dylibPath);
+            this._context.globalState.update('stataConsoleDylibPath', this._dylibPath);
         }
     }
 
@@ -63,7 +63,7 @@ class StataCliSession {
      */
     _clearState() {
         if (this._context) {
-            this._context.globalState.update('stataCliDylibPath', undefined);
+            this._context.globalState.update('stataConsoleDylibPath', undefined);
         }
         this._initialized = false;
         this._dylibPath = null;
@@ -79,7 +79,7 @@ class StataCliSession {
      */
     async init(dylibPath) {
         if (!native.isLoaded()) {
-            console.error('[StataCliSession] Native module not loaded. Cannot initialize session.');
+            console.error('[StataConsoleSession] Native module not loaded. Cannot initialize session.');
             return false;
         }
 
@@ -109,11 +109,11 @@ class StataCliSession {
                 this._saveState();
                 return true;
             } else {
-                console.error('[StataCliSession] Initialization returned false.');
+                console.error('[StataConsoleSession] Initialization returned false.');
                 return false;
             }
         } catch (error) {
-            console.error('[StataCliSession] Initialization failed:', error.message);
+            console.error('[StataConsoleSession] Initialization failed:', error.message);
             return false;
         }
     }
@@ -168,7 +168,7 @@ class StataCliSession {
      */
     stop() {
         if (!this._initialized) {
-            console.warn('[StataCliSession] Cannot stop: session not initialized.');
+            console.warn('[StataConsoleSession] Cannot stop: session not initialized.');
             return false;
         }
 
@@ -176,7 +176,7 @@ class StataCliSession {
             native.setBreak();
             return true;
         } catch (error) {
-            console.error('[StataCliSession] Failed to set break:', error.message);
+            console.error('[StataConsoleSession] Failed to set break:', error.message);
             return false;
         }
     }
@@ -188,7 +188,7 @@ class StataCliSession {
      */
     shutdown() {
         if (!this._initialized) {
-            console.warn('[StataCliSession] Nothing to shutdown: session not initialized.');
+            console.warn('[StataConsoleSession] Nothing to shutdown: session not initialized.');
             return true; // 未初始化也算成功关闭
         }
 
@@ -197,7 +197,7 @@ class StataCliSession {
             this._clearState();
             return true;
         } catch (error) {
-            console.error('[StataCliSession] Shutdown failed:', error.message);
+            console.error('[StataConsoleSession] Shutdown failed:', error.message);
             // 即使原生关闭失败，也清除本地状态
             this._clearState();
             return false;
@@ -258,7 +258,7 @@ class StataCliSession {
             native.clearOutput();
             return true;
         } catch (error) {
-            console.error('[StataCliSession] Clear output failed:', error.message);
+            console.error('[StataConsoleSession] Clear output failed:', error.message);
             return false;
         }
     }
@@ -268,13 +268,13 @@ class StataCliSession {
  * 获取或创建会话单例
  * 每个 VS Code 窗口只有一个实例
  * @param {vscode.ExtensionContext} context - VS Code 扩展上下文
- * @returns {StataCliSession}
+ * @returns {StataConsoleSession}
  */
-function getCliSession(context) {
-    if (!_cliSessionInstance) {
-        _cliSessionInstance = new StataCliSession(context);
+function getConsoleSession(context) {
+    if (!_consoleSessionInstance) {
+        _consoleSessionInstance = new StataConsoleSession(context);
     }
-    return _cliSessionInstance;
+    return _consoleSessionInstance;
 }
 
 /**
@@ -284,8 +284,8 @@ function getCliSession(context) {
  * @param {string} dylibPath - Stata dylib 路径
  * @returns {Promise<boolean>} - 初始化结果
  */
-async function initCliSession(context, dylibPath) {
-    const session = getCliSession(context);
+async function initConsoleSession(context, dylibPath) {
+    const session = getConsoleSession(context);
     return await session.init(dylibPath);
 }
 
@@ -293,8 +293,8 @@ async function initCliSession(context, dylibPath) {
  * 检查单例是否存在且已初始化
  * @returns {boolean}
  */
-function hasActiveCliSession() {
-    return _cliSessionInstance !== null && _cliSessionInstance.isInitialized();
+function hasActiveConsoleSession() {
+    return _consoleSessionInstance !== null && _consoleSessionInstance.isInitialized();
 }
 
 /**
@@ -302,10 +302,10 @@ function hasActiveCliSession() {
  * 用于清理或重置
  * @returns {boolean}
  */
-function forceShutdownCliSession() {
-    if (_cliSessionInstance) {
-        const result = _cliSessionInstance.shutdown();
-        _cliSessionInstance = null;
+function forceShutdownConsoleSession() {
+    if (_consoleSessionInstance) {
+        const result = _consoleSessionInstance.shutdown();
+        _consoleSessionInstance = null;
         return result;
     }
     return true;
@@ -313,9 +313,9 @@ function forceShutdownCliSession() {
 
 // 导出接口
 module.exports = {
-    StataCliSession,
-    getCliSession,
-    initCliSession,
-    hasActiveCliSession,
-    forceShutdownCliSession
+    StataConsoleSession,
+    getConsoleSession,
+    initConsoleSession,
+    hasActiveConsoleSession,
+    forceShutdownConsoleSession
 };
