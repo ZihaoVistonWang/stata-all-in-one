@@ -15,6 +15,7 @@ let _asciiLogo53x13Cache = null;
 let _lastRunFailed = false;
 let _overflowNoticeSuppressed = false;
 let _extensionUri = null;
+let _workingDetail = null;
 
 function getPanelTitle() {
     return msg('webviewPanelTitle');
@@ -98,7 +99,8 @@ function postState() {
         type: 'reset',
         status: _status,
         entries: _history,
-        overflowNoticeSuppressed: _overflowNoticeSuppressed
+        overflowNoticeSuppressed: _overflowNoticeSuppressed,
+        workingDetail: _workingDetail
     });
 }
 
@@ -111,6 +113,9 @@ async function revealPanel(preserveFocus = true) {
 
 function setStatus(status) {
     _status = status;
+    if (status !== 'running') {
+        _workingDetail = null;
+    }
     if (_panel) {
         _panel.webview.postMessage({
             type: 'status',
@@ -142,6 +147,7 @@ function clearPanel() {
     _history = [];
     _lastRunFailed = false;
     _status = 'idle';
+    _workingDetail = null;
     if (_panel) {
         _panel.webview.postMessage({
             type: 'clear'
@@ -160,8 +166,9 @@ class WebviewTerminalSink {
     }
 
     async prepareForExecution() {
-        await revealPanel(true);
         _lastRunFailed = false;
+        setWorkingDetail(null);
+        await revealPanel(true);
         setStatus('running');
     }
 
@@ -192,6 +199,10 @@ class WebviewTerminalSink {
 
     setStatus(status) {
         setStatus(status);
+    }
+
+    setWorkingDetail(detail) {
+        setWorkingDetail(detail);
     }
 
     writeAccentBlock(text) {
@@ -248,6 +259,10 @@ class WebviewTerminalSink {
         }
     }
 
+    discardBufferedOutput() {
+        this._renderer.discardPendingOutput();
+    }
+
     writeRunFooter(durationMs) {
         this.flushOutput();
         appendEntries(this._renderer.renderRunFooterSegments(durationMs, this._width));
@@ -275,6 +290,16 @@ function setOverflowNoticeSuppressed(suppressed) {
         _panel.webview.postMessage({
             type: 'overflowNoticePreference',
             suppressed: _overflowNoticeSuppressed
+        });
+    }
+}
+
+function setWorkingDetail(detail) {
+    _workingDetail = detail ? String(detail) : null;
+    if (_panel) {
+        _panel.webview.postMessage({
+            type: 'workingDetail',
+            detail: _workingDetail
         });
     }
 }
@@ -788,7 +813,7 @@ function getWebviewHtml() {
         <div id="working-indicator" aria-hidden="true">
             <span class="working-bullet">•</span>
             <span class="working-text">Working</span>
-            <span class="working-meta">(<span id="working-seconds">0s</span> • esc to interrupt)</span>
+            <span class="working-meta">(<span id="working-seconds">0s</span><span id="working-detail-shell" hidden> · <span id="working-detail"></span></span> • esc to interrupt)</span>
         </div>
     </div>
     <div class="composer">
@@ -805,6 +830,8 @@ function getWebviewHtml() {
         const outputShell = document.getElementById('output-shell');
         const workingIndicator = document.getElementById('working-indicator');
         const workingSeconds = document.getElementById('working-seconds');
+        const workingDetailShell = document.getElementById('working-detail-shell');
+        const workingDetail = document.getElementById('working-detail');
         const placeholder = document.getElementById('placeholder');
         const dot = document.getElementById('status-dot');
         const label = document.getElementById('status-label');
@@ -819,6 +846,7 @@ function getWebviewHtml() {
         let activeResultBlock = null;
         let runningStartedAt = 0;
         let workingTimer = null;
+        let currentWorkingDetail = '';
 
         const STATUS_LABELS = {
             idle: ${JSON.stringify(msg('webviewIdle'))},
@@ -830,10 +858,12 @@ function getWebviewHtml() {
         function updateWorkingMeta() {
             if (!runningStartedAt) {
                 workingSeconds.textContent = '0s';
-                return;
+            } else {
+                const elapsedSeconds = Math.max(0, Math.floor((Date.now() - runningStartedAt) / 1000));
+                workingSeconds.textContent = elapsedSeconds + 's';
             }
-            const elapsedSeconds = Math.max(0, Math.floor((Date.now() - runningStartedAt) / 1000));
-            workingSeconds.textContent = elapsedSeconds + 's';
+            workingDetail.textContent = currentWorkingDetail;
+            workingDetailShell.hidden = !currentWorkingDetail;
         }
 
         function startWorkingIndicator() {
@@ -870,6 +900,7 @@ function getWebviewHtml() {
                 startWorkingIndicator();
                 requestAnimationFrame(scrollOutputToBottom);
             } else {
+                currentWorkingDetail = '';
                 stopWorkingIndicator();
             }
         }
@@ -1101,7 +1132,12 @@ function getWebviewHtml() {
                 setStatus(message.status);
                 overflowNoticeSuppressed = Boolean(message.overflowNoticeSuppressed);
                 overflowNoticeDismissedForCurrentView = false;
+                currentWorkingDetail = String(message.workingDetail || '');
+                updateWorkingMeta();
                 resetOutput(message.entries || []);
+            } else if (message.type === 'workingDetail') {
+                currentWorkingDetail = String(message.detail || '');
+                updateWorkingMeta();
             } else if (message.type === 'overflowNoticePreference') {
                 overflowNoticeSuppressed = Boolean(message.suppressed);
                 if (overflowNoticeSuppressed) {
@@ -1132,6 +1168,7 @@ module.exports = {
     setWebviewCommandHandler,
     setWebviewActionHandler,
     setOverflowNoticeSuppressed,
+    setWorkingDetail,
     registerWebviewPanelSerializer,
     clearWebviewTerminalPanel: clearPanel,
     setWebviewTerminalStatus: setStatus
