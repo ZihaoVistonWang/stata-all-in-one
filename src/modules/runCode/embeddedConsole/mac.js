@@ -13,17 +13,186 @@ const { getWebviewTerminalSink } = require('./panel');
 
 let _activeOutputSink = null;
 
-function isNativeProgressOnlyChunk(chunk) {
-    const normalized = String(chunk || '').replace(/\r/g, '');
-    if (!normalized) {
+function normalizeChunk(chunk) {
+    return String(chunk || '').replace(/\r/g, '');
+}
+
+function isProgressPayload(text) {
+    const normalized = String(text || '').replace(/\bdone\b/gi, '').trim();
+    const dotCount = (normalized.match(/\./g) || []).length;
+    if (dotCount < 2) {
+        return false;
+    }
+    if (!/\.{2,}/.test(normalized)) {
         return false;
     }
 
-    return /^[.\s>\n]+$/.test(normalized);
+    return /^[>\s.,\d]+$/.test(normalized);
 }
 
-function hasResultPhaseOutput(chunk) {
-    return /\n\s*-Bootstrap|\n\s*Variables \||\n\s*Over Time:|end of do-file/i.test(String(chunk || ''));
+function getProgressPayloadFromLine(line, allowContinuation = false) {
+    const normalized = String(line || '').trim();
+    if (!normalized) {
+        return null;
+    }
+
+    const withoutPrompt = normalized.replace(/^>\s*/, '');
+    const bareDotCount = (withoutPrompt.match(/\./g) || []).length;
+    if (/^[.\s]+$/.test(withoutPrompt) && bareDotCount >= (allowContinuation ? 1 : 2)) {
+        return withoutPrompt || normalized;
+    }
+    if (allowContinuation && /^[\s.,\d]+(?:\s+done)?$/i.test(withoutPrompt) && /[.\d]/.test(withoutPrompt)) {
+        return withoutPrompt;
+    }
+    if (allowContinuation && /^>\s*$/.test(normalized)) {
+        return normalized;
+    }
+    if (/^[\s\d,]+done$/i.test(withoutPrompt)) {
+        return withoutPrompt;
+    }
+
+    if (/\breplications?\s*\(\s*[\d,]+\s*\)\s*:\s*$/i.test(withoutPrompt)) {
+        return withoutPrompt;
+    }
+
+    const colonIndex = withoutPrompt.lastIndexOf(':');
+    if (colonIndex !== -1) {
+        const suffix = withoutPrompt.slice(colonIndex + 1).trim();
+        if (isProgressPayload(suffix)) {
+            return suffix;
+        }
+    }
+
+    if (isProgressPayload(withoutPrompt)) {
+        return withoutPrompt;
+    }
+
+    const markerMatch = withoutPrompt.match(/(?:\.{2,}\s*\d|\.\d)/);
+    if (!markerMatch) {
+        return null;
+    }
+
+    const progressTail = withoutPrompt.slice(markerMatch.index);
+    if (isProgressPayload(progressTail)) {
+        return progressTail;
+    }
+
+    const alphaAfterMarker = progressTail.search(/[A-Za-z]/);
+    if (alphaAfterMarker > 0) {
+        const progressPrefix = progressTail.slice(0, alphaAfterMarker).trim();
+        if (isProgressPayload(progressPrefix)) {
+            return progressPrefix;
+        }
+    }
+
+    return null;
+}
+
+function extractProgressDetailFromPayload(payload) {
+    const matches = [...String(payload || '').matchAll(/(\d{1,3}(?:,\d{3})*)(?=(?:\.+|\s|done|$))/gi)];
+    if (!matches.length) {
+        return null;
+    }
+
+    return matches[matches.length - 1][1];
+}
+
+function extractProgressDetail(chunk) {
+    const lines = normalizeChunk(chunk).split('\n');
+    for (let lineIndex = lines.length - 1; lineIndex >= 0; lineIndex -= 1) {
+        const payload = getProgressPayloadFromLine(lines[lineIndex], true);
+        const detail = extractProgressDetailFromPayload(payload);
+        if (detail) {
+            return detail;
+        }
+    }
+
+    return null;
+}
+
+function hasProgressLine(chunk, allowContinuation = false) {
+    return normalizeChunk(chunk)
+        .split('\n')
+        .some((line) => getProgressPayloadFromLine(line, allowContinuation) !== null);
+}
+
+function stripProgressFromLine(line, allowContinuation = false) {
+    const normalized = String(line || '').trim();
+    if (!normalized) {
+        return null;
+    }
+
+    const withoutPrompt = normalized.replace(/^>\s*/, '');
+    const bareDotCount = (withoutPrompt.match(/\./g) || []).length;
+
+    if (/^[.\s]+$/.test(withoutPrompt) && bareDotCount >= (allowContinuation ? 1 : 2)) {
+        return null;
+    }
+    if (allowContinuation && /^[\s.,\d]+(?:\s+done)?$/i.test(withoutPrompt) && /[.\d]/.test(withoutPrompt)) {
+        return null;
+    }
+    if (allowContinuation && /^>\s*$/.test(normalized)) {
+        return null;
+    }
+    if (/^[\s\d,]+done$/i.test(withoutPrompt)) {
+        return null;
+    }
+
+    if (/\breplications?\s*\(\s*[\d,]+\s*\)\s*:\s*$/i.test(withoutPrompt)) {
+        return null;
+    }
+
+    const colonIndex = withoutPrompt.lastIndexOf(':');
+    if (colonIndex !== -1) {
+        const suffix = withoutPrompt.slice(colonIndex + 1).trim();
+        if (isProgressPayload(suffix)) {
+            return null;
+        }
+    }
+
+    if (isProgressPayload(withoutPrompt)) {
+        return null;
+    }
+
+    const markerMatch = withoutPrompt.match(/(?:\.{2,}\s*\d|\.\d)/);
+    if (!markerMatch) {
+        return line;
+    }
+
+    const progressTail = withoutPrompt.slice(markerMatch.index);
+    if (isProgressPayload(progressTail)) {
+        return null;
+    }
+
+    const alphaAfterMarker = progressTail.search(/[A-Za-z]/);
+    if (alphaAfterMarker > 0) {
+        const progressPrefix = progressTail.slice(0, alphaAfterMarker).trim();
+        if (isProgressPayload(progressPrefix)) {
+            const remainder = progressTail.slice(alphaAfterMarker).trim();
+            return remainder || null;
+        }
+    }
+
+    return line;
+}
+
+function stripProgressFromChunk(chunk, allowContinuation = false) {
+    const normalized = normalizeChunk(chunk);
+    if (!normalized) {
+        return '';
+    }
+
+    const endsWithNewline = normalized.endsWith('\n');
+    const retainedLines = normalized
+        .split('\n')
+        .map((line) => stripProgressFromLine(line, allowContinuation))
+        .filter((line) => line !== null && line !== '');
+
+    if (!retainedLines.length) {
+        return '';
+    }
+
+    return retainedLines.join('\n') + (endsWithNewline ? '\n' : '');
 }
 
 function computeIncrementalChunk(emittedOutput, currentOutput) {
@@ -195,7 +364,7 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
     let executionPlan = null;
     let streamedOutput = '';
     let lastRealChunkAt = 0;
-    let syntheticProgressActive = false;
+    let progressOutputActive = false;
     let runStartTime = null;
     const outputSink = getOutputSink();
 
@@ -238,25 +407,48 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
             streamedOutput += chunk;
             lastRealChunkAt = Date.now();
 
-            if (chunk.includes('Begin Time:')) {
-                syntheticProgressActive = true;
+            const hasProgressOutput = hasProgressLine(chunk, progressOutputActive);
+
+            if (hasProgressOutput) {
+                progressOutputActive = true;
             }
 
-            if (hasResultPhaseOutput(chunk)) {
-                syntheticProgressActive = false;
+            if (progressOutputActive && typeof outputSink.setWorkingDetail === 'function') {
+                const progressDetail = extractProgressDetail(chunk);
+                if (progressDetail) {
+                    outputSink.setWorkingDetail(progressDetail);
+                }
             }
 
-            if (syntheticProgressActive && isNativeProgressOnlyChunk(chunk)) {
-                return;
+            const visibleChunk = progressOutputActive || hasProgressOutput
+                ? stripProgressFromChunk(chunk, progressOutputActive)
+                : chunk;
+            if (visibleChunk) {
+                outputSink.writeOutputChunk(visibleChunk);
+            } else if (progressOutputActive && typeof outputSink.discardBufferedOutput === 'function') {
+                outputSink.discardBufferedOutput();
             }
 
-            outputSink.writeOutputChunk(chunk);
+            if (progressOutputActive && !hasProgressOutput && visibleChunk) {
+                progressOutputActive = false;
+                if (typeof outputSink.setWorkingDetail === 'function') {
+                    outputSink.setWorkingDetail(null);
+                }
+            }
         });
 
         if (result.output) {
             const tailChunk = computeIncrementalChunk(streamedOutput, result.output);
             if (tailChunk) {
-                outputSink.writeOutputChunk(tailChunk);
+                const hasTailProgressOutput = hasProgressLine(tailChunk, progressOutputActive);
+                const visibleTailChunk = hasTailProgressOutput || progressOutputActive
+                    ? stripProgressFromChunk(tailChunk, progressOutputActive || hasTailProgressOutput)
+                    : tailChunk;
+                if (visibleTailChunk) {
+                    outputSink.writeOutputChunk(visibleTailChunk);
+                } else if ((hasTailProgressOutput || progressOutputActive) && typeof outputSink.discardBufferedOutput === 'function') {
+                    outputSink.discardBufferedOutput();
+                }
                 streamedOutput += tailChunk;
             }
         }
