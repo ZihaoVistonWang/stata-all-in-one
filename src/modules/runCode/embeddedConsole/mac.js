@@ -110,6 +110,25 @@ function extractProgressDetail(chunk) {
     return null;
 }
 
+function parseIntegerWithCommas(value) {
+    const normalized = String(value || '').replace(/,/g, '').trim();
+    if (!/^\d+$/.test(normalized)) {
+        return null;
+    }
+
+    const parsed = Number.parseInt(normalized, 10);
+    return Number.isFinite(parsed) ? parsed : null;
+}
+
+function extractProgressTotalFromCode(code) {
+    const matches = [...String(code || '').matchAll(/\breps\s*\(\s*(\d[\d,]*)\s*\)/gi)];
+    if (!matches.length) {
+        return null;
+    }
+
+    return parseIntegerWithCommas(matches[matches.length - 1][1]);
+}
+
 function hasProgressLine(chunk, allowContinuation = false) {
     return normalizeChunk(chunk)
         .split('\n')
@@ -394,6 +413,7 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
         await outputSink.prepareForExecution();
 
         const normalizedCode = normalizeCodeToRun(codeToRun);
+        const progressTotal = extractProgressTotalFromCode(normalizedCode);
         await ensureWebviewBootstrap(consoleSession);
         await ensureInitialWorkingDirectory(consoleSession, docDir);
         executionPlan = createExecutionPlan(normalizedCode, consoleSession.getWorkingDirectory());
@@ -416,7 +436,16 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
             if (progressOutputActive && typeof outputSink.setWorkingDetail === 'function') {
                 const progressDetail = extractProgressDetail(chunk);
                 if (progressDetail) {
-                    outputSink.setWorkingDetail(progressDetail);
+                    const current = parseIntegerWithCommas(progressDetail);
+                    if (progressTotal && current !== null) {
+                        outputSink.setWorkingDetail({
+                            kind: 'progress',
+                            current,
+                            total: progressTotal
+                        });
+                    } else {
+                        outputSink.setWorkingDetail(progressDetail);
+                    }
                 }
             }
 
