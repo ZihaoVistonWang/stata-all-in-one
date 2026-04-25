@@ -13,6 +13,8 @@
     "config.enableCtrlShiftD.description": "Enable `Ctrl/Cmd+Shift+D` as the run code shortcut (instead of the default `Ctrl/Cmd+D`).",
   "config.cdToDoFileDir.description": "Whether to automatically `cd` to the do file's directory when Stata is first launched. If disabled, Stata's working directory is not changed on startup.",
   "config.runMode.description": "Choose how Stata code is executed. `External App` sends code to the external Stata application installed on your system. `Embedded Console` runs code through the built-in Stata All in One Console on the right side of VS Code, where you can view output and interact directly.",
+  "config.consoleFontMode.description": "Choose the Embedded Console font source. `Editor Font Family` falls back to a cached system monospace font. `System Monospace` uses the cached platform monospace fallback directly. `Custom Font Family` gives your custom CSS font-family list highest priority, then falls back to the editor font and finally a cached system monospace font.",
+  "config.consoleCustomFontFamily.description": "Custom CSS `font-family` list for the Embedded Console when `Console Font Source` is set to `Custom Font Family`. Example: `\"Maple Mono NF CN\", Menlo, Monaco, monospace`.",
   "config.showActionButtons.description": "Whether to show the Bug report and Sponsor buttons in the editor title bar.",
   "command.setLevel1.title": "Stata All in One: Set as Level 1 Heading",
   "command.setLevel2.title": "Stata All in One: Set as Level 2 Heading",
