@@ -604,6 +604,12 @@ class StataTerminalRenderer {
         return rendered ? [rendered] : [];
     }
 
+    discardPendingOutput() {
+        this._pendingLine = '';
+        this._lastRenderedLineKind = null;
+        this._describeMode = false;
+    }
+
     renderError(text) {
         const body = String(text || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').trimEnd();
         return `${paint(`error: ${body}`, { fg: CURRENT_THEME_SLOT_MAP.error, bold: true })}\n${ANSI.reset}`;
