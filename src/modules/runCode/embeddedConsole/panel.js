@@ -16,6 +16,12 @@ let _lastRunFailed = false;
 let _overflowNoticeSuppressed = false;
 let _extensionUri = null;
 let _workingDetail = null;
+let _consoleFontOptions = {
+    fontMode: 'editor',
+    editorFontFamily: '',
+    customFontFamily: '',
+    systemFallbackFamily: 'monospace'
+};
 
 function getPanelTitle() {
     return msg('webviewPanelTitle');
@@ -316,6 +322,14 @@ function registerWebviewPanelSerializer(context) {
     );
 }
 
+function setConsoleFontOptions(options) {
+    _consoleFontOptions = Object.assign({}, _consoleFontOptions, options || {});
+    if (_panel) {
+        _panel.webview.html = getWebviewHtml(_panel.webview);
+        postState();
+    }
+}
+
 function getAsciiLogo53x13() {
     if (_asciiLogo53x13Cache) {
         return _asciiLogo53x13Cache;
@@ -343,6 +357,12 @@ function getWebviewHtml() {
     const asciiLogo = getAsciiLogo53x13();
     const asciiLogoTop = escapeHtml(asciiLogo.up);
     const asciiLogoBottom = escapeHtml(asciiLogo.down);
+    const fontOptions = {
+        fontMode: String(_consoleFontOptions.fontMode || 'editor'),
+        editorFontFamily: String(_consoleFontOptions.editorFontFamily || ''),
+        customFontFamily: String(_consoleFontOptions.customFontFamily || ''),
+        systemFallbackFamily: String(_consoleFontOptions.systemFallbackFamily || 'monospace')
+    };
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -372,6 +392,10 @@ function getWebviewHtml() {
             --stata-separator: ${themeVars.separator || 'var(--vscode-panel-border)'};
             --stata-time: ${themeVars.time || 'var(--vscode-editor-foreground)'};
             --stata-time-value: ${themeVars.timeValue || 'var(--stata-number)'};
+            --console-editor-font-family: var(--vscode-editor-font-family, monospace);
+            --console-custom-font-family: var(--console-editor-font-family);
+            --console-system-fallback-family: ${escapeHtml(fontOptions.systemFallbackFamily)};
+            --console-active-font-family: var(--console-editor-font-family);
         }
         html, body {
             height: 100%;
@@ -509,7 +533,7 @@ function getWebviewHtml() {
             overflow-y: auto;
             overflow-x: hidden;
             padding: 16px 18px 22px 6px;
-            font-family: var(--vscode-editor-font-family, var(--vscode-editor-font-family), Menlo, Monaco, monospace);
+            font-family: var(--console-active-font-family);
             font-size: var(--vscode-editor-font-size, 13px);
             line-height: 1.5;
             white-space: normal;
@@ -541,7 +565,7 @@ function getWebviewHtml() {
         }
         .placeholder-logo {
             margin: 0;
-            font-family: var(--vscode-editor-font-family, Menlo, Monaco, monospace);
+            font-family: var(--console-active-font-family);
             font-size: clamp(7px, 1.15vw, 11px);
             line-height: 1.12;
             white-space: pre;
@@ -854,6 +878,111 @@ function getWebviewHtml() {
             running: ${JSON.stringify(msg('webviewRunning'))},
             error: ${JSON.stringify(msg('webviewError'))}
         };
+        const FONT_BOOTSTRAP = ${JSON.stringify(fontOptions)};
+
+        function getEditorFontFamilyCssValue() {
+            if (FONT_BOOTSTRAP.editorFontFamily && FONT_BOOTSTRAP.editorFontFamily.trim()) {
+                return FONT_BOOTSTRAP.editorFontFamily.trim();
+            }
+
+            const vscodeEditorFontFamily = getComputedStyle(document.documentElement).getPropertyValue('--vscode-editor-font-family').trim();
+            return vscodeEditorFontFamily || 'monospace';
+        }
+
+        function setConsoleFontVariables() {
+            const rootStyle = document.documentElement.style;
+            rootStyle.setProperty('--console-editor-font-family', getEditorFontFamilyCssValue());
+            rootStyle.setProperty('--console-custom-font-family', FONT_BOOTSTRAP.customFontFamily && FONT_BOOTSTRAP.customFontFamily.trim()
+                ? FONT_BOOTSTRAP.customFontFamily.trim()
+                : getEditorFontFamilyCssValue());
+            rootStyle.setProperty('--console-system-fallback-family', FONT_BOOTSTRAP.systemFallbackFamily || 'monospace');
+            rootStyle.setProperty('--console-active-font-family', getEditorFontFamilyCssValue());
+        }
+
+        function getCanvasContext() {
+            const canvas = document.createElement('canvas');
+            return canvas.getContext('2d');
+        }
+
+        function measureTextWidth(context, fontValue, sample) {
+            context.font = '16px ' + fontValue;
+            return context.measureText(sample).width;
+        }
+
+        function behavesLikeMonospace(fontValue) {
+            if (!fontValue || !fontValue.trim()) {
+                return false;
+            }
+
+            const context = getCanvasContext();
+            if (!context) {
+                return false;
+            }
+
+            const samples = [
+                ['iiiiiiiiii', 'WWWWWWWWWW'],
+                ['0000000000', '..........'],
+                ['..........', '__________']
+            ];
+
+            return samples.every(pair => {
+                const widthA = measureTextWidth(context, fontValue, pair[0]);
+                const widthB = measureTextWidth(context, fontValue, pair[1]);
+                return Math.abs(widthA - widthB) <= 0.75;
+            });
+        }
+
+        function applyConsoleFont(source) {
+            const rootStyle = document.documentElement.style;
+            if (source === 'custom') {
+                rootStyle.setProperty('--console-active-font-family', 'var(--console-custom-font-family)');
+                return;
+            }
+            if (source === 'system') {
+                rootStyle.setProperty('--console-active-font-family', 'var(--console-system-fallback-family)');
+                return;
+            }
+            rootStyle.setProperty('--console-active-font-family', 'var(--console-editor-font-family)');
+        }
+
+        async function bootstrapConsoleFont() {
+            setConsoleFontVariables();
+
+            const editorFontFamily = getComputedStyle(document.documentElement).getPropertyValue('--console-editor-font-family');
+            const customFontFamily = getComputedStyle(document.documentElement).getPropertyValue('--console-custom-font-family');
+
+            if (FONT_BOOTSTRAP.fontMode === 'system') {
+                applyConsoleFont('system');
+                return;
+            }
+
+            if (FONT_BOOTSTRAP.fontMode === 'custom') {
+                if (behavesLikeMonospace(customFontFamily)) {
+                    applyConsoleFont('custom');
+                    return;
+                }
+
+                if (behavesLikeMonospace(editorFontFamily)) {
+                    applyConsoleFont('editor');
+                    return;
+                }
+
+                applyConsoleFont('system');
+                return;
+            }
+
+            if (FONT_BOOTSTRAP.fontMode === 'editor') {
+                if (behavesLikeMonospace(editorFontFamily)) {
+                    applyConsoleFont('editor');
+                    return;
+                }
+
+                applyConsoleFont('system');
+                return;
+            }
+
+            applyConsoleFont('system');
+        }
 
         function updateWorkingMeta() {
             if (!runningStartedAt) {
@@ -1147,7 +1276,9 @@ function getWebviewHtml() {
             }
         });
 
-        vscode.postMessage({ type: 'ready' });
+        bootstrapConsoleFont().finally(() => {
+            vscode.postMessage({ type: 'ready' });
+        });
     </script>
 </body>
 </html>`;
@@ -1169,6 +1300,7 @@ module.exports = {
     setWebviewActionHandler,
     setOverflowNoticeSuppressed,
     setWorkingDetail,
+    setConsoleFontOptions,
     registerWebviewPanelSerializer,
     clearWebviewTerminalPanel: clearPanel,
     setWebviewTerminalStatus: setStatus

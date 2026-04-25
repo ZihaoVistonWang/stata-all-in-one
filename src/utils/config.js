@@ -5,6 +5,11 @@ const RUN_MODES = Object.freeze({
     externalApp: 'externalApp',
     embeddedConsole: 'embeddedConsole'
 });
+const CONSOLE_FONT_MODES = Object.freeze({
+    editor: 'editor',
+    system: 'system',
+    custom: 'custom'
+});
 
 /**
  * Configuration management for Stata All in One extension
@@ -120,9 +125,26 @@ const getRunMode = () => {
     return Object.values(RUN_MODES).includes(mode) ? mode : RUN_MODES.embeddedConsole;
 };
 
+/**
+ * Get embedded console font mode
+ */
+const getConsoleFontMode = () => {
+    const mode = String(getConfigValue('consoleFontMode', CONSOLE_FONT_MODES.editor) || '').trim();
+    return Object.values(CONSOLE_FONT_MODES).includes(mode) ? mode : CONSOLE_FONT_MODES.editor;
+};
+
+/**
+ * Get embedded console custom font family
+ */
+const getConsoleCustomFontFamily = () => {
+    const value = getConfigValue('consoleCustomFontFamily', '');
+    return typeof value === 'string' ? value.trim() : '';
+};
+
 module.exports = {
     CONFIG_NAMESPACE,
     RUN_MODES,
+    CONSOLE_FONT_MODES,
     getConfig,
     getConfigValue,
     getnumberingShow,
@@ -138,5 +160,7 @@ module.exports = {
     getSeparatorSymmetric,
     getEnableCtrlShiftD,
     getCdToDoFileDir,
-    getRunMode
+    getRunMode,
+    getConsoleFontMode,
+    getConsoleCustomFontFamily
 };

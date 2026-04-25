@@ -128,6 +128,26 @@
           "default": "embeddedConsole",
           "markdownDescription": "%config.runMode.description%"
         },
+        "stata-all-in-one.consoleFontMode": {
+          "type": "string",
+          "enum": [
+            "editor",
+            "system",
+            "custom"
+          ],
+          "enumItemLabels": [
+            "Editor Font Family",
+            "System Monospace",
+            "Custom Font Family"
+          ],
+          "default": "editor",
+          "markdownDescription": "%config.consoleFontMode.description%"
+        },
+        "stata-all-in-one.consoleCustomFontFamily": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "%config.consoleCustomFontFamily.description%"
+        },
         "stata-all-in-one.showActionButtons": {
           "type": "boolean",
           "default": true,
