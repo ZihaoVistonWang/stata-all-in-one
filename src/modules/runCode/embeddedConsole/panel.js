@@ -301,7 +301,13 @@ function setOverflowNoticeSuppressed(suppressed) {
 }
 
 function setWorkingDetail(detail) {
-    _workingDetail = detail ? String(detail) : null;
+    if (detail && typeof detail === 'object') {
+        _workingDetail = detail;
+    } else if (detail) {
+        _workingDetail = String(detail);
+    } else {
+        _workingDetail = null;
+    }
     if (_panel) {
         _panel.webview.postMessage({
             type: 'workingDetail',
@@ -837,7 +843,7 @@ function getWebviewHtml() {
         <div id="working-indicator" aria-hidden="true">
             <span class="working-bullet">•</span>
             <span class="working-text">Working</span>
-            <span class="working-meta">(<span id="working-seconds">0s</span><span id="working-detail-shell" hidden> · <span id="working-detail"></span></span> • esc to interrupt)</span>
+            <span class="working-meta">(<span id="working-seconds">0s</span><span id="working-detail-shell" hidden> • <span id="working-detail"></span></span> • esc to interrupt)</span>
         </div>
     </div>
     <div class="composer">
@@ -870,7 +876,9 @@ function getWebviewHtml() {
         let activeResultBlock = null;
         let runningStartedAt = 0;
         let workingTimer = null;
-        let currentWorkingDetail = '';
+        let currentWorkingDetail = null;
+        let estimatedFinishAt = 0;
+        let displayedRemainingSeconds = 0;
 
         const STATUS_LABELS = {
             idle: ${JSON.stringify(msg('webviewIdle'))},
@@ -879,6 +887,75 @@ function getWebviewHtml() {
             error: ${JSON.stringify(msg('webviewError'))}
         };
         const FONT_BOOTSTRAP = ${JSON.stringify(fontOptions)};
+
+        function formatDurationSeconds(seconds, options = {}) {
+            const safeSeconds = Math.max(0, Number(seconds) || 0);
+            const hours = Math.floor(safeSeconds / 3600);
+            const minutes = Math.floor((safeSeconds % 3600) / 60);
+            const wholeSeconds = Math.floor(safeSeconds % 60);
+
+            if (hours > 0) {
+                return hours + 'h ' + minutes + 'm ' + wholeSeconds + 's';
+            }
+
+            if (minutes > 0) {
+                return minutes + 'm ' + wholeSeconds + 's';
+            }
+
+            return safeSeconds.toFixed(1) + 's';
+        }
+
+        function formatCount(value) {
+            return Math.max(0, Number(value) || 0).toLocaleString('en-US');
+        }
+
+        function getWorkingDetailDisplay() {
+            if (!currentWorkingDetail) {
+                return '';
+            }
+
+            if (typeof currentWorkingDetail === 'string') {
+                return currentWorkingDetail;
+            }
+
+            if (currentWorkingDetail.kind === 'progress') {
+                const current = Number(currentWorkingDetail.current) || 0;
+                const total = Number(currentWorkingDetail.total) || 0;
+                if (current <= 0 || total <= 0) {
+                    return '';
+                }
+
+                return formatCount(current) + '/' + formatCount(total) + ' [' + formatDurationSeconds(displayedRemainingSeconds) + ']';
+            }
+
+            return '';
+        }
+
+        function updateEstimatedFinishTime() {
+            if (!currentWorkingDetail || currentWorkingDetail.kind !== 'progress' || !runningStartedAt) {
+                estimatedFinishAt = 0;
+                displayedRemainingSeconds = 0;
+                return;
+            }
+
+            const current = Number(currentWorkingDetail.current) || 0;
+            const total = Number(currentWorkingDetail.total) || 0;
+            if (current <= 0 || total <= 0 || current >= total) {
+                estimatedFinishAt = 0;
+                displayedRemainingSeconds = 0;
+                return;
+            }
+
+            const elapsedSeconds = Math.max(0.1, (Date.now() - runningStartedAt) / 1000);
+            const estimatedRemainingSeconds = (elapsedSeconds / current) * (total - current);
+            estimatedFinishAt = Date.now() + (estimatedRemainingSeconds * 1000);
+        }
+
+        function refreshDisplayedRemainingSeconds() {
+            displayedRemainingSeconds = estimatedFinishAt
+                ? Math.max(0, (estimatedFinishAt - Date.now()) / 1000)
+                : 0;
+        }
 
         function getEditorFontFamilyCssValue() {
             if (FONT_BOOTSTRAP.editorFontFamily && FONT_BOOTSTRAP.editorFontFamily.trim()) {
@@ -991,18 +1068,22 @@ function getWebviewHtml() {
                 const elapsedSeconds = Math.max(0, Math.floor((Date.now() - runningStartedAt) / 1000));
                 workingSeconds.textContent = elapsedSeconds + 's';
             }
-            workingDetail.textContent = currentWorkingDetail;
-            workingDetailShell.hidden = !currentWorkingDetail;
+            workingDetail.textContent = getWorkingDetailDisplay();
+            workingDetailShell.hidden = !workingDetail.textContent;
         }
 
         function startWorkingIndicator() {
             runningStartedAt = Date.now();
             workingIndicator.style.display = 'flex';
+            refreshDisplayedRemainingSeconds();
             updateWorkingMeta();
             if (workingTimer) {
                 clearInterval(workingTimer);
             }
-            workingTimer = setInterval(updateWorkingMeta, 250);
+            workingTimer = setInterval(() => {
+                refreshDisplayedRemainingSeconds();
+                updateWorkingMeta();
+            }, 1000);
         }
 
         function stopWorkingIndicator() {
@@ -1011,6 +1092,7 @@ function getWebviewHtml() {
                 clearInterval(workingTimer);
                 workingTimer = null;
             }
+            displayedRemainingSeconds = 0;
             updateWorkingMeta();
             workingIndicator.style.display = 'none';
         }
@@ -1029,7 +1111,9 @@ function getWebviewHtml() {
                 startWorkingIndicator();
                 requestAnimationFrame(scrollOutputToBottom);
             } else {
-                currentWorkingDetail = '';
+                currentWorkingDetail = null;
+                estimatedFinishAt = 0;
+                displayedRemainingSeconds = 0;
                 stopWorkingIndicator();
             }
         }
@@ -1261,11 +1345,17 @@ function getWebviewHtml() {
                 setStatus(message.status);
                 overflowNoticeSuppressed = Boolean(message.overflowNoticeSuppressed);
                 overflowNoticeDismissedForCurrentView = false;
-                currentWorkingDetail = String(message.workingDetail || '');
+                currentWorkingDetail = message.workingDetail || null;
+                updateEstimatedFinishTime();
+                refreshDisplayedRemainingSeconds();
                 updateWorkingMeta();
                 resetOutput(message.entries || []);
             } else if (message.type === 'workingDetail') {
-                currentWorkingDetail = String(message.detail || '');
+                currentWorkingDetail = message.detail || null;
+                updateEstimatedFinishTime();
+                if (!displayedRemainingSeconds) {
+                    refreshDisplayedRemainingSeconds();
+                }
                 updateWorkingMeta();
             } else if (message.type === 'overflowNoticePreference') {
                 overflowNoticeSuppressed = Boolean(message.suppressed);
