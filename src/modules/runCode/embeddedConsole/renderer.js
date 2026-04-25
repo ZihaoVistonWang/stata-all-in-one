@@ -763,23 +763,107 @@ class StataTerminalRenderer {
     }
 
     _renderSummaryLine(line) {
-        return `${this._highlightInline(line, {
+        const summaryMatch = String(line || '').match(/^(.*?)(\s=\s)(.*)$/);
+        if (!summaryMatch) {
+            return `${this._highlightInline(line, {
+                defaultStyle: { fg: CURRENT_THEME_SLOT_MAP.default },
+                matchers: [
+                    {
+                        regex: /=/g,
+                        style: { fg: CURRENT_THEME_SLOT_MAP.separator }
+                    },
+                    {
+                        regex: VALUE_NUMBER_REGEX,
+                        style: { fg: CURRENT_THEME_SLOT_MAP.number, bold: true }
+                    }
+                ]
+            })}${ANSI.reset}`;
+        }
+
+        const [, label, separator, value] = summaryMatch;
+        const labelParts = label.split(/(\(\s*\d[\d,\s]*\))/g).filter(Boolean);
+        let rendered = '';
+
+        for (const part of labelParts) {
+            if (/^\(\s*\d[\d,\s]*\)$/.test(part)) {
+                rendered += this._highlightInline(part, {
+                    defaultStyle: { fg: CURRENT_THEME_SLOT_MAP.header, bold: true },
+                    matchers: [
+                        {
+                            regex: /\d[\d,\s]*/g,
+                            style: { fg: CURRENT_THEME_SLOT_MAP.number, bold: true }
+                        }
+                    ]
+                });
+            } else {
+                rendered += paint(part, { fg: CURRENT_THEME_SLOT_MAP.header, bold: true });
+            }
+        }
+
+        rendered += paint(separator, { fg: CURRENT_THEME_SLOT_MAP.separator });
+        rendered += this._highlightInline(value, {
             defaultStyle: { fg: CURRENT_THEME_SLOT_MAP.default },
             matchers: [
-                {
-                    regex: /(^|(?<=\s))(?:[A-Za-z][A-Za-z0-9_.() -]*?)(?=\s=\s)/g,
-                    style: { fg: CURRENT_THEME_SLOT_MAP.header, bold: true }
-                },
-                {
-                    regex: /=/g,
-                    style: { fg: CURRENT_THEME_SLOT_MAP.separator }
-                },
                 {
                     regex: VALUE_NUMBER_REGEX,
                     style: { fg: CURRENT_THEME_SLOT_MAP.number, bold: true }
                 }
             ]
-        })}${ANSI.reset}`;
+        });
+
+        return `${rendered}${ANSI.reset}`;
+    }
+
+    _segmentSummaryLine(line) {
+        const summaryMatch = String(line || '').match(/^(.*?)(\s=\s)(.*)$/);
+        if (!summaryMatch) {
+            return this._segmentInline(line, {
+                defaultStyle: this._styleForTokenType('default'),
+                matchers: [
+                    {
+                        regex: /=/g,
+                        style: this._styleForTokenType('separator')
+                    },
+                    {
+                        regex: VALUE_NUMBER_REGEX,
+                        style: this._styleForTokenType('number', { bold: true })
+                    }
+                ]
+            });
+        }
+
+        const [, label, separator, value] = summaryMatch;
+        const segments = [];
+        const labelParts = label.split(/(\(\s*\d[\d,\s]*\))/g).filter(Boolean);
+
+        for (const part of labelParts) {
+            if (/^\(\s*\d[\d,\s]*\)$/.test(part)) {
+                segments.push(...this._segmentInline(part, {
+                    defaultStyle: this._styleForTokenType('header', { bold: true }),
+                    matchers: [
+                        {
+                            regex: /\d[\d,\s]*/g,
+                            style: this._styleForTokenType('number', { bold: true })
+                        }
+                    ]
+                }));
+            } else {
+                segments.push(this._segment(part, this._styleForTokenType('header', { bold: true })));
+            }
+        }
+
+        segments.push(this._segment(separator, this._styleForTokenType('separator')));
+        segments.push(...this._segmentInline(value, {
+            defaultStyle: this._styleForTokenType('default'),
+            matchers: [
+                {
+                    regex: VALUE_NUMBER_REGEX,
+                    style: this._styleForTokenType('number', { bold: true })
+                }
+            ]
+        }));
+
+        return segments;
     }
 
     _renderTableHeaderLine(line) {
@@ -1010,23 +1094,7 @@ class StataTerminalRenderer {
             lineKind = 'summary';
             const rendered = {
                 kind: lineKind,
-                segments: this._segmentInline(line, {
-                    defaultStyle: this._styleForTokenType('default'),
-                    matchers: [
-                        {
-                            regex: /(^|(?<=\s))(?:[A-Za-z][A-Za-z0-9_.() -]*?)(?=\s=\s)/g,
-                            style: this._styleForTokenType('header', { bold: true })
-                        },
-                        {
-                            regex: /=/g,
-                            style: this._styleForTokenType('separator')
-                        },
-                        {
-                            regex: VALUE_NUMBER_REGEX,
-                            style: this._styleForTokenType('number', { bold: true })
-                        }
-                    ]
-                })
+                segments: this._segmentSummaryLine(line)
             };
             this._lastRenderedLineKind = lineKind;
             return rendered;
