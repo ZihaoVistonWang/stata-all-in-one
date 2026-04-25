@@ -10,7 +10,7 @@ const { registerCommentCommand, toggleComment } = require('./modules/comment');
 const { registerExecuteCommand } = require('./modules/runCode/execute');
 const { runArbitraryCode } = require('./modules/runCode/execute');
 const { stopConsoleExecution, forceShutdownConsoleSession } = require('./modules/runCode/embeddedConsole/mac');
-const { setWebviewCommandHandler, setWebviewActionHandler, setOverflowNoticeSuppressed, registerWebviewPanelSerializer, clearWebviewTerminalPanel, setWebviewTerminalStatus } = require('./modules/runCode/embeddedConsole/panel');
+const { setWebviewCommandHandler, setWebviewActionHandler, setOverflowNoticeSuppressed, registerWebviewPanelSerializer, clearWebviewTerminalPanel, setWebviewTerminalStatus, setConsoleFontOptions } = require('./modules/runCode/embeddedConsole/panel');
 const { registerCustomCommandHighlight } = require('./modules/customCommandHighlight');
 const { registerCompletionProvider } = require('./modules/completionProvider');
 const { registerHelpCommand } = require('./modules/helpCommand');
@@ -21,6 +21,7 @@ const { findStataApp } = require('./modules/runCode/externalApp/mac');
 const { syncConsoleTerminalTheme } = require('./modules/runCode/embeddedConsole/renderer');
 const { prewarmConsoleTextmateTokenizer } = require('./modules/runCode/embeddedConsole/textmateTokenizer');
 const { isMacOS, showInfo, showWarn, msg } = require('./utils/common');
+const { ensureConsoleFontCache, getConsoleFontWebviewOptions } = require('./utils/consoleFonts');
 const config = require('./utils/config');
 
 // Execution session state context key for "stop" button visibility
@@ -197,12 +198,16 @@ async function resetMigrationPrompt(context) {
 /**
  * Activate the extension
  */
-function activate(context) {
+async function activate(context) {
     console.log('Stata All in One: Extension activated');
     syncConsoleTerminalTheme();
     context.subscriptions.push(vscode.window.onDidChangeActiveColorTheme(() => {
         syncConsoleTerminalTheme();
     }));
+
+    const refreshConsoleFontOptions = () => {
+        setConsoleFontOptions(getConsoleFontWebviewOptions(context));
+    };
     
     // Initialize execution session context to false
     vscode.commands.executeCommand('setContext', CONSOLE_SESSION_ACTIVE_KEY, false);
@@ -226,6 +231,12 @@ function activate(context) {
 
     // Check for updates and show notification
     registerUpdateCheck(context);
+
+    try {
+        await ensureConsoleFontCache(context);
+    } catch (error) {
+        console.error('Stata All in One: Failed to initialize console font cache:', error.message);
+    }
 
     // Auto-detect Stata on macOS (one-time reset, then only when empty)
     if (isMacOS()) {
@@ -308,13 +319,21 @@ function activate(context) {
 
     // Register run code command (uses dispatch layer for Embedded Console/External App routing)
     registerExecuteCommand(context);
-    registerWebviewPanelSerializer(context);
-    setOverflowNoticeSuppressed(Boolean(context.globalState.get(EMBEDDED_CONSOLE_OVERFLOW_NOTICE_SUPPRESSED_KEY, false)));
     setWebviewCommandHandler(async (code) => {
         await runArbitraryCode(context, code, {
             outputMode: config.RUN_MODES.embeddedConsole
         });
     });
+    refreshConsoleFontOptions();
+    registerWebviewPanelSerializer(context);
+    setOverflowNoticeSuppressed(Boolean(context.globalState.get(EMBEDDED_CONSOLE_OVERFLOW_NOTICE_SUPPRESSED_KEY, false)));
+    context.subscriptions.push(vscode.workspace.onDidChangeConfiguration((event) => {
+        if (event.affectsConfiguration('editor.fontFamily')
+            || event.affectsConfiguration('stata-all-in-one.consoleFontMode')
+            || event.affectsConfiguration('stata-all-in-one.consoleCustomFontFamily')) {
+            refreshConsoleFontOptions();
+        }
+    }));
     setWebviewActionHandler(async (action) => {
         if (action === 'stopExecution') {
             stopConsoleExecution(context);
