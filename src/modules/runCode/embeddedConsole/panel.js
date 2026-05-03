@@ -111,8 +111,11 @@ function postState() {
 }
 
 async function revealPanel(preserveFocus = true) {
+    const existingPanel = _panel;
     const panel = ensurePanel();
-    panel.reveal(vscode.ViewColumn.Beside, preserveFocus);
+    if (!(existingPanel && existingPanel.visible)) {
+        panel.reveal(vscode.ViewColumn.Beside, preserveFocus);
+    }
     postState();
     return panel;
 }
