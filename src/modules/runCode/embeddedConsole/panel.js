@@ -783,8 +783,10 @@ function getWebviewHtml() {
             border-radius: 8px;
             padding: 10px 12px;
             outline: none;
-            font: inherit;
+            font-family: var(--console-active-font-family);
+            font-size: var(--vscode-editor-font-size, 13px);
             line-height: 1.5;
+            tab-size: 4;
         }
         #input:focus {
             border-color: var(--vscode-focusBorder);
@@ -850,7 +852,7 @@ function getWebviewHtml() {
     </div>
     <div class="composer">
         <div class="composer-label">Stata Input</div>
-        <textarea id="input" spellcheck="false" placeholder=". regress y x1 x2"></textarea>
+        <textarea id="input" spellcheck="false"></textarea>
         <div class="composer-meta">
             <span><code>Enter</code> run, <code>Shift+Enter</code> newline</span>
             <span><code>Up/Down</code> history</span>
