@@ -483,7 +483,6 @@ function getWebviewHtml() {
             font-size: 12px;
             font-weight: 600;
             letter-spacing: 0.02em;
-            text-transform: uppercase;
         }
         .statusbar-spacer {
             flex: 1;
