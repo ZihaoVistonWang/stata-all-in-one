@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { StataTerminalRenderer, getWebviewThemeVariables } = require('./renderer');
 const { msg } = require('../../../utils/common');
+const { StataBuiltinCommands } = require('../../completionProvider');
 
 const _renderer = new StataTerminalRenderer();
 
@@ -809,6 +810,7 @@ function getWebviewHtml() {
         .composer-input-wrapper {
             display: grid;
             width: 100%;
+            position: relative;
         }
         .composer-input-wrapper > * {
             grid-area: 1 / 1;
@@ -858,6 +860,36 @@ function getWebviewHtml() {
         }
         #input:disabled {
             opacity: 0.5;
+        }
+        .autocomplete-dropdown {
+            position: absolute;
+            z-index: 10;
+            bottom: 100%;
+            left: 12px;
+            margin-bottom: 2px;
+            background: var(--vscode-input-background);
+            border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
+            border-radius: 6px;
+            max-height: 180px;
+            overflow-y: auto;
+            box-shadow: 0 -2px 12px rgba(0,0,0,0.3);
+            font-family: var(--console-active-font-family);
+            font-size: var(--vscode-editor-font-size, 13px);
+            line-height: 1.5;
+            min-width: 160px;
+            display: none;
+        }
+        .autocomplete-dropdown.visible {
+            display: block;
+        }
+        .autocomplete-item {
+            padding: 4px 12px;
+            cursor: pointer;
+            color: var(--vscode-input-foreground);
+        }
+        .autocomplete-item.active {
+            background: var(--vscode-list-activeSelectionBackground);
+            color: var(--vscode-list-activeSelectionForeground);
         }
         .composer-meta {
             display: flex;
@@ -923,6 +955,7 @@ function getWebviewHtml() {
         <div class="composer-input-wrapper">
             <pre id="input-highlight" aria-hidden="true"></pre>
             <textarea id="input" spellcheck="false"></textarea>
+            <div class="autocomplete-dropdown" id="autocomplete-dropdown"></div>
         </div>
         <div class="composer-meta">
             <span><code>Enter</code> ${escapeHtml(msg('webviewRun'))}, <code>Shift+Enter</code> ${escapeHtml(msg('webviewNewline'))}</span>
@@ -945,6 +978,7 @@ function getWebviewHtml() {
         const stopButton = document.getElementById('stop-button');
         const clearButton = document.getElementById('clear-button');
         const inputHighlight = document.getElementById('input-highlight');
+        const autocompleteDropdown = document.getElementById('autocomplete-dropdown');
         const inputHistory = [];
         let historyIndex = -1;
         let overflowNoticeSuppressed = false;
@@ -967,6 +1001,115 @@ function getWebviewHtml() {
             error: ${JSON.stringify(msg('webviewError'))}
         };
         const FONT_BOOTSTRAP = ${JSON.stringify(fontOptions)};
+        const StataCommands = ${JSON.stringify(StataBuiltinCommands)};
+
+        var autocompleteActiveIndex = -1;
+        var autocompleteVisible = false;
+
+        function getCurrentWord() {
+            var text = input.value || '';
+            var pos = input.selectionStart || 0;
+            var start = pos;
+            while (start > 0 && /[A-Za-z_]/.test(text[start - 1])) {
+                start--;
+            }
+            return { word: text.slice(start, pos), start: start, end: pos };
+        }
+
+        function showAutocomplete(matches, wordStart) {
+            console.log('[ac] showAutocomplete called, matches:', matches.length, 'dropdown elem:', !!autocompleteDropdown);
+            if (!matches.length) {
+                hideAutocomplete();
+                return;
+            }
+            autocompleteDropdown.innerHTML = '';
+            for (var i = 0; i < matches.length; i++) {
+                var item = document.createElement('div');
+                item.className = 'autocomplete-item';
+                item.textContent = matches[i];
+                item.addEventListener('mousedown', function (e) {
+                    e.preventDefault();
+                    applyAutocomplete(this.textContent, wordStart);
+                });
+                autocompleteDropdown.appendChild(item);
+            }
+            autocompleteActiveIndex = 0;
+            if (autocompleteDropdown.firstChild) {
+                autocompleteDropdown.firstChild.className = 'autocomplete-item active';
+            }
+            autocompleteDropdown.classList.add('visible');
+            autocompleteVisible = true;
+        }
+
+        function hideAutocomplete() {
+            autocompleteDropdown.classList.remove('visible');
+            autocompleteDropdown.innerHTML = '';
+            autocompleteActiveIndex = -1;
+            autocompleteVisible = false;
+        }
+
+        function applyAutocomplete(command, wordStart) {
+            var text = input.value || '';
+            var pos = input.selectionStart || 0;
+            var wordEnd = pos;
+            while (wordEnd < text.length && /[A-Za-z_]/.test(text[wordEnd])) {
+                wordEnd++;
+            }
+            input.value = text.slice(0, wordStart) + command + text.slice(wordEnd);
+            input.selectionStart = input.selectionEnd = wordStart + command.length;
+            hideAutocomplete();
+            updateInputHighlight();
+        }
+
+        function triggerAutocomplete() {
+            if (input.disabled) { console.log('[ac] input disabled, skip'); return; }
+            var current = getCurrentWord();
+            console.log('[ac] current word:', JSON.stringify(current));
+            if (!current.word || current.word.length < 2) {
+                console.log('[ac] word too short or empty, hide');
+                hideAutocomplete();
+                return;
+            }
+            var prefix = current.word.toLowerCase();
+            var matches = [];
+            for (var i = 0; i < StataCommands.length; i++) {
+                if (StataCommands[i].toLowerCase().indexOf(prefix) === 0) {
+                    matches.push(StataCommands[i]);
+                    if (matches.length >= 8) break;
+                }
+            }
+            console.log('[ac] prefix=' + prefix + ' matches=' + matches.length + ' first:', matches.slice(0, 3));
+            if (matches.length === 1 && matches[0].toLowerCase() === prefix) {
+                console.log('[ac] exact match, hide');
+                hideAutocomplete();
+                return;
+            }
+            console.log('[ac] showing dropdown with', matches.length, 'items');
+            showAutocomplete(matches, current.start);
+        }
+
+        function navigateAutocomplete(direction) {
+            if (!autocompleteVisible) return;
+            var items = autocompleteDropdown.children;
+            if (!items.length) return;
+            items[autocompleteActiveIndex].classList.remove('active');
+            autocompleteActiveIndex += direction;
+            if (autocompleteActiveIndex < 0) autocompleteActiveIndex = items.length - 1;
+            if (autocompleteActiveIndex >= items.length) autocompleteActiveIndex = 0;
+            items[autocompleteActiveIndex].classList.add('active');
+            items[autocompleteActiveIndex].scrollIntoView({ block: 'nearest' });
+        }
+
+        function selectAutocomplete() {
+            if (!autocompleteVisible) return false;
+            var items = autocompleteDropdown.children;
+            if (autocompleteActiveIndex >= 0 && autocompleteActiveIndex < items.length) {
+                var current = getCurrentWord();
+                applyAutocomplete(items[autocompleteActiveIndex].textContent, current.start);
+                return true;
+            }
+            return false;
+        }
 
         function requestHighlight() {
             vscode.postMessage({ type: 'highlightInput', text: input.value || '' });
@@ -1442,7 +1585,31 @@ function getWebviewHtml() {
             if (event.isComposing) {
                 return;
             }
+            if (event.key === 'Tab') {
+                if (autocompleteVisible) {
+                    event.preventDefault();
+                    selectAutocomplete();
+                    return;
+                }
+            }
+            if (event.key === 'Escape') {
+                if (autocompleteVisible) {
+                    event.preventDefault();
+                    hideAutocomplete();
+                    return;
+                }
+            }
+            if (autocompleteVisible && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
+                event.preventDefault();
+                navigateAutocomplete(event.key === 'ArrowUp' ? -1 : 1);
+                return;
+            }
             if (event.key === 'Enter' && !event.shiftKey) {
+                if (autocompleteVisible) {
+                    event.preventDefault();
+                    selectAutocomplete();
+                    return;
+                }
                 event.preventDefault();
                 executeInput();
                 input.focus();
@@ -1462,8 +1629,14 @@ function getWebviewHtml() {
         });
 
         input.addEventListener('input', () => {
+            console.log('[ac] input event fired, value=' + JSON.stringify(input.value));
             highlightSuppressed = false;
             updateInputHighlight();
+            triggerAutocomplete();
+        });
+
+        input.addEventListener('blur', () => {
+            setTimeout(function () { hideAutocomplete(); }, 150);
         });
 
         input.addEventListener('scroll', () => {
