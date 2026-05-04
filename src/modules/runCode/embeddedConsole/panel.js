@@ -957,6 +957,8 @@ function getWebviewHtml() {
         let estimatedFinishAt = 0;
         let displayedRemainingSeconds = 0;
         let highlightSuppressed = false;
+        let pendingFocus = false;
+        let wasRunning = false;
 
         const STATUS_LABELS = {
             idle: ${JSON.stringify(msg('webviewIdle'))},
@@ -1235,6 +1237,7 @@ function getWebviewHtml() {
             input.disabled = status === 'running';
             stopButton.disabled = status !== 'running';
             if (status === 'running') {
+                wasRunning = true;
                 startWorkingIndicator();
                 requestAnimationFrame(scrollOutputToBottom);
             } else {
@@ -1242,6 +1245,11 @@ function getWebviewHtml() {
                 estimatedFinishAt = 0;
                 displayedRemainingSeconds = 0;
                 stopWorkingIndicator();
+                if (pendingFocus && wasRunning) {
+                    pendingFocus = false;
+                    wasRunning = false;
+                    input.focus();
+                }
             }
         }
 
@@ -1400,6 +1408,7 @@ function getWebviewHtml() {
 
             if (historyIndex === -1) {
                 input.value = '';
+                highlightSuppressed = false;
                 updateInputHighlight();
                 return;
             }
@@ -1407,6 +1416,7 @@ function getWebviewHtml() {
             input.value = inputHistory[historyIndex] || '';
             input.selectionStart = input.value.length;
             input.selectionEnd = input.value.length;
+            highlightSuppressed = false;
             updateInputHighlight();
         }
 
@@ -1423,6 +1433,8 @@ function getWebviewHtml() {
             });
             input.value = '';
             highlightSuppressed = true;
+            pendingFocus = true;
+            wasRunning = false;
             updateInputHighlight();
         }
 
@@ -1433,6 +1445,7 @@ function getWebviewHtml() {
             if (event.key === 'Enter' && !event.shiftKey) {
                 event.preventDefault();
                 executeInput();
+                input.focus();
                 return;
             }
 
