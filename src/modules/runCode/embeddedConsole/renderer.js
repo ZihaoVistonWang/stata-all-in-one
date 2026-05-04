@@ -379,7 +379,7 @@ function loadThemeData(themePath, visited = new Set()) {
 
 function resolveThemeSlotMap(themeData) {
     const colors = themeData.colors || {};
-    const slotMap = {};
+    const slotMap = { ...DEFAULT_SLOT_MAP };
 
     for (const [tokenType, candidates] of Object.entries(TOKEN_SCOPE_CANDIDATES)) {
         const themeColor = findThemeTokenColor(themeData, candidates);
@@ -1436,7 +1436,10 @@ class StataTerminalRenderer {
 
             const scopes = Array.isArray(token.scopes) ? token.scopes : [];
             const explodedTokens = this._explodeGenericGrammarToken(scopes, value, !firstIdentifierSeen, token.foreground, token.fontStyle);
+            let subPos = 0;
             for (const explodedToken of explodedTokens) {
+                explodedToken.startIndex = token.startIndex + subPos;
+                subPos += explodedToken.value.length;
                 renderedTokens.push(explodedToken);
                 if (!firstIdentifierSeen && /[A-Za-z_]/.test(explodedToken.value) && explodedToken.type !== 'comment') {
                     firstIdentifierSeen = true;
@@ -1636,7 +1639,7 @@ class StataTerminalRenderer {
                     fg: this._foregroundForCommandToken(token.type, token.scopes, token.foreground),
                     forceForeground: hasSpecificGrammarScope(token.scopes),
                     bold: token.type === 'prompt' || token.type === 'command' || token.type === 'keyword',
-                    italic: token.type === 'comment',
+                    italic: token.type === 'comment' || token.type === 'variable',
                     dim: false
                 }
             )));
@@ -1683,14 +1686,14 @@ class StataTerminalRenderer {
 
         while (i < line.length) {
             if (!promptConsumed && (line.startsWith('. ', i) || line.startsWith('> ', i))) {
-                tokens.push({ type: 'prompt', value: line.slice(i, i + 2) });
+                tokens.push({ type: 'prompt', value: line.slice(i, i + 2), startIndex: i });
                 i += 2;
                 promptConsumed = true;
                 continue;
             }
 
             if (line.startsWith('//', i)) {
-                tokens.push({ type: 'comment', value: line.slice(i) });
+                tokens.push({ type: 'comment', value: line.slice(i), startIndex: i });
                 break;
             }
 
@@ -1704,21 +1707,21 @@ class StataTerminalRenderer {
                     }
                     end += 1;
                 }
-                tokens.push({ type: 'string', value: line.slice(i, end) });
+                tokens.push({ type: 'string', value: line.slice(i, end), startIndex: i });
                 i = end;
                 continue;
             }
 
             const pathMatch = line.slice(i).match(/^(?:(?:[A-Za-z]:)?[^,\s"'()]+[\\/])+[^,\s"'()]+\.[A-Za-z0-9]+/);
             if (pathMatch) {
-                tokens.push({ type: 'path', value: pathMatch[0] });
+                tokens.push({ type: 'path', value: pathMatch[0], startIndex: i });
                 i += pathMatch[0].length;
                 continue;
             }
 
             const numberMatch = line.slice(i).match(/^[-+]?\d+(?:\.\d+)?(?:e[+-]?\d+)?/i);
             if (numberMatch) {
-                tokens.push({ type: 'number', value: numberMatch[0] });
+                tokens.push({ type: 'number', value: numberMatch[0], startIndex: i });
                 i += numberMatch[0].length;
                 continue;
             }
@@ -1739,7 +1742,7 @@ class StataTerminalRenderer {
                 } else if (parenDepth > 0 || bracketDepth > 0) {
                     type = 'variable';
                 }
-                tokens.push({ type, value: word });
+                tokens.push({ type, value: word, startIndex: i });
                 i += word.length;
                 continue;
             }
@@ -1756,12 +1759,12 @@ class StataTerminalRenderer {
                 } else if (line[i] === ']') {
                     bracketDepth = Math.max(0, bracketDepth - 1);
                 }
-                tokens.push({ type: 'operator', value: line[i] });
+                tokens.push({ type: 'operator', value: line[i], startIndex: i });
                 i += 1;
                 continue;
             }
 
-            tokens.push({ type: 'plain', value: line[i] });
+            tokens.push({ type: 'plain', value: line[i], startIndex: i });
             i += 1;
         }
 

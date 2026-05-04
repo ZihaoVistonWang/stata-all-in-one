@@ -10,6 +10,9 @@
     "foldingStopMarker": "^\\s*\\}",
     "patterns": [
         {
+            "include": "#option-list-after-comma"
+        },
+        {
             "include": "#ascii-regex-functions"
         },
         {
@@ -764,6 +767,188 @@
         }
     ],
     "repository": {
+        "option-list-after-comma": {
+            "comment": "Handle options starting from comma position (e.g. after custom commands). Options end at colon or newline.",
+            "begin": ",",
+            "beginCaptures": {
+                "0": {
+                    "name": "punctuation.separator.comma.stata"
+                }
+            },
+            "end": "(?<!///)(?=\\n|:)",
+            "patterns": [
+                {
+                    "include": "#comments"
+                },
+                {
+                    "include": "#string-compound"
+                },
+                {
+                    "include": "#string-regular"
+                },
+                {
+                    "include": "#file-paths"
+                },
+                {
+                    "begin": "\\b([\\w&&[^0-9]][\\w.]*)\\s*(\\()",
+                    "beginCaptures": {
+                        "1": {
+                            "name": "support.function.custom.stata"
+                        },
+                        "2": {
+                            "name": "keyword.operator.parentheses.stata"
+                        }
+                    },
+                    "end": "\\)",
+                    "endCaptures": {
+                        "0": {
+                            "name": "keyword.operator.parentheses.stata"
+                        }
+                    },
+                    "patterns": [
+                        {
+                            "include": "#functions"
+                        },
+                        {
+                            "begin": "\\(",
+                            "beginCaptures": {
+                                "0": {
+                                    "name": "keyword.operator.parentheses.stata"
+                                }
+                            },
+                            "end": "\\)",
+                            "endCaptures": {
+                                "0": {
+                                    "name": "keyword.operator.parentheses.stata"
+                                }
+                            },
+                            "patterns": [
+                                {
+                                    "begin": ",",
+                                    "beginCaptures": {
+                                        "0": {
+                                            "name": "punctuation.separator.comma.stata"
+                                        }
+                                    },
+                                    "end": "(?=\\))",
+                                    "patterns": [
+                                        {
+                                            "match": "\\b([\\w&&[^0-9]][\\w.]*)\\b",
+                                            "name": "support.function.custom.stata"
+                                        },
+                                        {
+                                            "include": "#operators"
+                                        },
+                                        {
+                                            "include": "#comments"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "include": "#functions"
+                                },
+                                {
+                                    "match": "\\b([\\w&&[^0-9]][\\w.]*)\\b",
+                                    "name": "variable.parameter.function.stata"
+                                },
+                                {
+                                    "include": "#subscripts"
+                                },
+                                {
+                                    "include": "#constants"
+                                },
+                                {
+                                    "include": "#operators"
+                                },
+                                {
+                                    "include": "#macro-local"
+                                },
+                                {
+                                    "include": "#macro-global"
+                                },
+                                {
+                                    "include": "#builtin_variables"
+                                },
+                                {
+                                    "include": "#comments"
+                                },
+                                {
+                                    "include": "#string-compound"
+                                },
+                                {
+                                    "include": "#string-regular"
+                                }
+                            ]
+                        },
+                        {
+                            "include": "#functions"
+                        },
+                        {
+                            "match": "\\b([\\w&&[^0-9]][\\w.]*)\\b",
+                            "name": "variable.parameter.function.stata"
+                        },
+                        {
+                            "include": "#subscripts"
+                        },
+                        {
+                            "include": "#constants"
+                        },
+                        {
+                            "include": "#operators"
+                        },
+                        {
+                            "include": "#macro-local"
+                        },
+                        {
+                            "include": "#macro-global"
+                        },
+                        {
+                            "include": "#builtin_variables"
+                        },
+                        {
+                            "include": "#comments"
+                        },
+                        {
+                            "include": "#string-compound"
+                        },
+                        {
+                            "include": "#string-regular"
+                        }
+                    ]
+                },
+                {
+                    "match": "\\b([\\w&&[^0-9]][\\w.]*)\\b",
+                    "name": "support.function.custom.stata"
+                },
+                {
+                    "include": "#subscripts"
+                },
+                {
+                    "include": "#constants"
+                },
+                {
+                    "include": "#operators"
+                },
+                {
+                    "include": "#macro-local"
+                },
+                {
+                    "include": "#macro-global"
+                },
+                {
+                    "include": "#builtin_variables"
+                },
+                {
+                    "include": "#comments"
+                },
+                {
+                    "include": "#string-compound"
+                },
+                {
+                    "include": "#string-regular"
+                }
+            ]
+        },
         "functions": {
             "patterns": [
                 {
