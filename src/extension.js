@@ -395,6 +395,20 @@ async function activate(context) {
     );
     context.subscriptions.push(sponsorCommand);
 
+    // Register data viewer command
+    const { revealDataViewer } = require('./modules/runCode/embeddedConsole/dataViewer/panel');
+    const dataViewerCommand = vscode.commands.registerCommand(
+        'stata-all-in-one.showDataViewer',
+        () => {
+            if (config.getRunMode() !== 'embeddedConsole') {
+                vscode.window.showInformationMessage('Data Viewer is only available in Embedded Console mode.');
+                return;
+            }
+            revealDataViewer();
+        }
+    );
+    context.subscriptions.push(dataViewerCommand);
+
     // Register document symbol provider for outline view
     const provider = createDocumentSymbolProvider();
     context.subscriptions.push(
