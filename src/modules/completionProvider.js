@@ -96,13 +96,13 @@ const StataBuiltinCommands = [
 ];
 
 // Additional keywords and functions for autocomplete
-const STATA_KEYWORDS = [
+const StataKeywords = [
     'if', 'else', 'foreach', 'forvalues', 'while', 'by', 'bysort',
     'in', 'using', 'quietly', 'noisily', 'capture', 'assert'
 ];
 
 // Built-in functions from the grammar
-const STATA_FUNCTIONS = [
+const StataFunctions = [
     'abs', 'acos', 'asin', 'atan', 'atan2', 'ceil', 'comb', 'cond', 'cos',
     'exp', 'floor', 'int', 'ln', 'log', 'log10', 'max', 'min', 'mod',
     'round', 'sign', 'sin', 'sqrt', 'sum', 'tan', 'uniform', 'runiform',
@@ -238,10 +238,10 @@ function createCompletionProvider() {
             items.push(...createCompletionItems(StataBuiltinCommands, vscode.CompletionItemKind.Keyword));
 
             // Add keywords
-            items.push(...createCompletionItems(STATA_KEYWORDS, vscode.CompletionItemKind.Keyword));
+            items.push(...createCompletionItems(StataKeywords, vscode.CompletionItemKind.Keyword));
 
             // Add functions
-            items.push(...createCompletionItems(STATA_FUNCTIONS, vscode.CompletionItemKind.Function));
+            items.push(...createCompletionItems(StataFunctions, vscode.CompletionItemKind.Function));
 
             // Add custom/third-party commands from user configuration
             const customCommands = config.getCustomCommands();
@@ -281,10 +281,10 @@ function createCompletionProvider() {
             if (StataBuiltinCommands.includes(item.label)) {
                 item.detail = 'Stata built-in command';
                 item.documentation = `Built-in Stata command: ${item.label}`;
-            } else if (STATA_FUNCTIONS.includes(item.label)) {
+            } else if (StataFunctions.includes(item.label)) {
                 item.detail = 'Stata function';
                 item.documentation = `Stata function: ${item.label}()`;
-            } else if (STATA_KEYWORDS.includes(item.label)) {
+            } else if (StataKeywords.includes(item.label)) {
                 item.detail = 'Stata keyword';
                 item.documentation = `Stata keyword: ${item.label}`;
             } else {
@@ -320,4 +320,4 @@ function registerCompletionProvider(context) {
     context.subscriptions.push(disposable);
 }
 
-module.exports = { registerCompletionProvider, StataBuiltinCommands };
+module.exports = { registerCompletionProvider, StataBuiltinCommands, StataKeywords, StataFunctions, extractVariableNames };
