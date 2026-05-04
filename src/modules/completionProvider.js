@@ -8,7 +8,7 @@ const config = require('../utils/config');
 
 // Extract Stata built-in commands from the grammar
 // This list is derived from grammars/stata.json
-const STATA_BUILTIN_COMMANDS = [
+const StataBuiltinCommands = [
     'about', 'ac', 'acprplot', 'ado', 'adopath', 'adoupdate', 'alpha', 'ameans',
     'anova', 'aorder', 'append', 'arch', 'areg', 'args', 'arima', 'asmprobit',
     'avplot', 'avplots', 'binreg', 'biprobit', 'bitest', 'bitesti', 'blogit',
@@ -235,7 +235,7 @@ function createCompletionProvider() {
             const items = [];
 
             // Add built-in commands
-            items.push(...createCompletionItems(STATA_BUILTIN_COMMANDS, vscode.CompletionItemKind.Keyword));
+            items.push(...createCompletionItems(StataBuiltinCommands, vscode.CompletionItemKind.Keyword));
 
             // Add keywords
             items.push(...createCompletionItems(STATA_KEYWORDS, vscode.CompletionItemKind.Keyword));
@@ -278,7 +278,7 @@ function createCompletionProvider() {
          */
         resolveCompletionItem(item, token) {
             // Optionally add documentation for items
-            if (STATA_BUILTIN_COMMANDS.includes(item.label)) {
+            if (StataBuiltinCommands.includes(item.label)) {
                 item.detail = 'Stata built-in command';
                 item.documentation = `Built-in Stata command: ${item.label}`;
             } else if (STATA_FUNCTIONS.includes(item.label)) {
@@ -320,4 +320,4 @@ function registerCompletionProvider(context) {
     context.subscriptions.push(disposable);
 }
 
-module.exports = { registerCompletionProvider };
+module.exports = { registerCompletionProvider, StataBuiltinCommands };
