@@ -771,15 +771,44 @@ function getWebviewHtml() {
             color: var(--vscode-descriptionForeground);
             font-weight: 700;
         }
+        .composer-input-wrapper {
+            display: grid;
+            width: 100%;
+        }
+        .composer-input-wrapper > * {
+            grid-area: 1 / 1;
+        }
+        #input-highlight {
+            width: 100%;
+            min-height: 72px;
+            max-height: 240px;
+            box-sizing: border-box;
+            border: 1px solid transparent;
+            border-radius: 8px;
+            padding: 10px 12px;
+            margin: 0;
+            font-family: var(--console-active-font-family);
+            font-size: var(--vscode-editor-font-size, 13px);
+            line-height: 1.5;
+            tab-size: 4;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            overflow-y: auto;
+            background: var(--vscode-input-background);
+            pointer-events: none;
+            z-index: 0;
+        }
         #input {
+            z-index: 1;
             width: 100%;
             min-height: 72px;
             max-height: 240px;
             resize: vertical;
             box-sizing: border-box;
             border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
-            background: var(--vscode-input-background);
-            color: var(--vscode-input-foreground);
+            background: transparent;
+            color: transparent;
+            caret-color: var(--vscode-input-foreground);
             border-radius: 8px;
             padding: 10px 12px;
             outline: none;
@@ -787,9 +816,13 @@ function getWebviewHtml() {
             font-size: var(--vscode-editor-font-size, 13px);
             line-height: 1.5;
             tab-size: 4;
+            overflow-y: auto;
         }
         #input:focus {
             border-color: var(--vscode-focusBorder);
+        }
+        #input:disabled {
+            opacity: 0.5;
         }
         .composer-meta {
             display: flex;
@@ -852,13 +885,17 @@ function getWebviewHtml() {
     </div>
     <div class="composer">
         <div class="composer-label">Stata Input</div>
-        <textarea id="input" spellcheck="false"></textarea>
+        <div class="composer-input-wrapper">
+            <pre id="input-highlight" aria-hidden="true"></pre>
+            <textarea id="input" spellcheck="false"></textarea>
+        </div>
         <div class="composer-meta">
             <span><code>Enter</code> run, <code>Shift+Enter</code> newline</span>
             <span><code>Up/Down</code> history</span>
         </div>
     </div>
     <script nonce="${nonce}">
+        document.body.dataset.scriptStarted = '1';
         const vscode = acquireVsCodeApi();
         const output = document.getElementById('output');
         const outputShell = document.getElementById('output-shell');
@@ -872,6 +909,7 @@ function getWebviewHtml() {
         const input = document.getElementById('input');
         const stopButton = document.getElementById('stop-button');
         const clearButton = document.getElementById('clear-button');
+        const inputHighlight = document.getElementById('input-highlight');
         const inputHistory = [];
         let historyIndex = -1;
         let overflowNoticeSuppressed = false;
@@ -891,6 +929,153 @@ function getWebviewHtml() {
             error: ${JSON.stringify(msg('webviewError'))}
         };
         const FONT_BOOTSTRAP = ${JSON.stringify(fontOptions)};
+
+        var InputCommandKeywords = new Set([
+            'if', 'in', 'using', 'by', 'bysort', 'quietly', 'qui', 'capture', 'cap',
+            'do', 'cd', 'global', 'local', 'replace', 'gen', 'egen', 'keep', 'drop',
+            'preserve', 'restore', 'sort', 'absorb', 'vce', 'cluster', 'bs', 'reps',
+            'seed', 'append', 'se', 'bdec', 'tdec', 'ctitle', 'title', 'addtext',
+            'addstat', 'nocon', 'noconstant', 'noobs', 'nobreak'
+        ]);
+        var InputOperatorChars = new Set(['=', '!', '<', '>', '+', '-', '*', '/', '%', '&', '|', '^', '~', ':', ',', '.', '(', ')', '[', ']', '{', '}']);
+
+        function tokenizeInputLine(line) {
+            var tokens = [];
+            var i = 0;
+            var commandConsumed = false;
+            var parenDepth = 0;
+            var bracketDepth = 0;
+            var commaOptionMode = false;
+
+            while (i < line.length) {
+                if (line.slice(i, i + 2) === '//') {
+                    tokens.push({ type: 'comment', value: line.slice(i) });
+                    break;
+                }
+
+                var ch = line[i];
+                if (ch === '\"' || ch === \"'\") {
+                    var end = i + 1;
+                    while (end < line.length) {
+                        if (line[end] === ch && line[end - 1] !== '\\\\') {
+                            end += 1;
+                            break;
+                        }
+                        end += 1;
+                    }
+                    tokens.push({ type: 'string', value: line.slice(i, end) });
+                    i = end;
+                    continue;
+                }
+
+                var numberMatch = line.slice(i).match(/^[-+]?\\d+(?:\\.\\d+)?(?:e[+-]?\\d+)?/i);
+                if (numberMatch) {
+                    tokens.push({ type: 'number', value: numberMatch[0] });
+                    i += numberMatch[0].length;
+                    continue;
+                }
+
+                var wordMatch = line.slice(i).match(/^[A-Za-z_][A-Za-z0-9_]*/);
+
+                if (wordMatch) {
+                    var word = wordMatch[0];
+                    var type = 'plain';
+                    if (!commandConsumed) {
+                        type = 'command';
+                        commandConsumed = true;
+                    } else if (commaOptionMode && parenDepth === 0 && bracketDepth === 0) {
+                        type = 'option';
+                    } else if (InputCommandKeywords.has(word.toLowerCase())) {
+                        type = 'keyword';
+                    } else if (line[i + word.length] === '(') {
+                        type = 'function';
+                    } else if (parenDepth > 0 || bracketDepth > 0) {
+                        type = 'variable';
+                    }
+                    tokens.push({ type: type, value: word });
+                    i += word.length;
+                    continue;
+                }
+
+                if (InputOperatorChars.has(line[i])) {
+                    if (line[i] === ',') {
+                        commaOptionMode = parenDepth === 0 && bracketDepth === 0;
+                    } else if (line[i] === '(') {
+                        parenDepth += 1;
+                    } else if (line[i] === ')') {
+                        parenDepth = Math.max(0, parenDepth - 1);
+                    } else if (line[i] === '[') {
+                        bracketDepth += 1;
+                    } else if (line[i] === ']') {
+                        bracketDepth = Math.max(0, bracketDepth - 1);
+                    }
+                    tokens.push({ type: 'operator', value: line[i] });
+                    i += 1;
+                    continue;
+                }
+
+                tokens.push({ type: 'plain', value: line[i] });
+                i += 1;
+            }
+
+            return tokens;
+        }
+
+        function buildHighlightHtml(text) {
+            if (!text) {
+                return '';
+            }
+            var tokens;
+            try {
+                tokens = tokenizeInputLine(text);
+            } catch (_e) {
+                var safe = String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;');
+                return '<span class=\"tok tok-plain\">' + safe + '</span>';
+            }
+            if (!tokens || !tokens.length) {
+                return '';
+            }
+            var html = '';
+            for (var j = 0; j < tokens.length; j++) {
+                var t = tokens[j];
+                var escaped = String(t.value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;');
+                html += '<span class=\"tok tok-' + t.type + '\">' + escaped + '</span>';
+            }
+            return html;
+        }
+
+        function updateInputHighlight() {
+            if (!inputHighlight) {
+                return;
+            }
+            var text = input.value || '';
+            inputHighlight.innerHTML = text ? buildHighlightHtml(text) : '';
+            applyHighlightColors();
+            inputHighlight.scrollTop = input.scrollTop;
+            inputHighlight.scrollLeft = input.scrollLeft;
+        }
+
+        function applyHighlightColors() {
+            var rootStyle = getComputedStyle(document.documentElement);
+            var typeColors = {};
+            var types = ['command', 'keyword', 'string', 'path', 'number', 'comment', 'function', 'option', 'variable', 'macro', 'operator', 'plain', 'default', 'error', 'header', 'separator', 'time', 'timeValue'];
+            for (var i = 0; i < types.length; i++) {
+                var t = types[i];
+                var raw = rootStyle.getPropertyValue('--stata-' + t).trim();
+                typeColors[t] = raw || null;
+            }
+            var spans = inputHighlight.querySelectorAll('span.tok');
+            for (var j = 0; j < spans.length; j++) {
+                var span = spans[j];
+                for (var k = 0; k < types.length; k++) {
+                    var className = 'tok-' + types[k];
+                    if (span.classList.contains(className) && typeColors[types[k]]) {
+                        span.style.color = typeColors[types[k]];
+                        break;
+                    }
+                }
+            }
+        }
 
         function formatDurationSeconds(seconds, options = {}) {
             const safeSeconds = Math.max(0, Number(seconds) || 0);
@@ -1277,12 +1462,14 @@ function getWebviewHtml() {
 
             if (historyIndex === -1) {
                 input.value = '';
+                updateInputHighlight();
                 return;
             }
 
             input.value = inputHistory[historyIndex] || '';
             input.selectionStart = input.value.length;
             input.selectionEnd = input.value.length;
+            updateInputHighlight();
         }
 
         function executeInput() {
@@ -1297,6 +1484,7 @@ function getWebviewHtml() {
                 code
             });
             input.value = '';
+            updateInputHighlight();
         }
 
         input.addEventListener('keydown', (event) => {
@@ -1317,6 +1505,21 @@ function getWebviewHtml() {
                 replaceInputFromHistory(1);
             }
         });
+
+        input.addEventListener('input', () => {
+            updateInputHighlight();
+        });
+
+        input.addEventListener('scroll', () => {
+            inputHighlight.scrollTop = input.scrollTop;
+            inputHighlight.scrollLeft = input.scrollLeft;
+        });
+
+        if (typeof ResizeObserver !== 'undefined') {
+            new ResizeObserver(() => {
+                inputHighlight.style.height = input.clientHeight + 'px';
+            }).observe(input);
+        }
 
         stopButton.addEventListener('click', () => {
             vscode.postMessage({ type: 'stopExecution' });
