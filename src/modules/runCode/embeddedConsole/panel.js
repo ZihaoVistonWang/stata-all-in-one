@@ -4,6 +4,8 @@ const path = require('path');
 const { StataTerminalRenderer, getWebviewThemeVariables } = require('./renderer');
 const { msg } = require('../../../utils/common');
 
+const _renderer = new StataTerminalRenderer();
+
 const PANEL_VIEW_TYPE = 'stata-all-in-one.webviewTerminal';
 
 let _panel = null;
@@ -39,6 +41,34 @@ function getPanelIconPath() {
     };
 }
 
+function highlightInputText(text) {
+    if (!text) {
+        return [];
+    }
+    const lines = text.split('\\n');
+    const result = [];
+    for (let li = 0; li < lines.length; li++) {
+        if (li > 0) {
+            result.push({ text: '\\n', tokenType: 'plain', className: 'tok tok-plain', style: {} });
+        }
+        const line = lines[li];
+        if (!line) {
+            continue;
+        }
+        try {
+            const entry = _renderer._segmentCommandLine(line);
+            if (entry && Array.isArray(entry.segments)) {
+                for (const seg of entry.segments) {
+                    result.push(seg);
+                }
+            }
+        } catch (_e) {
+            result.push({ text: line, tokenType: 'plain', className: 'tok tok-plain', style: {} });
+        }
+    }
+    return result;
+}
+
 function attachPanel(panel) {
     _panel = panel;
     _panel.title = getPanelTitle();
@@ -61,6 +91,11 @@ function attachPanel(panel) {
                 await _commandHandler(String(message.code || ''));
             } catch (error) {
                 console.error('Stata All in One: Embedded Console input execution failed:', error.message);
+            }
+        } else if (message && message.type === 'highlightInput') {
+            if (_panel) {
+                const segments = highlightInputText(String(message.text || ''));
+                _panel.webview.postMessage({ type: 'highlightResult', segments });
             }
         } else if (message && (message.type === 'stopExecution' || message.type === 'clearConsole' || message.type === 'showOverflowNotice') && typeof _actionHandler === 'function') {
             try {
@@ -930,151 +965,47 @@ function getWebviewHtml() {
         };
         const FONT_BOOTSTRAP = ${JSON.stringify(fontOptions)};
 
-        var InputCommandKeywords = new Set([
-            'if', 'in', 'using', 'by', 'bysort', 'quietly', 'qui', 'capture', 'cap',
-            'do', 'cd', 'global', 'local', 'replace', 'gen', 'egen', 'keep', 'drop',
-            'preserve', 'restore', 'sort', 'absorb', 'vce', 'cluster', 'bs', 'reps',
-            'seed', 'append', 'se', 'bdec', 'tdec', 'ctitle', 'title', 'addtext',
-            'addstat', 'nocon', 'noconstant', 'noobs', 'nobreak'
-        ]);
-        var InputOperatorChars = new Set(['=', '!', '<', '>', '+', '-', '*', '/', '%', '&', '|', '^', '~', ':', ',', '.', '(', ')', '[', ']', '{', '}']);
-
-        function tokenizeInputLine(line) {
-            var tokens = [];
-            var i = 0;
-            var commandConsumed = false;
-            var parenDepth = 0;
-            var bracketDepth = 0;
-            var commaOptionMode = false;
-
-            while (i < line.length) {
-                if (line.slice(i, i + 2) === '//') {
-                    tokens.push({ type: 'comment', value: line.slice(i) });
-                    break;
-                }
-
-                var ch = line[i];
-                if (ch === '\"' || ch === \"'\") {
-                    var end = i + 1;
-                    while (end < line.length) {
-                        if (line[end] === ch && line[end - 1] !== '\\\\') {
-                            end += 1;
-                            break;
-                        }
-                        end += 1;
-                    }
-                    tokens.push({ type: 'string', value: line.slice(i, end) });
-                    i = end;
-                    continue;
-                }
-
-                var numberMatch = line.slice(i).match(/^[-+]?\\d+(?:\\.\\d+)?(?:e[+-]?\\d+)?/i);
-                if (numberMatch) {
-                    tokens.push({ type: 'number', value: numberMatch[0] });
-                    i += numberMatch[0].length;
-                    continue;
-                }
-
-                var wordMatch = line.slice(i).match(/^[A-Za-z_][A-Za-z0-9_]*/);
-
-                if (wordMatch) {
-                    var word = wordMatch[0];
-                    var type = 'plain';
-                    if (!commandConsumed) {
-                        type = 'command';
-                        commandConsumed = true;
-                    } else if (commaOptionMode && parenDepth === 0 && bracketDepth === 0) {
-                        type = 'option';
-                    } else if (InputCommandKeywords.has(word.toLowerCase())) {
-                        type = 'keyword';
-                    } else if (line[i + word.length] === '(') {
-                        type = 'function';
-                    } else if (parenDepth > 0 || bracketDepth > 0) {
-                        type = 'variable';
-                    }
-                    tokens.push({ type: type, value: word });
-                    i += word.length;
-                    continue;
-                }
-
-                if (InputOperatorChars.has(line[i])) {
-                    if (line[i] === ',') {
-                        commaOptionMode = parenDepth === 0 && bracketDepth === 0;
-                    } else if (line[i] === '(') {
-                        parenDepth += 1;
-                    } else if (line[i] === ')') {
-                        parenDepth = Math.max(0, parenDepth - 1);
-                    } else if (line[i] === '[') {
-                        bracketDepth += 1;
-                    } else if (line[i] === ']') {
-                        bracketDepth = Math.max(0, bracketDepth - 1);
-                    }
-                    tokens.push({ type: 'operator', value: line[i] });
-                    i += 1;
-                    continue;
-                }
-
-                tokens.push({ type: 'plain', value: line[i] });
-                i += 1;
-            }
-
-            return tokens;
+        function requestHighlight() {
+            vscode.postMessage({ type: 'highlightInput', text: input.value || '' });
         }
 
-        function buildHighlightHtml(text) {
-            if (!text) {
-                return '';
-            }
-            var tokens;
-            try {
-                tokens = tokenizeInputLine(text);
-            } catch (_e) {
-                var safe = String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;');
-                return '<span class=\"tok tok-plain\">' + safe + '</span>';
-            }
-            if (!tokens || !tokens.length) {
-                return '';
-            }
-            var html = '';
-            for (var j = 0; j < tokens.length; j++) {
-                var t = tokens[j];
-                var escaped = String(t.value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;');
-                html += '<span class=\"tok tok-' + t.type + '\">' + escaped + '</span>';
-            }
-            return html;
-        }
-
-        function updateInputHighlight() {
+        function renderHighlightSegments(segments) {
             if (!inputHighlight) {
                 return;
             }
-            var text = input.value || '';
-            inputHighlight.innerHTML = text ? buildHighlightHtml(text) : '';
-            applyHighlightColors();
+            inputHighlight.innerHTML = '';
+            if (!segments || !segments.length) {
+                return;
+            }
+            for (var i = 0; i < segments.length; i++) {
+                var seg = segments[i];
+                var span = document.createElement('span');
+                var className = String(seg.className || '').trim();
+                if (className) {
+                    span.className = className;
+                }
+                var style = seg.style || {};
+                if (style.color) {
+                    span.style.color = style.color;
+                }
+                if (style.backgroundColor) {
+                    span.style.backgroundColor = style.backgroundColor;
+                }
+                if (style.bold) {
+                    span.style.fontWeight = 'bold';
+                }
+                if (style.italic) {
+                    span.style.fontStyle = 'italic';
+                }
+                span.textContent = String(seg.text || '');
+                inputHighlight.appendChild(span);
+            }
             inputHighlight.scrollTop = input.scrollTop;
             inputHighlight.scrollLeft = input.scrollLeft;
         }
 
-        function applyHighlightColors() {
-            var rootStyle = getComputedStyle(document.documentElement);
-            var typeColors = {};
-            var types = ['command', 'keyword', 'string', 'path', 'number', 'comment', 'function', 'option', 'variable', 'macro', 'operator', 'plain', 'default', 'error', 'header', 'separator', 'time', 'timeValue'];
-            for (var i = 0; i < types.length; i++) {
-                var t = types[i];
-                var raw = rootStyle.getPropertyValue('--stata-' + t).trim();
-                typeColors[t] = raw || null;
-            }
-            var spans = inputHighlight.querySelectorAll('span.tok');
-            for (var j = 0; j < spans.length; j++) {
-                var span = spans[j];
-                for (var k = 0; k < types.length; k++) {
-                    var className = 'tok-' + types[k];
-                    if (span.classList.contains(className) && typeColors[types[k]]) {
-                        span.style.color = typeColors[types[k]];
-                        break;
-                    }
-                }
-            }
+        function updateInputHighlight() {
+            requestHighlight();
         }
 
         function formatDurationSeconds(seconds, options = {}) {
@@ -1564,6 +1495,8 @@ function getWebviewHtml() {
                     refreshDisplayedRemainingSeconds();
                 }
                 updateWorkingMeta();
+            } else if (message.type === 'highlightResult') {
+                renderHighlightSegments(message.segments || []);
             } else if (message.type === 'overflowNoticePreference') {
                 overflowNoticeSuppressed = Boolean(message.suppressed);
                 if (overflowNoticeSuppressed) {
