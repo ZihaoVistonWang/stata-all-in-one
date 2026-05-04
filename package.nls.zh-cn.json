@@ -42,5 +42,6 @@
   "command.reportBug.short": "Bug",
   "command.showSponsor.title": "打赏支持",
   "command.showSponsor.short": "打赏",
+  "command.showDataViewer.title": "显示 Stata 数据查看器",
   "command.stopConsoleExecution.title": "Stata All in One：停止 Console 执行"
 }

@@ -102,6 +102,12 @@ function attachPanel(panel) {
                 const segments = highlightInputText(String(message.text || ''));
                 _panel.webview.postMessage({ type: 'highlightResult', segments });
             }
+        } else if (message && message.type === 'showDataViewer') {
+            const config = require('../../../utils/config');
+            if (config.getRunMode() === 'embeddedConsole') {
+                const { revealDataViewer } = require('./dataViewer/panel');
+                revealDataViewer();
+            }
         } else if (message && (message.type === 'stopExecution' || message.type === 'clearConsole' || message.type === 'showOverflowNotice') && typeof _actionHandler === 'function') {
             try {
                 await _actionHandler(message.type);
@@ -947,6 +953,11 @@ function getWebviewHtml() {
                     <path d="M2 3h12v1H2V3zm0 4h12v1H2V7zm0 4h7v1H2v-1zm9.85-1.71 1.15-1.15.71.71-1.14 1.15 1.14 1.14-.71.71-1.15-1.14-1.14 1.14-.71-.71 1.14-1.14-1.14-1.15.71-.71 1.14 1.15z"></path>
                 </svg>
             </button>
+            <button id="data-button" class="statusbar-button" type="button" title="Data Viewer">
+                <svg class="statusbar-icon" viewBox="0 0 16 16" aria-hidden="true">
+                    <path d="M13.5 1h-11l-1 1v12l1 1h11l1-1V2l-1-1zm-1 2v10h-9V3h9zm-8 2h2v6h-2V5zm3 0h2v4h-2V5zm3 0h2v8h-2V5z"></path>
+                </svg>
+            </button>
         </div>
     </div>
     <div id="output">
@@ -992,6 +1003,7 @@ function getWebviewHtml() {
         const input = document.getElementById('input');
         const stopButton = document.getElementById('stop-button');
         const clearButton = document.getElementById('clear-button');
+        const dataButton = document.getElementById('data-button');
         const inputHighlight = document.getElementById('input-highlight');
         const autocompleteDropdown = document.getElementById('autocomplete-dropdown');
         const inputHistory = [];
@@ -1582,6 +1594,12 @@ function getWebviewHtml() {
             if (!code.trim() || input.disabled) {
                 return;
             }
+            if (/^\s*(browse|br)\b/i.test(code)) {
+                vscode.postMessage({ type: 'showDataViewer' });
+                input.value = '';
+                updateInputHighlight();
+                return;
+            }
             pushHistory(code);
             scrollOutputToBottom();
             vscode.postMessage({
@@ -1669,6 +1687,10 @@ function getWebviewHtml() {
 
         clearButton.addEventListener('click', () => {
             vscode.postMessage({ type: 'clearConsole' });
+        });
+
+        dataButton.addEventListener('click', () => {
+            vscode.postMessage({ type: 'showDataViewer' });
         });
 
         window.addEventListener('resize', () => {
