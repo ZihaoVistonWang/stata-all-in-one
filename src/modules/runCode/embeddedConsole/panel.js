@@ -3,7 +3,8 @@ const fs = require('fs');
 const path = require('path');
 const { StataTerminalRenderer, getWebviewThemeVariables } = require('./renderer');
 const { msg } = require('../../../utils/common');
-const { StataBuiltinCommands } = require('../../completionProvider');
+const { StataBuiltinCommands, StataKeywords, StataFunctions, extractVariableNames } = require('../../completionProvider');
+const config = require('../../../utils/config');
 
 const _renderer = new StataTerminalRenderer();
 
@@ -87,6 +88,9 @@ function attachPanel(panel) {
     _panel.webview.onDidReceiveMessage(async (message) => {
         if (message && message.type === 'ready') {
             postState();
+            postVariables();
+        } else if (message && message.type === 'requestVariables') {
+            postVariables();
         } else if (message && message.type === 'executeInput' && typeof _commandHandler === 'function') {
             try {
                 await _commandHandler(String(message.code || ''));
@@ -144,6 +148,17 @@ function postState() {
         overflowNoticeSuppressed: _overflowNoticeSuppressed,
         workingDetail: _workingDetail
     });
+}
+
+function postVariables() {
+    if (!_panel) return;
+    const editor = vscode.window.activeTextEditor;
+    if (editor && editor.document.languageId === 'stata') {
+        try {
+            const vars = [...extractVariableNames(editor.document)];
+            _panel.webview.postMessage({ type: 'variablesUpdate', variables: vars });
+        } catch (_e) {}
+    }
 }
 
 async function revealPanel(preserveFocus = true) {
@@ -1001,7 +1016,8 @@ function getWebviewHtml() {
             error: ${JSON.stringify(msg('webviewError'))}
         };
         const FONT_BOOTSTRAP = ${JSON.stringify(fontOptions)};
-        const StataCommands = ${JSON.stringify(StataBuiltinCommands)};
+        const StataCommands = ${JSON.stringify([...new Set([...StataBuiltinCommands, ...StataKeywords, ...StataFunctions, ...config.getCustomCommands()])])};
+        var AutocompleteVariables = [];
 
         var autocompleteActiveIndex = -1;
         var autocompleteVisible = false;
@@ -1017,7 +1033,6 @@ function getWebviewHtml() {
         }
 
         function showAutocomplete(matches, wordStart) {
-            console.log('[ac] showAutocomplete called, matches:', matches.length, 'dropdown elem:', !!autocompleteDropdown);
             if (!matches.length) {
                 hideAutocomplete();
                 return;
@@ -1055,36 +1070,35 @@ function getWebviewHtml() {
             while (wordEnd < text.length && /[A-Za-z_]/.test(text[wordEnd])) {
                 wordEnd++;
             }
-            input.value = text.slice(0, wordStart) + command + text.slice(wordEnd);
-            input.selectionStart = input.selectionEnd = wordStart + command.length;
+            input.value = text.slice(0, wordStart) + command + ' ' + text.slice(wordEnd);
+            input.selectionStart = input.selectionEnd = wordStart + command.length + 1;
             hideAutocomplete();
             updateInputHighlight();
         }
 
         function triggerAutocomplete() {
-            if (input.disabled) { console.log('[ac] input disabled, skip'); return; }
+            if (input.disabled) return;
             var current = getCurrentWord();
-            console.log('[ac] current word:', JSON.stringify(current));
             if (!current.word || current.word.length < 2) {
-                console.log('[ac] word too short or empty, hide');
                 hideAutocomplete();
                 return;
             }
             var prefix = current.word.toLowerCase();
             var matches = [];
-            for (var i = 0; i < StataCommands.length; i++) {
+            for (var i = 0; i < StataCommands.length && matches.length < 8; i++) {
                 if (StataCommands[i].toLowerCase().indexOf(prefix) === 0) {
                     matches.push(StataCommands[i]);
-                    if (matches.length >= 8) break;
                 }
             }
-            console.log('[ac] prefix=' + prefix + ' matches=' + matches.length + ' first:', matches.slice(0, 3));
+            for (var i = 0; i < AutocompleteVariables.length && matches.length < 8; i++) {
+                if (AutocompleteVariables[i].toLowerCase().indexOf(prefix) === 0 && matches.indexOf(AutocompleteVariables[i]) < 0) {
+                    matches.push(AutocompleteVariables[i]);
+                }
+            }
             if (matches.length === 1 && matches[0].toLowerCase() === prefix) {
-                console.log('[ac] exact match, hide');
                 hideAutocomplete();
                 return;
             }
-            console.log('[ac] showing dropdown with', matches.length, 'items');
             showAutocomplete(matches, current.start);
         }
 
@@ -1629,7 +1643,6 @@ function getWebviewHtml() {
         });
 
         input.addEventListener('input', () => {
-            console.log('[ac] input event fired, value=' + JSON.stringify(input.value));
             highlightSuppressed = false;
             updateInputHighlight();
             triggerAutocomplete();
@@ -1695,6 +1708,8 @@ function getWebviewHtml() {
                 updateWorkingMeta();
             } else if (message.type === 'highlightResult') {
                 renderHighlightSegments(message.segments || []);
+            } else if (message.type === 'variablesUpdate') {
+                AutocompleteVariables = message.variables || [];
             } else if (message.type === 'overflowNoticePreference') {
                 overflowNoticeSuppressed = Boolean(message.suppressed);
                 if (overflowNoticeSuppressed) {
@@ -1706,6 +1721,7 @@ function getWebviewHtml() {
 
         bootstrapConsoleFont().finally(() => {
             vscode.postMessage({ type: 'ready' });
+            vscode.postMessage({ type: 'requestVariables' });
         });
     </script>
 </body>
