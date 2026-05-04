@@ -3,7 +3,7 @@
   "injectionSelector": "L:source.stata - comment",
   "patterns": [
     {
-      "match": "\\b([Rr][Ee][Gg][Hh][Dd][Ff][Ee]|[Ii][Vv][Rr][Ee][Gg][Hh][Dd][Ff][Ee]|[Rr][Ee][Pp][Aa][Ii][Rr][Cc][Nn])\\b",
+      "match": "\\b([Rr][Ee][Gg][Hh][Dd][Ff][Ee]|[Ii][Vv][Rr][Ee][Gg][Hh][Dd][Ff][Ee]|[Rr][Ee][Pp][Aa][Ii][Rr][Cc][Nn]|[Bb][Dd][Ii][Ff][Ff])\\b",
       "name": "keyword.control.flow.stata"
     }
   ]

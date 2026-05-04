@@ -220,6 +220,69 @@ function getOutput() {
 }
 
 // Export the API
+/**
+ * Get dataset info (observations, variables, source, sorted by)
+ */
+function getDatasetInfo() {
+    if (!isNativeLoaded()) {
+        return Promise.resolve(null);
+    }
+    try {
+        const result = nativeModule.getDatasetInfo();
+        return Promise.resolve(result);
+    } catch (e) {
+        return Promise.resolve(null);
+    }
+}
+
+/**
+ * Get variable metadata (name, type, format, label)
+ */
+function getVarMetadata() {
+    if (!isNativeLoaded()) {
+        return Promise.resolve([]);
+    }
+    try {
+        const result = nativeModule.getVarMetadata();
+        return Promise.resolve(result);
+    } catch (e) {
+        return Promise.resolve([]);
+    }
+}
+
+/**
+ * Get data rows from the current dataset
+ * @param {string} varList - variable list (default "_all")
+ * @param {number} start - start observation (default 1)
+ * @param {number} end - end observation (default 100)
+ */
+function getDataRows(varList, start, end) {
+    if (!isNativeLoaded()) {
+        return Promise.resolve({ columns: [], rows: [] });
+    }
+    try {
+        const result = nativeModule.getDataRows(varList || '_all', start || 1, end || 100);
+        return Promise.resolve(result);
+    } catch (e) {
+        return Promise.resolve({ columns: [], rows: [] });
+    }
+}
+
+/**
+ * Get summary statistics for all variables
+ */
+function getSummary() {
+    if (!isNativeLoaded()) {
+        return Promise.resolve([]);
+    }
+    try {
+        const result = nativeModule.getSummary();
+        return Promise.resolve(result);
+    } catch (e) {
+        return Promise.resolve([]);
+    }
+}
+
 module.exports = {
     initSession,
     execute,
@@ -227,7 +290,11 @@ module.exports = {
     setBreak,
     shutdown,
     getOutput,
-    
+    getDatasetInfo,
+    getVarMetadata,
+    getDataRows,
+    getSummary,
+
     // Export status getters for external inspection
     isInitialized: () => sessionInitialized,
     getDylibPath: () => currentDylibPath,

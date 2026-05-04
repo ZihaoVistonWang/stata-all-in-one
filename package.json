@@ -227,6 +227,10 @@
         "title": "%command.showSponsor.title%"
       },
       {
+        "command": "stata-all-in-one.showDataViewer",
+        "title": "%command.showDataViewer.title%"
+      },
+      {
         "command": "stata-all-in-one.insertCustomSeparator",
         "title": "%command.insertCustomSeparator.title%"
       },
