@@ -919,14 +919,14 @@ function getWebviewHtml() {
         </div>
     </div>
     <div class="composer">
-        <div class="composer-label">Stata Input</div>
+        <div class="composer-label">${escapeHtml(msg('webviewInputLabel'))}</div>
         <div class="composer-input-wrapper">
             <pre id="input-highlight" aria-hidden="true"></pre>
             <textarea id="input" spellcheck="false"></textarea>
         </div>
         <div class="composer-meta">
-            <span><code>Enter</code> run, <code>Shift+Enter</code> newline</span>
-            <span><code>Up/Down</code> history</span>
+            <span><code>Enter</code> ${escapeHtml(msg('webviewRun'))}, <code>Shift+Enter</code> ${escapeHtml(msg('webviewNewline'))}</span>
+            <span><code>Up/Down</code> ${escapeHtml(msg('webviewHistory'))}</span>
         </div>
     </div>
     <script nonce="${nonce}">
@@ -956,6 +956,7 @@ function getWebviewHtml() {
         let currentWorkingDetail = null;
         let estimatedFinishAt = 0;
         let displayedRemainingSeconds = 0;
+        let highlightSuppressed = false;
 
         const STATUS_LABELS = {
             idle: ${JSON.stringify(msg('webviewIdle'))},
@@ -974,7 +975,7 @@ function getWebviewHtml() {
                 return;
             }
             inputHighlight.innerHTML = '';
-            if (!segments || !segments.length) {
+            if (highlightSuppressed || !segments || !segments.length) {
                 return;
             }
             for (var i = 0; i < segments.length; i++) {
@@ -1005,6 +1006,12 @@ function getWebviewHtml() {
         }
 
         function updateInputHighlight() {
+            if (!inputHighlight) return;
+            var text = input.value || '';
+            if (!text) {
+                inputHighlight.innerHTML = '';
+                return;
+            }
             requestHighlight();
         }
 
@@ -1415,10 +1422,14 @@ function getWebviewHtml() {
                 code
             });
             input.value = '';
+            highlightSuppressed = true;
             updateInputHighlight();
         }
 
         input.addEventListener('keydown', (event) => {
+            if (event.isComposing) {
+                return;
+            }
             if (event.key === 'Enter' && !event.shiftKey) {
                 event.preventDefault();
                 executeInput();
@@ -1438,6 +1449,7 @@ function getWebviewHtml() {
         });
 
         input.addEventListener('input', () => {
+            highlightSuppressed = false;
             updateInputHighlight();
         });
 

@@ -57,6 +57,10 @@ const UI_TEXT = {
         webviewError: 'Error',
         webviewStop: 'Stop',
         webviewClear: 'Clear',
+        webviewInputLabel: 'Command',
+        webviewRun: 'run',
+        webviewNewline: 'newline',
+        webviewHistory: 'history',
         webviewOverflowNotice: 'Output is wider than the current view. Scroll horizontally to inspect it, or widen the Console panel for a better fit.',
         webviewOverflowConfirm: 'OK',
         webviewOverflowDismissForever: 'Don\'t show again'
@@ -110,6 +114,10 @@ const UI_TEXT = {
         webviewError: '错误',
         webviewStop: '停止',
         webviewClear: '清空',
+        webviewInputLabel: '命令窗口',
+        webviewRun: '运行',
+        webviewNewline: '换行',
+        webviewHistory: '历史记录',
         webviewOverflowNotice: '输出内容超出了当前宽度，请横向滑动查看。也可以拉宽 Console 面板以更好地适配输出。',
         webviewOverflowConfirm: '确认',
         webviewOverflowDismissForever: '不再提示'
