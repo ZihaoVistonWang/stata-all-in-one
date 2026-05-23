@@ -53,7 +53,6 @@ async function exportDataRows(session, varNames, startObs, count, tmpFile) {
  * - vars: all variable metadata (name, type, format, label)
  * - dataColumns: all variable names
  * - dataRows: first N rows of data
- * - summary: per-variable statistics
  */
 async function fetchDataSnapshot(rowLimit) {
     const maxRows = rowLimit || 100;
@@ -64,7 +63,7 @@ async function fetchDataSnapshot(rowLimit) {
         // Check if dataset exists
         const nobsOut = trim(await execMata(session, 'st_nobs()'));
         if (!nobsOut || nobsOut === '0' || nobsOut.startsWith('.')) {
-            return { info: { observations: 0, variables: 0 }, vars: [], dataColumns: [], dataRows: [], summary: [] };
+            return { info: { observations: 0, variables: 0 }, vars: [], dataColumns: [], dataRows: [] };
         }
         const nobs = parseInteger(nobsOut);
 
@@ -91,7 +90,7 @@ async function fetchDataSnapshot(rowLimit) {
         const varNamesOut = await execMata(session, 'for(i=1;i<=st_nvar();i++) printf("%s\\n", st_varname(i))');
         const allVarNames = splitLines(varNamesOut).filter(function (v) { return v.length > 0; });
         if (!allVarNames.length) {
-            return { info, vars: [], dataColumns: [], dataRows: [], summary: [] };
+            return { info, vars: [], dataColumns: [], dataRows: [] };
         }
 
         // 3. Variable metadata
@@ -112,25 +111,7 @@ async function fetchDataSnapshot(rowLimit) {
         try { fs.unlinkSync(tmpFile); } catch (_) {}
         const dataRows = await exportDataRows(session, allVarNames, 1, actualRows, tmpFile);
 
-        // 5. Summary statistics
-        const sumOut = await execStata(session, 'summarize');
-        const summary = [];
-        let inSumTable = false;
-        for (const line of splitLines(sumOut)) {
-            const l = trim(line);
-            if (!l) continue;
-            if (l.includes('Variable') && l.includes('Obs')) { inSumTable = true; continue; }
-            if (!inSumTable) continue;
-            const pipe = l.indexOf('|');
-            if (pipe < 0) continue;
-            const name = trim(l.substring(0, pipe));
-            const nums = trim(l.substring(pipe + 1)).split(/\s+/).map(Number);
-            if (nums.length >= 5) {
-                summary.push({ name, obs: nums[0], mean: nums[1], stdDev: nums[2], min: nums[3], max: nums[4] });
-            }
-        }
-
-        return { info, vars, dataColumns: allVarNames, dataRows, summary };
+        return { info, vars, dataColumns: allVarNames, dataRows };
     } catch (e) {
         return { error: e.message };
     }
