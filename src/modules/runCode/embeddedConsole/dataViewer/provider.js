@@ -147,7 +147,7 @@ async function exportDataRows(session, varNames, startObs, count, tmpFile, filte
  * - dataRows: first N rows of data
  */
 async function fetchDataSnapshot(rowLimit, filterText) {
-    const maxRows = rowLimit || 100;
+    const maxRows = rowLimit || 500;
     const session = getActiveSession();
     if (!session) return { error: 'Stata session not initialized' };
 
