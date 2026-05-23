@@ -95,7 +95,6 @@ function getDataViewerHtml() {
         th, td {
             padding: 4px 10px;
             text-align: left;
-            border-bottom: 1px solid color-mix(in srgb, var(--vscode-panel-border) 60%, transparent);
             white-space: nowrap;
             line-height: 20px;
             box-sizing: border-box;
@@ -112,6 +111,9 @@ function getDataViewerHtml() {
         td {
             font-family: var(--vscode-editor-font-family, monospace);
         }
+        tbody tr:nth-child(even) td {
+            background: color-mix(in srgb, var(--vscode-list-hoverBackground) 28%, transparent);
+        }
         td.num {
             text-align: right;
             font-variant-numeric: tabular-nums;
@@ -123,7 +125,7 @@ function getDataViewerHtml() {
             min-width: 40px;
         }
         tr:hover td {
-            background: color-mix(in srgb, var(--vscode-list-hoverBackground) 50%, transparent);
+            background: color-mix(in srgb, var(--vscode-list-hoverBackground) 70%, transparent);
         }
         .info-bar {
             padding: 8px 0;
@@ -249,9 +251,9 @@ function getDataViewerHtml() {
                 var v = vars[i];
                 var tr = document.createElement('tr');
                 tr.innerHTML = '<td>' + esc(v.name) + '</td>' +
-                    '<td>' + esc(v.type || '') + '</td>' +
-                    '<td>' + esc(v.format || '') + '</td>' +
-                    '<td>' + esc(v.label || v.valueLabel || '') + '</td>';
+                    '<td>' + esc(displayValue(v.type)) + '</td>' +
+                    '<td>' + esc(displayValue(v.format)) + '</td>' +
+                    '<td>' + esc(displayValue(v.label || v.valueLabel)) + '</td>';
                 tbody.appendChild(tr);
             }
         }
@@ -298,7 +300,7 @@ function getDataViewerHtml() {
                 var vals = Array.isArray(row.values) ? row.values : [];
                 for (var v = 0; v < cols.length; v++) {
                     var td = document.createElement('td');
-                    var val = v < vals.length ? String(vals[v]) : '';
+                    var val = v < vals.length ? displayValue(vals[v]) : '';
                     td.textContent = val;
                     if (/^[-+]?\\d/.test(val.trim())) {
                         td.className = 'num';
@@ -371,6 +373,12 @@ function getDataViewerHtml() {
         function esc(s) {
             if (!s) return '';
             return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        function displayValue(value) {
+            if (value === null || value === undefined) return '';
+            var s = String(value);
+            return /^nan$/i.test(s.trim()) ? '.' : s;
         }
 
         function setData(data) {

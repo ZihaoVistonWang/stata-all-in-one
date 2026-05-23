@@ -955,7 +955,7 @@ function getWebviewHtml() {
             </button>
             <button id="data-button" class="statusbar-button" type="button" title="Data Viewer">
                 <svg class="statusbar-icon" viewBox="0 0 16 16" aria-hidden="true">
-                    <path d="M13.5 1h-11l-1 1v12l1 1h11l1-1V2l-1-1zm-1 2v10h-9V3h9zm-8 2h2v6h-2V5zm3 0h2v4h-2V5zm3 0h2v8h-2V5z"></path>
+                    <path d="M2 2h12l1 1v10l-1 1H2l-1-1V3l1-1zm0 1v2h12V3H2zm0 3v3h3V6H2zm4 0v3h4V6H6zm5 0v3h3V6h-3zm-9 4v3h3v-3H2zm4 0v3h4v-3H6zm5 0v3h3v-3h-3z"></path>
                 </svg>
             </button>
         </div>
