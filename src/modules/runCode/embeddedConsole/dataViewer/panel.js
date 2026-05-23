@@ -1,5 +1,5 @@
 const vscode = require('vscode');
-const { fetchDataSnapshot } = require('./provider');
+const { fetchDataSnapshot, fetchMoreRows } = require('./provider');
 const config = require('../../../../utils/config');
 
 const PANEL_VIEW_TYPE = 'stata-all-in-one.dataViewer';
@@ -132,7 +132,7 @@ function getDataViewerHtml() {
         .info-bar span {
             margin-right: 16px;
         }
-        .empty-state {
+        .empty-state, .loading-state {
             display: flex;
             align-items: center;
             justify-content: center;
@@ -140,9 +140,15 @@ function getDataViewerHtml() {
             color: var(--vscode-descriptionForeground);
             font-size: 14px;
         }
+        .loading-state {
+            display: none;
+        }
+        body.loading .loading-state { display: flex; }
+        body.loading .empty-state { display: none; }
+        body.loading .tab-content table { display: none; }
     </style>
 </head>
-<body>
+<body class="loading">
     <div class="tab-bar">
         <button class="tab active" data-tab="vars" id="tab-vars">Variables</button>
         <button class="tab" data-tab="data" id="tab-data">Data</button>
@@ -151,6 +157,7 @@ function getDataViewerHtml() {
         <button class="refresh-btn" id="refresh-btn" title="Refresh">&#x21bb; Refresh</button>
     </div>
     <div class="content" id="content">
+        <div class="loading-state" id="loading-msg">Loading...</div>
         <div class="tab-content active" id="content-vars">
             <div class="empty-state" id="empty-vars">No dataset loaded</div>
             <table id="table-vars" style="display:none">
@@ -165,6 +172,9 @@ function getDataViewerHtml() {
                     <thead></thead>
                     <tbody></tbody>
                 </table>
+                <div id="load-more-row" style="display:none; text-align:center; padding:10px 20px; cursor:pointer; color:var(--vscode-textLink-foreground); background:color-mix(in srgb, var(--vscode-textLink-foreground) 8%, transparent); border-radius:4px; margin:8px 0; user-select:none;">
+                    Load more rows...
+                </div>
             </div>
         </div>
         <div class="tab-content" id="content-summary">
@@ -179,6 +189,7 @@ function getDataViewerHtml() {
     <script nonce="${nonce}">
         const vscode = acquireVsCodeApi();
         let currentTab = 'vars';
+        const contentEl = document.getElementById('content');
 
         document.querySelectorAll('.tab').forEach(function (tab) {
             tab.addEventListener('click', function () {
@@ -190,12 +201,41 @@ function getDataViewerHtml() {
             vscode.postMessage({ type: 'refresh' });
         });
 
+        var loadMoreEl = document.getElementById('load-more-row');
+        loadMoreEl.addEventListener('click', function () {
+            requestLoadMore();
+        });
+        loadMoreEl.addEventListener('mouseover', function () {
+            loadMoreEl.style.background = 'color-mix(in srgb, var(--vscode-textLink-foreground) 15%, transparent)';
+        });
+        loadMoreEl.addEventListener('mouseout', function () {
+            loadMoreEl.style.background = 'color-mix(in srgb, var(--vscode-textLink-foreground) 8%, transparent)';
+        });
+        loadMoreEl.style.cursor = 'pointer';
+
+        function setLoadingMore(v) {
+            loadingMore = v;
+            var el = document.getElementById('load-more-row');
+            if (v) {
+                el.textContent = 'Loading more...';
+                el.style.display = '';
+            } else if (!hasMoreRows || (loadedRows >= totalObs && totalObs > 0)) {
+                el.style.display = 'none';
+            } else if (loadedRows > 0) {
+                el.textContent = 'Scroll for more...';
+                el.style.display = '';
+            } else {
+                el.style.display = 'none';
+            }
+        }
+
         function switchTab(name) {
             currentTab = name;
             document.querySelectorAll('.tab').forEach(function (t) { t.classList.remove('active'); });
             document.querySelectorAll('.tab-content').forEach(function (c) { c.classList.remove('active'); });
             document.getElementById('tab-' + name).classList.add('active');
             document.getElementById('content-' + name).classList.add('active');
+            scheduleAutoLoadCheck();
         }
 
         function showEmpty(hasData) {
@@ -221,7 +261,15 @@ function getDataViewerHtml() {
             }
         }
 
-        function renderData(columns, rows) {
+        var dataColumnsCache = [];
+        var totalObs = 0;
+        var loadedRows = 0;
+        var loadingMore = false;
+        var hasMoreRows = true;
+        var preloadRowBuffer = 40;
+
+        function renderDataHeader(columns) {
+            dataColumnsCache = columns;
             var thead = document.getElementById('table-data').querySelector('thead');
             var tbody = document.getElementById('table-data').querySelector('tbody');
             thead.innerHTML = '';
@@ -237,6 +285,14 @@ function getDataViewerHtml() {
                 headerRow.appendChild(th2);
             }
             thead.appendChild(headerRow);
+            loadedRows = 0;
+            hasMoreRows = true;
+            setLoadingMore(false);
+        }
+
+        function appendDataRows(rows) {
+            var tbody = document.getElementById('table-data').querySelector('tbody');
+            var cols = dataColumnsCache;
             for (var r = 0; r < rows.length; r++) {
                 var row = rows[r];
                 var tr = document.createElement('tr');
@@ -245,7 +301,7 @@ function getDataViewerHtml() {
                 tdNum.textContent = row.rowNum;
                 tr.appendChild(tdNum);
                 var vals = Array.isArray(row.values) ? row.values : [];
-                for (var v = 0; v < columns.length; v++) {
+                for (var v = 0; v < cols.length; v++) {
                     var td = document.createElement('td');
                     var val = v < vals.length ? String(vals[v]) : '';
                     td.textContent = val;
@@ -256,7 +312,56 @@ function getDataViewerHtml() {
                 }
                 tbody.appendChild(tr);
             }
+            loadedRows += rows.length;
+            setLoadingMore(false);
+            scheduleAutoLoadCheck();
         }
+
+        function requestLoadMore() {
+            if (loadingMore || !hasMoreRows || (totalObs > 0 && loadedRows >= totalObs)) return;
+            setLoadingMore(true);
+            vscode.postMessage({ type: 'loadMore', startObs: loadedRows, count: 100 });
+        }
+
+        var autoLoadCheckQueued = false;
+        function scheduleAutoLoadCheck() {
+            if (autoLoadCheckQueued) return;
+            autoLoadCheckQueued = true;
+            requestAnimationFrame(function () {
+                autoLoadCheckQueued = false;
+                checkAutoLoad();
+            });
+        }
+
+        function checkAutoLoad() {
+            if (currentTab !== 'data') return;
+            if (loadingMore || !hasMoreRows || (totalObs > 0 && loadedRows >= totalObs)) return;
+            var firstVisibleRow = getFirstVisibleDataRow();
+            if (firstVisibleRow > 0 && firstVisibleRow >= loadedRows - preloadRowBuffer) {
+                requestLoadMore();
+                return;
+            }
+            var distanceToBottom = contentEl.scrollHeight - contentEl.scrollTop - contentEl.clientHeight;
+            if (distanceToBottom <= 300) {
+                requestLoadMore();
+            }
+        }
+
+        function getFirstVisibleDataRow() {
+            var rows = document.getElementById('table-data').querySelectorAll('tbody tr');
+            if (!rows.length) return 0;
+            var contentTop = contentEl.getBoundingClientRect().top;
+            for (var i = 0; i < rows.length; i++) {
+                if (rows[i].getBoundingClientRect().bottom > contentTop) {
+                    var cell = rows[i].querySelector('.row-num');
+                    return cell ? Number(cell.textContent) || 0 : 0;
+                }
+            }
+            return loadedRows;
+        }
+        contentEl.addEventListener('scroll', scheduleAutoLoadCheck, { passive: true });
+        contentEl.addEventListener('wheel', scheduleAutoLoadCheck, { passive: true });
+        window.addEventListener('resize', scheduleAutoLoadCheck);
 
         function renderSummary(summary) {
             var tbody = document.getElementById('table-summary').querySelector('tbody');
@@ -297,6 +402,8 @@ function getDataViewerHtml() {
         }
 
         function setData(data) {
+            document.body.classList.remove('loading');
+            document.getElementById('loading-msg').style.display = 'none';
             var hasData = data.vars && data.vars.length > 0;
             showEmpty(hasData);
             if (!hasData) {
@@ -304,21 +411,33 @@ function getDataViewerHtml() {
                 return;
             }
             renderVars(data.vars);
-            renderData(data.dataColumns, data.dataRows);
+            renderDataHeader(data.dataColumns);
+            totalObs = (data.info && data.info.observations) || 0;
+            appendDataRows(data.dataRows || []);
+            setLoadingMore(false);
             renderSummary(data.summary);
             renderInfo(data.info || {});
+            scheduleAutoLoadCheck();
         }
 
         window.addEventListener('message', function (event) {
             var message = event.data || {};
             if (message.type === 'setData') {
                 setData(message.data || {});
+            } else if (message.type === 'appendRows') {
+                hasMoreRows = message.hasMore !== false;
+                appendDataRows(message.rows || []);
+            } else if (message.type === 'loadMoreDone') {
+                hasMoreRows = message.hasMore !== false;
+                setLoadingMore(false);
             } else if (message.type === 'setStatus') {
                 // Could show loading indicator
             }
         });
 
-        vscode.postMessage({ type: 'ready' });
+        setTimeout(function () {
+            vscode.postMessage({ type: 'ready' });
+        }, 100);
     </script>
 </body>
 </html>`;
@@ -328,8 +447,7 @@ function attachPanel(panel) {
     _panel = panel;
     _panel.title = getPanelTitle();
     _panel.webview.options = {
-        enableScripts: true,
-        retainContextWhenHidden: true
+        enableScripts: true
     };
     _panel.webview.html = getDataViewerHtml();
     _panel.onDidDispose(() => {
@@ -342,6 +460,24 @@ function attachPanel(panel) {
             await refresh();
         } else if (message && message.type === 'refresh') {
             await refresh();
+        } else if (message && message.type === 'loadMore') {
+            const startObs = (message.startObs || 0) + 1;
+            const count = message.count || 100;
+            try {
+                const rows = await fetchMoreRows(startObs, count);
+                if (_panel) {
+                    if (rows && rows.length > 0) {
+                        _panel.webview.postMessage({ type: 'appendRows', rows, hasMore: rows.length >= count });
+                    } else {
+                        _panel.webview.postMessage({ type: 'loadMoreDone', hasMore: false });
+                    }
+                }
+            } catch (e) {
+                console.error('[dataViewer] loadMore failed:', e.message);
+                if (_panel) {
+                    _panel.webview.postMessage({ type: 'loadMoreDone', hasMore: true });
+                }
+            }
         }
     });
     return _panel;
@@ -350,6 +486,7 @@ function attachPanel(panel) {
 function ensurePanel() {
     if (_panel) {
         _panel.title = getPanelTitle();
+        _panel.webview.html = getDataViewerHtml();
         return _panel;
     }
     const panel = vscode.window.createWebviewPanel(
@@ -358,7 +495,7 @@ function ensurePanel() {
         vscode.ViewColumn.Two,
         {
             enableScripts: true,
-            retainContextWhenHidden: true
+            retainContextWhenHidden: false
         }
     );
     return attachPanel(panel);
@@ -367,8 +504,13 @@ function ensurePanel() {
 async function refresh() {
     if (!_panel) return;
     _panel.webview.postMessage({ type: 'setStatus', status: 'loading' });
-    const data = await fetchDataSnapshot();
-    _panel.webview.postMessage({ type: 'setData', data });
+    try {
+        const data = await fetchDataSnapshot();
+        _panel.webview.postMessage({ type: 'setData', data });
+    } catch (e) {
+        console.error('[dataViewer] refresh failed:', e.message);
+        _panel.webview.postMessage({ type: 'setData', data: { error: e.message } });
+    }
     _panel.webview.postMessage({ type: 'setStatus', status: 'ready' });
 }
 
@@ -379,7 +521,6 @@ async function reveal() {
     }
     const panel = ensurePanel();
     panel.reveal(vscode.ViewColumn.Two, true);
-    await refresh();
     return panel;
 }
 

@@ -312,9 +312,17 @@ function forceShutdownConsoleSession() {
 }
 
 // 导出接口
+function getActiveSession() {
+    if (_consoleSessionInstance && _consoleSessionInstance.isInitialized()) {
+        return _consoleSessionInstance;
+    }
+    return null;
+}
+
 module.exports = {
     StataConsoleSession,
     getConsoleSession,
+    getActiveSession,
     initConsoleSession,
     hasActiveConsoleSession,
     forceShutdownConsoleSession
