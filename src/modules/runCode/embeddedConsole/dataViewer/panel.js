@@ -61,6 +61,7 @@ function getDataViewerHtml(webview) {
     <style>
         :root {
             color-scheme: light dark;
+            --stata-command: ${themeVars.command || 'var(--vscode-editor-foreground)'};
             --stata-function: ${themeVars.function || 'var(--vscode-editor-foreground)'};
             --stata-option: ${themeVars.option || 'var(--stata-function)'};
             --stata-keyword: ${themeVars.keyword || 'var(--vscode-editor-foreground)'};
@@ -110,11 +111,11 @@ function getDataViewerHtml(webview) {
             outline: none;
         }
         .tab:hover {
-            color: var(--stata-option);
+            color: var(--stata-command);
         }
         .tab.active {
-            color: var(--stata-option);
-            border-bottom-color: var(--stata-option);
+            color: var(--stata-command);
+            border-bottom-color: var(--stata-command);
         }
         .tab-bar-spacer {
             flex: 1;
@@ -302,7 +303,7 @@ function getDataViewerHtml(webview) {
             top: 0;
             background: var(--vscode-editor-background);
             font-weight: 600;
-            color: var(--vscode-descriptionForeground);
+            color: var(--stata-comment);
             z-index: 10;
             box-shadow: 0 1px 0 color-mix(in srgb, var(--vscode-panel-border) 85%, transparent);
         }
@@ -321,6 +322,18 @@ function getDataViewerHtml(webview) {
             text-align: right;
             user-select: none;
             min-width: 40px;
+        }
+        td.var-name, td.data-variable {
+            color: var(--stata-variable);
+        }
+        td.var-type {
+            color: var(--stata-command);
+        }
+        td.var-format, td.data-number {
+            color: var(--stata-number);
+        }
+        td.var-label, td.data-string {
+            color: var(--stata-string);
         }
         tr:hover td {
             background: color-mix(in srgb, var(--vscode-list-hoverBackground) 70%, transparent);
@@ -701,23 +714,25 @@ function getDataViewerHtml(webview) {
             for (var i = 0; i < vars.length; i++) {
                 var v = vars[i];
                 var tr = document.createElement('tr');
-                tr.innerHTML = '<td>' + esc(v.name) + '</td>' +
-                    '<td>' + esc(displayValue(v.type)) + '</td>' +
-                    '<td>' + esc(displayValue(v.format)) + '</td>' +
-                    '<td>' + esc(displayValue(v.label || v.valueLabel)) + '</td>';
+                tr.innerHTML = '<td class="var-name">' + esc(v.name) + '</td>' +
+                    '<td class="var-type">' + esc(displayValue(v.type)) + '</td>' +
+                    '<td class="var-format">' + esc(displayValue(v.format)) + '</td>' +
+                    '<td class="var-label">' + esc(displayValue(v.label || v.valueLabel)) + '</td>';
                 tbody.appendChild(tr);
             }
         }
 
         var dataColumnsCache = [];
+        var dataColumnTypesCache = [];
         var totalObs = 0;
         var loadedRows = 0;
         var loadingMore = false;
         var hasMoreRows = true;
         var preloadRowBuffer = 40;
 
-        function renderDataHeader(columns) {
+        function renderDataHeader(columns, typeMap) {
             dataColumnsCache = columns;
+            dataColumnTypesCache = [];
             var thead = document.getElementById('table-data').querySelector('thead');
             var tbody = document.getElementById('table-data').querySelector('tbody');
             thead.innerHTML = '';
@@ -731,6 +746,7 @@ function getDataViewerHtml(webview) {
                 var th2 = document.createElement('th');
                 th2.textContent = columns[i];
                 headerRow.appendChild(th2);
+                dataColumnTypesCache.push(typeMap[columns[i]] || '');
             }
             thead.appendChild(headerRow);
             loadedRows = 0;
@@ -753,9 +769,8 @@ function getDataViewerHtml(webview) {
                     var td = document.createElement('td');
                     var val = v < vals.length ? displayValue(vals[v]) : '';
                     td.textContent = val;
-                    if (/^[-+]?\\d/.test(val.trim())) {
-                        td.className = 'num';
-                    }
+                    var isString = /^str/i.test(dataColumnTypesCache[v] || '');
+                    td.className = isString ? 'data-string' : 'num data-number';
                     tr.appendChild(td);
                 }
                 tbody.appendChild(tr);
@@ -844,12 +859,20 @@ function getDataViewerHtml(webview) {
             renderVars(data.vars);
             autocompleteVariables = data.allVarNames || data.dataColumns || [];
             updateFilterHighlight();
-            renderDataHeader(data.dataColumns);
+            renderDataHeader(data.dataColumns, getVarTypeMap(data.vars || []));
             totalObs = (data.info && data.info.observations) || 0;
             appendDataRows(data.dataRows || []);
             setLoadingMore(false);
             renderInfo(data.info || {});
             scheduleAutoLoadCheck();
+        }
+
+        function getVarTypeMap(vars) {
+            var map = {};
+            for (var i = 0; i < vars.length; i++) {
+                map[vars[i].name] = vars[i].type || '';
+            }
+            return map;
         }
 
         window.addEventListener('message', function (event) {
