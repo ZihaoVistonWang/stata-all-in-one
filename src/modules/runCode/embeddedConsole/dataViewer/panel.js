@@ -2,6 +2,7 @@ const vscode = require('vscode');
 const { fetchDataSnapshot, fetchMoreRows } = require('./provider');
 const config = require('../../../../utils/config');
 const { msg } = require('../../../../utils/common');
+const { getWebviewThemeVariables } = require('../renderer');
 
 const PANEL_VIEW_TYPE = 'stata-all-in-one.dataViewer';
 
@@ -24,6 +25,7 @@ function getCodiconFontUri(webview) {
 function getDataViewerHtml(webview) {
     const nonce = String(Date.now());
     const codiconFontUri = getCodiconFontUri(webview);
+    const themeVars = getWebviewThemeVariables();
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -34,6 +36,8 @@ function getDataViewerHtml(webview) {
     <style>
         :root {
             color-scheme: light dark;
+            --stata-function: ${themeVars.function || 'var(--vscode-editor-foreground)'};
+            --stata-option: ${themeVars.option || 'var(--stata-function)'};
         }
         @font-face {
             font-family: "codicon";
@@ -73,11 +77,11 @@ function getDataViewerHtml(webview) {
             outline: none;
         }
         .tab:hover {
-            color: var(--vscode-foreground);
+            color: var(--stata-option);
         }
         .tab.active {
-            color: var(--vscode-textLink-foreground);
-            border-bottom-color: var(--vscode-textLink-foreground);
+            color: var(--stata-option);
+            border-bottom-color: var(--stata-option);
         }
         .tab-bar-spacer {
             flex: 1;
@@ -114,7 +118,11 @@ function getDataViewerHtml(webview) {
             padding: 0 16px 12px;
         }
         .tab-content { display: none; }
-        .tab-content.active { display: block; }
+        .tab-content.active {
+            display: flex;
+            flex-direction: column;
+            min-height: 100%;
+        }
         table {
             min-width: 100%;
             width: max-content;
@@ -173,7 +181,8 @@ function getDataViewerHtml(webview) {
             display: flex;
             align-items: center;
             justify-content: center;
-            height: 100%;
+            min-height: 100%;
+            flex: 1;
             color: var(--vscode-descriptionForeground);
             font-size: 14px;
         }
