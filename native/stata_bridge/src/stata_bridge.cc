@@ -685,7 +685,34 @@ Napi::Value GetDataRows(const Napi::CallbackInfo& info) {
         endObs = info[2].As<Napi::Number>().Int32Value();
     }
 
-    std::string cmd = "list " + varList + " in " + std::to_string(startObs) + "/" + std::to_string(endObs) + ", noobs";
+    // For wide datasets, limit to first 30 variables
+    std::string actualVarList = varList;
+    if (varList == "_all") {
+        std::string dsOutput = ExecuteStataAndGetOutput("ds");
+        auto dsLines = SplitLines(dsOutput);
+        std::string allVars;
+        int varCount = 0;
+        for (auto& dl : dsLines) {
+            std::string dv = Trim(dl);
+            if (dv.empty() || dv.find("---") == 0) continue;
+            // Split on whitespace to get individual variable names
+            size_t vpos = 0;
+            while (vpos < dv.size() && varCount < 30) {
+                while (vpos < dv.size() && (dv[vpos] == ' ' || dv[vpos] == '\t')) vpos++;
+                if (vpos >= dv.size()) break;
+                size_t vend = vpos;
+                while (vend < dv.size() && dv[vend] != ' ' && dv[vend] != '\t') vend++;
+                std::string vname = dv.substr(vpos, vend - vpos);
+                if (!allVars.empty()) allVars += " ";
+                allVars += vname;
+                varCount++;
+                vpos = vend;
+            }
+        }
+        if (!allVars.empty()) actualVarList = allVars;
+    }
+
+    std::string cmd = "list " + actualVarList + " in " + std::to_string(startObs) + "/" + std::to_string(endObs) + ", noobs clean";
     std::string output = ExecuteStataAndGetOutput(cmd);
 
     Napi::Object result = Napi::Object::New(env);
@@ -693,60 +720,61 @@ Napi::Value GetDataRows(const Napi::CallbackInfo& info) {
     Napi::Array rows = Napi::Array::New(env);
 
     auto lines = SplitLines(output);
+    // Parse space-separated output from "noobs clean" format
+    // First non-empty line after command echo contains the variable names (header)
     std::vector<std::string> colNames;
-    bool inData = false;
+    bool headerParsed = false;
     uint32_t rowIdx = 0;
+    uint32_t colIdx = 0;
 
     for (size_t i = 0; i < lines.size(); i++) {
-        std::string l = Trim(lines[i]);
+        std::string l = lines[i];
+        // Skip command echo line and empty lines
         if (l.empty()) continue;
+        // Skip lines starting with ". " (echo of the command)
+        if (l.size() >= 2 && l[0] == '.' && l[1] == ' ') continue;
 
-        // Detect separator line: "+-------+-------+---"
-        if (l.size() >= 3 && l[0] == '+' && (l[1] == '-' || l[1] == '=')) {
-            inData = !inData;
-            continue;
+        // Parse whitespace-separated values
+        std::vector<std::string> values;
+        size_t pos = 0;
+        while (pos < l.size()) {
+            while (pos < l.size() && (l[pos] == ' ' || l[pos] == '\t')) pos++;
+            if (pos >= l.size()) break;
+            size_t end = pos;
+            while (end < l.size() && l[end] != ' ' && l[end] != '\t') end++;
+            values.push_back(l.substr(pos, end - pos));
+            pos = end;
         }
 
-        if (!inData) continue;
+        if (values.empty()) continue;
 
-        // Parse pipe-delimited row - may have obs number prefix like "  1. |"
-        size_t firstPipe = l.find('|');
-        if (firstPipe != std::string::npos) {
-            std::vector<std::string> values;
-            size_t pos = firstPipe;
-            while (pos < l.size()) {
-                if (l[pos] == '|') {
-                    pos++; // skip pipe
-                    while (pos < l.size() && l[pos] == ' ') pos++; // skip leading spaces
-                    size_t end = pos;
-                    while (end < l.size() && l[end] != '|') end++;
-                    // Trim trailing spaces
-                    size_t valEnd = end;
-                    while (valEnd > pos && l[valEnd-1] == ' ') valEnd--;
-                    values.push_back(l.substr(pos, valEnd - pos));
-                    pos = end;
-                } else {
-                    pos++;
-                }
-            }
-
-            if (colNames.empty()) {
-                // First row is header
+        if (!headerParsed) {
+            // First data line - could be header or could be data if no header
+            // Check if first value looks like a variable name (starts with letter or _)
+            std::string firstVal = values[0];
+            if (!firstVal.empty() && (std::isalpha(firstVal[0]) || firstVal[0] == '_')) {
+                // Treat as header
                 for (auto& v : values) {
                     colNames.push_back(v);
-                    columns.Set(static_cast<uint32_t>(colNames.size() - 1), Napi::String::New(env, v));
+                    columns.Set(colIdx++, Napi::String::New(env, v));
                 }
-            } else {
-                Napi::Object row = Napi::Object::New(env);
-                row.Set("rowNum", Napi::Number::New(env, startObs + static_cast<int>(rowIdx)));
-                Napi::Array vals = Napi::Array::New(env);
-                for (size_t vi = 0; vi < values.size() && vi < colNames.size(); vi++) {
-                    vals.Set(static_cast<uint32_t>(vi), Napi::String::New(env, values[vi]));
-                }
-                row.Set("values", vals);
-                rows.Set(rowIdx++, row);
+                headerParsed = true;
+                continue;
             }
+            // No header - values ARE the column names
+            // Use generic names
+            headerParsed = true;
         }
+
+        // Data row
+        Napi::Object row = Napi::Object::New(env);
+        row.Set("rowNum", Napi::Number::New(env, startObs + static_cast<int>(rowIdx)));
+        Napi::Array vals = Napi::Array::New(env);
+        for (size_t vi = 0; vi < values.size() && vi < colNames.size(); vi++) {
+            vals.Set(static_cast<uint32_t>(vi), Napi::String::New(env, values[vi]));
+        }
+        row.Set("values", vals);
+        rows.Set(rowIdx++, row);
     }
 
     result.Set("columns", columns);
