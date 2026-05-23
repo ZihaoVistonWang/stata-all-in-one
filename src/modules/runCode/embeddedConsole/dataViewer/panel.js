@@ -81,13 +81,15 @@ function getDataViewerHtml() {
         .content {
             flex: 1;
             overflow: auto;
-            padding: 12px 16px;
+            padding: 0 16px 12px;
         }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
         table {
-            width: 100%;
-            border-collapse: collapse;
+            min-width: 100%;
+            width: max-content;
+            border-collapse: separate;
+            border-spacing: 0;
             font-size: var(--vscode-editor-font-size, 13px);
         }
         th, td {
@@ -95,6 +97,8 @@ function getDataViewerHtml() {
             text-align: left;
             border-bottom: 1px solid color-mix(in srgb, var(--vscode-panel-border) 60%, transparent);
             white-space: nowrap;
+            line-height: 20px;
+            box-sizing: border-box;
         }
         th {
             position: sticky;
@@ -102,7 +106,8 @@ function getDataViewerHtml() {
             background: var(--vscode-editor-background);
             font-weight: 600;
             color: var(--vscode-descriptionForeground);
-            z-index: 1;
+            z-index: 10;
+            box-shadow: 0 1px 0 color-mix(in srgb, var(--vscode-panel-border) 85%, transparent);
         }
         td {
             font-family: var(--vscode-editor-font-family, monospace);
@@ -152,7 +157,6 @@ function getDataViewerHtml() {
     <div class="tab-bar">
         <button class="tab active" data-tab="vars" id="tab-vars">Variables</button>
         <button class="tab" data-tab="data" id="tab-data">Data</button>
-        <button class="tab" data-tab="summary" id="tab-summary">Summary</button>
         <span class="tab-bar-spacer"></span>
         <button class="refresh-btn" id="refresh-btn" title="Refresh">&#x21bb; Refresh</button>
     </div>
@@ -167,7 +171,7 @@ function getDataViewerHtml() {
         </div>
         <div class="tab-content" id="content-data">
             <div class="empty-state" id="empty-data">No dataset loaded</div>
-            <div id="data-table-container" style="display:none; overflow-x: auto;">
+            <div id="data-table-container" style="display:none">
                 <table id="table-data">
                     <thead></thead>
                     <tbody></tbody>
@@ -176,13 +180,6 @@ function getDataViewerHtml() {
                     Load more rows...
                 </div>
             </div>
-        </div>
-        <div class="tab-content" id="content-summary">
-            <div class="empty-state" id="empty-summary">No dataset loaded</div>
-            <table id="table-summary" style="display:none">
-                <thead><tr><th>Variable</th><th class="num">Obs</th><th class="num">Mean</th><th class="num">Std. Dev.</th><th class="num">Min</th><th class="num">Max</th></tr></thead>
-                <tbody></tbody>
-            </table>
         </div>
     </div>
     <div class="info-bar" id="info-bar"></div>
@@ -243,8 +240,6 @@ function getDataViewerHtml() {
             document.getElementById('table-vars').style.display = hasData ? '' : 'none';
             document.getElementById('empty-data').style.display = hasData ? 'none' : '';
             document.getElementById('data-table-container').style.display = hasData ? '' : 'none';
-            document.getElementById('empty-summary').style.display = hasData ? 'none' : '';
-            document.getElementById('table-summary').style.display = hasData ? '' : 'none';
         }
 
         function renderVars(vars) {
@@ -363,22 +358,6 @@ function getDataViewerHtml() {
         contentEl.addEventListener('wheel', scheduleAutoLoadCheck, { passive: true });
         window.addEventListener('resize', scheduleAutoLoadCheck);
 
-        function renderSummary(summary) {
-            var tbody = document.getElementById('table-summary').querySelector('tbody');
-            tbody.innerHTML = '';
-            for (var i = 0; i < summary.length; i++) {
-                var s = summary[i];
-                var tr = document.createElement('tr');
-                tr.innerHTML = '<td>' + esc(s.name) + '</td>' +
-                    '<td class="num">' + fmt(s.obs) + '</td>' +
-                    '<td class="num">' + fmt(s.mean) + '</td>' +
-                    '<td class="num">' + fmt(s.stdDev) + '</td>' +
-                    '<td class="num">' + fmt(s.min) + '</td>' +
-                    '<td class="num">' + fmt(s.max) + '</td>';
-                tbody.appendChild(tr);
-            }
-        }
-
         function renderInfo(info) {
             var bar = document.getElementById('info-bar');
             var parts = [];
@@ -392,13 +371,6 @@ function getDataViewerHtml() {
         function esc(s) {
             if (!s) return '';
             return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-        }
-
-        function fmt(n) {
-            if (n === null || n === undefined) return '';
-            if (typeof n === 'string') return n;
-            if (Number.isInteger(n)) return String(n);
-            return n.toFixed(6);
         }
 
         function setData(data) {
@@ -415,7 +387,6 @@ function getDataViewerHtml() {
             totalObs = (data.info && data.info.observations) || 0;
             appendDataRows(data.dataRows || []);
             setLoadingMore(false);
-            renderSummary(data.summary);
             renderInfo(data.info || {});
             scheduleAutoLoadCheck();
         }
