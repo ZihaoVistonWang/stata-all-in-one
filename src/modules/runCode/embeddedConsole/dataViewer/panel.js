@@ -2,11 +2,12 @@ const vscode = require('vscode');
 const { fetchDataSnapshot, fetchMoreRows } = require('./provider');
 const config = require('../../../../utils/config');
 const { msg } = require('../../../../utils/common');
-const { getWebviewThemeVariables } = require('../renderer');
+const { StataTerminalRenderer, getWebviewThemeVariables } = require('../renderer');
 
 const PANEL_VIEW_TYPE = 'stata-all-in-one.dataViewer';
 
 let _panel = null;
+const _renderer = new StataTerminalRenderer();
 
 const CODICON_RESOURCE_ROOT = vscode.Uri.joinPath(vscode.Uri.file(vscode.env.appRoot), 'out', 'media');
 
@@ -20,6 +21,30 @@ function escHtml(s) {
 
 function getCodiconFontUri(webview) {
     return webview.asWebviewUri(vscode.Uri.joinPath(vscode.Uri.file(vscode.env.appRoot), 'out', 'media', 'codicon.ttf'));
+}
+
+function highlightFilterText(text) {
+    const prefix = 'browse ';
+    const line = prefix + String(text || '');
+    try {
+        const entry = _renderer._segmentCommandLine(line);
+        const segments = entry && Array.isArray(entry.segments) ? entry.segments : [];
+        let remainingPrefix = prefix.length;
+        const result = [];
+        for (const seg of segments) {
+            const segText = String(seg.text || '');
+            if (remainingPrefix >= segText.length) {
+                remainingPrefix -= segText.length;
+                continue;
+            }
+            const textPart = remainingPrefix > 0 ? segText.slice(remainingPrefix) : segText;
+            remainingPrefix = 0;
+            result.push({ ...seg, text: textPart });
+        }
+        return result;
+    } catch (_e) {
+        return [{ text: String(text || ''), tokenType: 'plain', className: 'tok tok-plain', style: {} }];
+    }
 }
 
 function getDataViewerHtml(webview) {
@@ -38,6 +63,14 @@ function getDataViewerHtml(webview) {
             color-scheme: light dark;
             --stata-function: ${themeVars.function || 'var(--vscode-editor-foreground)'};
             --stata-option: ${themeVars.option || 'var(--stata-function)'};
+            --stata-keyword: ${themeVars.keyword || 'var(--vscode-editor-foreground)'};
+            --stata-string: ${themeVars.string || 'var(--vscode-editor-foreground)'};
+            --stata-number: ${themeVars.number || 'var(--vscode-editor-foreground)'};
+            --stata-comment: ${themeVars.comment || 'var(--vscode-descriptionForeground)'};
+            --stata-variable: ${themeVars.variable || 'var(--vscode-editor-foreground)'};
+            --stata-macro: ${themeVars.macro || 'var(--stata-variable)'};
+            --stata-operator: ${themeVars.operator || 'var(--vscode-editor-foreground)'};
+            --stata-plain: ${themeVars.plain || 'var(--vscode-editor-foreground)'};
         }
         @font-face {
             font-family: "codicon";
@@ -112,6 +145,133 @@ function getDataViewerHtml(webview) {
         .codicon-refresh::before {
             content: "\\eb37";
         }
+        .codicon-filter::before {
+            content: "\\eaf1";
+        }
+        .codicon-filter-filled::before {
+            content: "\\ebce";
+        }
+        .codicon-search::before {
+            content: "\\ea6d";
+        }
+        .codicon-eraser::before {
+            content: "\\ec5d";
+        }
+        .filter-row {
+            display: none;
+            border-top: 1px solid var(--vscode-panel-border);
+            background: var(--vscode-editor-background);
+            padding: 8px 12px;
+            flex-shrink: 0;
+            position: relative;
+        }
+        body.filter-open .filter-row {
+            display: block;
+        }
+        .filter-input-shell {
+            display: grid;
+            position: relative;
+            width: 100%;
+        }
+        .filter-input-shell > * {
+            grid-area: 1 / 1;
+        }
+        #filter-highlight,
+        #filter-input {
+            box-sizing: border-box;
+            width: 100%;
+            min-height: 28px;
+            margin: 0;
+            border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
+            border-radius: 4px;
+            padding: 5px 64px 5px 8px;
+            font-family: var(--vscode-editor-font-family, monospace);
+            font-size: var(--vscode-editor-font-size, 13px);
+            line-height: 18px;
+            white-space: pre;
+            overflow: hidden;
+        }
+        #filter-highlight {
+            color: var(--vscode-input-foreground);
+            background: var(--vscode-input-background);
+            pointer-events: none;
+        }
+        #filter-input {
+            color: transparent;
+            background: transparent;
+            caret-color: var(--vscode-input-foreground);
+            outline: none;
+            resize: none;
+        }
+        #filter-input::placeholder {
+            color: var(--vscode-input-placeholderForeground);
+        }
+        .filter-input-actions {
+            grid-area: 1 / 1;
+            justify-self: end;
+            align-self: center;
+            display: flex;
+            gap: 2px;
+            padding-right: 4px;
+            z-index: 2;
+        }
+        .filter-input-button {
+            width: 22px;
+            height: 22px;
+            padding: 0;
+            border: none;
+            border-radius: 4px;
+            background: transparent;
+            color: var(--vscode-foreground);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+        .filter-input-button:hover {
+            background: var(--vscode-toolbar-hoverBackground);
+        }
+        .filter-autocomplete {
+            position: absolute;
+            z-index: 100;
+            top: 100%;
+            left: 12px;
+            margin-top: 2px;
+            background: var(--vscode-input-background);
+            border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
+            border-radius: 6px;
+            max-height: 180px;
+            overflow-y: auto;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+            font-family: var(--vscode-editor-font-family, monospace);
+            font-size: var(--vscode-editor-font-size, 13px);
+            line-height: 1.5;
+            min-width: 160px;
+            display: none;
+        }
+        .filter-autocomplete.visible {
+            display: block;
+        }
+        .filter-autocomplete-item {
+            padding: 4px 12px;
+            cursor: pointer;
+            color: var(--vscode-input-foreground);
+        }
+        .filter-autocomplete-item.active {
+            background: var(--vscode-list-activeSelectionBackground);
+            color: var(--vscode-list-activeSelectionForeground);
+        }
+        .tok-plain, .tok-default { color: var(--stata-plain); }
+        .tok-command { color: var(--stata-keyword); }
+        .tok-keyword { color: var(--stata-keyword); }
+        .tok-string { color: var(--stata-string); }
+        .tok-number { color: var(--stata-number); }
+        .tok-comment { color: var(--stata-comment); }
+        .tok-function { color: var(--stata-function); }
+        .tok-option { color: var(--stata-option); }
+        .tok-variable { color: var(--stata-variable); }
+        .tok-macro { color: var(--stata-macro); }
+        .tok-operator { color: var(--stata-operator); }
         .content {
             flex: 1;
             overflow: auto;
@@ -192,6 +352,12 @@ function getDataViewerHtml(webview) {
         body.loading .loading-state { display: flex; }
         body.loading .empty-state { display: none; }
         body.loading .tab-content table { display: none; }
+        body:not(.data-tab-active) #filter-btn {
+            display: none;
+        }
+        body:not(.data-tab-active) .filter-row {
+            display: none;
+        }
     </style>
 </head>
 <body class="loading">
@@ -199,9 +365,27 @@ function getDataViewerHtml(webview) {
         <button class="tab active" data-tab="vars" id="tab-vars">${escHtml(msg('dataViewerTabVariables'))}</button>
         <button class="tab" data-tab="data" id="tab-data">${escHtml(msg('dataViewerTabData'))}</button>
         <span class="tab-bar-spacer"></span>
+        <button class="refresh-btn" id="filter-btn" title="${escHtml(msg('dataViewerFilter'))}" aria-label="${escHtml(msg('dataViewerFilter'))}">
+            <span class="refresh-icon codicon-filter" id="filter-icon" aria-hidden="true"></span>
+        </button>
         <button class="refresh-btn" id="refresh-btn" title="${escHtml(msg('dataViewerRefresh'))}" aria-label="${escHtml(msg('dataViewerRefresh'))}">
             <span class="refresh-icon codicon-refresh" aria-hidden="true"></span>
         </button>
+    </div>
+    <div class="filter-row" id="filter-row">
+        <div class="filter-input-shell">
+            <pre id="filter-highlight" aria-hidden="true"></pre>
+            <input id="filter-input" spellcheck="false" placeholder="${escHtml(msg('dataViewerFilterPlaceholder'))}">
+            <div class="filter-input-actions">
+                <button class="filter-input-button" id="filter-apply-btn" title="${escHtml(msg('dataViewerFilter'))}" aria-label="${escHtml(msg('dataViewerFilter'))}">
+                    <span class="refresh-icon codicon-search" aria-hidden="true"></span>
+                </button>
+                <button class="filter-input-button" id="filter-clear-btn" title="${escHtml(msg('dataViewerClearFilter'))}" aria-label="${escHtml(msg('dataViewerClearFilter'))}">
+                    <span class="refresh-icon codicon-eraser" aria-hidden="true"></span>
+                </button>
+            </div>
+        </div>
+        <div class="filter-autocomplete" id="filter-autocomplete"></div>
     </div>
     <div class="content" id="content">
         <div class="loading-state" id="loading-msg">${escHtml(msg('dataViewerLoading'))}</div>
@@ -230,6 +414,13 @@ function getDataViewerHtml(webview) {
         const vscode = acquireVsCodeApi();
         let currentTab = 'vars';
         const contentEl = document.getElementById('content');
+        const filterInput = document.getElementById('filter-input');
+        const filterHighlight = document.getElementById('filter-highlight');
+        const filterAutocomplete = document.getElementById('filter-autocomplete');
+        const filterIcon = document.getElementById('filter-icon');
+        var autocompleteVariables = [];
+        var filterAutocompleteIndex = -1;
+        var filterAutocompleteVisible = false;
 
         document.querySelectorAll('.tab').forEach(function (tab) {
             tab.addEventListener('click', function () {
@@ -238,7 +429,28 @@ function getDataViewerHtml(webview) {
         });
 
         document.getElementById('refresh-btn').addEventListener('click', function () {
-            vscode.postMessage({ type: 'refresh' });
+            requestRefresh();
+        });
+        document.getElementById('filter-btn').addEventListener('click', function () {
+            document.body.classList.toggle('filter-open');
+            if (document.body.classList.contains('filter-open')) {
+                filterInput.focus();
+                updateFilterHighlight();
+            } else {
+                hideFilterAutocomplete();
+            }
+            syncFilterUi();
+        });
+        document.getElementById('filter-apply-btn').addEventListener('click', function () {
+            requestRefresh();
+            filterInput.focus();
+        });
+        document.getElementById('filter-clear-btn').addEventListener('click', function () {
+            filterInput.value = '';
+            updateFilterHighlight();
+            hideFilterAutocomplete();
+            requestRefresh();
+            filterInput.focus();
         });
 
         var loadMoreEl = document.getElementById('load-more-row');
@@ -252,6 +464,46 @@ function getDataViewerHtml(webview) {
             loadMoreEl.style.background = 'color-mix(in srgb, var(--vscode-textLink-foreground) 8%, transparent)';
         });
         loadMoreEl.style.cursor = 'pointer';
+
+        filterInput.addEventListener('input', function () {
+            updateFilterHighlight();
+            triggerFilterAutocomplete();
+        });
+        filterInput.addEventListener('scroll', function () {
+            filterHighlight.scrollLeft = filterInput.scrollLeft;
+        });
+        filterInput.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape') {
+                if (filterAutocompleteVisible) {
+                    event.preventDefault();
+                    hideFilterAutocomplete();
+                    return;
+                }
+                document.body.classList.remove('filter-open');
+                return;
+            }
+            if (filterAutocompleteVisible && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
+                event.preventDefault();
+                navigateFilterAutocomplete(event.key === 'ArrowUp' ? -1 : 1);
+                return;
+            }
+            if (event.key === 'Tab') {
+                if (filterAutocompleteVisible) {
+                    event.preventDefault();
+                    selectFilterAutocomplete();
+                    return;
+                }
+            }
+            if (event.key === 'Enter') {
+                if (filterAutocompleteVisible) {
+                    event.preventDefault();
+                    selectFilterAutocomplete();
+                    return;
+                }
+                event.preventDefault();
+                requestRefresh();
+            }
+        });
 
         function setLoadingMore(v) {
             loadingMore = v;
@@ -275,7 +527,165 @@ function getDataViewerHtml(webview) {
             document.querySelectorAll('.tab-content').forEach(function (c) { c.classList.remove('active'); });
             document.getElementById('tab-' + name).classList.add('active');
             document.getElementById('content-' + name).classList.add('active');
+            if (name !== 'data') {
+                hideFilterAutocomplete();
+            }
+            syncFilterUi();
             scheduleAutoLoadCheck();
+        }
+
+        function syncFilterUi() {
+            document.body.classList.toggle('data-tab-active', currentTab === 'data');
+            filterIcon.className = 'refresh-icon ' + (document.body.classList.contains('filter-open') ? 'codicon-filter-filled' : 'codicon-filter');
+        }
+
+        function requestRefresh() {
+            loadedRows = 0;
+            hasMoreRows = true;
+            vscode.postMessage({ type: 'refresh', filterText: filterInput.value || '' });
+        }
+
+        function getCurrentFilterWord() {
+            var text = filterInput.value || '';
+            var pos = filterInput.selectionStart || 0;
+            var start = pos;
+            while (start > 0 && /[A-Za-z0-9_]/.test(text[start - 1])) start--;
+            return { word: text.slice(start, pos), start: start };
+        }
+
+        function showFilterAutocomplete(matches, wordStart) {
+            if (!matches.length) {
+                hideFilterAutocomplete();
+                return;
+            }
+            filterAutocomplete.innerHTML = '';
+            for (var i = 0; i < matches.length; i++) {
+                var item = document.createElement('div');
+                item.className = 'filter-autocomplete-item';
+                item.textContent = matches[i];
+                item.addEventListener('mousedown', function (e) {
+                    e.preventDefault();
+                    applyFilterAutocomplete(this.textContent, wordStart);
+                });
+                filterAutocomplete.appendChild(item);
+            }
+            filterAutocompleteIndex = 0;
+            filterAutocomplete.firstChild.classList.add('active');
+            filterAutocomplete.classList.add('visible');
+            filterAutocompleteVisible = true;
+        }
+
+        function hideFilterAutocomplete() {
+            filterAutocomplete.classList.remove('visible');
+            filterAutocomplete.innerHTML = '';
+            filterAutocompleteIndex = -1;
+            filterAutocompleteVisible = false;
+        }
+
+        function applyFilterAutocomplete(value, wordStart) {
+            var text = filterInput.value || '';
+            var pos = filterInput.selectionStart || 0;
+            var wordEnd = pos;
+            while (wordEnd < text.length && /[A-Za-z0-9_]/.test(text[wordEnd])) wordEnd++;
+            filterInput.value = text.slice(0, wordStart) + value + ' ' + text.slice(wordEnd);
+            filterInput.selectionStart = filterInput.selectionEnd = wordStart + value.length + 1;
+            hideFilterAutocomplete();
+            updateFilterHighlight();
+        }
+
+        function triggerFilterAutocomplete() {
+            var current = getCurrentFilterWord();
+            if (!current.word) {
+                hideFilterAutocomplete();
+                return;
+            }
+            var prefix = current.word.toLowerCase();
+            var candidates = ['if', 'in', 'nolabel'].concat(autocompleteVariables);
+            var matches = [];
+            for (var i = 0; i < candidates.length && matches.length < 8; i++) {
+                var c = candidates[i];
+                if (c.toLowerCase().indexOf(prefix) === 0 && matches.indexOf(c) < 0) {
+                    matches.push(c);
+                }
+            }
+            if (matches.length === 1 && matches[0].toLowerCase() === prefix) {
+                hideFilterAutocomplete();
+                return;
+            }
+            showFilterAutocomplete(matches, current.start);
+        }
+
+        function navigateFilterAutocomplete(direction) {
+            if (!filterAutocompleteVisible) return;
+            var items = filterAutocomplete.children;
+            if (!items.length) return;
+            items[filterAutocompleteIndex].classList.remove('active');
+            filterAutocompleteIndex += direction;
+            if (filterAutocompleteIndex < 0) filterAutocompleteIndex = items.length - 1;
+            if (filterAutocompleteIndex >= items.length) filterAutocompleteIndex = 0;
+            items[filterAutocompleteIndex].classList.add('active');
+            items[filterAutocompleteIndex].scrollIntoView({ block: 'nearest' });
+        }
+
+        function selectFilterAutocomplete() {
+            if (!filterAutocompleteVisible) return false;
+            var items = filterAutocomplete.children;
+            if (filterAutocompleteIndex >= 0 && filterAutocompleteIndex < items.length) {
+                applyFilterAutocomplete(items[filterAutocompleteIndex].textContent, getCurrentFilterWord().start);
+                return true;
+            }
+            return false;
+        }
+
+        function updateFilterHighlight() {
+            var text = filterInput.value || '';
+            if (!text) {
+                filterHighlight.textContent = '';
+                return;
+            }
+            vscode.postMessage({ type: 'highlightFilter', text: text });
+        }
+
+        function renderFilterHighlight(segments) {
+            filterHighlight.innerHTML = '';
+            for (var i = 0; i < segments.length; i++) {
+                var seg = segments[i];
+                appendFilterHighlightSegment(seg);
+            }
+            filterHighlight.scrollLeft = filterInput.scrollLeft;
+        }
+
+        function appendFilterHighlightSegment(seg) {
+            var text = String(seg.text || '');
+            var className = String(seg.className || '').trim();
+            if (/\btok-(string|comment|macro)\b/.test(className)) {
+                appendFilterSpan(text, className, seg.style || {});
+                return;
+            }
+            var parts = text.split(/([A-Za-z_][A-Za-z0-9_]*)/);
+            for (var i = 0; i < parts.length; i++) {
+                var part = parts[i];
+                if (!part) continue;
+                appendFilterSpan(part, isFilterVariable(part) ? 'tok tok-variable' : className, seg.style || {});
+            }
+        }
+
+        function appendFilterSpan(text, className, style) {
+            var span = document.createElement('span');
+            if (className) span.className = className;
+            if (style.color) span.style.color = style.color;
+            if (style.backgroundColor) span.style.backgroundColor = style.backgroundColor;
+            if (style.bold) span.style.fontWeight = 'bold';
+            if (style.italic) span.style.fontStyle = 'italic';
+            span.textContent = text;
+            filterHighlight.appendChild(span);
+        }
+
+        function isFilterVariable(word) {
+            for (var i = 0; i < autocompleteVariables.length; i++) {
+                if (autocompleteVariables[i].toLowerCase() === word.toLowerCase()) return true;
+            }
+            return false;
         }
 
         function showEmpty(hasData) {
@@ -358,7 +768,7 @@ function getDataViewerHtml(webview) {
         function requestLoadMore() {
             if (loadingMore || !hasMoreRows || (totalObs > 0 && loadedRows >= totalObs)) return;
             setLoadingMore(true);
-            vscode.postMessage({ type: 'loadMore', startObs: loadedRows, count: 100 });
+            vscode.postMessage({ type: 'loadMore', startObs: loadedRows, count: 100, filterText: filterInput.value || '' });
         }
 
         var autoLoadCheckQueued = false;
@@ -432,6 +842,8 @@ function getDataViewerHtml(webview) {
                 return;
             }
             renderVars(data.vars);
+            autocompleteVariables = data.allVarNames || data.dataColumns || [];
+            updateFilterHighlight();
             renderDataHeader(data.dataColumns);
             totalObs = (data.info && data.info.observations) || 0;
             appendDataRows(data.dataRows || []);
@@ -450,12 +862,15 @@ function getDataViewerHtml(webview) {
             } else if (message.type === 'loadMoreDone') {
                 hasMoreRows = message.hasMore !== false;
                 setLoadingMore(false);
+            } else if (message.type === 'filterHighlightResult') {
+                renderFilterHighlight(message.segments || []);
             } else if (message.type === 'setStatus') {
                 // Could show loading indicator
             }
         });
 
         setTimeout(function () {
+            syncFilterUi();
             vscode.postMessage({ type: 'ready' });
         }, 100);
     </script>
@@ -480,12 +895,16 @@ function attachPanel(panel) {
         if (message && message.type === 'ready') {
             await refresh();
         } else if (message && message.type === 'refresh') {
-            await refresh();
+            await refresh(message.filterText || '');
+        } else if (message && message.type === 'highlightFilter') {
+            if (_panel) {
+                _panel.webview.postMessage({ type: 'filterHighlightResult', segments: highlightFilterText(message.text || '') });
+            }
         } else if (message && message.type === 'loadMore') {
             const startObs = (message.startObs || 0) + 1;
             const count = message.count || 100;
             try {
-                const rows = await fetchMoreRows(startObs, count);
+                const rows = await fetchMoreRows(startObs, count, message.filterText || '');
                 if (_panel) {
                     if (rows && rows.length > 0) {
                         _panel.webview.postMessage({ type: 'appendRows', rows, hasMore: rows.length >= count });
@@ -523,11 +942,11 @@ function ensurePanel() {
     return attachPanel(panel);
 }
 
-async function refresh() {
+async function refresh(filterText) {
     if (!_panel) return;
     _panel.webview.postMessage({ type: 'setStatus', status: 'loading' });
     try {
-        const data = await fetchDataSnapshot();
+        const data = await fetchDataSnapshot(undefined, filterText || '');
         _panel.webview.postMessage({ type: 'setData', data });
     } catch (e) {
         console.error('[dataViewer] refresh failed:', e.message);

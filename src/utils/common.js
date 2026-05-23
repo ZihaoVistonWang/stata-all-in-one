@@ -80,7 +80,10 @@ const UI_TEXT = {
         dataViewerObs: 'Obs',
         dataViewerVars: 'Vars',
         dataViewerSortedBy: 'Sorted by',
-        dataViewerEmbeddedOnly: 'Data Viewer is only available in Embedded Console mode.'
+        dataViewerEmbeddedOnly: 'Data Viewer is only available in Embedded Console mode.',
+        dataViewerFilter: 'Filter',
+        dataViewerClearFilter: 'Clear filter',
+        dataViewerFilterPlaceholder: 'varlist if exp in range, nolabel'
     },
     zh: {
         lineTooLong: '行长度不足，请在设置中增大分隔线长度。',
@@ -154,7 +157,10 @@ const UI_TEXT = {
         dataViewerObs: '观测值',
         dataViewerVars: '变量数',
         dataViewerSortedBy: '排序变量',
-        dataViewerEmbeddedOnly: 'Stata数据表仅在 Embedded Console 模式下可用。'
+        dataViewerEmbeddedOnly: 'Stata数据表仅在 Embedded Console 模式下可用。',
+        dataViewerFilter: '筛选',
+        dataViewerClearFilter: '取消筛选',
+        dataViewerFilterPlaceholder: '变量列表 if 条件 in 范围, nolabel'
     }
 };
 
