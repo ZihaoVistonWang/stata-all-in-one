@@ -953,7 +953,7 @@ function getWebviewHtml() {
                     <path d="M2 3h12v1H2V3zm0 4h12v1H2V7zm0 4h7v1H2v-1zm9.85-1.71 1.15-1.15.71.71-1.14 1.15 1.14 1.14-.71.71-1.15-1.14-1.14 1.14-.71-.71 1.14-1.14-1.14-1.15.71-.71 1.14 1.15z"></path>
                 </svg>
             </button>
-            <button id="data-button" class="statusbar-button" type="button" title="Data Viewer">
+            <button id="data-button" class="statusbar-button" type="button" title="${escapeHtml(msg('dataViewerPanelTitle'))}">
                 <svg class="statusbar-icon" viewBox="0 0 16 16" aria-hidden="true">
                     <path d="M2 2h12l1 1v10l-1 1H2l-1-1V3l1-1zm0 1v2h12V3H2zm0 3v3h3V6H2zm4 0v3h4V6H6zm5 0v3h3V6h-3zm-9 4v3h3v-3H2zm4 0v3h4v-3H6zm5 0v3h3v-3h-3z"></path>
                 </svg>

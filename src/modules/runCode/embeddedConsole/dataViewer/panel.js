@@ -1,27 +1,44 @@
 const vscode = require('vscode');
 const { fetchDataSnapshot, fetchMoreRows } = require('./provider');
 const config = require('../../../../utils/config');
+const { msg } = require('../../../../utils/common');
 
 const PANEL_VIEW_TYPE = 'stata-all-in-one.dataViewer';
 
 let _panel = null;
 
+const CODICON_RESOURCE_ROOT = vscode.Uri.joinPath(vscode.Uri.file(vscode.env.appRoot), 'out', 'media');
+
 function getPanelTitle() {
-    return 'Stata Data Viewer';
+    return msg('dataViewerPanelTitle');
 }
 
-function getDataViewerHtml() {
+function escHtml(s) {
+    return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function getCodiconFontUri(webview) {
+    return webview.asWebviewUri(vscode.Uri.joinPath(vscode.Uri.file(vscode.env.appRoot), 'out', 'media', 'codicon.ttf'));
+}
+
+function getDataViewerHtml(webview) {
     const nonce = String(Date.now());
+    const codiconFontUri = getCodiconFontUri(webview);
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; font-src ${webview.cspSource}; style-src 'unsafe-inline'; script-src 'nonce-${nonce}';">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stata Data Viewer</title>
+    <title>${escHtml(msg('dataViewerPanelTitle'))}</title>
     <style>
         :root {
             color-scheme: light dark;
+        }
+        @font-face {
+            font-family: "codicon";
+            font-display: block;
+            src: url("${codiconFontUri}") format("truetype");
         }
         html, body {
             height: 100%;
@@ -66,17 +83,30 @@ function getDataViewerHtml() {
             flex: 1;
         }
         .refresh-btn {
-            padding: 4px 10px;
+            width: 26px;
+            height: 26px;
+            padding: 0;
             cursor: pointer;
             background: none;
-            border: 1px solid var(--vscode-panel-border);
+            border: none;
             border-radius: 4px;
             color: var(--vscode-foreground);
-            font-size: 11px;
             outline: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
         }
         .refresh-btn:hover {
             background: var(--vscode-toolbar-hoverBackground);
+        }
+        .refresh-icon {
+            font-family: "codicon";
+            font-size: 16px;
+            line-height: 1;
+            pointer-events: none;
+        }
+        .codicon-refresh::before {
+            content: "\\eb37";
         }
         .content {
             flex: 1;
@@ -157,29 +187,31 @@ function getDataViewerHtml() {
 </head>
 <body class="loading">
     <div class="tab-bar">
-        <button class="tab active" data-tab="vars" id="tab-vars">Variables</button>
-        <button class="tab" data-tab="data" id="tab-data">Data</button>
+        <button class="tab active" data-tab="vars" id="tab-vars">${escHtml(msg('dataViewerTabVariables'))}</button>
+        <button class="tab" data-tab="data" id="tab-data">${escHtml(msg('dataViewerTabData'))}</button>
         <span class="tab-bar-spacer"></span>
-        <button class="refresh-btn" id="refresh-btn" title="Refresh">&#x21bb; Refresh</button>
+        <button class="refresh-btn" id="refresh-btn" title="${escHtml(msg('dataViewerRefresh'))}" aria-label="${escHtml(msg('dataViewerRefresh'))}">
+            <span class="refresh-icon codicon-refresh" aria-hidden="true"></span>
+        </button>
     </div>
     <div class="content" id="content">
-        <div class="loading-state" id="loading-msg">Loading...</div>
+        <div class="loading-state" id="loading-msg">${escHtml(msg('dataViewerLoading'))}</div>
         <div class="tab-content active" id="content-vars">
-            <div class="empty-state" id="empty-vars">No dataset loaded</div>
+            <div class="empty-state" id="empty-vars">${escHtml(msg('dataViewerNoDataset'))}</div>
             <table id="table-vars" style="display:none">
-                <thead><tr><th>Name</th><th>Type</th><th>Format</th><th>Label</th></tr></thead>
+                <thead><tr><th>${escHtml(msg('dataViewerColumnName'))}</th><th>${escHtml(msg('dataViewerColumnType'))}</th><th>${escHtml(msg('dataViewerColumnFormat'))}</th><th>${escHtml(msg('dataViewerColumnLabel'))}</th></tr></thead>
                 <tbody></tbody>
             </table>
         </div>
         <div class="tab-content" id="content-data">
-            <div class="empty-state" id="empty-data">No dataset loaded</div>
+            <div class="empty-state" id="empty-data">${escHtml(msg('dataViewerNoDataset'))}</div>
             <div id="data-table-container" style="display:none">
                 <table id="table-data">
                     <thead></thead>
                     <tbody></tbody>
                 </table>
                 <div id="load-more-row" style="display:none; text-align:center; padding:10px 20px; cursor:pointer; color:var(--vscode-textLink-foreground); background:color-mix(in srgb, var(--vscode-textLink-foreground) 8%, transparent); border-radius:4px; margin:8px 0; user-select:none;">
-                    Load more rows...
+                    ${escHtml(msg('dataViewerLoadMore'))}
                 </div>
             </div>
         </div>
@@ -216,12 +248,12 @@ function getDataViewerHtml() {
             loadingMore = v;
             var el = document.getElementById('load-more-row');
             if (v) {
-                el.textContent = 'Loading more...';
+                el.textContent = ${JSON.stringify(msg('dataViewerLoadingMore'))};
                 el.style.display = '';
             } else if (!hasMoreRows || (loadedRows >= totalObs && totalObs > 0)) {
                 el.style.display = 'none';
             } else if (loadedRows > 0) {
-                el.textContent = 'Scroll for more...';
+                el.textContent = ${JSON.stringify(msg('dataViewerScrollForMore'))};
                 el.style.display = '';
             } else {
                 el.style.display = 'none';
@@ -363,10 +395,10 @@ function getDataViewerHtml() {
         function renderInfo(info) {
             var bar = document.getElementById('info-bar');
             var parts = [];
-            if (info.observations > 0) parts.push('Obs: ' + info.observations);
-            if (info.variables > 0) parts.push('Vars: ' + info.variables);
+            if (info.observations > 0) parts.push(${JSON.stringify(msg('dataViewerObs'))} + ': ' + info.observations);
+            if (info.variables > 0) parts.push(${JSON.stringify(msg('dataViewerVars'))} + ': ' + info.variables);
             if (info.source) parts.push(info.source);
-            if (info.sortedBy) parts.push('Sorted by: ' + info.sortedBy);
+            if (info.sortedBy) parts.push(${JSON.stringify(msg('dataViewerSortedBy'))} + ': ' + info.sortedBy);
             bar.innerHTML = parts.map(function (p) { return '<span>' + esc(p) + '</span>'; }).join('');
         }
 
@@ -387,7 +419,7 @@ function getDataViewerHtml() {
             var hasData = data.vars && data.vars.length > 0;
             showEmpty(hasData);
             if (!hasData) {
-                document.getElementById('info-bar').textContent = 'No dataset loaded';
+                document.getElementById('info-bar').textContent = ${JSON.stringify(msg('dataViewerNoDataset'))};
                 return;
             }
             renderVars(data.vars);
@@ -426,9 +458,10 @@ function attachPanel(panel) {
     _panel = panel;
     _panel.title = getPanelTitle();
     _panel.webview.options = {
-        enableScripts: true
+        enableScripts: true,
+        localResourceRoots: [CODICON_RESOURCE_ROOT]
     };
-    _panel.webview.html = getDataViewerHtml();
+    _panel.webview.html = getDataViewerHtml(_panel.webview);
     _panel.onDidDispose(() => {
         if (_panel === panel) {
             _panel = null;
@@ -465,7 +498,7 @@ function attachPanel(panel) {
 function ensurePanel() {
     if (_panel) {
         _panel.title = getPanelTitle();
-        _panel.webview.html = getDataViewerHtml();
+        _panel.webview.html = getDataViewerHtml(_panel.webview);
         return _panel;
     }
     const panel = vscode.window.createWebviewPanel(
@@ -474,7 +507,8 @@ function ensurePanel() {
         vscode.ViewColumn.Two,
         {
             enableScripts: true,
-            retainContextWhenHidden: false
+            retainContextWhenHidden: false,
+            localResourceRoots: [CODICON_RESOURCE_ROOT]
         }
     );
     return attachPanel(panel);
@@ -495,7 +529,7 @@ async function refresh() {
 
 async function reveal() {
     if (config.getRunMode() !== 'embeddedConsole') {
-        vscode.window.showInformationMessage('Data Viewer is only available in Embedded Console mode.');
+        vscode.window.showInformationMessage(msg('dataViewerEmbeddedOnly'));
         return null;
     }
     const panel = ensurePanel();
