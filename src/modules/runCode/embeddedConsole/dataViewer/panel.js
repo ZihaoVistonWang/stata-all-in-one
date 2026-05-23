@@ -728,7 +728,8 @@ function getDataViewerHtml(webview) {
         var loadedRows = 0;
         var loadingMore = false;
         var hasMoreRows = true;
-        var preloadRowBuffer = 40;
+        var pageSize = 500;
+        var preloadRowBuffer = 100;
 
         function renderDataHeader(columns, typeMap) {
             dataColumnsCache = columns;
@@ -783,7 +784,7 @@ function getDataViewerHtml(webview) {
         function requestLoadMore() {
             if (loadingMore || !hasMoreRows || (totalObs > 0 && loadedRows >= totalObs)) return;
             setLoadingMore(true);
-            vscode.postMessage({ type: 'loadMore', startObs: loadedRows, count: 100, filterText: filterInput.value || '' });
+            vscode.postMessage({ type: 'loadMore', startObs: loadedRows, count: pageSize, filterText: filterInput.value || '' });
         }
 
         var autoLoadCheckQueued = false;
@@ -925,7 +926,7 @@ function attachPanel(panel) {
             }
         } else if (message && message.type === 'loadMore') {
             const startObs = (message.startObs || 0) + 1;
-            const count = message.count || 100;
+            const count = message.count || 500;
             try {
                 const rows = await fetchMoreRows(startObs, count, message.filterText || '');
                 if (_panel) {
