@@ -120,11 +120,10 @@ async function exportDataRows(session, varNames, startObs, count, tmpFile, filte
         options.push('nolabel');
     }
     const exportCmd = 'quietly export delimited ' + varList + ' using "' + tmpFile + '" in ' + startObs + '/' + endObs + ', ' + options.join(' ');
-    if (filterSpec && (filterSpec.ifClause || filterSpec.inClause)) {
-        await execPreserved(session, getFilterCommands(filterSpec).concat([exportCmd]));
-    } else {
-        await execStata(session, exportCmd);
-    }
+    const commands = filterSpec && (filterSpec.ifClause || filterSpec.inClause)
+        ? getFilterCommands(filterSpec).concat([exportCmd])
+        : [exportCmd];
+    await execPreserved(session, commands);
     if (!fs.existsSync(tmpFile)) return [];
 
     const text = fs.readFileSync(tmpFile, 'utf8');

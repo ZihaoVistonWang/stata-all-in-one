@@ -8,6 +8,7 @@
 const vscode = require('vscode');
 const os = require('os');
 const path = require('path');
+const variableSuggestions = require('../../variableSuggestionService');
 
 // 工具函数导入
 const { isWindows, isMacOS, showError, stripSurroundingQuotes, msg } = require('../../../utils/common');
@@ -175,6 +176,7 @@ async function runCurrentSection(context, editor = null) {
                 const consoleResult = await runOnMacWebview(codeToRun, tmpFilePath, docDir, context);
                 if (consoleResult.success) {
                     vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
+                    await refreshMemoryVarsAfterRun(context, consoleResult);
                 } else if (consoleResult.shouldOfferGuiFallback) {
                     await maybeOfferGuiFallback(codeToRun, tmpFilePath, docDir, context, consoleResult.message || 'Embedded Console 执行失败');
                     vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', false);
@@ -283,6 +285,7 @@ async function runArbitraryCode(context, code, options = {}) {
     const tmpFilePath = path.join(docDir, 'stata_all_in_one_temp.do');
 
     try {
+        let result = null;
         if (onWindows) {
             if (runMode !== config.RUN_MODES.externalApp) {
                 const embeddedConsoleResult = await runOnWindowsEmbeddedConsole(normalizedCode, tmpFilePath, docDir, context);
@@ -294,19 +297,24 @@ async function runArbitraryCode(context, code, options = {}) {
             }
             runOnWindows(normalizedCode, tmpFilePath, stataPathOnWindows, docDir);
             await vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', false);
-            return { success: true };
+            result = { success: true };
+            await refreshMemoryVarsAfterRun(context, result);
+            return result;
         }
 
         if (runMode === config.RUN_MODES.externalApp) {
             runOnMac(normalizedCode, tmpFilePath, false, docDir, context);
             await vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', false);
-            return { success: true };
+            result = { success: true };
+            await refreshMemoryVarsAfterRun(context, result);
+            return result;
         }
 
         await vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
         const consoleResult = await runOnMacWebview(normalizedCode, tmpFilePath, docDir, context);
         if (consoleResult.success) {
             await vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
+            await refreshMemoryVarsAfterRun(context, consoleResult);
             return consoleResult;
         }
         if (consoleResult.shouldOfferGuiFallback) {
@@ -320,6 +328,19 @@ async function runArbitraryCode(context, code, options = {}) {
         await vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', false);
         return { success: false, error };
     }
+}
+
+async function refreshMemoryVarsAfterRun(context, result) {
+    if (!result || !result.success) {
+        return;
+    }
+    try {
+        let vars = await variableSuggestions.refreshMemoryVars(context);
+        if (!vars.length) {
+            await new Promise(resolve => setTimeout(resolve, 150));
+            vars = await variableSuggestions.refreshMemoryVars(context);
+        }
+    } catch (_e) {}
 }
 
 async function maybeOfferGuiFallback(codeToRun, tmpFilePath, docDir, context, reason) {

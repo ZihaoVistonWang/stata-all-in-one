@@ -124,22 +124,22 @@ const StataFunctions = [
  */
 function extractVariableNames(document) {
     const variables = new Set();
-    
+
     for (let i = 0; i < document.lineCount; i++) {
         const line = document.lineAt(i).text;
-        
+
         // Skip comment lines
         if (line.trimStart().startsWith('//') || line.trimStart().startsWith('*')) {
             continue;
         }
-        
+
         // Pattern 1: gen/generate/egen varname = ...
         // Match: gen var_name = or generate var_name =
         const genMatch = line.match(/\b(gen|generate|egen)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*=/i);
         if (genMatch) {
             variables.add(genMatch[2]);
         }
-        
+
         // Pattern 2: Variables after 'summarize', 'sum', 'tabstat', 'reg', etc.
         // Match: command var1 var2 var3 ...
         const cmdPatterns = [
@@ -147,7 +147,7 @@ function extractVariableNames(document) {
             /\b(reg|regress|logit|probit|ologit|poisson|nbreg)\s+(.*?)\s+(?:if|in|,|$)/i,
             /\b(scatter|twoway|graph)\s+(.*?),/i
         ];
-        
+
         for (const pattern of cmdPatterns) {
             const match = line.match(pattern);
             if (match && match[2]) {
@@ -161,14 +161,14 @@ function extractVariableNames(document) {
                 });
             }
         }
-        
+
         // Pattern 3: Variables from 'rename', 'drop', 'keep' commands
         const renameMatch = line.match(/\b(rename|drop|keep)\s+(.*?)(?:\n|if|in|,|$)/i);
         if (renameMatch && renameMatch[2]) {
             const vars = renameMatch[2].split(/[\s,]+/).filter(v => v && v.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/));
             vars.forEach(v => variables.add(v));
         }
-        
+
         // Pattern 4: Variables from assignments in expressions
         // Match: varname == value or varname > value in if conditions
         const exprMatch = line.match(/\b([a-zA-Z_][a-zA-Z0-9_]*)\s*([><=!]+|in|if)/g);
@@ -181,7 +181,7 @@ function extractVariableNames(document) {
             });
         }
     }
-    
+
     return variables;
 }
 
@@ -257,6 +257,12 @@ function createCompletionProvider() {
 
             // Add variable names extracted from the document
             const variables = extractVariableNames(document);
+            // Merge Stata memory variables from shared pool (lazy require to avoid
+            // module-load ordering issues that would break the whole provider)
+            try {
+                const vs = require('./variableSuggestionService');
+                vs.getMemoryVars().forEach(v => variables.add(v));
+            } catch (_e) {}
             const variableItems = Array.from(variables).map(varName => {
                 const item = new vscode.CompletionItem(varName, vscode.CompletionItemKind.Variable);
                 item.insertText = varName;
@@ -307,16 +313,16 @@ function createCompletionProvider() {
  */
 function registerCompletionProvider(context) {
     const provider = createCompletionProvider();
-    
+
     const disposable = vscode.languages.registerCompletionItemProvider(
         { language: 'stata' },
         provider,
         // Trigger on any letter or underscore
-        ...['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 
+        ...['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
             'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
             '_', '.']
     );
-    
+
     context.subscriptions.push(disposable);
 }
 
