@@ -840,18 +840,32 @@ function getWebviewHtml(webview) {
                 text-shadow: none;
             }
         }
-        .composer {
+        #resize-handle {
+            height: 4px;
+            flex-shrink: 0;
+            cursor: ns-resize;
             border-top: 1px solid var(--vscode-panel-border);
+            transition: border-color 0.15s ease;
+        }
+        #resize-handle:hover,
+        #resize-handle.active {
+            border-color: var(--vscode-focusBorder);
+        }
+        .composer {
             background: color-mix(in srgb, var(--vscode-editor-background) 92%, var(--vscode-sideBar-background));
-            padding: 10px 12px 12px;
+            padding: 2px 0 8px;
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 4px;
+            flex-shrink: 0;
+            height: 74px;
         }
         .composer-label {
             display: flex;
             align-items: center;
             justify-content: space-between;
+            min-height: 10px;
+            padding: 0 12px;
         }
         .composer-label-text {
             font-size: 11px;
@@ -904,14 +918,15 @@ function getWebviewHtml(webview) {
             display: grid;
             width: 100%;
             position: relative;
+            flex: 1;
+            min-height: 42px;
         }
         .composer-input-wrapper > * {
             grid-area: 1 / 1;
         }
         #input-highlight {
             width: 100%;
-            min-height: 56px;
-            max-height: 120px;
+            height: 100%;
             box-sizing: border-box;
             border: 1px solid transparent;
             border-radius: 8px;
@@ -931,9 +946,8 @@ function getWebviewHtml(webview) {
         #input {
             z-index: 1;
             width: 100%;
-            min-height: 56px;
-            max-height: 120px;
-            resize: vertical;
+            height: 100%;
+            resize: none;
             box-sizing: border-box;
             border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
             background: transparent;
@@ -1052,6 +1066,7 @@ function getWebviewHtml(webview) {
             <span class="working-meta">(<span id="working-seconds">0s</span><span id="working-detail-shell" hidden> • <span id="working-detail"></span></span> • esc to interrupt)</span>
         </div>
     </div>
+    <div id="resize-handle" title="${escapeHtml(msg('webviewDragResizeTip'))}"></div>
     <div class="composer" id="composer">
         <div class="composer-label">
             <span class="composer-label-text">${escapeHtml(msg('webviewInputLabel'))}</span>
@@ -1076,6 +1091,8 @@ function getWebviewHtml(webview) {
         const dot = document.getElementById('status-dot');
         const label = document.getElementById('status-label');
         const input = document.getElementById('input');
+        const composer = document.getElementById('composer');
+        const resizeHandle = document.getElementById('resize-handle');
         const stopButton = document.getElementById('stop-button');
         const clearButton = document.getElementById('clear-button');
         const dataButton = document.getElementById('data-button');
@@ -1777,11 +1794,38 @@ function getWebviewHtml(webview) {
             inputHighlight.scrollLeft = input.scrollLeft;
         });
 
-        if (typeof ResizeObserver !== 'undefined') {
-            new ResizeObserver(() => {
-                inputHighlight.style.height = input.clientHeight + 'px';
-            }).observe(input);
-        }
+        const MIN_COMPOSER_HEIGHT = 74;
+        let isResizing = false;
+        let resizeStartY = 0;
+        let resizeStartHeight = 0;
+
+        resizeHandle.addEventListener('mousedown', (e) => {
+            isResizing = true;
+            resizeStartY = e.clientY;
+            resizeStartHeight = composer.offsetHeight;
+            resizeHandle.classList.add('active');
+            document.body.style.userSelect = 'none';
+            document.body.style.cursor = 'ns-resize';
+            e.preventDefault();
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isResizing) return;
+            const deltaY = e.clientY - resizeStartY;
+            let newHeight = resizeStartHeight - deltaY;
+            newHeight = Math.max(MIN_COMPOSER_HEIGHT, newHeight);
+            const maxHeight = document.body.offsetHeight - 60;
+            newHeight = Math.min(maxHeight, newHeight);
+            composer.style.height = newHeight + 'px';
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (!isResizing) return;
+            isResizing = false;
+            resizeHandle.classList.remove('active');
+            document.body.style.userSelect = '';
+            document.body.style.cursor = '';
+        });
 
         stopButton.addEventListener('click', () => {
             vscode.postMessage({ type: 'stopExecution' });
