@@ -8,6 +8,7 @@ const { StataTerminalRenderer, getWebviewThemeVariables } = require('../renderer
 const PANEL_VIEW_TYPE = 'stata-all-in-one.dataViewer';
 
 let _panel = null;
+let _pendingFilterText = '';
 const _renderer = new StataTerminalRenderer();
 
 const CODICON_RESOURCE_ROOT = vscode.Uri.joinPath(vscode.Uri.file(vscode.env.appRoot), 'out', 'media');
@@ -1010,6 +1011,14 @@ function getDataViewerHtml(webview) {
         function setData(data) {
             document.body.classList.remove('loading');
             document.getElementById('loading-msg').style.display = 'none';
+            if (data.filterText !== undefined) {
+                filterInput.value = data.filterText || '';
+                document.body.classList.toggle('filter-open', !!filterInput.value);
+                if (filterInput.value) {
+                    switchTab('data');
+                }
+                updateFilterHighlight();
+            }
             var hasData = data.vars && data.vars.length > 0;
             showEmpty(hasData);
             if (!hasData) {
@@ -1076,7 +1085,7 @@ function attachPanel(panel) {
     });
     _panel.webview.onDidReceiveMessage(async (message) => {
         if (message && message.type === 'ready') {
-            await refresh();
+            await refresh(_pendingFilterText);
         } else if (message && message.type === 'refresh') {
             await refresh(message.filterText || '');
         } else if (message && message.type === 'highlightFilter') {
@@ -1127,6 +1136,7 @@ function ensurePanel() {
 
 async function refresh(filterText) {
     if (!_panel) return;
+    _pendingFilterText = filterText || '';
     _panel.webview.postMessage({ type: 'setStatus', status: 'loading' });
     try {
         const data = await fetchDataSnapshot(undefined, filterText || '');
@@ -1138,13 +1148,15 @@ async function refresh(filterText) {
     _panel.webview.postMessage({ type: 'setStatus', status: 'ready' });
 }
 
-async function reveal() {
+async function reveal(filterText) {
     if (config.getRunMode() !== 'embeddedConsole') {
         vscode.window.showInformationMessage(msg('dataViewerEmbeddedOnly'));
         return null;
     }
+    _pendingFilterText = filterText || '';
     const panel = ensurePanel();
     panel.reveal(vscode.ViewColumn.Two, true);
+    await refresh(_pendingFilterText);
     return panel;
 }
 

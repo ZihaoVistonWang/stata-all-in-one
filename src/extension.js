@@ -400,12 +400,12 @@ async function activate(context) {
     const { revealDataViewer } = require('./modules/runCode/embeddedConsole/dataViewer/panel');
     const dataViewerCommand = vscode.commands.registerCommand(
         'stata-all-in-one.showDataViewer',
-        () => {
+        (filterText) => {
             if (config.getRunMode() !== 'embeddedConsole') {
                 vscode.window.showInformationMessage(msg('dataViewerEmbeddedOnly'));
                 return;
             }
-            revealDataViewer();
+            revealDataViewer(typeof filterText === 'string' ? filterText : '');
         }
     );
     context.subscriptions.push(dataViewerCommand);
