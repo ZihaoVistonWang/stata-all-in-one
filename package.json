@@ -21,7 +21,9 @@
     "vscode": "^1.70.0"
   },
   "activationEvents": [
-    "onLanguage:stata"
+    "onLanguage:stata",
+    "onCommand:stata-all-in-one.showDataViewer",
+    "onCustomEditor:stata-all-in-one.dtaViewer"
   ],
   "main": "./main.js",
   "categories": [
@@ -182,6 +184,18 @@
         "injectTo": [
           "source.stata"
         ]
+      }
+    ],
+    "customEditors": [
+      {
+        "viewType": "stata-all-in-one.dtaViewer",
+        "displayName": "%customEditor.dtaViewer.displayName%",
+        "selector": [
+          {
+            "filenamePattern": "*.dta"
+          }
+        ],
+        "priority": "default"
       }
     ],
     "commands": [
