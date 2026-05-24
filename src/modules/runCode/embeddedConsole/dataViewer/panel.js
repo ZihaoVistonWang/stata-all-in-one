@@ -258,14 +258,29 @@ function getDataViewerHtml(webview) {
             display: block;
         }
         .filter-autocomplete-item {
-            padding: 4px 12px;
+            padding: 3px 10px;
             cursor: pointer;
             color: var(--vscode-input-foreground);
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
         .filter-autocomplete-item.active {
             background: var(--vscode-list-activeSelectionBackground);
             color: var(--vscode-list-activeSelectionForeground);
         }
+        .filter-autocomplete-icon {
+            font-family: "codicon";
+            font-size: 16px;
+            line-height: 1;
+            width: 20px;
+            text-align: center;
+            flex-shrink: 0;
+        }
+        .filter-autocomplete-icon.var-icon::before { content: "\\ea88"; }
+        .filter-autocomplete-icon.cmd-icon::before { content: "\\eb62"; }
+        .filter-autocomplete-icon.var-icon { color: var(--vscode-symbolIcon-variableForeground, var(--stata-variable)); }
+        .filter-autocomplete-icon.cmd-icon { color: var(--vscode-symbolIcon-keywordForeground, var(--stata-keyword)); }
         .tok-plain, .tok-default { color: var(--stata-plain); }
         .tok-command { color: var(--stata-keyword); }
         .tok-keyword { color: var(--stata-keyword); }
@@ -521,9 +536,7 @@ function getDataViewerHtml(webview) {
                     filterInput.value = '';
                     updateFilterHighlight();
                     requestRefresh();
-                    return;
                 }
-                document.body.classList.remove('filter-open');
                 return;
             }
             if (filterAutocompleteVisible && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
@@ -598,6 +611,9 @@ function getDataViewerHtml(webview) {
             return { word: text.slice(start, pos), start: start };
         }
 
+        function getFilterAutocompleteIconClass(kind) {
+            return kind === 'var' ? 'var-icon' : 'cmd-icon';
+        }
         function showFilterAutocomplete(matches, wordStart) {
             if (!matches.length) {
                 hideFilterAutocomplete();
@@ -605,12 +621,22 @@ function getDataViewerHtml(webview) {
             }
             filterAutocomplete.innerHTML = '';
             for (var i = 0; i < matches.length; i++) {
+                var m = matches[i];
+                var label = typeof m === 'string' ? m : m.label;
+                var kind = (typeof m === 'object' && m.kind) ? m.kind : 'cmd';
                 var item = document.createElement('div');
                 item.className = 'filter-autocomplete-item';
-                item.textContent = matches[i];
+                item.dataset.label = label;
+                var icon = document.createElement('span');
+                icon.className = 'filter-autocomplete-icon ' + getFilterAutocompleteIconClass(kind);
+                item.appendChild(icon);
+                var text = document.createElement('span');
+                text.className = 'filter-autocomplete-label';
+                text.textContent = label;
+                item.appendChild(text);
                 item.addEventListener('mousedown', function (e) {
                     e.preventDefault();
-                    applyFilterAutocomplete(this.textContent, wordStart);
+                    applyFilterAutocomplete(this.dataset.label, wordStart);
                 });
                 filterAutocomplete.appendChild(item);
             }
@@ -645,15 +671,27 @@ function getDataViewerHtml(webview) {
                 return;
             }
             var prefix = current.word.toLowerCase();
-            var candidates = ['if', 'in', 'nolabel'].concat(mergeVariableLists(autocompleteVariables, sharedAutocompleteVariables));
+            var keywords = ['if', 'in', 'nolabel'];
+            var variables = mergeVariableLists(autocompleteVariables, sharedAutocompleteVariables);
             var matches = [];
-            for (var i = 0; i < candidates.length && matches.length < 8; i++) {
-                var c = candidates[i];
-                if (c.toLowerCase().indexOf(prefix) === 0 && matches.indexOf(c) < 0) {
-                    matches.push(c);
+            var seen = {};
+            for (var i = 0; i < keywords.length && matches.length < 8; i++) {
+                var kw = keywords[i];
+                var kwk = kw.toLowerCase();
+                if (kwk.indexOf(prefix) === 0 && !seen[kwk]) {
+                    seen[kwk] = true;
+                    matches.push({ label: kw, kind: 'cmd' });
                 }
             }
-            if (matches.length === 1 && matches[0].toLowerCase() === prefix) {
+            for (var i = 0; i < variables.length && matches.length < 8; i++) {
+                var v = variables[i];
+                var vk = v.toLowerCase();
+                if (vk.indexOf(prefix) === 0 && !seen[vk]) {
+                    seen[vk] = true;
+                    matches.push({ label: v, kind: 'var' });
+                }
+            }
+            if (matches.length === 1 && matches[0].label.toLowerCase() === prefix) {
                 hideFilterAutocomplete();
                 return;
             }
@@ -676,7 +714,7 @@ function getDataViewerHtml(webview) {
             if (!filterAutocompleteVisible) return false;
             var items = filterAutocomplete.children;
             if (filterAutocompleteIndex >= 0 && filterAutocompleteIndex < items.length) {
-                applyFilterAutocomplete(items[filterAutocompleteIndex].textContent, getCurrentFilterWord().start);
+                applyFilterAutocomplete(items[filterAutocompleteIndex].dataset.label, getCurrentFilterWord().start);
                 return true;
             }
             return false;

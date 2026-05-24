@@ -28,6 +28,12 @@ let _consoleFontOptions = {
     systemFallbackFamily: 'monospace'
 };
 
+const CODICON_RESOURCE_ROOT = vscode.Uri.joinPath(vscode.Uri.file(vscode.env.appRoot), 'out', 'media');
+
+function getCodiconFontUri(webview) {
+    return webview.asWebviewUri(vscode.Uri.joinPath(vscode.Uri.file(vscode.env.appRoot), 'out', 'media', 'codicon.ttf'));
+}
+
 function getPanelTitle() {
     return msg('webviewPanelTitle');
 }
@@ -78,7 +84,8 @@ function attachPanel(panel) {
     _panel.iconPath = getPanelIconPath();
     _panel.webview.options = {
         enableScripts: true,
-        retainContextWhenHidden: true
+        retainContextWhenHidden: true,
+        localResourceRoots: [CODICON_RESOURCE_ROOT]
     };
     _panel.webview.html = getWebviewHtml(_panel.webview);
     _panel.onDidDispose(() => {
@@ -136,7 +143,8 @@ function ensurePanel() {
         },
         {
             enableScripts: true,
-            retainContextWhenHidden: true
+            retainContextWhenHidden: true,
+            localResourceRoots: [CODICON_RESOURCE_ROOT]
         }
     );
 
@@ -418,8 +426,9 @@ function getAsciiLogo53x13() {
     }
 }
 
-function getWebviewHtml() {
+function getWebviewHtml(webview) {
     const nonce = String(Date.now());
+    const codiconFontUri = getCodiconFontUri(webview);
     const themeVars = getWebviewThemeVariables();
     const asciiLogo = getAsciiLogo53x13();
     const asciiLogoTop = escapeHtml(asciiLogo.up);
@@ -434,10 +443,15 @@ function getWebviewHtml() {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; font-src ${webview.cspSource}; style-src 'unsafe-inline'; script-src 'nonce-${nonce}';">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${escapeHtml(getPanelTitle())}</title>
     <style>
+        @font-face {
+            font-family: "codicon";
+            font-display: block;
+            src: url("${codiconFontUri}") format("truetype");
+        }
         :root {
             color-scheme: light dark;
             --stata-prompt: ${themeVars.prompt || 'var(--vscode-descriptionForeground)'};
@@ -573,6 +587,18 @@ function getWebviewHtml() {
             fill: currentColor;
             pointer-events: none;
         }
+        .statusbar-icon.codicon {
+            width: auto;
+            height: auto;
+            fill: none;
+            font-family: "codicon";
+            font-size: 16px;
+            line-height: 1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .codicon-table::before { content: "\\ebb7"; }
         .statusbar-button:hover {
             background: var(--vscode-toolbar-hoverBackground);
         }
@@ -823,12 +849,57 @@ function getWebviewHtml() {
             gap: 8px;
         }
         .composer-label {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .composer-label-text {
             font-size: 11px;
             letter-spacing: 0.08em;
             text-transform: uppercase;
             color: var(--vscode-descriptionForeground);
             font-weight: 700;
         }
+        .composer-help-btn {
+            width: 20px;
+            height: 20px;
+            padding: 0;
+            border: none;
+            border-radius: 4px;
+            background: transparent;
+            color: var(--vscode-descriptionForeground);
+            cursor: help;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-family: "codicon";
+            font-size: 14px;
+            line-height: 1;
+            opacity: 0.55;
+            transition: opacity 120ms ease;
+            position: relative;
+        }
+        .composer-help-btn:hover { opacity: 1; }
+        .composer-help-btn::before { content: "\\eb32"; }
+        .composer-help-btn::after {
+            content: attr(data-tip);
+            position: absolute;
+            bottom: 0;
+            right: calc(100% + 8px);
+            padding: 5px 10px;
+            background: var(--vscode-input-background);
+            border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
+            border-radius: 4px;
+            font-family: var(--vscode-font-family);
+            font-size: 11px;
+            line-height: 1.5;
+            white-space: nowrap;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 60ms ease;
+            z-index: 20;
+        }
+        .composer-help-btn:hover::after { opacity: 1; }
         .composer-input-wrapper {
             display: grid;
             width: 100%;
@@ -839,8 +910,8 @@ function getWebviewHtml() {
         }
         #input-highlight {
             width: 100%;
-            min-height: 72px;
-            max-height: 240px;
+            min-height: 56px;
+            max-height: 120px;
             box-sizing: border-box;
             border: 1px solid transparent;
             border-radius: 8px;
@@ -860,8 +931,8 @@ function getWebviewHtml() {
         #input {
             z-index: 1;
             width: 100%;
-            min-height: 72px;
-            max-height: 240px;
+            min-height: 56px;
+            max-height: 120px;
             resize: vertical;
             box-sizing: border-box;
             border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
@@ -905,25 +976,31 @@ function getWebviewHtml() {
             display: block;
         }
         .autocomplete-item {
-            padding: 4px 12px;
+            padding: 3px 10px;
             cursor: pointer;
             color: var(--vscode-input-foreground);
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
         .autocomplete-item.active {
             background: var(--vscode-list-activeSelectionBackground);
             color: var(--vscode-list-activeSelectionForeground);
         }
-        .composer-meta {
-            display: flex;
-            justify-content: space-between;
-            gap: 12px;
-            font-size: 11px;
-            color: var(--vscode-descriptionForeground);
+        .autocomplete-icon {
+            font-family: "codicon";
+            font-size: 16px;
+            line-height: 1;
+            width: 20px;
+            text-align: center;
+            flex-shrink: 0;
         }
-        .composer-meta code {
-            font-family: inherit;
-            font-size: inherit;
-        }
+        .autocomplete-icon.var-icon::before { content: "\\ea88"; }
+        .autocomplete-icon.cmd-icon::before { content: "\\eb62"; }
+        .autocomplete-icon.fn-icon::before  { content: "\\ea8c"; }
+        .autocomplete-icon.var-icon { color: var(--vscode-symbolIcon-variableForeground, var(--stata-variable)); }
+        .autocomplete-icon.cmd-icon { color: var(--vscode-symbolIcon-keywordForeground, var(--stata-keyword)); }
+        .autocomplete-icon.fn-icon  { color: var(--vscode-symbolIcon-methodForeground, var(--stata-function)); }
         .result-block-scroll {
             overflow-x: auto;
             overflow-y: hidden;
@@ -955,9 +1032,7 @@ function getWebviewHtml() {
                 </svg>
             </button>
             <button id="data-button" class="statusbar-button" type="button" title="${escapeHtml(msg('dataViewerPanelTitle'))}">
-                <svg class="statusbar-icon" viewBox="0 0 16 16" aria-hidden="true">
-                    <path d="M2 2h12l1 1v10l-1 1H2l-1-1V3l1-1zm0 1v2h12V3H2zm0 3v3h3V6H2zm4 0v3h4V6H6zm5 0v3h3V6h-3zm-9 4v3h3v-3H2zm4 0v3h4v-3H6zm5 0v3h3v-3h-3z"></path>
-                </svg>
+                <span class="statusbar-icon codicon codicon-table" aria-hidden="true"></span>
             </button>
         </div>
     </div>
@@ -977,16 +1052,15 @@ function getWebviewHtml() {
             <span class="working-meta">(<span id="working-seconds">0s</span><span id="working-detail-shell" hidden> • <span id="working-detail"></span></span> • esc to interrupt)</span>
         </div>
     </div>
-    <div class="composer">
-        <div class="composer-label">${escapeHtml(msg('webviewInputLabel'))}</div>
+    <div class="composer" id="composer">
+        <div class="composer-label">
+            <span class="composer-label-text">${escapeHtml(msg('webviewInputLabel'))}</span>
+            <button class="composer-help-btn" type="button" data-tip="${escapeHtml(msg('webviewRun') + ': Enter, ' + msg('webviewNewline') + ': Shift+Enter, ' + msg('webviewHistory') + ': Up/Down')}"></button>
+        </div>
         <div class="composer-input-wrapper">
             <pre id="input-highlight" aria-hidden="true"></pre>
             <textarea id="input" spellcheck="false"></textarea>
             <div class="autocomplete-dropdown" id="autocomplete-dropdown"></div>
-        </div>
-        <div class="composer-meta">
-            <span><code>Enter</code> ${escapeHtml(msg('webviewRun'))}, <code>Shift+Enter</code> ${escapeHtml(msg('webviewNewline'))}</span>
-            <span><code>Up/Down</code> ${escapeHtml(msg('webviewHistory'))}</span>
         </div>
     </div>
     <script nonce="${nonce}">
@@ -1030,6 +1104,8 @@ function getWebviewHtml() {
         };
         const FONT_BOOTSTRAP = ${JSON.stringify(fontOptions)};
         const StataCommands = ${JSON.stringify([...new Set([...StataBuiltinCommands, ...StataKeywords, ...StataFunctions, ...config.getCustomCommands()])])};
+        const StataFunctionSet = new Set(${JSON.stringify(StataFunctions)});
+        const AutocompleteKinds = { var: 'var', cmd: 'cmd', fn: 'fn' };
         var AutocompleteVariables = [];
 
         var autocompleteActiveIndex = -1;
@@ -1045,6 +1121,11 @@ function getWebviewHtml() {
             return { word: text.slice(start, pos), start: start, end: pos };
         }
 
+        function getAutocompleteIconClass(kind) {
+            if (kind === 'var') return 'var-icon';
+            if (kind === 'fn')  return 'fn-icon';
+            return 'cmd-icon';
+        }
         function showAutocomplete(matches, wordStart) {
             if (!matches.length) {
                 hideAutocomplete();
@@ -1052,12 +1133,22 @@ function getWebviewHtml() {
             }
             autocompleteDropdown.innerHTML = '';
             for (var i = 0; i < matches.length; i++) {
+                var m = matches[i];
+                var label = typeof m === 'string' ? m : m.label;
+                var kind = (typeof m === 'object' && m.kind) ? m.kind : 'cmd';
                 var item = document.createElement('div');
                 item.className = 'autocomplete-item';
-                item.textContent = matches[i];
+                item.dataset.label = label;
+                var icon = document.createElement('span');
+                icon.className = 'autocomplete-icon ' + getAutocompleteIconClass(kind);
+                item.appendChild(icon);
+                var text = document.createElement('span');
+                text.className = 'autocomplete-label';
+                text.textContent = label;
+                item.appendChild(text);
                 item.addEventListener('mousedown', function (e) {
                     e.preventDefault();
-                    applyAutocomplete(this.textContent, wordStart);
+                    applyAutocomplete(this.dataset.label, wordStart);
                 });
                 autocompleteDropdown.appendChild(item);
             }
@@ -1098,17 +1189,25 @@ function getWebviewHtml() {
             }
             var prefix = current.word.toLowerCase();
             var matches = [];
+            var seen = {};
             for (var i = 0; i < AutocompleteVariables.length && matches.length < 8; i++) {
-                if (AutocompleteVariables[i].toLowerCase().indexOf(prefix) === 0 && matches.indexOf(AutocompleteVariables[i]) < 0) {
-                    matches.push(AutocompleteVariables[i]);
+                var v = AutocompleteVariables[i];
+                var key = v.toLowerCase();
+                if (key.indexOf(prefix) === 0 && !seen[key]) {
+                    seen[key] = true;
+                    matches.push({ label: v, kind: 'var' });
                 }
             }
             for (var i = 0; i < StataCommands.length && matches.length < 8; i++) {
-                if (StataCommands[i].toLowerCase().indexOf(prefix) === 0 && matches.indexOf(StataCommands[i]) < 0) {
-                    matches.push(StataCommands[i]);
+                var c = StataCommands[i];
+                var ck = c.toLowerCase();
+                if (ck.indexOf(prefix) === 0 && !seen[ck]) {
+                    seen[ck] = true;
+                    var kind = StataFunctionSet.has(c) ? 'fn' : 'cmd';
+                    matches.push({ label: c, kind: kind });
                 }
             }
-            if (matches.length === 1 && matches[0].toLowerCase() === prefix) {
+            if (matches.length === 1 && matches[0].label.toLowerCase() === prefix) {
                 hideAutocomplete();
                 return;
             }
@@ -1132,7 +1231,7 @@ function getWebviewHtml() {
             var items = autocompleteDropdown.children;
             if (autocompleteActiveIndex >= 0 && autocompleteActiveIndex < items.length) {
                 var current = getCurrentWord();
-                applyAutocomplete(items[autocompleteActiveIndex].textContent, current.start);
+                applyAutocomplete(items[autocompleteActiveIndex].dataset.label, current.start);
                 return true;
             }
             return false;
