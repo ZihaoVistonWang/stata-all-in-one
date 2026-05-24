@@ -13,6 +13,7 @@ const { stopConsoleExecution, forceShutdownConsoleSession } = require('./modules
 const { setWebviewCommandHandler, setWebviewActionHandler, setOverflowNoticeSuppressed, registerWebviewPanelSerializer, clearWebviewTerminalPanel, setWebviewTerminalStatus, setConsoleFontOptions } = require('./modules/runCode/embeddedConsole/panel');
 const { registerCustomCommandHighlight } = require('./modules/customCommandHighlight');
 const { registerCompletionProvider } = require('./modules/completionProvider');
+const { registerVariableSuggestionService } = require('./modules/variableSuggestionService');
 const { registerHelpCommand } = require('./modules/helpCommand');
 const { registerLineBreakCommand } = require('./modules/lineBreak');
 const { registerRenameProvider } = require('./modules/renameProvider');
@@ -304,6 +305,7 @@ async function activate(context) {
     prewarmConsoleTextmateTokenizer();
 
     // Register completion provider for Stata commands and functions
+    registerVariableSuggestionService(context);
     registerCompletionProvider(context);
     console.log('Stata All in One: Code completion provider registered');
 

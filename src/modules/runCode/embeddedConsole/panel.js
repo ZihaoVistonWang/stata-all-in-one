@@ -3,7 +3,8 @@ const fs = require('fs');
 const path = require('path');
 const { StataTerminalRenderer, getWebviewThemeVariables } = require('./renderer');
 const { msg } = require('../../../utils/common');
-const { StataBuiltinCommands, StataKeywords, StataFunctions, extractVariableNames } = require('../../completionProvider');
+const { StataBuiltinCommands, StataKeywords, StataFunctions } = require('../../completionProvider');
+const variableSuggestions = require('../../variableSuggestionService');
 const config = require('../../../utils/config');
 
 const _renderer = new StataTerminalRenderer();
@@ -158,14 +159,14 @@ function postState() {
 
 function postVariables() {
     if (!_panel) return;
-    const editor = vscode.window.activeTextEditor;
-    if (editor && editor.document.languageId === 'stata') {
-        try {
-            const vars = [...extractVariableNames(editor.document)];
-            _panel.webview.postMessage({ type: 'variablesUpdate', variables: vars });
-        } catch (_e) {}
-    }
+    try {
+        _panel.webview.postMessage({ type: 'variablesUpdate', variables: variableSuggestions.getActiveVariables() });
+    } catch (_e) {}
 }
+
+const variableSuggestionSubscription = variableSuggestions.onDidChangeVariables(() => {
+    postVariables();
+});
 
 async function revealPanel(preserveFocus = true) {
     const existingPanel = _panel;
@@ -1038,7 +1039,7 @@ function getWebviewHtml() {
             var text = input.value || '';
             var pos = input.selectionStart || 0;
             var start = pos;
-            while (start > 0 && /[A-Za-z_]/.test(text[start - 1])) {
+            while (start > 0 && /[A-Za-z0-9_]/.test(text[start - 1])) {
                 start--;
             }
             return { word: text.slice(start, pos), start: start, end: pos };
@@ -1079,7 +1080,7 @@ function getWebviewHtml() {
             var text = input.value || '';
             var pos = input.selectionStart || 0;
             var wordEnd = pos;
-            while (wordEnd < text.length && /[A-Za-z_]/.test(text[wordEnd])) {
+            while (wordEnd < text.length && /[A-Za-z0-9_]/.test(text[wordEnd])) {
                 wordEnd++;
             }
             input.value = text.slice(0, wordStart) + command + ' ' + text.slice(wordEnd);
@@ -1091,20 +1092,20 @@ function getWebviewHtml() {
         function triggerAutocomplete() {
             if (input.disabled) return;
             var current = getCurrentWord();
-            if (!current.word || current.word.length < 2) {
+            if (!current.word || current.word.length < 1) {
                 hideAutocomplete();
                 return;
             }
             var prefix = current.word.toLowerCase();
             var matches = [];
-            for (var i = 0; i < StataCommands.length && matches.length < 8; i++) {
-                if (StataCommands[i].toLowerCase().indexOf(prefix) === 0) {
-                    matches.push(StataCommands[i]);
-                }
-            }
             for (var i = 0; i < AutocompleteVariables.length && matches.length < 8; i++) {
                 if (AutocompleteVariables[i].toLowerCase().indexOf(prefix) === 0 && matches.indexOf(AutocompleteVariables[i]) < 0) {
                     matches.push(AutocompleteVariables[i]);
+                }
+            }
+            for (var i = 0; i < StataCommands.length && matches.length < 8; i++) {
+                if (StataCommands[i].toLowerCase().indexOf(prefix) === 0 && matches.indexOf(StataCommands[i]) < 0) {
+                    matches.push(StataCommands[i]);
                 }
             }
             if (matches.length === 1 && matches[0].toLowerCase() === prefix) {
@@ -1771,5 +1772,7 @@ module.exports = {
     setConsoleFontOptions,
     registerWebviewPanelSerializer,
     clearWebviewTerminalPanel: clearPanel,
-    setWebviewTerminalStatus: setStatus
+    setWebviewTerminalStatus: setStatus,
+    postWebviewVariables: postVariables,
+    disposeVariableSuggestionSubscription: () => variableSuggestionSubscription.dispose()
 };
