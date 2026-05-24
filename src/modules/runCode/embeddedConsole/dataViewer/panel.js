@@ -291,12 +291,17 @@ function getDataViewerHtml(webview) {
             border-spacing: 0;
             font-size: var(--vscode-editor-font-size, 13px);
         }
+        #table-data {
+            table-layout: fixed;
+        }
         th, td {
             padding: 4px 10px;
             text-align: left;
             white-space: nowrap;
             line-height: 20px;
             box-sizing: border-box;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         th {
             position: sticky;
@@ -313,15 +318,29 @@ function getDataViewerHtml(webview) {
         tbody tr:nth-child(even) td {
             background: color-mix(in srgb, var(--vscode-list-hoverBackground) 28%, transparent);
         }
+        tr.virtual-spacer td {
+            height: 0;
+            padding: 0;
+            border: 0;
+            line-height: 0;
+        }
+        th.col-spacer, td.col-spacer {
+            padding: 0;
+            border: 0;
+            min-width: 0;
+            overflow: hidden;
+        }
         td.num {
             text-align: right;
             font-variant-numeric: tabular-nums;
         }
-        td.row-num {
+        th.row-num, td.row-num {
             color: var(--vscode-descriptionForeground);
             text-align: right;
             user-select: none;
-            min-width: 40px;
+            width: 56px;
+            min-width: 56px;
+            max-width: 56px;
         }
         td.var-name, td.data-variable {
             color: var(--stata-variable);
@@ -544,6 +563,7 @@ function getDataViewerHtml(webview) {
                 hideFilterAutocomplete();
             }
             syncFilterUi();
+            scheduleDataRender(false);
             scheduleAutoLoadCheck();
         }
 
@@ -724,6 +744,17 @@ function getDataViewerHtml(webview) {
 
         var dataColumnsCache = [];
         var dataColumnTypesCache = [];
+        var dataRowsCache = [];
+        var virtualRowHeight = 28;
+        var virtualOverscan = 80;
+        var virtualColumnWidth = 120;
+        var virtualColumnOverscan = 4;
+        var rowNumberColumnWidth = 56;
+        var virtualRenderQueued = false;
+        var lastVirtualStart = -1;
+        var lastVirtualEnd = -1;
+        var lastVirtualColStart = -1;
+        var lastVirtualColEnd = -1;
         var totalObs = 0;
         var loadedRows = 0;
         var loadingMore = false;
@@ -736,49 +767,167 @@ function getDataViewerHtml(webview) {
             dataColumnTypesCache = [];
             var thead = document.getElementById('table-data').querySelector('thead');
             var tbody = document.getElementById('table-data').querySelector('tbody');
+            var table = document.getElementById('table-data');
             thead.innerHTML = '';
             tbody.innerHTML = '';
-            var headerRow = document.createElement('tr');
-            var th = document.createElement('th');
-            th.className = 'row-num';
-            th.textContent = '#';
-            headerRow.appendChild(th);
+            dataRowsCache = [];
+            lastVirtualStart = -1;
+            lastVirtualEnd = -1;
+            lastVirtualColStart = -1;
+            lastVirtualColEnd = -1;
+            contentEl.scrollTop = 0;
+            contentEl.scrollLeft = 0;
             for (var i = 0; i < columns.length; i++) {
-                var th2 = document.createElement('th');
-                th2.textContent = columns[i];
-                headerRow.appendChild(th2);
                 dataColumnTypesCache.push(typeMap[columns[i]] || '');
             }
-            thead.appendChild(headerRow);
+            updateDataTableWidth(table);
+            renderVisibleDataHeader(0, Math.min(columns.length, getVisibleColumnCount()));
             loadedRows = 0;
             hasMoreRows = true;
             setLoadingMore(false);
         }
 
+        function updateDataTableWidth(table) {
+            var dataTable = table || document.getElementById('table-data');
+            dataTable.style.width = Math.max(contentEl.clientWidth, rowNumberColumnWidth + (dataColumnsCache.length * virtualColumnWidth)) + 'px';
+        }
+
         function appendDataRows(rows) {
-            var tbody = document.getElementById('table-data').querySelector('tbody');
-            var cols = dataColumnsCache;
-            for (var r = 0; r < rows.length; r++) {
-                var row = rows[r];
-                var tr = document.createElement('tr');
-                var tdNum = document.createElement('td');
-                tdNum.className = 'row-num';
-                tdNum.textContent = row.rowNum;
-                tr.appendChild(tdNum);
-                var vals = Array.isArray(row.values) ? row.values : [];
-                for (var v = 0; v < cols.length; v++) {
-                    var td = document.createElement('td');
-                    var val = v < vals.length ? displayValue(vals[v]) : '';
-                    td.textContent = val;
-                    var isString = /^str/i.test(dataColumnTypesCache[v] || '');
-                    td.className = isString ? 'data-string' : 'num data-number';
-                    tr.appendChild(td);
-                }
-                tbody.appendChild(tr);
+            if (!Array.isArray(rows) || !rows.length) {
+                setLoadingMore(false);
+                return;
             }
+            Array.prototype.push.apply(dataRowsCache, rows);
             loadedRows += rows.length;
             setLoadingMore(false);
+            scheduleDataRender(true);
             scheduleAutoLoadCheck();
+        }
+
+        function scheduleDataRender(force) {
+            if (currentTab !== 'data') return;
+            if (force) {
+                lastVirtualStart = -1;
+                lastVirtualEnd = -1;
+                lastVirtualColStart = -1;
+                lastVirtualColEnd = -1;
+            }
+            if (virtualRenderQueued) return;
+            virtualRenderQueued = true;
+            requestAnimationFrame(function () {
+                virtualRenderQueued = false;
+                renderVisibleDataRows();
+            });
+        }
+
+        function renderVisibleDataRows() {
+            var tbody = document.getElementById('table-data').querySelector('tbody');
+            var cols = dataColumnsCache;
+            if (!cols.length || !dataRowsCache.length) {
+                tbody.innerHTML = '';
+                return;
+            }
+            var firstVisible = Math.floor(contentEl.scrollTop / virtualRowHeight);
+            var visibleCount = Math.ceil(contentEl.clientHeight / virtualRowHeight) + virtualOverscan * 2;
+            var start = Math.max(0, firstVisible - virtualOverscan);
+            var end = Math.min(dataRowsCache.length, start + visibleCount);
+            var columnRange = getVisibleColumnRange();
+            if (start === lastVirtualStart && end === lastVirtualEnd &&
+                columnRange.start === lastVirtualColStart && columnRange.end === lastVirtualColEnd) {
+                return;
+            }
+            lastVirtualStart = start;
+            lastVirtualEnd = end;
+            lastVirtualColStart = columnRange.start;
+            lastVirtualColEnd = columnRange.end;
+            renderVisibleDataHeader(columnRange.start, columnRange.end);
+            var fragment = document.createDocumentFragment();
+            appendSpacerRow(fragment, start * virtualRowHeight, columnRange.start, columnRange.end);
+            for (var r = start; r < end; r++) {
+                fragment.appendChild(createDataRow(dataRowsCache[r], columnRange.start, columnRange.end));
+            }
+            appendSpacerRow(fragment, Math.max(0, (dataRowsCache.length - end) * virtualRowHeight), columnRange.start, columnRange.end);
+            tbody.innerHTML = '';
+            tbody.appendChild(fragment);
+        }
+
+        function getVisibleColumnCount() {
+            return Math.ceil(Math.max(contentEl.clientWidth - rowNumberColumnWidth, 0) / virtualColumnWidth) + virtualColumnOverscan * 2;
+        }
+
+        function getVisibleColumnRange() {
+            var horizontalOffset = Math.max(0, contentEl.scrollLeft - rowNumberColumnWidth);
+            var firstVisible = Math.floor(horizontalOffset / virtualColumnWidth);
+            var start = Math.max(0, firstVisible - virtualColumnOverscan);
+            var end = Math.min(dataColumnsCache.length, start + getVisibleColumnCount());
+            return { start: start, end: end };
+        }
+
+        function renderVisibleDataHeader(colStart, colEnd) {
+            var thead = document.getElementById('table-data').querySelector('thead');
+            var headerRow = document.createElement('tr');
+            var th = document.createElement('th');
+            th.className = 'row-num';
+            th.textContent = '#';
+            headerRow.appendChild(th);
+            appendColumnSpacer(headerRow, colStart * virtualColumnWidth, 'th');
+            for (var i = colStart; i < colEnd; i++) {
+                var th2 = document.createElement('th');
+                th2.textContent = dataColumnsCache[i];
+                setVirtualColumnWidth(th2);
+                headerRow.appendChild(th2);
+            }
+            appendColumnSpacer(headerRow, Math.max(0, (dataColumnsCache.length - colEnd) * virtualColumnWidth), 'th');
+            thead.innerHTML = '';
+            thead.appendChild(headerRow);
+        }
+
+        function appendSpacerRow(fragment, height, colStart, colEnd) {
+            if (height <= 0) return;
+            var tr = document.createElement('tr');
+            tr.className = 'virtual-spacer';
+            var td = document.createElement('td');
+            td.colSpan = Math.max(1, (colEnd - colStart) + 3);
+            td.style.height = height + 'px';
+            tr.appendChild(td);
+            fragment.appendChild(tr);
+        }
+
+        function appendColumnSpacer(row, width, tagName) {
+            if (width <= 0) return;
+            var cell = document.createElement(tagName || 'td');
+            cell.className = 'col-spacer';
+            cell.style.width = width + 'px';
+            cell.style.minWidth = width + 'px';
+            cell.style.maxWidth = width + 'px';
+            row.appendChild(cell);
+        }
+
+        function setVirtualColumnWidth(cell) {
+            cell.style.width = virtualColumnWidth + 'px';
+            cell.style.minWidth = virtualColumnWidth + 'px';
+            cell.style.maxWidth = virtualColumnWidth + 'px';
+        }
+
+        function createDataRow(row, colStart, colEnd) {
+            var tr = document.createElement('tr');
+            var tdNum = document.createElement('td');
+            tdNum.className = 'row-num';
+            tdNum.textContent = row.rowNum;
+            tr.appendChild(tdNum);
+            appendColumnSpacer(tr, colStart * virtualColumnWidth, 'td');
+            var vals = Array.isArray(row.values) ? row.values : [];
+            for (var v = colStart; v < colEnd; v++) {
+                var td = document.createElement('td');
+                var val = v < vals.length ? displayValue(vals[v]) : '';
+                td.textContent = val;
+                var isString = /^str/i.test(dataColumnTypesCache[v] || '');
+                td.className = isString ? 'data-string' : 'num data-number';
+                setVirtualColumnWidth(td);
+                tr.appendChild(td);
+            }
+            appendColumnSpacer(tr, Math.max(0, (dataColumnsCache.length - colEnd) * virtualColumnWidth), 'td');
+            return tr;
         }
 
         function requestLoadMore() {
@@ -812,20 +961,22 @@ function getDataViewerHtml(webview) {
         }
 
         function getFirstVisibleDataRow() {
-            var rows = document.getElementById('table-data').querySelectorAll('tbody tr');
-            if (!rows.length) return 0;
-            var contentTop = contentEl.getBoundingClientRect().top;
-            for (var i = 0; i < rows.length; i++) {
-                if (rows[i].getBoundingClientRect().bottom > contentTop) {
-                    var cell = rows[i].querySelector('.row-num');
-                    return cell ? Number(cell.textContent) || 0 : 0;
-                }
-            }
-            return loadedRows;
+            if (!dataRowsCache.length) return 0;
+            return Math.min(dataRowsCache.length, Math.max(1, Math.floor(contentEl.scrollTop / virtualRowHeight) + 1));
         }
-        contentEl.addEventListener('scroll', scheduleAutoLoadCheck, { passive: true });
-        contentEl.addEventListener('wheel', scheduleAutoLoadCheck, { passive: true });
-        window.addEventListener('resize', scheduleAutoLoadCheck);
+        contentEl.addEventListener('scroll', function () {
+            renderVisibleDataRows();
+            scheduleAutoLoadCheck();
+        }, { passive: true });
+        contentEl.addEventListener('wheel', function () {
+            renderVisibleDataRows();
+            scheduleAutoLoadCheck();
+        }, { passive: true });
+        window.addEventListener('resize', function () {
+            updateDataTableWidth();
+            scheduleDataRender(true);
+            scheduleAutoLoadCheck();
+        });
 
         function renderInfo(info) {
             var bar = document.getElementById('info-bar');
