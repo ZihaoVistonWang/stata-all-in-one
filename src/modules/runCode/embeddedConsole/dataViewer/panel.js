@@ -1,7 +1,8 @@
 const vscode = require('vscode');
+const path = require('path');
 const { fetchDataSnapshot, fetchMoreRows } = require('./provider');
 const config = require('../../../../utils/config');
-const { msg } = require('../../../../utils/common');
+const { isMacOS, msg } = require('../../../../utils/common');
 const { StataTerminalRenderer, getWebviewThemeVariables } = require('../renderer');
 
 const PANEL_VIEW_TYPE = 'stata-all-in-one.dataViewer';
@@ -409,10 +410,10 @@ function getDataViewerHtml(webview) {
             <pre id="filter-highlight" aria-hidden="true"></pre>
             <input id="filter-input" spellcheck="false" placeholder="${escHtml(msg('dataViewerFilterPlaceholder'))}">
             <div class="filter-input-actions">
-                <button class="filter-input-button" id="filter-apply-btn" title="${escHtml(msg('dataViewerFilter'))}" aria-label="${escHtml(msg('dataViewerFilter'))}">
+                <button class="filter-input-button" id="filter-apply-btn" title="${escHtml(msg('dataViewerApplyFilter'))}" aria-label="${escHtml(msg('dataViewerApplyFilter'))}">
                     <span class="refresh-icon codicon-search" aria-hidden="true"></span>
                 </button>
-                <button class="filter-input-button" id="filter-clear-btn" title="${escHtml(msg('dataViewerClearFilter'))}" aria-label="${escHtml(msg('dataViewerClearFilter'))}">
+                <button class="filter-input-button" id="filter-clear-btn" title="${escHtml(msg('dataViewerClearFilterShortcut'))}" aria-label="${escHtml(msg('dataViewerClearFilterShortcut'))}">
                     <span class="refresh-icon codicon-eraser" aria-hidden="true"></span>
                 </button>
             </div>
@@ -509,6 +510,13 @@ function getDataViewerHtml(webview) {
                 if (filterAutocompleteVisible) {
                     event.preventDefault();
                     hideFilterAutocomplete();
+                    return;
+                }
+                if (filterInput.value) {
+                    event.preventDefault();
+                    filterInput.value = '';
+                    updateFilterHighlight();
+                    requestRefresh();
                     return;
                 }
                 document.body.classList.remove('filter-open');
@@ -1144,8 +1152,77 @@ async function updateData() {
     await refresh();
 }
 
+function escapeStataPath(filePath) {
+    return String(filePath || '').replace(/\\/g, '/').replace(/"/g, '""');
+}
+
+async function ensureSilentSession(context) {
+    if (!isMacOS()) {
+        return { success: false, reason: 'Data Viewer can only open .dta files directly on macOS Embedded Console for now.' };
+    }
+
+    const session = require('../session');
+    if (session.hasActiveConsoleSession()) {
+        return { success: true, session: session.getConsoleSession(context) };
+    }
+
+    const { findStataDylib } = require('../mac');
+    const savedPath = context ? context.globalState.get('stataConsoleDylibPath') : null;
+    const dylibInfo = findStataDylib(null, savedPath);
+    if (!dylibInfo.path) {
+        return { success: false, reason: 'Unable to find Stata. Please make sure Stata is installed in /Applications.' };
+    }
+    if (context && !dylibInfo.fromCache) {
+        await context.globalState.update('stataConsoleDylibPath', dylibInfo.path);
+    }
+
+    const ok = await session.initConsoleSession(context, dylibInfo.path);
+    if (!ok) {
+        return { success: false, reason: 'Failed to initialize Stata session.' };
+    }
+
+    return { success: true, session: session.getConsoleSession(context) };
+}
+
+async function openDtaFile(context, uri, panel) {
+    if (!uri || uri.scheme !== 'file') {
+        return null;
+    }
+    if (config.getRunMode() !== 'embeddedConsole') {
+        vscode.window.showInformationMessage(msg('dataViewerEmbeddedOnly'));
+        return null;
+    }
+
+    const targetPanel = panel ? attachPanel(panel) : ensurePanel();
+    targetPanel.reveal(undefined, true);
+
+    const filePath = uri.fsPath;
+    const initResult = await ensureSilentSession(context);
+    if (!initResult.success || !initResult.session) {
+        vscode.window.showErrorMessage(initResult.reason || 'Failed to initialize Stata session.');
+        return targetPanel;
+    }
+
+    const cdResult = await initResult.session.execute('cd "' + escapeStataPath(path.dirname(filePath)) + '"', false);
+    if (!cdResult.success) {
+        vscode.window.showErrorMessage(cdResult.error || 'Failed to set Stata working directory.');
+        return targetPanel;
+    }
+    initResult.session.setWorkingDirectory(path.dirname(filePath));
+
+    const result = await initResult.session.execute('use "' + escapeStataPath(filePath) + '", clear', false);
+    if (!result.success) {
+        vscode.window.showErrorMessage(result.error || 'Failed to open Stata dataset in Data Viewer.');
+        return targetPanel;
+    }
+
+    await refresh();
+    return targetPanel;
+}
+
 module.exports = {
     revealDataViewer: reveal,
+    openDtaFileInDataViewer: openDtaFile,
     updateDataViewerData: updateData,
     getDataViewerPanel: () => _panel,
     getPanelViewType: () => PANEL_VIEW_TYPE

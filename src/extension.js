@@ -20,6 +20,7 @@ const { registerUpdateCheck } = require('./modules/updateNotification');
 const { findStataApp } = require('./modules/runCode/externalApp/mac');
 const { syncConsoleTerminalTheme } = require('./modules/runCode/embeddedConsole/renderer');
 const { prewarmConsoleTextmateTokenizer } = require('./modules/runCode/embeddedConsole/textmateTokenizer');
+const { registerDtaDataViewer } = require('./modules/runCode/embeddedConsole/dataViewer/dtaEditor');
 const { isMacOS, showInfo, showWarn, msg } = require('./utils/common');
 const { ensureConsoleFontCache, getConsoleFontWebviewOptions } = require('./utils/consoleFonts');
 const config = require('./utils/config');
@@ -401,13 +402,14 @@ async function activate(context) {
         'stata-all-in-one.showDataViewer',
         () => {
             if (config.getRunMode() !== 'embeddedConsole') {
-                vscode.window.showInformationMessage('Data Viewer is only available in Embedded Console mode.');
+                vscode.window.showInformationMessage(msg('dataViewerEmbeddedOnly'));
                 return;
             }
             revealDataViewer();
         }
     );
     context.subscriptions.push(dataViewerCommand);
+    registerDtaDataViewer(context);
 
     // Register document symbol provider for outline view
     const provider = createDocumentSymbolProvider();
