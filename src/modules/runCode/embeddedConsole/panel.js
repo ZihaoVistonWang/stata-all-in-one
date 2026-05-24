@@ -106,7 +106,7 @@ function attachPanel(panel) {
             const config = require('../../../utils/config');
             if (config.getRunMode() === 'embeddedConsole') {
                 const { revealDataViewer } = require('./dataViewer/panel');
-                revealDataViewer();
+                revealDataViewer(message.filterText || '');
             }
         } else if (message && (message.type === 'stopExecution' || message.type === 'clearConsole' || message.type === 'showOverflowNotice') && typeof _actionHandler === 'function') {
             try {
@@ -1594,8 +1594,10 @@ function getWebviewHtml() {
             if (!code.trim() || input.disabled) {
                 return;
             }
-            if (/^\s*(browse|br)\b/i.test(code)) {
-                vscode.postMessage({ type: 'showDataViewer' });
+            var browseMatch = code.match(/^\\s*(browse|br)\\b\\s*(.*)$/i);
+            if (browseMatch) {
+                pushHistory(code);
+                vscode.postMessage({ type: 'showDataViewer', filterText: browseMatch[2] || '' });
                 input.value = '';
                 updateInputHighlight();
                 return;
