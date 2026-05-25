@@ -22,6 +22,7 @@ const { findStataApp } = require('./modules/runCode/externalApp/mac');
 const { syncConsoleTerminalTheme } = require('./modules/runCode/embeddedConsole/renderer');
 const { prewarmConsoleTextmateTokenizer } = require('./modules/runCode/embeddedConsole/textmateTokenizer');
 const { registerDtaDataViewer } = require('./modules/runCode/embeddedConsole/dataViewer/dtaEditor');
+const { registerHoverProvider, buildHelpIndex, createHoverProvider, DocumentCache } = require('./modules/hoverProvider');
 const { isMacOS, showInfo, showWarn, msg } = require('./utils/common');
 const { ensureConsoleFontCache, getConsoleFontWebviewOptions } = require('./utils/consoleFonts');
 const config = require('./utils/config');
@@ -308,6 +309,26 @@ async function activate(context) {
     registerVariableSuggestionService(context);
     registerCompletionProvider(context);
     console.log('Stata All in One: Code completion provider registered');
+
+    // Register hover provider for Stata commands (if enabled)
+    const enableHoverDocs = vscode.workspace.getConfiguration('stata-all-in-one').get('enableHoverDocs', true);
+    if (enableHoverDocs) {
+        // Build help index asynchronously (non-blocking)
+        buildHelpIndex().then(index => {
+            const cache = new DocumentCache(200);
+            const provider = createHoverProvider(index, cache);
+            const hoverDisposable = vscode.languages.registerHoverProvider(
+                { language: 'stata' },
+                provider
+            );
+            context.subscriptions.push(hoverDisposable);
+            console.log('Stata All in One: Hover provider registered');
+        }).catch(err => {
+            console.error('Stata All in One: Failed to build help index:', err);
+        });
+    } else {
+        console.log('Stata All in One: Hover provider disabled in settings');
+    }
 
     // Register rename provider for Stata variables and commands
     registerRenameProvider(context);

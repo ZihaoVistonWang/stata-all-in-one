@@ -154,6 +154,19 @@
           "type": "boolean",
           "default": true,
           "markdownDescription": "%config.showActionButtons.description%"
+        },
+        "stata-all-in-one.enableHoverDocs": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "%config.enableHoverDocs.description%"
+        },
+        "stata-all-in-one.additionalAdoPaths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "markdownDescription": "%config.additionalAdoPaths.description%"
         }
       }
     },
@@ -466,6 +479,7 @@
     "node-gyp": "^10.0.0"
   },
   "scripts": {
+    "test": "node --test src/__tests__/**/*.test.js",
     "build:native": "bash scripts/build-native.sh",
     "prepackage": "npm run build:native"
   }

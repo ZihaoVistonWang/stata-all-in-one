@@ -141,6 +141,17 @@ const getConsoleCustomFontFamily = () => {
     return typeof value === 'string' ? value.trim() : '';
 };
 
+/**
+ * Get additional ado paths for community command scanning
+ */
+const getAdditionalAdoPaths = () => {
+    const raw = getConfigValue('additionalAdoPaths', []);
+    if (!Array.isArray(raw)) return [];
+    return raw
+        .map(p => (typeof p === 'string' ? p.trim() : ''))
+        .filter(Boolean);
+};
+
 module.exports = {
     CONFIG_NAMESPACE,
     RUN_MODES,
@@ -162,5 +173,6 @@ module.exports = {
     getCdToDoFileDir,
     getRunMode,
     getConsoleFontMode,
-    getConsoleCustomFontFamily
+    getConsoleCustomFontFamily,
+    getAdditionalAdoPaths
 };
