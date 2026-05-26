@@ -143,6 +143,111 @@ const StataHelpAliases = {
     tab: 'tabulate'
 };
 
+// ---------------------------------------------------------------------------
+// Hover filter: only show hover for "function" commands at command positions.
+//
+// Strategy (blocklist, not allowlist):
+//   1. Only the first word on a line, or the first word after a prefix colon
+//      (e.g. "bootstrap: reg …"), is considered a command position.
+//   2. Pure utility / data-management / flow-control commands are excluded via
+//      a curated blocklist.  Everything else — estimation commands, analysis
+//      commands, and all community-contributed commands — gets hover help
+//      automatically without needing to be listed individually.
+// ---------------------------------------------------------------------------
+
+/**
+ * Canonical names of commands that should NEVER show hover help.
+ * Abbreviations are matched by prefix: if `word` is a prefix of any entry here
+ * (and length >= 3), it is blocked as well.
+ */
+const BLOCKED_COMMANDS = new Set([
+    // --- data management ---
+    'use', 'save', 'saveold', 'import', 'export', 'insheet', 'outsheet',
+    'infile', 'outfile', 'infix', 'append', 'merge', 'joinby', 'cross',
+    'compress', 'clear', 'drop', 'keep', 'rename', 'recode', 'encode',
+    'decode', 'destring', 'tostring', 'format', 'label', 'order', 'sort',
+    'gsort', 'generate', 'egen', 'replace', 'recast', 'clonevar', 'separate',
+    'split', 'stack', 'xpose', 'reshape', 'expand', 'fillin', 'ipolate',
+    // --- system / files ---
+    'cd', 'pwd', 'dir', 'ls', 'mkdir', 'copy', 'erase', 'rmdir', 'type',
+    'more', 'view', 'shell', 'winexec', 'plugin',
+    // --- info / describe ---
+    'describe', 'list', 'browse', 'edit', 'display', 'count', 'assert',
+    'notes', 'about', 'update', 'ado', 'adopath', 'net', 'ssc', 'news',
+    'query', 'memory', 'set', 'help', 'mhelp', 'db', 'search', 'findit',
+    'which', 'lookfor', 'lookup',
+    // --- flow control / programming ---
+    'foreach', 'forvalues', 'while', 'continue', 'if', 'else', 'capture',
+    'quietly', 'noisily', 'program', 'syntax', 'args', 'tokenize',
+    'gettoken', 'include', 'do', 'run', 'pause', 'sleep', 'exit', 'end',
+    'error', 'return', 'ereturn', 'sreturn', 'input', 'macro', 'global',
+    'local', 'scalar', 'matrix', 'mata', 'class', 'break', 'continue',
+    'unabbrev', 'unabcmd', 'version',
+    // --- data utilities ---
+    'duplicates', 'isid', 'ds', 'cf', 'compare', 'confirm', 'codebook',
+    'inspect', 'levelsof', 'checksum', 'datasignature', 'snapspan',
+    'numlabel', 'labelbook', 'mark', 'markin', 'markout', 'marksample',
+    // --- other utilities ---
+    'translate', 'translator', 'timer', 'profiler', 'post', 'postfile',
+    'postclose', 'postutil', 'constraint', 'discard',
+    'preserve', 'restore', 'window', 'verinst',
+]);
+
+/**
+ * Returns true when `word` should NOT show hover help (i.e. it is a blocked
+ * utility command or a known abbreviation of one).
+ */
+function isBlockedCommand(word) {
+    const w = word.toLowerCase();
+    if (!w || w.length < 2) return true;
+    if (BLOCKED_COMMANDS.has(w)) return true;
+    // Abbreviation of a blocked command (min 3 chars to avoid false positives)
+    if (w.length >= 3) {
+        for (const cmd of BLOCKED_COMMANDS) {
+            if (cmd.startsWith(w)) return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * Checks whether `position` is at a Stata command position, i.e. the first
+ * non-whitespace word on the line or the first word after a prefix colon
+ * (e.g. "bootstrap, reps(2000): reg …").
+ */
+function isAtCommandPosition(document, position) {
+    const line = document.lineAt(position.line);
+    const lineText = line.text;
+    const col = position.character;
+
+    // First word on the line (after optional whitespace)
+    const trimmed = lineText.trimStart();
+    const leadingWs = lineText.length - trimmed.length;
+    const firstWordMatch = trimmed.match(/^(\w+)/);
+    if (firstWordMatch) {
+        const fwStart = leadingWs;
+        const fwEnd = leadingWs + firstWordMatch[1].length;
+        if (col >= fwStart && col <= fwEnd) return true;
+    }
+
+    // First word after a colon (prefix-command separator)
+    // Find the last colon before the cursor
+    const before = lineText.substring(0, col);
+    const colonIdx = before.lastIndexOf(':');
+    if (colonIdx === -1) return false;
+
+    const afterColon = before.substring(colonIdx + 1);
+    const afterTrim = afterColon.trimStart();
+    if (afterTrim.length === 0) return false;
+    const leadingAfterColon = afterColon.length - afterTrim.length;
+    const afterColonWord = afterTrim.match(/^(\w+)/);
+    if (!afterColonWord) return false;
+
+    const wordStart = colonIdx + 1 + leadingAfterColon;
+    const wordEnd = wordStart + afterColonWord[1].length;
+    return col >= wordStart && col <= wordEnd;
+}
+
 /**
  * Parse SMCL markup and convert it into hover-friendly HTML/Markdown.
  *
@@ -1914,15 +2019,8 @@ function createHoverProvider(index, cache) {
                         }
                     }
                 }
-                // c) Progressive prefix: word's prefix is an indexed command (e.g. bysort → by)
-                if (!isCommand && wordLower.length > 1) {
-                    for (let i = wordLower.length - 1; i >= 1; i--) {
-                        if (globalHelpIndex.has(wordLower.substring(0, i))) {
-                            isCommand = true;
-                            break;
-                        }
-                    }
-                }
+                // c) Progressive prefix removed — it caused false positives on
+                // variable names that happen to contain a command as prefix.
             }
             // d) Fallback: builtin list (for commands without .sthlp, e.g. replace)
             if (!isCommand) {
@@ -1935,7 +2033,17 @@ function createHoverProvider(index, cache) {
             if (!isCommand) {
                 return null;
             }
-            
+
+            // Only show hover at command positions (start of line or after prefix
+            // colon) and skip blocked utility commands (data-mgmt, flow-control, …).
+            // Estimation / analysis commands and ALL community commands pass through.
+            if (!isAtCommandPosition(document, position)) {
+                return null;
+            }
+            if (isBlockedCommand(wordLower)) {
+                return null;
+            }
+
             const line = document.lineAt ? document.lineAt(position.line) : { text: document.getText() };
             let lineText = line.text;
             
