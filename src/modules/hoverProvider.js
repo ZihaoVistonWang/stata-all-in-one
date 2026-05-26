@@ -139,6 +139,10 @@ const StataBuiltinCommands = [
     'eststo', 'estout', 'esttab', 'estadd', 'estpost'
 ];
 
+const StataHelpAliases = {
+    tab: 'tabulate'
+};
+
 /**
  * Parse SMCL markup and convert it into hover-friendly HTML/Markdown.
  *
@@ -155,11 +159,704 @@ function parseSmclToHtml(smclText) {
     if (!smclText) return '';
 
     try {
-        const blocks = parseSmclBlocks(smclText);
-        return blocks.join('\n\n').replace(/\n{3,}/g, '\n\n').trim();
+        return renderSmclAsStataViewer(smclText);
     } catch (e) {
         return escHtml(smclText);
     }
+}
+
+const STATA_HELP_WIDTH = 72;
+
+function renderSmclAsStataViewer(smclText) {
+    const lines = normalizeSmclLines(smclText);
+    const output = [];
+    let paragraph = null;
+    let tableRow = null;
+    let p2colLayout = { leftIndent: 4, rightColumn: 30 };
+    let synoptLayout = { leftIndent: 4, rightColumn: 28 };
+
+    const flushParagraph = () => {
+        if (!paragraph) return;
+        output.push(...wrapSmclParagraph(paragraph.parts.join(' '), paragraph.first, paragraph.next));
+        paragraph = null;
+    };
+
+    const flushTableRow = () => {
+        if (!tableRow) return;
+        output.push(...renderTwoColumnRows(
+            tableRow.left,
+            renderSmclInline(tableRow.parts.join(' ')),
+            tableRow.leftIndent,
+            tableRow.rightColumn
+        ));
+        tableRow = null;
+    };
+
+    const appendTableRowText = (text) => {
+        if (!tableRow) return false;
+        const cleanText = stripTrailingPEnd(text);
+        if (cleanText) {
+            tableRow.parts.push(cleanText);
+        }
+        if (/\{p_end\}\s*$/.test(text)) {
+            flushTableRow();
+        }
+        return true;
+    };
+
+    const appendParagraph = (first, next, text) => {
+        if (!paragraph || paragraph.first !== first || paragraph.next !== next) {
+            flushParagraph();
+            paragraph = { first, next, parts: [] };
+        }
+        const cleanText = stripTrailingPEnd(text);
+        if (cleanText) {
+            paragraph.parts.push(cleanText);
+        }
+        if (/\{p_end\}\s*$/.test(text)) {
+            flushParagraph();
+        }
+    };
+
+    for (const rawLine of lines) {
+        const line = rawLine.trimEnd();
+        const trimmed = line.trim();
+
+        if (!trimmed) {
+            flushTableRow();
+            flushParagraph();
+            output.push('');
+            continue;
+        }
+
+        if (trimmed === '{p_end}') {
+            flushTableRow();
+            flushParagraph();
+            continue;
+        }
+
+        const directive = readDirectiveAt(trimmed, 0);
+        if (!directive) {
+            if (tableRow) {
+                appendTableRowText(trimmed);
+            } else if (paragraph) {
+                appendParagraph(paragraph.first, paragraph.next, trimmed);
+            } else {
+                output.push(...renderViewerPhysicalLine(line));
+            }
+            continue;
+        }
+
+        const tail = trimmed.slice(directive.end).trim();
+        const tag = directive.tag;
+
+        if (tableRow && !isViewerBlockDirective(tag)) {
+            appendTableRowText(trimmed);
+            continue;
+        }
+
+        if (paragraph && !isViewerBlockDirective(tag)) {
+            appendParagraph(paragraph.first, paragraph.next, trimmed);
+            continue;
+        }
+
+        if (tag === 'p2colset') {
+            flushTableRow();
+            flushParagraph();
+            p2colLayout = layoutFromP2colset(directive.options);
+            continue;
+        }
+
+        if (tag === 'p2colreset') {
+            flushTableRow();
+            flushParagraph();
+            p2colLayout = { leftIndent: 4, rightColumn: 30 };
+            continue;
+        }
+
+        if (tag === 'synoptset') {
+            flushTableRow();
+            flushParagraph();
+            synoptLayout = layoutFromSynoptset(directive.options);
+            continue;
+        }
+
+        if (tag === 'smcl' || tag === 'comment' || tag === '*' || tag === 'marker'
+            || tag === 'viewerjumpto' || tag === 'vieweralsosee' || tag === 'viewerdialog'
+            || tag === 'vieweralsoseealso' || tag === 'findalias') {
+            continue;
+        }
+
+        if (tag === 'hline') {
+            flushTableRow();
+            flushParagraph();
+            output.push('-'.repeat(STATA_HELP_WIDTH));
+            continue;
+        }
+
+        if (tag === 'synoptline') {
+            flushTableRow();
+            flushParagraph();
+            output.push(' '.repeat(synoptLayout.leftIndent) + '-'.repeat(STATA_HELP_WIDTH - synoptLayout.leftIndent));
+            continue;
+        }
+
+        if (tag === 'title' || tag === 'dlgtab') {
+            flushTableRow();
+            flushParagraph();
+            const title = renderSmclInline(directive.content || directive.options || tail);
+            if (title.text) {
+                output.push(tag === 'dlgtab' ? renderDialogTab(title) : `<u><b>${title.html}</b></u>`);
+            }
+            if (tail && directive.content) {
+                output.push(renderSmclViewerLine(tail));
+            }
+            continue;
+        }
+
+        if (tag === 'synopthdr') {
+            flushTableRow();
+            flushParagraph();
+            const header = directive.content || 'options';
+            output.push(renderTwoColumnRows(
+                { ...renderSmclInline(header), html: `<i>${renderSmclInline(header).html}</i>` },
+                renderSmclInline('Description'),
+                synoptLayout.leftIndent,
+                synoptLayout.rightColumn
+            )[0]);
+            continue;
+        }
+
+        if (tag === 'synopt' || tag === 'p2col' || tag === 'p2coldent') {
+            flushParagraph();
+            const layout = tag === 'synopt' || tag === 'p2coldent'
+                ? synoptLayout
+                : (directive.options ? layoutFromP2colset(directive.options) : p2colLayout);
+            tableRow = {
+                left: renderSmclInline(tableLeftContent(directive)),
+                leftIndent: layout.leftIndent,
+                rightColumn: layout.rightColumn,
+                parts: []
+            };
+            appendTableRowText(tail);
+            continue;
+        }
+
+        if (tag === 'syntab') {
+            flushTableRow();
+            flushParagraph();
+            const section = renderSmclInline(directive.content || directive.options || tail);
+            output.push('');
+            output.push(`    ${section.html}`);
+            continue;
+        }
+
+        if (isParagraphDirective(tag)) {
+            flushTableRow();
+            const margins = paragraphMargins(tag, directive.options);
+            appendParagraph(margins.first, margins.next, [directive.content, tail].filter(Boolean).join(' '));
+            continue;
+        }
+
+        if (!isViewerBlockDirective(tag)) {
+            flushTableRow();
+            flushParagraph();
+            output.push(...renderViewerPhysicalLine(line));
+            continue;
+        }
+
+        flushTableRow();
+        flushParagraph();
+        output.push(...renderViewerPhysicalLine(trimmed));
+    }
+
+    flushTableRow();
+    flushParagraph();
+    const html = output
+        .join('\n')
+        .replace(/\n{4,}/g, '\n\n\n')
+        .replace(/^\n+|\n+$/g, '');
+
+    return `<pre class="stata-help">${html}</pre>`;
+}
+
+function isParagraphDirective(tag) {
+    return tag === 'p' || tag === 'pstd' || tag === 'phang' || tag === 'phang2'
+        || tag === 'pmore' || tag === 'pmore2' || tag === 'pin' || tag === 'psee'
+        || tag === 'asis';
+}
+
+function isViewerBlockDirective(tag) {
+    return tag === 'smcl' || tag === 'comment' || tag === '*' || tag === 'marker'
+        || tag === 'p2colset' || tag === 'p2colreset' || tag === 'synoptset'
+        || tag === 'viewerjumpto' || tag === 'vieweralsosee' || tag === 'viewerdialog'
+        || tag === 'vieweralsoseealso' || tag === 'findalias' || tag === 'hline'
+        || tag === 'synoptline' || tag === 'title' || tag === 'dlgtab'
+        || tag === 'synopthdr' || tag === 'synopt' || tag === 'p2col'
+        || tag === 'p2coldent' || tag === 'syntab' || isParagraphDirective(tag);
+}
+
+function paragraphMargins(tag, options) {
+    if (tag === 'p') {
+        const values = String(options || '').trim().split(/\s+/).map(value => parseInt(value, 10));
+        return {
+            first: Number.isFinite(values[0]) ? values[0] : 0,
+            next: Number.isFinite(values[1]) ? values[1] : (Number.isFinite(values[0]) ? values[0] : 0)
+        };
+    }
+
+    const margins = {
+        pstd: [4, 4],
+        phang: [4, 8],
+        phang2: [8, 12],
+        pmore: [8, 8],
+        pmore2: [12, 12],
+        pin: [8, 8],
+        psee: [13, 4],
+        asis: [0, 0]
+    };
+    const [first, next] = margins[tag] || [0, 0];
+    return { first, next };
+}
+
+function wrapSmclParagraph(text, firstIndent, nextIndent) {
+    const tokens = splitSmclWords(text).map(renderSmclInline).filter(token => token.text.length > 0);
+    const lines = [];
+    let indent = firstIndent;
+    let lineHtml = ' '.repeat(indent);
+    let lineWidth = indent;
+    let hasWord = false;
+
+    const pushLine = () => {
+        lines.push(lineHtml.trimEnd());
+        indent = nextIndent;
+        lineHtml = ' '.repeat(indent);
+        lineWidth = indent;
+        hasWord = false;
+    };
+
+    for (const originalToken of tokens) {
+        const expandedTokens = originalToken.width > 30 && /\s/.test(originalToken.text)
+            ? splitRenderedWords(originalToken)
+            : [originalToken];
+
+        for (const token of expandedTokens) {
+        const gap = hasWord ? 1 : 0;
+        if (hasWord && lineWidth + gap + token.width > STATA_HELP_WIDTH) {
+            pushLine();
+        }
+        if (hasWord) {
+            lineHtml += ' ';
+            lineWidth += 1;
+        }
+        lineHtml += token.html;
+        lineWidth += token.width;
+        hasWord = true;
+        }
+    }
+
+    if (hasWord || lineHtml.trim()) {
+        pushLine();
+    }
+    return lines;
+}
+
+function splitSmclWords(text) {
+    const words = [];
+    let current = '';
+    let depth = 0;
+
+    for (let i = 0; i < String(text || '').length; i++) {
+        const ch = text[i];
+        if (/\s/.test(ch) && depth === 0) {
+            if (current) {
+                words.push(current);
+                current = '';
+            }
+            continue;
+        }
+        if (ch === '{') depth++;
+        if (ch === '}') depth = Math.max(0, depth - 1);
+        current += ch;
+    }
+
+    if (current) {
+        words.push(current);
+    }
+    return words;
+}
+
+function renderSmclViewerLine(line) {
+    let result = { html: '', text: '', width: 0 };
+    let i = 0;
+    const value = String(line || '');
+
+    const appendPlain = (plain) => {
+        for (const ch of plain) {
+            if (ch === '\t') {
+                const spaces = 8 - (result.width % 8);
+                result.html += ' '.repeat(spaces);
+                result.text += ' '.repeat(spaces);
+                result.width += spaces;
+            } else {
+                result.html += escHtml(ch);
+                result.text += ch;
+                result.width += 1;
+            }
+        }
+    };
+
+    while (i < value.length) {
+        const directive = readDirectiveAt(value, i);
+        if (!directive) {
+            appendPlain(value[i]);
+            i++;
+            continue;
+        }
+
+        if (directive.start > i) {
+            appendPlain(value.slice(i, directive.start));
+        }
+
+        if (directive.tag === 'col') {
+            const target = Math.max(1, parseInt(directive.options || directive.content, 10) || 1);
+            const spaces = Math.max(0, target - result.width - 1);
+            result.html += ' '.repeat(spaces);
+            result.text += ' '.repeat(spaces);
+            result.width += spaces;
+        } else {
+            const rendered = renderInlineDirectiveForViewer(directive);
+            result.html += rendered.html;
+            result.text += rendered.text;
+            result.width += rendered.width;
+        }
+        i = directive.end;
+    }
+
+    return result.html;
+}
+
+function renderTwoColumnRows(left, right, leftIndent, rightColumn) {
+    const rightWidth = Math.max(20, STATA_HELP_WIDTH - rightColumn);
+    const rightLines = wrapRenderedTokens(splitRenderedWords(right), rightWidth);
+    const lines = [];
+    const prefix = ' '.repeat(leftIndent);
+    const leftWidth = leftIndent + left.width;
+    const firstGap = Math.max(1, rightColumn - leftWidth);
+
+    if (rightLines.length === 0) {
+        lines.push(`${prefix}${left.html}`);
+        return lines;
+    }
+
+    lines.push(`${prefix}${left.html}${' '.repeat(firstGap)}${rightLines[0]}`);
+    for (const continuation of rightLines.slice(1)) {
+        lines.push(`${' '.repeat(rightColumn)}${continuation}`);
+    }
+    return lines;
+}
+
+function renderDialogTab(title) {
+    const label = ` ${title.html} `;
+    const left = ' '.repeat(4) + '-'.repeat(6);
+    const rightWidth = Math.max(0, STATA_HELP_WIDTH - 4 - 6 - title.width - 2);
+    return `${left}${label}${'-'.repeat(rightWidth)}`;
+}
+
+function tableLeftContent(directive) {
+    if (directive.content) {
+        return directive.content;
+    }
+    if (isNumericLayoutOptions(directive.options)) {
+        return '';
+    }
+    return directive.options || '';
+}
+
+function isNumericLayoutOptions(options) {
+    const value = String(options || '').trim();
+    return !!value && /^(?:\d+\s+){1,3}\d+$/.test(value);
+}
+
+function layoutFromP2colset(options) {
+    const values = String(options || '').trim().split(/\s+/).map(value => parseInt(value, 10));
+    if (values.length >= 2 && Number.isFinite(values[0]) && Number.isFinite(values[1])) {
+        return { leftIndent: Math.max(0, values[0] - 1), rightColumn: Math.max(values[1] + 1, values[0] + 4) };
+    }
+    return { leftIndent: 4, rightColumn: 30 };
+}
+
+function layoutFromSynoptset(options) {
+    const first = parseInt(String(options || '').trim().split(/\s+/)[0], 10);
+    if (Number.isFinite(first)) {
+        return { leftIndent: 4, rightColumn: Math.max(18, first + 7) };
+    }
+    return { leftIndent: 4, rightColumn: 28 };
+}
+
+function splitRenderedWords(rendered) {
+    return String(rendered.html || '')
+        .split(/\s+/)
+        .filter(Boolean)
+        .map(html => ({ html, text: stripHtmlTags(html), width: stripHtmlTags(html).length }));
+}
+
+function wrapRenderedLine(html) {
+    const visible = stripHtmlTags(html);
+    if (visible.length <= STATA_HELP_WIDTH) {
+        return [html];
+    }
+
+    const indentMatch = visible.match(/^\s*/);
+    const indent = indentMatch ? indentMatch[0].length : 0;
+    const contentHtml = html.slice(indent);
+    const width = Math.max(20, STATA_HELP_WIDTH - indent);
+    return wrapRenderedTokens(splitRenderedWords({ html: contentHtml }), width)
+        .map(line => ' '.repeat(indent) + line);
+}
+
+function renderViewerPhysicalLine(line) {
+    const html = renderSmclViewerLine(line);
+    if (!/\{col\s+\d+\}/i.test(String(line || ''))) {
+        return wrapRenderedLine(html);
+    }
+    const visible = stripHtmlTags(html);
+    return visible.length <= STATA_HELP_WIDTH ? [html] : wrapRenderedLine(html);
+}
+
+function wrapRenderedTokens(tokens, width) {
+    const lines = [];
+    let lineHtml = '';
+    let lineWidth = 0;
+
+    const pushLine = () => {
+        if (lineHtml) {
+            lines.push(lineHtml);
+            lineHtml = '';
+            lineWidth = 0;
+        }
+    };
+
+    for (const token of tokens) {
+        const gap = lineWidth > 0 ? 1 : 0;
+        if (lineWidth > 0 && lineWidth + gap + token.width > width) {
+            pushLine();
+        }
+        if (lineWidth > 0) {
+            lineHtml += ' ';
+            lineWidth += 1;
+        }
+        lineHtml += token.html;
+        lineWidth += token.width;
+    }
+
+    pushLine();
+    return lines;
+}
+
+function renderSmclInline(text) {
+    const html = renderSmclViewerLine(text);
+    return {
+        html,
+        text: stripHtmlTags(html),
+        width: stripHtmlTags(html).length
+    };
+}
+
+function stripHtmlTags(value) {
+    return String(value || '')
+        .replace(/<[^>]+>/g, '')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&amp;/g, '&')
+        .replace(/&quot;/g, '"');
+}
+
+function renderInlineDirectiveForViewer(directive) {
+    const tag = directive.tag;
+    const rawContent = directive.content || '';
+    const content = renderSmclInline(rawContent || directive.options || '');
+    const plain = content.text;
+
+    const styled = (html) => ({ html, text: plain, width: plain.length });
+
+    switch (tag) {
+        case 'smcl':
+        case '...':
+        case 'p_end':
+        case 'nobreak':
+        case 'break':
+        case 'bind':
+            return { html: '', text: '', width: 0 };
+        case 'hline': {
+            const count = Math.min(parseInt(directive.options || rawContent, 10) || 1, STATA_HELP_WIDTH);
+            const text = '-'.repeat(count);
+            return { html: text, text, width: text.length };
+        }
+        case 'bf':
+        case 'hilite':
+        case 'hi':
+            return styled(`<b>${content.html}</b>`);
+        case 'it':
+        case 'emph':
+            return styled(`<i>${content.html}</i>`);
+        case 'ul':
+            return styled(`<u>${content.html}</u>`);
+        case 'cmd':
+        case 'helpb':
+            return styled(`<b>${content.html}</b>`);
+        case 'cmdab': {
+            const formatted = formatViewerAbbreviation(content.html);
+            return { html: `<b>${formatted.html}</b>`, text: formatted.text, width: formatted.text.length };
+        }
+        case 'opt':
+        case 'option':
+        case 'opth': {
+            const formatted = formatViewerOption(optionDirectiveText(directive));
+            return { html: `<b>${formatted.html}</b>`, text: formatted.text, width: formatted.text.length };
+        }
+        case 'input':
+        case 'inp':
+            return styled(`<b>${content.html}</b>`);
+        case 'error':
+        case 'err':
+        case 'result':
+        case 'res':
+        case 'txt':
+        case 'text':
+        case 'sf':
+            return content;
+        case 'newvar':
+        case 'var':
+        case 'vars':
+        case 'varname':
+        case 'varlist':
+        case 'depvar':
+        case 'depvars':
+        case 'depvarlist':
+        case 'indepvars':
+        case 'anything':
+        case 'namelist':
+        case 'numlist': {
+            const label = renderCustomPlaceholderText(tag, plain);
+            return { html: `<i>${escHtml(label)}</i>`, text: label, width: label.length };
+        }
+        case 'ifin':
+            return { html: '[<i>if</i>] [<i>in</i>]', text: '[if] [in]', width: 9 };
+        case 'weight':
+            return { html: '[<i>weight</i>]', text: '[weight]', width: 8 };
+        case 'dtype':
+            return { html: '[<i>type</i>]', text: '[type]', width: 6 };
+        case 'help':
+        case 'browse':
+        case 'manhelp':
+        case 'manpage':
+        case 'mansection':
+        case 'manlink':
+        case 'manlinki':
+        case 'dialog':
+            return content.text ? content : renderSmclInline(directive.options || '');
+        case 'stata':
+            return renderSmclInline(`. ${String(directive.options || '').replace(/^"|"$/g, '')}`);
+        case 'c': {
+            const text = renderCharacterDirectiveText(directive.options || rawContent);
+            return { html: escHtml(text), text, width: text.length };
+        }
+        case 'space': {
+            const text = ' '.repeat(Math.min(parseInt(directive.options || rawContent, 10) || 1, 40));
+            return { html: text, text, width: text.length };
+        }
+        default:
+            return content.text ? content : renderSmclInline(directive.options || directive.body || '');
+    }
+}
+
+function formatViewerAbbreviation(html) {
+    const plain = stripHtmlTags(html);
+    const colon = findAbbreviationColon(plain);
+    if (colon === -1) {
+        return { html, text: plain };
+    }
+
+    const before = escHtml(plain.slice(0, colon));
+    const after = escHtml(plain.slice(colon + 1));
+    return {
+        html: `<u>${before}</u>${after}`,
+        text: plain.slice(0, colon) + plain.slice(colon + 1)
+    };
+}
+
+function formatViewerOption(value) {
+    const raw = String(value || '').trim();
+    const colon = findAbbreviationColon(raw);
+    const abbreviation = colon === -1 ? null : raw.slice(0, colon);
+    const text = colon === -1 ? raw : raw.slice(0, colon) + raw.slice(colon + 1);
+    const paren = text.match(/^([^()]*)\((.*)\)$/);
+
+    let html;
+    let plain;
+    if (paren) {
+        const outside = paren[1];
+        const inside = paren[2]
+            .split(/([,|])/)
+            .map(part => {
+                if (part === ',' || part === '|') return escHtml(part);
+                const label = part.includes(':') ? part.split(':').pop() : part;
+                return label ? `<i>${escHtml(label)}</i>` : '';
+            })
+            .join('');
+        html = `${escHtml(outside)}(${inside})`;
+        plain = `${outside}(${paren[2].split(/[,|]/).map(part => part.includes(':') ? part.split(':').pop() : part).join(',')})`;
+    } else {
+        html = escHtml(text);
+        plain = text;
+    }
+
+    if (abbreviation) {
+        const prefix = escHtml(abbreviation);
+        const suffix = escHtml(text.slice(abbreviation.length, paren ? text.indexOf('(') : undefined));
+        if (paren) {
+            const openParen = html.indexOf('(');
+            html = `<u>${prefix}</u>${suffix}${html.slice(openParen)}`;
+        } else {
+            html = `<u>${prefix}</u>${suffix}`;
+        }
+    }
+
+    return { html, text: plain };
+}
+
+function renderCustomPlaceholderText(tag, content) {
+    const shortcuts = {
+        var: 'varname',
+        vars: 'varlist',
+        depvars: 'depvarlist'
+    };
+    return content || shortcuts[tag] || tag;
+}
+
+function renderCharacterDirectiveText(value) {
+    const token = String(value || '').trim();
+    const chars = {
+        '-': '-',
+        'S|': '|',
+        '|': '|',
+        'TLC': '+',
+        'TRC': '+',
+        'BLC': '+',
+        'BRC': '+',
+        'TT': '+',
+        'BT': '+',
+        'LT': '+',
+        'RT': '+',
+        '+': '+',
+        '.': '.',
+        '-(': '{',
+        ')-': '}',
+        'c )-': '}',
+        'c -(': '{'
+    };
+    return chars[token] || token || '';
 }
 
 function escHtml(value) {
@@ -1009,8 +1706,15 @@ async function findHelpPath(commandName, baseDir = null) {
         return globalCache.get(cacheKey);
     }
     
+    const aliasedCommand = StataHelpAliases[commandName];
+    let helpPath = aliasedCommand && globalHelpIndex.has(aliasedCommand)
+        ? globalHelpIndex.get(aliasedCommand)
+        : null;
+
     // Look up command in index
-    let helpPath = globalHelpIndex.get(commandName);
+    if (!helpPath) {
+        helpPath = globalHelpIndex.get(commandName);
+    }
     
     // If not found, try abbreviation expansion
     if (!helpPath) {
