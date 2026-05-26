@@ -75,10 +75,10 @@ describe('SMCL Parser Tests', () => {
         assert.ok(result.includes('<i>italic text</i>'));
     });
 
-    test('4. {cmd:regress} → <code class="command">regress</code>', () => {
+    test('4. {cmd:regress} → bold command text', () => {
         const input = '{cmd:regress}';
         const result = parseSmcl(input);
-        assert.ok(result.includes('code class="command"') && result.includes('regress'));
+        assert.ok(result.includes('<b>regress</b>'));
     });
 
     test('5. {p}text{p_end} → paragraph', () => {
@@ -88,16 +88,16 @@ describe('SMCL Parser Tests', () => {
             '{p}...{p_end} should preserve paragraph content');
     });
 
-    test('6. {title:Syntax} → <h2>Syntax</h2>', () => {
+    test('6. {title:Syntax} → underlined Stata help heading', () => {
         const input = '{title:Syntax}';
         const result = parseSmcl(input);
-        assert.ok(result.includes('<h2>') && result.includes('Syntax'));
+        assert.ok(result.includes('<u><b>Syntax</b></u>'));
     });
 
-    test('7. {hline} → <hr>', () => {
+    test('7. {hline} → fixed-width Stata rule', () => {
         const input = '{hline}';
         const result = parseSmcl(input);
-        assert.ok(result.includes('<hr>'));
+        assert.ok(result.includes('-'.repeat(72)));
     });
 
     test('8. {newvar} → _newvar_', () => {
@@ -121,6 +121,7 @@ describe('SMCL Parser Tests', () => {
         assert.ok(result.includes('regress'), 'Should contain command');
         assert.ok(result.includes('indepvar'), 'Should contain italic');
         assert.ok(result.includes('option'), 'Should contain bold');
+        assert.ok(result.includes('<pre class="stata-help">'), 'Should render as preformatted help');
     });
 
     test('11. {input:cmd} and {error:err} → styled code', () => {
@@ -136,29 +137,31 @@ describe('SMCL Parser Tests', () => {
         assert.ok(result.includes('bold italic'), 'Should handle nested directives');
     });
 
-    test('12b. synopt rows render as an HTML table', () => {
+    test('12b. synopt rows render as fixed-width aligned rows', () => {
         const input = [
             '{synopthdr}',
+            '{synoptline}',
             '{synopt:{opt absorb(varlist)}}fixed effects{p_end}',
             '{synopt:{opt vce(cluster clustvar)}}clustered standard errors{p_end}'
         ].join('\n');
         const result = parseSmcl(input);
-        assert.ok(result.includes('<table>'), 'Should include syntax table');
-        assert.ok(result.includes('<th>Options</th>'), 'Should include syntax table header');
-        assert.ok(result.includes('absorb(<var>varlist</var>)'), 'Should include option name');
+        assert.ok(result.includes('<i>options</i>'), 'Should include italic syntax header');
+        assert.ok(result.includes('Description'), 'Should include description header');
+        assert.equal((result.match(/-{20,}/g) || []).length, 1,
+            'Should draw only one synopt separator');
+        assert.ok(result.includes('<b>absorb(<i>varlist</i>)</b>'), 'Should include option name');
         assert.ok(result.includes('fixed effects'), 'Should include option description');
     });
 
-    test('12c. p2col rows render as a two-column table', () => {
+    test('12c. p2col rows render as fixed-width two-column lines', () => {
         const input = [
             '{p2col:{cmd:reghdfe}}linear regression with multiple fixed effects{p_end}',
             '{p2col:{help reghdfe##syntax:syntax}}command syntax{p_end}'
         ].join('\n');
         const result = parseSmcl(input);
-        assert.ok(result.includes('<table>'), 'Should include p2col table');
-        assert.ok(result.includes('<td>'), 'Should include table cells');
+        assert.ok(result.includes('<pre class="stata-help">'), 'Should render as preformatted help');
         assert.ok(result.includes('reghdfe'), 'Should include first column content');
-        assert.ok(result.includes('multiple fixed effects'), 'Should include second column content');
+        assert.ok(result.includes('multiple fixed') && result.includes('effects'), 'Should include wrapped second column content');
     });
 
     test('12d. multi-line syntax paragraphs preserve placeholders', () => {
@@ -170,17 +173,49 @@ describe('SMCL Parser Tests', () => {
             '{p_end}'
         ].join('\n');
         const result = parseSmcl(input);
-        assert.ok(result.includes('<var>depvar</var>'), 'Should preserve depvar placeholder');
-        assert.ok(result.includes('[<var>indepvars</var>]'), 'Should preserve bracketed indepvars');
-        assert.ok(result.includes('[<var>if</var>] [<var>in</var>]'), 'Should expand if/in placeholder');
-        assert.ok(result.includes('[<var>weight</var>]'), 'Should expand weight placeholder');
+        assert.ok(result.includes('<i>depvar</i>'), 'Should preserve depvar placeholder');
+        assert.ok(result.includes('[<i>indepvars</i>]'), 'Should preserve bracketed indepvars');
+        assert.ok(result.includes('[<i>if</i>] [<i>in</i>]'), 'Should expand if/in placeholder');
+        assert.ok(result.includes('[<i>weight</i>]'), 'Should expand weight placeholder');
     });
 
     test('12e. opth abbreviations keep the abbreviated prefix', () => {
         const input = '{opth a:bsorb(reghdfe##absorb:absvars)}';
         const result = parseSmcl(input);
         assert.ok(result.includes('<u>a</u>bsorb'), 'Should preserve option abbreviation');
-        assert.ok(result.includes('<var>absvars</var>'), 'Should render linked option placeholder');
+        assert.ok(result.includes('<i>absvars</i>'), 'Should render linked option placeholder');
+    });
+
+    test('12f. indented command lines preserve tab stops', () => {
+        const input = [
+            '\t{cmd:g att = .}',
+            '\t\t{cmd:psmatch2 treatvar varlist if g==`j\', out(outvar)}'
+        ].join('\n');
+        const result = parseSmcl(input);
+        assert.ok(result.includes('        <b>g att = .</b>'), 'Should expand one tab to eight spaces');
+        assert.ok(result.includes('                <b>psmatch2 treatvar'), 'Should expand two tabs to sixteen spaces');
+    });
+
+    test('12g. numeric p2col margins do not leak into output', () => {
+        const input = '{p2col 6 20 22 2:{cmd:result}}requested statistics{p_end}';
+        const result = parseSmcl(input);
+        assert.ok(!result.includes('6 20 22 2'), 'Should not render p2col margin options as text');
+        assert.ok(result.includes('<b>result</b>'), 'Should render p2col content');
+    });
+
+    test('12h. col-aligned rows preserve multi-column spacing', () => {
+        const input = '{cmd:xlsx}{col 25}{cmd:as(xlsx)}{col 42}Microsoft Excel';
+        const result = parseSmcl(input);
+        assert.ok(result.includes('<b>xlsx</b>'), 'Should include first column');
+        assert.ok(result.includes('<b>as(xlsx)</b>'), 'Should include second column');
+        assert.ok(/\s{4,}Microsoft Excel/.test(result), 'Should preserve column spacing before third column');
+    });
+
+    test('12i. dlgtab renders as a tab divider', () => {
+        const input = '{dlgtab:Main}';
+        const result = parseSmcl(input);
+        assert.ok(result.includes(' Main '), 'Should include tab label');
+        assert.ok(result.includes('------'), 'Should include tab divider line');
     });
 });
 
@@ -257,6 +292,21 @@ describe('Help Finder Tests', () => {
         // Results should be consistent
         assert.strictEqual(result1, result2, 
             'Cache should return same result');
+    });
+
+    test('17b. tab abbreviation resolves to tabulate, not table', async () => {
+        const previousIndex = helpFinder.getGlobalHelpIndex();
+        const index = new Map([
+            ['table', '/tmp/stata-help/table.sthlp'],
+            ['tabulate', '/tmp/stata-help/tabulate.sthlp']
+        ]);
+        helpFinder.setGlobalHelpIndex(index);
+
+        const result = await helpFinder.findHelpPath('tab');
+        helpFinder.setGlobalHelpIndex(previousIndex);
+
+        assert.ok(result && result.endsWith('tabulate.sthlp'),
+            'tab should resolve to tabulate help before table');
     });
 });
 

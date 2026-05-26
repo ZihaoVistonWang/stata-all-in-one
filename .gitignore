@@ -24,6 +24,7 @@ AGENTS.md
 
 # Local reference source (do not git)
 pystata/
+parse-smcl-master/
 
 # OS files
 .DS_Store
