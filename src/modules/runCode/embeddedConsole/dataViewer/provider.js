@@ -167,7 +167,7 @@ async function fetchDataSnapshot(rowLimit, filterText) {
             if (!l) continue;
             const low = l.toLowerCase();
             if (low.includes('contains data from')) {
-                info.source = trim(l.substring(l.indexOf('from') + 4));
+                info.source = path.normalize(trim(l.substring(l.indexOf('from') + 4))).replace(/^([a-z]):/, (_, d) => d.toUpperCase() + ':');
             } else if (low.includes('obs:')) {
                 info.observations = parseInteger(l) || info.observations;
             } else if (low.includes('vars:')) {
