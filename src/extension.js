@@ -230,7 +230,7 @@ async function activate(context) {
     }
 
     // Show Windows upgrade notification for v0.2.12
-    showWindowsUpgradeNotification(context);
+    // showWindowsUpgradeNotification(context); // Disabled: no longer needed for embedded console era
 
     // Check for updates and show notification
     registerUpdateCheck(context);
