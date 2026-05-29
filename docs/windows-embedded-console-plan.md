@@ -42,30 +42,37 @@ Windows 版需将底层从 `dlopen`/`dlsym` 移植为 `LoadLibrary`/`GetProcAddr
 Get-ChildItem -Path "C:\Program Files\Stata18" -Filter "*.dll" -Recurse -ErrorAction SilentlyContinue | Select-Object FullName
 ```
 
-**你的结果（请填写）:**
+**✅ 实际结果（2026-05-29 ~ 2026-05-30 在 Windows 11 上确认）:**
+
 ```
-# 粘贴 PowerShell 输出
+Stata 安装目录: D:\Stata18
+关键 DLL:  D:\Stata18\mp-64.dll (57 MB, Stata/MP Edition 18)
+
+DLL 导出的全部函数 (dumpbin /EXPORTS):
+  ordinal hint RVA      name
+       15    E 01ED32D0 StataSO_AllowStataExitCommand
+       16    F 01ED3370 StataSO_AppendOutputBuffer
+       17   10 01ED3300 StataSO_ClearOutputBuffer
+       18   11 01ED3310 StataSO_EchoStdout
+       19   12 01ED32E0 StataSO_Execute
+       20   13 01ED32F0 StataSO_GetOutputBuffer
+       21   14 01F83410 StataSO_Main
+       22   15 01ED33A0 StataSO_QueueInteractiveCommand
+       23   16 01ED3380 StataSO_RunInteractiveLoop
+       24   17 01ED3350 StataSO_SetBreak
+       25   18 01ED3320 StataSO_SetOutputBufferSz
+       26   19 01ED3330 StataSO_SetOutputBufferSz_K
+       27   1A 01ED3340 StataSO_SetOutputBufferSz_M
+       28   1B 01ED32C0 StataSO_Shutdown
+
+构建工具: Visual Studio 2022 Community (MSVC 14.44) + BuildTools
+Node.js:  v24.15.0
 ```
 
 ### 1.2 确认 StataSO C API 是否可用
 
-- [ ] 找到 Stata 的 DLL 文件（可能是 `StataMP-64.dll`、`StataSE.dll`、`libstata.dll` 等）
-- [ ] 用工具检查 DLL 导出的函数名
-
-```powershell
-# 方法1: 用 dumpbin (Visual Studio 自带)
-# 打开 "Developer Command Prompt for VS" 或 "x64 Native Tools Command Prompt"
-dumpbin /EXPORTS "C:\Program Files\Stata18\StataMP-64.dll" | findstr StataSO
-
-# 方法2: 用 PowerShell 检查 DLL 是否存在
-Get-ChildItem -Path "C:\Program Files" -Recurse -Filter "*.dll" -ErrorAction SilentlyContinue | Where-Object { $_.Name -like "*stata*" -or $_.Name -like "*Stata*" } | Select-Object FullName, Length
-```
-
-**你的结果（请填写）:**
-```
-# 找到的 DLL 完整路径:
-# dumpbin 导出的 StataSO 函数名:
-```
+- [x] ✅ 找到 Stata 的 DLL 文件: `D:\Stata18\mp-64.dll` (57 MB, Stata/MP 18)
+- [x] ✅ 用 dumpbin 检查 DLL 导出: **全部 14 个 StataSO_* 函数均可用**
 
 ### 1.3 期望的 DLL 导出函数列表
 
@@ -178,12 +185,30 @@ macOS 版 `libstata-*.dylib` 导出以下函数，Windows DLL 应导出相同或
 
 ## 步骤 5: 构建与测试（需 Windows 设备）
 
-- [ ] 安装 Node.js、node-gyp、Visual Studio Build Tools
-- [ ] 运行 `npm run build:native` 编译 `.node` 文件
-- [ ] 在 VS Code 中加载插件，测试嵌入式控制台
-- [ ] 测试各种 Stata 命令执行
-- [ ] 测试图表导出
+- [x] ✅ Node.js v24.15.0, node-gyp v10.3.1, Visual Studio 2022 Community + BuildTools
+- [x] ✅ 编译 `bin/stata_bridge.node` (253 KB, Windows x64) — `npx node-gyp build --arch=x64`
+- [x] ✅ Node.js 命令行测试: InitSession, ExecuteSync, Execute async streaming, getDatasetInfo, getVarMetadata, getDataRows, shutdown — 全部通过
+- [ ] 在 VS Code 中加载插件，测试嵌入式控制台 (需要 `vsce package` + 安装 .vsix)
+- [ ] 测试图表导出 (需要在完整 VS Code 环境内测试)
 - [ ] 测试 Data Viewer (.dta 文件)
+
+### 测试结果 (2026-05-30, Node.js 命令行)
+
+```
+✅ InitSession:       D:/Stata18/mp-64.dll 加载成功, StataSO_Main 返回 OK
+✅ display:           "Hello from Windows Embedded Console!" 输出正确
+✅ sysuse auto:       数据集加载 (1978 automobile data, 74 obs, 12 vars)
+✅ summarize mpg:     统计分析输出正确
+✅ getDatasetInfo:    {observations:74, variables:12, ...}
+✅ getVarMetadata:    12 个变量的元数据解析正确
+✅ getDataRows:       数据行读取正确 (columns + rows)
+✅ execute (async):   流式输出正确, ThreadSafeFunction 回调正常
+✅ shutdown:          会话正确关闭, isInitialized → false
+```
+
+### 实测 DLL 导出 (dumpbin /EXPORTS D:\Stata18\mp-64.dll)
+
+mp-64.dll 导出 28 个函数，其中 14 个 StataSO_* (序号 15-28)，涵盖全部 6 个必需函数 + 8 个额外函数。
 
 ---
 
@@ -191,27 +216,22 @@ macOS 版 `libstata-*.dylib` 导出以下函数，Windows DLL 应导出相同或
 
 | 步骤 | 状态 | 备注 |
 |---|---|---|
-| 1. Windows DLL 调研 | ⏳ 等待用户在 Windows 上确认 | **阻塞项** |
-| 2. C++ 桥接移植 | ⏳ 等待步骤 1 结果后开始 | 代码在 Mac 写，编译需 Windows |
-| 3. JS 层实现 | ⏳ 等待步骤 1 结果后开始 | 全部在 Mac 完成 |
-| 4. 配置和本地化 | ⏳ 待开始 | 全部在 Mac 完成 |
-| 5. 构建与测试 | ⏳ 需 Windows 设备 | |
+| 1. Windows DLL 调研 | ✅ 完成 | D:\Stata18\mp-64.dll 导出全部 StataSO_* 函数 |
+| 2. C++ 桥接移植 | ✅ 完成 | `stata_bridge.cc` 添加 `#ifdef _WIN32`，使用 LoadLibraryA/GetProcAddress/FreeLibrary |
+| 3. JS 层实现 | ✅ 完成 | `windows.js` 完整实现, `session.js` 平台感知, `execute/index.js` 调度修正 |
+| 4. 配置和本地化 | ✅ 完成 | `binding.gyp` Windows 条件, `build-native.ps1` 构建脚本 |
+| 5. 构建与测试 | 🟡 构建+命令行测试通过 | VS Code 内加载测试待完成 |
 
 ---
 
-## 给用户的检查清单（带去 Windows 设备）
+## 实现文件清单
 
-```
-□ 1. 打开 PowerShell，运行:
-     Get-ChildItem -Path "C:\Program Files" -Recurse -Filter "*.dll" -ErrorAction SilentlyContinue |
-       Where-Object { $_.Name -match "stata|Stata" } |
-       Select-Object FullName, Length
-
-□ 2. 记下找到的 DLL 路径
-
-□ 3. 如果你有 Visual Studio，打开 "x64 Native Tools Command Prompt"，运行:
-     dumpbin /EXPORTS "上一步找到的DLL完整路径" | findstr StataSO
-     如果没有 Visual Studio，告诉我结果，我提供替代检查方法
-
-□ 4. 把结果贴回这个文档的 1.1 和 1.2 节
-```
+| 文件 | 改动 | 状态 |
+|---|---|---|
+| `native/stata_bridge/src/stata_bridge.cc` | `#ifdef _WIN32` — LoadLibraryA/GetProcAddress/FreeLibrary | ✅ |
+| `native/stata_bridge/binding.gyp` | MSVC 构建条件, `conditions: [OS=='win']` | ✅ |
+| `scripts/build-native.ps1` | 新建 Windows PowerShell 构建脚本 | ✅ |
+| `bin/stata_bridge.node` | 编译输出 (253 KB, Windows x64) | ✅ |
+| `src/modules/runCode/embeddedConsole/windows.js` | 完整重写 — findStataDll + runOnWindowsEmbeddedConsole | ✅ |
+| `src/modules/runCode/embeddedConsole/session.js` | 平台感知 stHome 提取 + 状态 key | ✅ |
+| `src/modules/runCode/execute/index.js` | Windows 调度逻辑修正 + maybeOfferGuiFallback 双平台 | ✅ |

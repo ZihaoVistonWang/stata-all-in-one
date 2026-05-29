@@ -156,17 +156,22 @@ async function runCurrentSection(context, editor = null) {
         // === 调度逻辑 ===
         
         if (onWindows) {
-            if (runMode !== config.RUN_MODES.externalApp) {
-                const embeddedConsoleResult = await runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir, context);
-                if (embeddedConsoleResult.shouldOfferExternalAppFallback) {
-                    showWarn(msg('runModeUnsupportedOnWindows', {
-                        mode: 'Embedded Console'
-                    }));
+            if (runMode === config.RUN_MODES.externalApp) {
+                runOnWindows(codeToRun, tmpFilePath, stataPathOnWindows, docDir);
+                vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', false);
+            } else {
+                vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
+                const consoleResult = await runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir, context);
+                if (consoleResult.success) {
+                    vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
+                    await refreshMemoryVarsAfterRun(context, consoleResult);
+                } else if (consoleResult.shouldOfferGuiFallback) {
+                    await maybeOfferGuiFallback(codeToRun, tmpFilePath, docDir, context, consoleResult.message || 'Embedded Console 执行失败');
+                    vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', false);
+                } else {
+                    vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
                 }
             }
-
-            runOnWindows(codeToRun, tmpFilePath, stataPathOnWindows, docDir);
-            vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', false);
         } else if (onMac) {
             if (runMode === config.RUN_MODES.externalApp) {
                 runOnMac(codeToRun, tmpFilePath, false, docDir, context);
@@ -287,19 +292,26 @@ async function runArbitraryCode(context, code, options = {}) {
     try {
         let result = null;
         if (onWindows) {
-            if (runMode !== config.RUN_MODES.externalApp) {
-                const embeddedConsoleResult = await runOnWindowsEmbeddedConsole(normalizedCode, tmpFilePath, docDir, context);
-                if (embeddedConsoleResult.shouldOfferExternalAppFallback) {
-                    showWarn(msg('runModeUnsupportedOnWindows', {
-                        mode: 'Embedded Console'
-                    }));
-                }
+            if (runMode === config.RUN_MODES.externalApp) {
+                runOnWindows(normalizedCode, tmpFilePath, stataPathOnWindows, docDir);
+                await vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', false);
+                result = { success: true };
+                await refreshMemoryVarsAfterRun(context, result);
+                return result;
             }
-            runOnWindows(normalizedCode, tmpFilePath, stataPathOnWindows, docDir);
-            await vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', false);
-            result = { success: true };
-            await refreshMemoryVarsAfterRun(context, result);
-            return result;
+
+            await vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
+            const consoleResult = await runOnWindowsEmbeddedConsole(normalizedCode, tmpFilePath, docDir, context);
+            if (consoleResult.success) {
+                await vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
+                await refreshMemoryVarsAfterRun(context, consoleResult);
+                return consoleResult;
+            }
+            if (consoleResult.shouldOfferGuiFallback) {
+                await maybeOfferGuiFallback(normalizedCode, tmpFilePath, docDir, context, consoleResult.message || 'Embedded Console 执行失败');
+                await vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', false);
+            }
+            return consoleResult;
         }
 
         if (runMode === config.RUN_MODES.externalApp) {
@@ -345,7 +357,15 @@ async function refreshMemoryVarsAfterRun(context, result) {
 
 async function maybeOfferGuiFallback(codeToRun, tmpFilePath, docDir, context, reason) {
     // Auto-fallback: execute via external app immediately (no blocking modal)
-    runOnMac(codeToRun, tmpFilePath, false, docDir, context);
+    if (isWindows()) {
+        const rawPath = config.getStataPathOnWindows();
+        const stataPath = stripSurroundingQuotes(rawPath.trim());
+        if (stataPath) {
+            runOnWindows(codeToRun, tmpFilePath, stataPath, docDir);
+        }
+    } else {
+        runOnMac(codeToRun, tmpFilePath, false, docDir, context);
+    }
 
     // Show non-blocking notification with action buttons
     const switchLabel = msg('consoleFallbackSwitchPermanently');

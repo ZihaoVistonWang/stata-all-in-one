@@ -1,11 +1,12 @@
 /**
- * stata_bridge.cc - C++ N-API Native Module for Stata Console Session on macOS
- * Bridges Node.js with Stata C API (libstata-*.dylib) via dlopen/dlsym
+ * stata_bridge.cc - C++ N-API Native Module for Stata Console Session
+ * Bridges Node.js with Stata C API via dynamic library loading
+ * macOS: dlopen/dlsym (libstata-*.dylib)
+ * Windows: LoadLibrary/GetProcAddress (mp-64.dll / Stata*.dll)
  * Author: Zihao Viston Wang | License: MIT
  */
 
 #include <napi.h>
-#include <dlfcn.h>
 #include <string>
 #include <vector>
 #include <memory>
@@ -13,8 +14,21 @@
 #include <mutex>
 #include <atomic>
 #include <chrono>
+#include <cctype>
 
-static void* g_dylib_handle = nullptr;
+#ifdef _WIN32
+  #include <windows.h>
+  // We use void* for the library handle for cross-platform storage;
+  // HMODULE and void* are compatible on 64-bit Windows.
+#else
+  #include <dlfcn.h>
+#endif
+
+// ---------------------------------------------------------------------------
+// Platform-abstraction helpers
+// ---------------------------------------------------------------------------
+
+static void* g_library_handle = nullptr;
 static bool g_initialized = false;
 static std::mutex g_stata_mutex;
 static std::mutex g_output_mutex;
@@ -33,7 +47,7 @@ static StataSO_GetOutputBuffer_t g_StataSO_GetOutputBuffer = nullptr;
 static StataSO_SetBreak_t g_StataSO_SetBreak = nullptr;
 static StataSO_Shutdown_t g_StataSO_Shutdown = nullptr;
 
-inline bool IsDylibLoaded() { return g_dylib_handle != nullptr; }
+inline bool IsLibraryLoaded() { return g_library_handle != nullptr; }
 
 inline bool AreFunctionsResolved() {
     return g_StataSO_Main && g_StataSO_Execute && g_StataSO_ClearOutputBuffer &&
@@ -41,6 +55,10 @@ inline bool AreFunctionsResolved() {
 }
 
 inline bool IsInitialized() { return g_initialized; }
+
+// ---------------------------------------------------------------------------
+// ComputeIncrementalChunk – shared across platforms
+// ---------------------------------------------------------------------------
 
 std::string ComputeIncrementalChunk(const std::string& emitted_output, const std::string& current_output) {
     if (current_output.empty()) {
@@ -65,52 +83,80 @@ std::string ComputeIncrementalChunk(const std::string& emitted_output, const std
     return current_output;
 }
 
+// ---------------------------------------------------------------------------
+// Platform-specific: library loading, symbol resolution, error reporting
+// ---------------------------------------------------------------------------
+
+#ifdef _WIN32
+
+std::string GetLibraryError() {
+    DWORD errorCode = GetLastError();
+    if (errorCode == 0) return "Unknown error";
+    LPSTR messageBuffer = nullptr;
+    DWORD size = FormatMessageA(
+        FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+        NULL, errorCode, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+        (LPSTR)&messageBuffer, 0, NULL);
+    std::string message(messageBuffer, size);
+    LocalFree(messageBuffer);
+    // Trim trailing CRLF that FormatMessageA often appends
+    while (!message.empty() && (message.back() == '\r' || message.back() == '\n')) {
+        message.pop_back();
+    }
+    return message + " (code " + std::to_string(errorCode) + ")";
+}
+
 template<typename T>
-T LoadSymbol(void* handle, const char* symbol_name) {
-    void* symbol = dlsym(handle, symbol_name);
-    return symbol ? reinterpret_cast<T>(symbol) : nullptr;
+T GetSymbol(void* handle, const char* symbol_name) {
+    FARPROC proc = GetProcAddress((HMODULE)handle, symbol_name);
+    return proc ? reinterpret_cast<T>(proc) : nullptr;
 }
 
-std::string GetDylibError() {
-    const char* error = dlerror();
-    return error ? std::string(error) : "Unknown error";
-}
-
-std::string LoadDylibAndResolveSymbols(const std::string& dylib_path) {
-    if (IsDylibLoaded()) {
-        dlclose(g_dylib_handle);
-        g_dylib_handle = nullptr;
+std::string LoadLibraryAndResolveSymbols(const std::string& lib_path) {
+    if (IsLibraryLoaded()) {
+        FreeLibrary((HMODULE)g_library_handle);
+        g_library_handle = nullptr;
         g_initialized = false;
     }
 
-    g_dylib_handle = dlopen(dylib_path.c_str(), RTLD_LAZY);
-    if (!g_dylib_handle) return "Failed to load dylib: " + dylib_path + " - " + GetDylibError();
+    // Add the DLL's directory to the search path so its dependencies
+    // (e.g. utilities\*.dll) can be found.
+    std::string dir = lib_path;
+    size_t last_sep = dir.find_last_of("\\/");
+    if (last_sep != std::string::npos) {
+        dir = dir.substr(0, last_sep);
+        SetDllDirectoryA(dir.c_str());
+    }
 
-    g_StataSO_Main = LoadSymbol<StataSO_Main_t>(g_dylib_handle, "StataSO_Main");
-    if (!g_StataSO_Main) return "Failed to resolve symbol: StataSO_Main";
+    g_library_handle = LoadLibraryA(lib_path.c_str());
+    if (!g_library_handle)
+        return "Failed to load library: " + lib_path + " - " + GetLibraryError();
 
-    g_StataSO_Execute = LoadSymbol<StataSO_Execute_t>(g_dylib_handle, "StataSO_Execute");
-    if (!g_StataSO_Execute) return "Failed to resolve symbol: StataSO_Execute";
+    g_StataSO_Main          = GetSymbol<StataSO_Main_t>(g_library_handle, "StataSO_Main");
+    g_StataSO_Execute       = GetSymbol<StataSO_Execute_t>(g_library_handle, "StataSO_Execute");
+    g_StataSO_ClearOutputBuffer = GetSymbol<StataSO_ClearOutputBuffer_t>(g_library_handle, "StataSO_ClearOutputBuffer");
+    g_StataSO_GetOutputBuffer    = GetSymbol<StataSO_GetOutputBuffer_t>(g_library_handle, "StataSO_GetOutputBuffer");
+    g_StataSO_SetBreak      = GetSymbol<StataSO_SetBreak_t>(g_library_handle, "StataSO_SetBreak");
+    g_StataSO_Shutdown      = GetSymbol<StataSO_Shutdown_t>(g_library_handle, "StataSO_Shutdown");
 
-    g_StataSO_ClearOutputBuffer = LoadSymbol<StataSO_ClearOutputBuffer_t>(g_dylib_handle, "StataSO_ClearOutputBuffer");
-    if (!g_StataSO_ClearOutputBuffer) return "Failed to resolve symbol: StataSO_ClearOutputBuffer";
-
-    g_StataSO_GetOutputBuffer = LoadSymbol<StataSO_GetOutputBuffer_t>(g_dylib_handle, "StataSO_GetOutputBuffer");
-    if (!g_StataSO_GetOutputBuffer) return "Failed to resolve symbol: StataSO_GetOutputBuffer";
-
-    g_StataSO_SetBreak = LoadSymbol<StataSO_SetBreak_t>(g_dylib_handle, "StataSO_SetBreak");
-    if (!g_StataSO_SetBreak) return "Failed to resolve symbol: StataSO_SetBreak";
-
-    g_StataSO_Shutdown = LoadSymbol<StataSO_Shutdown_t>(g_dylib_handle, "StataSO_Shutdown");
-    if (!g_StataSO_Shutdown) return "Failed to resolve symbol: StataSO_Shutdown";
+    if (!AreFunctionsResolved()) {
+        std::string missing;
+        if (!g_StataSO_Main) missing += "StataSO_Main ";
+        if (!g_StataSO_Execute) missing += "StataSO_Execute ";
+        if (!g_StataSO_ClearOutputBuffer) missing += "StataSO_ClearOutputBuffer ";
+        if (!g_StataSO_GetOutputBuffer) missing += "StataSO_GetOutputBuffer ";
+        if (!g_StataSO_SetBreak) missing += "StataSO_SetBreak ";
+        if (!g_StataSO_Shutdown) missing += "StataSO_Shutdown ";
+        return "Failed to resolve symbols: " + missing;
+    }
 
     return "";
 }
 
-void UnloadDylib() {
-    if (IsDylibLoaded()) {
-        dlclose(g_dylib_handle);
-        g_dylib_handle = nullptr;
+void UnloadLibrary() {
+    if (IsLibraryLoaded()) {
+        FreeLibrary((HMODULE)g_library_handle);
+        g_library_handle = nullptr;
     }
     g_StataSO_Main = nullptr;
     g_StataSO_Execute = nullptr;
@@ -121,15 +167,88 @@ void UnloadDylib() {
     g_initialized = false;
 }
 
+void SetPlatformEnv(const char* name, const char* value) {
+    SetEnvironmentVariableA(name, value);
+}
+
+#else // ======================== macOS ========================
+
+std::string GetLibraryError() {
+    const char* error = dlerror();
+    return error ? std::string(error) : "Unknown error";
+}
+
+template<typename T>
+T GetSymbol(void* handle, const char* symbol_name) {
+    void* symbol = dlsym(handle, symbol_name);
+    return symbol ? reinterpret_cast<T>(symbol) : nullptr;
+}
+
+std::string LoadLibraryAndResolveSymbols(const std::string& lib_path) {
+    if (IsLibraryLoaded()) {
+        dlclose(g_library_handle);
+        g_library_handle = nullptr;
+        g_initialized = false;
+    }
+
+    g_library_handle = dlopen(lib_path.c_str(), RTLD_LAZY);
+    if (!g_library_handle)
+        return "Failed to load library: " + lib_path + " - " + GetLibraryError();
+
+    g_StataSO_Main          = GetSymbol<StataSO_Main_t>(g_library_handle, "StataSO_Main");
+    g_StataSO_Execute       = GetSymbol<StataSO_Execute_t>(g_library_handle, "StataSO_Execute");
+    g_StataSO_ClearOutputBuffer = GetSymbol<StataSO_ClearOutputBuffer_t>(g_library_handle, "StataSO_ClearOutputBuffer");
+    g_StataSO_GetOutputBuffer    = GetSymbol<StataSO_GetOutputBuffer_t>(g_library_handle, "StataSO_GetOutputBuffer");
+    g_StataSO_SetBreak      = GetSymbol<StataSO_SetBreak_t>(g_library_handle, "StataSO_SetBreak");
+    g_StataSO_Shutdown      = GetSymbol<StataSO_Shutdown_t>(g_library_handle, "StataSO_Shutdown");
+
+    if (!AreFunctionsResolved()) {
+        std::string missing;
+        if (!g_StataSO_Main) missing += "StataSO_Main ";
+        if (!g_StataSO_Execute) missing += "StataSO_Execute ";
+        if (!g_StataSO_ClearOutputBuffer) missing += "StataSO_ClearOutputBuffer ";
+        if (!g_StataSO_GetOutputBuffer) missing += "StataSO_GetOutputBuffer ";
+        if (!g_StataSO_SetBreak) missing += "StataSO_SetBreak ";
+        if (!g_StataSO_Shutdown) missing += "StataSO_Shutdown ";
+        return "Failed to resolve symbols: " + missing;
+    }
+
+    return "";
+}
+
+void UnloadLibrary() {
+    if (IsLibraryLoaded()) {
+        dlclose(g_library_handle);
+        g_library_handle = nullptr;
+    }
+    g_StataSO_Main = nullptr;
+    g_StataSO_Execute = nullptr;
+    g_StataSO_ClearOutputBuffer = nullptr;
+    g_StataSO_GetOutputBuffer = nullptr;
+    g_StataSO_SetBreak = nullptr;
+    g_StataSO_Shutdown = nullptr;
+    g_initialized = false;
+}
+
+void SetPlatformEnv(const char* name, const char* value) {
+    setenv(name, value, 1);
+}
+
+#endif
+
+// ===========================================================================
+// N-API exported functions
+// ===========================================================================
+
 Napi::Value InitSession(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
 
     if (info.Length() < 1 || !info[0].IsString()) {
-        Napi::TypeError::New(env, "InitSession requires dylibPath (string)").ThrowAsJavaScriptException();
+        Napi::TypeError::New(env, "InitSession requires libraryPath (string)").ThrowAsJavaScriptException();
         return env.Null();
     }
 
-    std::string dylib_path = info[0].As<Napi::String>().Utf8Value();
+    std::string lib_path = info[0].As<Napi::String>().Utf8Value();
 
     bool splash = true;
     if (info.Length() >= 2 && info[1].IsBoolean()) {
@@ -140,11 +259,11 @@ Napi::Value InitSession(const Napi::CallbackInfo& info) {
     if (info.Length() >= 3 && info[2].IsString()) {
         exec_path = info[2].As<Napi::String>().Utf8Value();
     }
-    
+
     std::string st_home = "";
     if (info.Length() >= 4 && info[3].IsString()) {
         st_home = info[3].As<Napi::String>().Utf8Value();
-        setenv("SYSDIR_STATA", st_home.c_str(), 1);
+        SetPlatformEnv("SYSDIR_STATA", st_home.c_str());
     }
 
     Napi::Function callback;
@@ -153,7 +272,7 @@ Napi::Value InitSession(const Napi::CallbackInfo& info) {
         callback = info[4].As<Napi::Function>();
     }
 
-    std::string error = LoadDylibAndResolveSymbols(dylib_path);
+    std::string error = LoadLibraryAndResolveSymbols(lib_path);
     if (!error.empty()) {
         if (has_callback) {
             callback.Call({Napi::Boolean::New(env, false), Napi::String::New(env, error)});
@@ -187,7 +306,7 @@ Napi::Value InitSession(const Napi::CallbackInfo& info) {
     // For our use case (Node.js), we don't need Python integration
     if (rc >= 0 || rc == -7100) {
         g_initialized = true;
-        std::string status_msg = (rc == -7100) ? 
+        std::string status_msg = (rc == -7100) ?
             "Stata initialized (Python integration skipped for Node.js). " + output_msg :
             output_msg;
         if (has_callback) {
@@ -484,7 +603,7 @@ Napi::Value Shutdown(const Napi::CallbackInfo& info) {
         g_StataSO_Shutdown();
     }
 
-    UnloadDylib();
+    UnloadLibrary();
     g_initialized = false;
 
     return Napi::Boolean::New(env, true);
@@ -494,8 +613,8 @@ Napi::Value IsInitializedJS(const Napi::CallbackInfo& info) {
     return Napi::Boolean::New(info.Env(), IsInitialized());
 }
 
-Napi::Value IsDylibLoadedJS(const Napi::CallbackInfo& info) {
-    return Napi::Boolean::New(info.Env(), IsDylibLoaded() && AreFunctionsResolved());
+Napi::Value IsLibraryLoadedJS(const Napi::CallbackInfo& info) {
+    return Napi::Boolean::New(info.Env(), IsLibraryLoaded() && AreFunctionsResolved());
 }
 
 // ===== Data Access Helpers =====
@@ -847,7 +966,7 @@ Napi::Object Init(Napi::Env env, Napi::Object exports) {
     exports.Set("setBreak", Napi::Function::New(env, SetBreak));
     exports.Set("shutdown", Napi::Function::New(env, Shutdown));
     exports.Set("isInitialized", Napi::Function::New(env, IsInitializedJS));
-    exports.Set("isDylibLoaded", Napi::Function::New(env, IsDylibLoadedJS));
+    exports.Set("isDylibLoaded", Napi::Function::New(env, IsLibraryLoadedJS));
     exports.Set("getDatasetInfo", Napi::Function::New(env, GetDatasetInfo));
     exports.Set("getVarMetadata", Napi::Function::New(env, GetVarMetadata));
     exports.Set("getDataRows", Napi::Function::New(env, GetDataRows));

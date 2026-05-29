@@ -1,117 +1,144 @@
 /**
  * Stata Embedded Console Session Manager
- * 管理单个 VS Code 窗口的 Stata Embedded Console 会话实例
- * 
- * 提供单例模式的会话管理，封装原生模块的异步 API
+ * Manages the Stata Embedded Console session instance per VS Code window.
+ * Supports both macOS (dylib) and Windows (DLL) via the same native bridge.
+ *
+ * Provides singleton session management, wrapping the native module's async API.
  */
 
 const native = require('./native/stata_session');
+const nodePath = require('path');
 
-// 模块级单例变量
+// Module-level singleton
 let _consoleSessionInstance = null;
 
+// Platform-aware globalState key for persisting library path
+const kLibraryPathKey = process.platform === 'win32'
+    ? 'stataConsoleDllPath'
+    : 'stataConsoleDylibPath';
+
 /**
- * StataConsoleSession 类
- * 管理 Stata Embedded Console 会话的初始化、执行和关闭
+ * StataConsoleSession class
+ * Manages Stata Embedded Console session initialization, execution, and shutdown.
  */
 class StataConsoleSession {
     /**
-     * 构造函数
-     * @param {vscode.ExtensionContext} context - VS Code 扩展上下文，用于状态存储
+     * @param {vscode.ExtensionContext} context - VS Code extension context for state storage
      */
     constructor(context) {
-        // 私有状态
         this._initialized = false;
-        this._dylibPath = null;
+        this._libraryPath = null;
         this._nativeSession = null;
         this._context = context;
         this._workingDirectory = null;
         this._bootstrapped = false;
-        
-        // 从上下文中恢复已有状态（如果有）
+
+        // Restore state from previous session if available
         this._restoreState();
     }
 
     /**
-     * 从 ExtensionContext 恢复状态
+     * Restore state from ExtensionContext
      * @private
      */
     _restoreState() {
         if (this._context) {
-            // 检查全局状态中是否有已初始化的会话
-            const storedDylibPath = this._context.globalState.get('stataConsoleDylibPath');
-            if (storedDylibPath && native.isInitialized()) {
+            const storedPath = this._context.globalState.get(kLibraryPathKey);
+            if (storedPath && native.isInitialized()) {
                 this._initialized = native.isInitialized();
-                this._dylibPath = storedDylibPath;
+                this._libraryPath = storedPath;
             }
         }
     }
 
     /**
-     * 保存状态到 ExtensionContext
+     * Persist state to ExtensionContext
      * @private
      */
     _saveState() {
         if (this._context) {
-            this._context.globalState.update('stataConsoleDylibPath', this._dylibPath);
+            this._context.globalState.update(kLibraryPathKey, this._libraryPath);
         }
     }
 
     /**
-     * 清除状态
+     * Clear persisted state
      * @private
      */
     _clearState() {
         if (this._context) {
-            this._context.globalState.update('stataConsoleDylibPath', undefined);
+            this._context.globalState.update(kLibraryPathKey, undefined);
         }
         this._initialized = false;
-        this._dylibPath = null;
+        this._libraryPath = null;
         this._workingDirectory = null;
         this._bootstrapped = false;
     }
 
     /**
-     * 初始化 Stata 会话
-     * 异步初始化，不阻塞扩展激活
-     * @param {string} dylibPath - Stata dylib/shared library 路径
-     * @returns {Promise<boolean>} - 初始化成功返回 true，失败返回 false（不抛出异常）
+     * Compute stHome (SYSDIR_STATA) from the library path.
+     * macOS:  /Applications/StataMP.app/Contents/MacOS/libstata-mp.dylib → /Applications/StataMP
+     * Windows: D:\Stata18\mp-64.dll → D:\Stata18
+     * @private
      */
-    async init(dylibPath) {
+    _deriveStHome(libraryPath) {
+        if (process.platform === 'win32') {
+            // Windows: the DLL is directly in the Stata install root (e.g. D:\Stata18\mp-64.dll)
+            return nodePath.dirname(libraryPath);
+        }
+
+        // macOS: extract the .app bundle parent from /Applications/Stata*.app/Contents/MacOS/libstata-*.dylib
+        const appMatch = libraryPath.match(/^(\/Applications\/Stata(?:Now|MP|SE|BE|IC)?)\.app\//);
+        if (appMatch) {
+            return appMatch[1];
+        }
+
+        // Fallback: walk up to find the .app directory
+        let dir = nodePath.dirname(libraryPath);               // Contents/MacOS
+        dir = nodePath.dirname(dir);                           // Contents
+        dir = nodePath.dirname(dir);                           // StataMP.app (or similar)
+        if (dir.endsWith('.app')) {
+            return nodePath.dirname(dir);                      // /Applications (or wherever)
+        }
+        return '/Applications';
+    }
+
+    /**
+     * Initialize Stata session
+     * Async initialization; does not block extension activation.
+     * @param {string} libraryPath - Path to Stata dylib/DLL
+     * @returns {Promise<boolean>} - true on success, false on failure (does not throw)
+     */
+    async init(libraryPath) {
         if (!native.isLoaded()) {
             console.error('[StataConsoleSession] Native module not loaded. Cannot initialize session.');
             return false;
         }
 
         if (this._initialized) {
-            if (this._dylibPath === dylibPath) {
+            if (this._libraryPath === libraryPath) {
                 return true;
-            } else {
-                this.shutdown();
             }
+            // Different library — shutdown and reinitialize
+            this.shutdown();
         }
 
         try {
-            const path = require('path');
             const execPath = process.execPath;
-            let stHome = '/Applications';
-            const stataNowMatch = dylibPath.match(/\/Applications\/(StataNow|Stata)/);
-            if (stataNowMatch) {
-                stHome = '/Applications/' + stataNowMatch[1];
-            }
-            
+            const stHome = this._deriveStHome(libraryPath);
             const splash = false;
-            const result = await native.initSession(dylibPath, splash, execPath, stHome);
-            
+
+            const result = await native.initSession(libraryPath, splash, execPath, stHome);
+
             if (result) {
                 this._initialized = true;
-                this._dylibPath = dylibPath;
+                this._libraryPath = libraryPath;
                 this._saveState();
                 return true;
-            } else {
-                console.error('[StataConsoleSession] Initialization returned false.');
-                return false;
             }
+
+            console.error('[StataConsoleSession] Initialization returned false.');
+            return false;
         } catch (error) {
             console.error('[StataConsoleSession] Initialization failed:', error.message);
             return false;
@@ -214,11 +241,11 @@ class StataConsoleSession {
     }
 
     /**
-     * 获取当前 dylib 路径
+     * Get current library path (dylib on macOS, DLL on Windows)
      * @returns {string|null}
      */
     getDylibPath() {
-        return this._dylibPath;
+        return this._libraryPath;  // kept as getDylibPath for backward compat
     }
 
     /**

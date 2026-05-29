@@ -287,7 +287,7 @@ async function runChild(caseName) {
         throw new Error(`Unknown case: ${caseName}`);
     }
 
-    const native = require(path.join(REPO_ROOT, 'bin', 'stata_bridge.node'));
+    const native = require(path.join(REPO_ROOT, 'bin', `stata_bridge-${process.platform}.node`));
     const dylib = process.env.STATA_DYLIB || DEFAULT_DYLIB;
     const outDir = fs.mkdtempSync(path.join(os.tmpdir(), `stata-graph-${caseName}-`));
     const stHome = inferStataHome(dylib);

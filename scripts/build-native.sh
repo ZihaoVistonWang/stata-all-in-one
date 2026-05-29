@@ -9,7 +9,7 @@ BIN_DIR="$PROJECT_ROOT/bin"
 
 ARM64_OUT="$BUILD_DIR/arm64.node"
 X86_64_OUT="$BUILD_DIR/x86_64.node"
-FINAL_OUT="$BIN_DIR/stata_bridge.node"
+FINAL_OUT="$BIN_DIR/stata_bridge-darwin.node"
 
 echo "=========================================="
 echo "Building stata_bridge universal2 binary"
