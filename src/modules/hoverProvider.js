@@ -1619,74 +1619,22 @@ function findStataApp(preferredName, savedPath = null) {
  */
 async function buildHelpIndex(customBasePath = null, additionalPaths = null) {
     const index = new Map();
-    
-    let baseHelpPath;
-    
-    if (customBasePath) {
-        baseHelpPath = customBasePath;
-    } else {
-        // Determine platform
-        const platform = process.platform;
-        
-        if (platform === 'darwin') {
-            // macOS: Find Stata.app and resolve ado/base path
-            const stataVersion = config.getStataVersion ? config.getStataVersion() : 'StataMP';
-            const foundApp = findStataApp(stataVersion);
-            
-            if (foundApp.path) {
-                // Try traditional path: Stata.app/Contents/Resources/ado/base/
-                baseHelpPath = path.join(foundApp.path, 'Contents', 'Resources', 'ado', 'base');
-                
-                // If not found, try StataNow-style path: {parent}/ado/base/
-                // (StataNow puts ado/base/ alongside the .app bundle, not inside it)
-                if (!fs.existsSync(baseHelpPath)) {
-                    const appParentDir = path.dirname(foundApp.path);
-                    const altPath = path.join(appParentDir, 'ado', 'base');
-                    if (fs.existsSync(altPath)) {
-                        baseHelpPath = altPath;
-                    }
-                }
-            } else {
-                return null;
-            }
-        } else if (platform === 'win32') {
-            // Windows: Get Stata path from config
-            const stataPath = config.getStataPathOnWindows ? config.getStataPathOnWindows() : '';
-            
-            if (stataPath && fs.existsSync(stataPath)) {
-                // Extract directory from executable path
-                const stataDir = path.dirname(stataPath);
-                baseHelpPath = path.join(stataDir, 'ado', 'base');
-            } else {
-                return null;
-            }
-        } else {
-            return null;
-        }
-    }
-    
-    // Check if base path exists
-    if (!baseHelpPath || !fs.existsSync(baseHelpPath)) {
-        return null;
-    }
-    
-    // Recursively scan for .sthlp and .hlp files (max depth 3)
+    const platform = process.platform;
+    const homeDir = os.homedir();
+
+    // Recursively scan for .sthlp and .hlp files (max depth 4 to cover
+    // deeply nested custom directories; a typical Stata layout is 2–3).
     const scanDirectory = (dirPath, currentDepth = 0) => {
-        if (currentDepth > 3) return;
-        
+        if (currentDepth > 4) return;
         try {
             const entries = fs.readdirSync(dirPath, { withFileTypes: true });
-            
             for (const entry of entries) {
                 const fullPath = path.join(dirPath, entry.name);
-                
                 if (entry.isDirectory()) {
                     scanDirectory(fullPath, currentDepth + 1);
                 } else if (entry.isFile()) {
-                    // Check for .sthlp or .hlp files
                     const ext = path.extname(entry.name);
                     if (ext === '.sthlp' || ext === '.hlp') {
-                        // Extract command name from filename
                         const cmdName = path.basename(entry.name, ext);
                         index.set(cmdName, fullPath);
                     }
@@ -1696,32 +1644,57 @@ async function buildHelpIndex(customBasePath = null, additionalPaths = null) {
             // Silently handle errors (permission, not found, etc.)
         }
     };
-    
-    scanDirectory(baseHelpPath);
-    
-    // Scan community commands (after built-in commands for lower priority)
-    const platform = process.platform;
-    const homeDir = os.homedir();
-    let communityPath;
 
+    // ── 1. Scan Stata installation root ──────────────────────────────
+    if (customBasePath) {
+        if (fs.existsSync(customBasePath)) {
+            scanDirectory(customBasePath);
+        }
+    } else {
+        let stataRoot = null;
+
+        if (platform === 'darwin') {
+            const stataVersion = config.getStataVersion ? config.getStataVersion() : 'StataMP';
+            const foundApp = findStataApp(stataVersion);
+            if (foundApp.path) {
+                // Scan the entire .app bundle — covers traditional layout
+                // (Contents/Resources/ado/…) and StataNow layout where
+                // ado/ sits alongside the bundle via the parent directory.
+                stataRoot = foundApp.path;
+                // Also scan the parent directory for StataNow-style layout
+                const appParentDir = path.dirname(foundApp.path);
+                if (fs.existsSync(appParentDir)) {
+                    scanDirectory(appParentDir);
+                }
+            }
+        } else if (platform === 'win32') {
+            // Derive Stata install root from the user-configured EXE path
+            // 从用户配置的 stataPathOnWindows（EXE 路径）推导 Stata 安装根目录
+            const rawPath = config.getStataPathOnWindows ? config.getStataPathOnWindows() : '';
+            const exePath = rawPath ? rawPath.trim().replace(/^["']+|["']+$/g, '') : '';
+            if (exePath && fs.existsSync(exePath)) {
+                stataRoot = path.dirname(exePath);
+            }
+        }
+
+        if (stataRoot && fs.existsSync(stataRoot)) {
+            scanDirectory(stataRoot);
+        }
+    }
+
+    // ── 2. Scan user's personal ado directory ─────────────────────────
+    let personalPath;
     if (platform === 'darwin') {
-        communityPath = path.join(homeDir, 'Library', 'Application Support', 'Stata', 'ado', 'plus');
+        personalPath = path.join(homeDir, 'Library', 'Application Support', 'Stata', 'ado');
     } else if (platform === 'win32') {
-        communityPath = path.join(homeDir, 'ado', 'plus');
+        personalPath = path.join(homeDir, 'ado');
+    }
+    // Scan the whole personal ado tree (plus/, personal/, etc.)
+    if (personalPath && fs.existsSync(personalPath)) {
+        scanDirectory(personalPath);
     }
 
-    // Scan community commands if path exists
-    if (communityPath && fs.existsSync(communityPath)) {
-        scanDirectory(communityPath);
-    }
-
-    // Also scan plus/ alongside the ado/base/ directory (StataNow layout)
-    const installPlusPath = path.join(path.dirname(path.dirname(baseHelpPath)), 'plus');
-    if (installPlusPath !== communityPath && fs.existsSync(installPlusPath)) {
-        scanDirectory(installPlusPath);
-    }
-
-    // Scan additional ado paths from parameter or configuration
+    // ── 3. Scan additional ado paths from config ──────────────────────
     if (!additionalPaths) {
         additionalPaths = config.getAdditionalAdoPaths ? config.getAdditionalAdoPaths() : [];
     }
@@ -1732,7 +1705,8 @@ async function buildHelpIndex(customBasePath = null, additionalPaths = null) {
             }
         }
     }
-    
+
+    console.log(`Stata All in One: Help index built with ${index.size} entries`);
     return index;
 }
 
@@ -1840,6 +1814,28 @@ async function findHelpPath(commandName, baseDir = null) {
                     helpPath = globalHelpIndex.get(prefix);
                     break;
                 }
+            }
+        }
+        // Suffix fallback: handle subcommands whose help file uses a compound
+        // name, e.g. "twoway" → "graphtwoway", "bar" → "graphbar".
+        // 后缀匹配：处理子命令的 help 文件名是复合词的情况，
+        // 如 "twoway" 的实际文件是 graphtwoway.hlp。
+        if (!helpPath && commandName.length >= 3) {
+            const suffixMatches = [];
+            for (const [cmd, filePath] of globalHelpIndex) {
+                if (cmd.length > commandName.length + 2 && cmd.endsWith(commandName)) {
+                    const prefixPart = cmd.slice(0, -commandName.length);
+                    suffixMatches.push({ cmd, filePath, prefixPart });
+                }
+            }
+            if (suffixMatches.length > 0) {
+                // Prefer modern commands: prefix without digits (e.g. "graph"
+                // over "gr7"). Among equally-ranked candidates, pick the one
+                // with the shortest prefix (= closest match).
+                const noDigit = suffixMatches.filter(m => !/\d/.test(m.prefixPart));
+                const candidates = noDigit.length > 0 ? noDigit : suffixMatches;
+                candidates.sort((a, b) => a.prefixPart.length - b.prefixPart.length);
+                helpPath = candidates[0].filePath;
             }
         }
     }
