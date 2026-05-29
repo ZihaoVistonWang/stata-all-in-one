@@ -20,14 +20,27 @@ function loadNativeModule() {
         return nativeModule;
     }
 
-    try {
-        const modulePath = path.join(__dirname, '..', '..', '..', '..', '..', 'bin', 'stata_bridge.node');
-        nativeModule = require(modulePath);
-        return nativeModule;
-    } catch (error) {
-        console.error('Failed to load native module:', error.message);
-        return null;
+    const binDir = path.join(__dirname, '..', '..', '..', '..', '..', 'bin');
+    const platformSuffix = process.platform; // 'darwin', 'win32', 'linux'
+
+    // Platform-specific binary takes priority
+    const platformPath = path.join(binDir, `stata_bridge-${platformSuffix}.node`);
+    // Fallback for backwards compatibility
+    const fallbackPath = path.join(binDir, 'stata_bridge.node');
+
+    const candidates = [platformPath, fallbackPath];
+
+    for (const modulePath of candidates) {
+        try {
+            nativeModule = require(modulePath);
+            return nativeModule;
+        } catch (error) {
+            // Try next candidate
+        }
     }
+
+    console.error('Failed to load native module from:', candidates.map(p => p).join(', '));
+    return null;
 }
 
 /**
