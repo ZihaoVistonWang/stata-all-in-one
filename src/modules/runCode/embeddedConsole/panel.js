@@ -2,7 +2,7 @@ const vscode = require('vscode');
 const fs = require('fs');
 const path = require('path');
 const { StataTerminalRenderer, getWebviewThemeVariables } = require('./renderer');
-const { msg } = require('../../../utils/common');
+const { msg, showInfo, showWarn, showError } = require('../../../utils/common');
 const { StataBuiltinCommands, StataKeywords, StataFunctions } = require('../../completionProvider');
 const variableSuggestions = require('../../variableSuggestionService');
 const config = require('../../../utils/config');
@@ -22,6 +22,8 @@ let _overflowNoticeSuppressed = false;
 let _extensionUri = null;
 let _workingDetail = null;
 let _graphResourceRoot = null;
+let _graphSaveRequestSeq = 0;
+const _pendingGraphSaveRequests = new Map();
 let _consoleFontOptions = {
     fontMode: 'editor',
     editorFontFamily: '',
@@ -125,6 +127,15 @@ function attachPanel(panel) {
                 const { revealDataViewer } = require('./dataViewer/panel');
                 revealDataViewer(message.filterText || '');
             }
+        } else if (message && message.type === 'saveGraph') {
+            await saveGraphAs(message.filePath, message.graphName, message.format);
+        } else if (message && message.type === 'copyGraphCopied') {
+            showInfo(msg('graphCopyPngSuccess'));
+        } else if (message && message.type === 'copyGraphFailed') {
+            const detail = String(message.message || '').trim();
+            showWarn(msg('graphCopyPngFailed', { detail: detail ? ` ${detail}` : '' }));
+        } else if (message && (message.type === 'graphPngDataUrl' || message.type === 'graphPngDataUrlFailed')) {
+            resolveGraphPngDataUrlRequest(message);
         } else if (message && (message.type === 'stopExecution' || message.type === 'clearConsole' || message.type === 'showOverflowNotice') && typeof _actionHandler === 'function') {
             try {
                 await _actionHandler(message.type);
@@ -241,10 +252,124 @@ function hydrateEntryForWebview(entry) {
     if (!entry || entry.kind !== 'graph' || !entry.filePath) {
         return entry;
     }
-    return {
+    const hydrated = {
         ...entry,
         src: String(_panel.webview.asWebviewUri(vscode.Uri.file(entry.filePath)))
     };
+    if (String(entry.format || '').toLowerCase() === 'svg') {
+        try {
+            hydrated.svgText = fs.readFileSync(entry.filePath, 'utf8');
+        } catch (_error) {
+            hydrated.svgText = '';
+        }
+    }
+    return hydrated;
+}
+
+async function saveGraphAs(filePath, graphName, format) {
+    const sourcePath = typeof filePath === 'string' ? filePath : '';
+    if (!sourcePath || !fs.existsSync(sourcePath)) {
+        showWarn(msg('graphFileUnavailable'));
+        return;
+    }
+
+    const sourceExtension = String(format || path.extname(sourcePath).replace(/^\./, '') || 'svg').toLowerCase();
+    const pngDpi = config.getGraphPngDpi();
+    const formatPick = await vscode.window.showQuickPick([
+        {
+            label: msg('graphFormatSvg'),
+            description: msg('graphFormatSvgDescription'),
+            value: 'svg'
+        },
+        {
+            label: msg('graphFormatPng'),
+            description: msg('graphFormatPngDescription', { dpi: pngDpi }),
+            value: 'png'
+        }
+    ], {
+        placeHolder: msg('graphSaveFormatPlaceholder')
+    });
+    if (!formatPick) {
+        return;
+    }
+
+    const selectedExtension = formatPick.value;
+    const defaultName = `${sanitizeGraphFileName(graphName || path.basename(sourcePath, path.extname(sourcePath)))}.${selectedExtension}`;
+    const targetUri = await vscode.window.showSaveDialog({
+        defaultUri: vscode.Uri.file(path.join(path.dirname(sourcePath), defaultName)),
+        filters: {
+            [msg('graphImageFilter')]: [selectedExtension],
+            'All Files': ['*']
+        }
+    });
+    if (!targetUri) {
+        return;
+    }
+
+    try {
+        const targetExtension = String(path.extname(targetUri.fsPath).replace(/^\./, '') || selectedExtension || sourceExtension || 'svg').toLowerCase();
+        if (targetExtension === 'png') {
+            const dataUrl = await requestGraphPngDataUrl(sourcePath, pngDpi);
+            await fs.promises.writeFile(targetUri.fsPath, decodePngDataUrl(dataUrl));
+        } else {
+            await fs.promises.copyFile(sourcePath, targetUri.fsPath);
+        }
+    } catch (error) {
+        showError(msg('graphSaveFailed', { message: error.message }));
+    }
+}
+
+function sanitizeGraphFileName(value) {
+    return String(value || 'graph')
+        .replace(/[^A-Za-z0-9._-]+/g, '_')
+        .replace(/^_+|_+$/g, '')
+        || 'graph';
+}
+
+function requestGraphPngDataUrl(filePath, dpi) {
+    if (!_panel) {
+        return Promise.reject(new Error(msg('graphPanelUnavailable')));
+    }
+
+    const requestId = `graph-save-${Date.now()}-${_graphSaveRequestSeq += 1}`;
+    return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+            _pendingGraphSaveRequests.delete(requestId);
+            reject(new Error(msg('graphPngRequestTimeout')));
+        }, 15000);
+
+        _pendingGraphSaveRequests.set(requestId, { resolve, reject, timeout });
+        _panel.webview.postMessage({
+            type: 'requestGraphPngDataUrl',
+            requestId,
+            filePath,
+            dpi
+        });
+    });
+}
+
+function resolveGraphPngDataUrlRequest(message) {
+    const requestId = String(message.requestId || '');
+    const pending = _pendingGraphSaveRequests.get(requestId);
+    if (!pending) {
+        return;
+    }
+
+    clearTimeout(pending.timeout);
+    _pendingGraphSaveRequests.delete(requestId);
+    if (message.type === 'graphPngDataUrl') {
+        pending.resolve(String(message.dataUrl || ''));
+    } else {
+        pending.reject(new Error(String(message.message || msg('graphPngConversionFailed'))));
+    }
+}
+
+function decodePngDataUrl(dataUrl) {
+    const match = String(dataUrl || '').match(/^data:image\/png;base64,([A-Za-z0-9+/=]+)$/);
+    if (!match) {
+        throw new Error(msg('graphInvalidPngData'));
+    }
+    return Buffer.from(match[1], 'base64');
 }
 
 function clearPanel() {
@@ -1086,6 +1211,11 @@ function getWebviewHtml(webview) {
             margin: 0.2rem 0 0.45rem;
             overflow-x: auto;
         }
+        .graph-frame {
+            position: relative;
+            display: inline-block;
+            max-width: min(100%, 980px);
+        }
         .graph-title {
             font-family: var(--console-active-font-family);
             font-size: 12px;
@@ -1095,11 +1225,85 @@ function getWebviewHtml(webview) {
         }
         .graph-image {
             display: block;
-            max-width: min(100%, 980px);
+            max-width: 100%;
             height: auto;
             background: #fff;
             border: 1px solid var(--vscode-panel-border);
             border-radius: 6px;
+        }
+        .graph-actions {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            display: flex;
+            gap: 4px;
+            padding: 3px;
+            border-radius: 6px;
+            background: color-mix(in srgb, var(--vscode-editor-background) 84%, transparent);
+            border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 78%, transparent);
+            opacity: 0;
+            transition: opacity 120ms ease;
+        }
+        .graph-frame:hover .graph-actions,
+        .graph-frame:focus-within .graph-actions {
+            opacity: 1;
+        }
+        .graph-action {
+            width: 24px;
+            height: 24px;
+            border: none;
+            border-radius: 4px;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: var(--vscode-foreground);
+            background: transparent;
+            font-family: "codicon";
+            font-size: 15px;
+            line-height: 1;
+        }
+        .graph-action:hover {
+            background: var(--vscode-toolbar-hoverBackground);
+        }
+        .graph-action:focus-visible {
+            outline: 1px solid var(--vscode-focusBorder);
+            outline-offset: 1px;
+        }
+        .codicon-copy::before { content: "\\ebcc"; }
+        .codicon-save::before { content: "\\eb4b"; }
+        .codicon-screen-full::before { content: "\\eb4c"; }
+        .codicon-close::before { content: "\\ea76"; }
+        .graph-fullscreen {
+            position: fixed;
+            inset: 0;
+            z-index: 100;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 28px;
+            box-sizing: border-box;
+            background: color-mix(in srgb, var(--vscode-editor-background) 92%, #000);
+        }
+        .graph-fullscreen.visible {
+            display: flex;
+        }
+        .graph-fullscreen img {
+            max-width: 100%;
+            max-height: 100%;
+            background: #fff;
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: 6px;
+        }
+        .graph-fullscreen-close {
+            position: fixed;
+            top: 14px;
+            right: 14px;
+            opacity: 1;
+            font-family: "codicon";
+            font-size: 16px;
+            font-weight: 400;
         }
     </style>
 </head>
@@ -1142,6 +1346,10 @@ function getWebviewHtml(webview) {
         </div>
     </div>
     <div id="resize-handle" title="${escapeHtml(msg('webviewDragResizeTip'))}"></div>
+    <div id="graph-fullscreen" class="graph-fullscreen" hidden>
+        <button id="graph-fullscreen-close" class="graph-action graph-fullscreen-close codicon-close" type="button" title="${escapeHtml(msg('graphClose'))}" aria-label="${escapeHtml(msg('graphClose'))}"></button>
+        <img id="graph-fullscreen-image" alt="">
+    </div>
     <div class="composer" id="composer">
         <div class="composer-label">
             <span class="composer-label-text">${escapeHtml(msg('webviewInputLabel'))}</span>
@@ -1171,6 +1379,9 @@ function getWebviewHtml(webview) {
         const stopButton = document.getElementById('stop-button');
         const clearButton = document.getElementById('clear-button');
         const dataButton = document.getElementById('data-button');
+        const graphFullscreen = document.getElementById('graph-fullscreen');
+        const graphFullscreenImage = document.getElementById('graph-fullscreen-image');
+        const graphFullscreenClose = document.getElementById('graph-fullscreen-close');
         const inputHighlight = document.getElementById('input-highlight');
         const autocompleteDropdown = document.getElementById('autocomplete-dropdown');
         const inputHistory = [];
@@ -1187,12 +1398,29 @@ function getWebviewHtml(webview) {
         let highlightSuppressed = false;
         let pendingFocus = false;
         let wasRunning = false;
+        const graphPngCache = new Map();
 
         const STATUS_LABELS = {
             idle: ${JSON.stringify(msg('webviewIdle'))},
             success: ${JSON.stringify(msg('webviewIdle'))},
             running: ${JSON.stringify(msg('webviewRunning'))},
             error: ${JSON.stringify(msg('webviewError'))}
+        };
+        const GRAPH_LABELS = {
+            copy: ${JSON.stringify(msg('graphCopyImage'))},
+            save: ${JSON.stringify(msg('graphSaveImage'))},
+            fullScreen: ${JSON.stringify(msg('graphFullScreen'))},
+            conversionFailed: ${JSON.stringify(msg('graphPngConversionFailed'))},
+            onlySvgCanConvert: ${JSON.stringify(msg('graphOnlySvgCanConvert'))},
+            svgEmpty: ${JSON.stringify(msg('graphSvgEmpty'))},
+            canvasUnavailable: ${JSON.stringify(msg('graphCanvasUnavailable'))},
+            canvasPngFailed: ${JSON.stringify(msg('graphCanvasPngFailed'))},
+            svgReadFailed: ${JSON.stringify(msg('graphSvgReadFailed'))},
+            svgLoadFailed: ${JSON.stringify(msg('graphSvgLoadFailed'))},
+            clipboardWriteUnavailable: ${JSON.stringify(msg('graphClipboardWriteUnavailable'))},
+            clipboardItemUnavailable: ${JSON.stringify(msg('graphClipboardItemUnavailable'))},
+            clipboardRejected: ${JSON.stringify(msg('graphClipboardRejected'))},
+            pngReadFailed: ${JSON.stringify(msg('graphPngReadFailed'))}
         };
         const FONT_BOOTSTRAP = ${JSON.stringify(fontOptions)};
         const StataCommands = ${JSON.stringify([...new Set([...StataBuiltinCommands, ...StataKeywords, ...StataFunctions, ...config.getCustomCommands()])])};
@@ -1764,14 +1992,300 @@ function getWebviewHtml(webview) {
             title.textContent = format ? graphName + ' .' + format : graphName;
             shell.appendChild(title);
 
+            const frame = document.createElement('div');
+            frame.className = 'graph-frame';
+
             const image = document.createElement('img');
             image.className = 'graph-image';
             image.src = String(entry.src || '');
             image.alt = graphName;
             image.loading = 'lazy';
-            shell.appendChild(image);
+            frame.appendChild(image);
+
+            const actions = document.createElement('div');
+            actions.className = 'graph-actions';
+            actions.appendChild(createGraphAction('copy', GRAPH_LABELS.copy, function () {
+                copyGraphImageAsPng(entry);
+            }));
+            actions.appendChild(createGraphAction('save', GRAPH_LABELS.save, function () {
+                vscode.postMessage({
+                    type: 'saveGraph',
+                    filePath: String(entry.filePath || ''),
+                    graphName: graphName,
+                    format: format
+                });
+            }));
+            actions.appendChild(createGraphAction('screen-full', GRAPH_LABELS.fullScreen, function () {
+                showGraphFullscreen(entry);
+            }));
+            frame.appendChild(actions);
+            shell.appendChild(frame);
 
             return shell;
+        }
+
+        function createGraphAction(iconName, title, onClick) {
+            const button = document.createElement('button');
+            button.className = 'graph-action codicon-' + iconName;
+            button.type = 'button';
+            button.title = title;
+            button.setAttribute('aria-label', title);
+            button.addEventListener('click', function (event) {
+                event.preventDefault();
+                event.stopPropagation();
+                onClick();
+            });
+            return button;
+        }
+
+        function findGraphEntryByFilePath(filePath) {
+            const normalized = String(filePath || '');
+            for (const entry of renderedEntries) {
+                if (entry && entry.kind === 'graph' && String(entry.filePath || '') === normalized) {
+                    return entry;
+                }
+            }
+            return null;
+        }
+
+        async function copyGraphImageAsPng(entry) {
+            try {
+                const pngBlob = await getGraphPngBlob(entry, 96);
+                await writePngBlobToClipboard(pngBlob);
+                vscode.postMessage({ type: 'copyGraphCopied' });
+            } catch (error) {
+                vscode.postMessage({
+                    type: 'copyGraphFailed',
+                    message: String(error && error.message || error || '')
+                });
+            }
+        }
+
+        async function getGraphPngBlob(entry, dpi) {
+            const normalizedDpi = normalizeGraphDpi(dpi);
+            const cacheKey = String((entry && entry.filePath) || (entry && entry.src) || '') + '#' + normalizedDpi;
+            if (cacheKey && graphPngCache.has(cacheKey)) {
+                return graphPngCache.get(cacheKey);
+            }
+
+            const promise = renderGraphEntryToPngBlob(entry, normalizedDpi);
+            if (cacheKey) {
+                graphPngCache.set(cacheKey, promise);
+            }
+            try {
+                return await promise;
+            } catch (error) {
+                if (cacheKey) {
+                    graphPngCache.delete(cacheKey);
+                }
+                throw error;
+            }
+        }
+
+        async function renderGraphEntryToPngBlob(entry, dpi) {
+            const format = String(entry && entry.format || '').toLowerCase();
+            if (format !== 'svg') {
+                throw new Error(GRAPH_LABELS.onlySvgCanConvert);
+            }
+
+            const svgText = await getGraphSvgText(entry);
+            if (!svgText) {
+                throw new Error(GRAPH_LABELS.svgEmpty);
+            }
+
+            const image = await loadImage(svgTextToDataUrl(svgText));
+            const size = getSvgRasterSize(svgText, image, dpi);
+            const canvas = document.createElement('canvas');
+            canvas.width = size.width;
+            canvas.height = size.height;
+            const context = canvas.getContext('2d');
+            if (!context) {
+                throw new Error(GRAPH_LABELS.canvasUnavailable);
+            }
+            context.fillStyle = '#ffffff';
+            context.fillRect(0, 0, canvas.width, canvas.height);
+            context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+            return await new Promise((resolve, reject) => {
+                canvas.toBlob(blob => {
+                    if (blob) {
+                        resolve(blob);
+                    } else {
+                        reject(new Error(GRAPH_LABELS.canvasPngFailed));
+                    }
+                }, 'image/png');
+            });
+        }
+
+        async function getGraphSvgText(entry) {
+            const inlineSvg = String(entry && entry.svgText || '');
+            if (inlineSvg) {
+                return inlineSvg;
+            }
+
+            const src = String(entry && entry.src || '');
+            if (!src) {
+                return '';
+            }
+            const response = await fetch(src);
+            if (!response.ok) {
+                throw new Error(GRAPH_LABELS.svgReadFailed);
+            }
+            return await response.text();
+        }
+
+        function svgTextToDataUrl(svgText) {
+            return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgText);
+        }
+
+        function loadImage(src) {
+            return new Promise((resolve, reject) => {
+                const image = new Image();
+                image.onload = function () { resolve(image); };
+                image.onerror = function () { reject(new Error(GRAPH_LABELS.svgLoadFailed)); };
+                image.src = src;
+            });
+        }
+
+        function normalizeGraphDpi(dpi) {
+            const value = Number(dpi);
+            if (!Number.isFinite(value) || value < 72) {
+                return 96;
+            }
+            return Math.min(1200, Math.round(value));
+        }
+
+        function getSvgRasterSize(svgText, image, dpi) {
+            const parser = new DOMParser();
+            const documentSvg = parser.parseFromString(svgText, 'image/svg+xml');
+            const svg = documentSvg.documentElement;
+            const width = parseSvgLength(svg && svg.getAttribute('width'), dpi);
+            const height = parseSvgLength(svg && svg.getAttribute('height'), dpi);
+            if (width && height) {
+                return clampRasterSize(width, height, dpi);
+            }
+
+            const viewBox = String(svg && svg.getAttribute('viewBox') || '').trim().split(/[\\s,]+/).map(Number);
+            if (viewBox.length === 4 && viewBox.every(Number.isFinite) && viewBox[2] > 0 && viewBox[3] > 0) {
+                const scale = dpi / 96;
+                return clampRasterSize(viewBox[2] * scale, viewBox[3] * scale, dpi);
+            }
+
+            const scale = dpi / 96;
+            return clampRasterSize((image.naturalWidth || 960) * scale, (image.naturalHeight || 640) * scale, dpi);
+        }
+
+        function parseSvgLength(value, dpi) {
+            const match = String(value || '').trim().match(/^([0-9]+(?:\\.[0-9]+)?)(px|pt|in|cm|mm)?$/i);
+            if (!match) {
+                return 0;
+            }
+            const amount = Number(match[1]);
+            const unit = String(match[2] || 'px').toLowerCase();
+            if (!Number.isFinite(amount) || amount <= 0) {
+                return 0;
+            }
+            if (unit === 'pt') return amount * dpi / 72;
+            if (unit === 'in') return amount * dpi;
+            if (unit === 'cm') return amount * dpi / 2.54;
+            if (unit === 'mm') return amount * dpi / 25.4;
+            return amount * dpi / 96;
+        }
+
+        function clampRasterSize(width, height, dpi) {
+            const maxSide = dpi > 96 ? 32767 : 4096;
+            let rasterWidth = Math.max(1, Math.round(width));
+            let rasterHeight = Math.max(1, Math.round(height));
+            const scale = Math.min(1, maxSide / Math.max(rasterWidth, rasterHeight));
+            if (scale < 1) {
+                rasterWidth = Math.max(1, Math.round(rasterWidth * scale));
+                rasterHeight = Math.max(1, Math.round(rasterHeight * scale));
+            }
+            return { width: rasterWidth, height: rasterHeight };
+        }
+
+        async function writePngBlobToClipboard(blob) {
+            const clipboardApiError = await tryClipboardItemWrite(blob);
+            if (!clipboardApiError) {
+                return;
+            }
+
+            const dataUrl = await blobToDataUrl(blob);
+            if (copyImageDataUrlWithExecCommand(dataUrl)) {
+                return;
+            }
+
+            throw new Error(clipboardApiError);
+        }
+
+        async function tryClipboardItemWrite(blob) {
+            if (!navigator.clipboard || typeof navigator.clipboard.write !== 'function') {
+                return GRAPH_LABELS.clipboardWriteUnavailable;
+            }
+            if (typeof ClipboardItem === 'undefined') {
+                return GRAPH_LABELS.clipboardItemUnavailable;
+            }
+
+            try {
+                await navigator.clipboard.write([
+                    new ClipboardItem({ 'image/png': blob })
+                ]);
+                return '';
+            } catch (_error) {
+                return GRAPH_LABELS.clipboardRejected;
+            }
+        }
+
+        function blobToDataUrl(blob) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = function () { resolve(String(reader.result || '')); };
+                reader.onerror = function () { reject(new Error(GRAPH_LABELS.pngReadFailed)); };
+                reader.readAsDataURL(blob);
+            });
+        }
+
+        function copyImageDataUrlWithExecCommand(dataUrl) {
+            const container = document.createElement('div');
+            const image = document.createElement('img');
+            container.contentEditable = 'true';
+            container.style.position = 'fixed';
+            container.style.left = '-10000px';
+            container.style.top = '0';
+            image.src = dataUrl;
+            container.appendChild(image);
+            document.body.appendChild(container);
+
+            const selection = window.getSelection();
+            const range = document.createRange();
+            range.selectNode(image);
+            selection.removeAllRanges();
+            selection.addRange(range);
+            let copied = false;
+            try {
+                copied = document.execCommand('copy');
+            } catch (_error) {
+                copied = false;
+            }
+            selection.removeAllRanges();
+            container.remove();
+            return copied;
+        }
+
+        function showGraphFullscreen(entry) {
+            const src = String(entry && entry.src || '');
+            if (!src) return;
+            graphFullscreenImage.src = src;
+            graphFullscreenImage.alt = String(entry.graphName || 'Graph');
+            graphFullscreen.hidden = false;
+            graphFullscreen.classList.add('visible');
+            graphFullscreenClose.focus();
+        }
+
+        function hideGraphFullscreen() {
+            graphFullscreen.classList.remove('visible');
+            graphFullscreen.hidden = true;
+            graphFullscreenImage.removeAttribute('src');
         }
 
         function pushHistory(code) {
@@ -1945,11 +2459,26 @@ function getWebviewHtml(webview) {
             vscode.postMessage({ type: 'showDataViewer' });
         });
 
+        graphFullscreenClose.addEventListener('click', () => {
+            hideGraphFullscreen();
+        });
+
+        graphFullscreen.addEventListener('click', (event) => {
+            if (event.target === graphFullscreen) {
+                hideGraphFullscreen();
+            }
+        });
+
         window.addEventListener('resize', () => {
             updateOverflowNotice();
         });
 
         window.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && graphFullscreen.classList.contains('visible')) {
+                event.preventDefault();
+                hideGraphFullscreen();
+                return;
+            }
             if (event.key === 'Escape' && document.body.dataset.status === 'running') {
                 event.preventDefault();
                 vscode.postMessage({ type: 'stopExecution' });
@@ -1990,6 +2519,33 @@ function getWebviewHtml(webview) {
                     overflowNoticeDismissedForCurrentView = true;
                 }
                 updateOverflowNotice();
+            } else if (message.type === 'requestGraphPngDataUrl') {
+                const requestId = String(message.requestId || '');
+                const entry = findGraphEntryByFilePath(message.filePath);
+                if (!entry) {
+                    vscode.postMessage({
+                        type: 'graphPngDataUrlFailed',
+                        requestId,
+                        message: GRAPH_LABELS.conversionFailed
+                    });
+                    return;
+                }
+                getGraphPngBlob(entry, Number(message.dpi) || 600)
+                    .then(blobToDataUrl)
+                    .then(dataUrl => {
+                        vscode.postMessage({
+                            type: 'graphPngDataUrl',
+                            requestId,
+                            dataUrl
+                        });
+                    })
+                    .catch(error => {
+                        vscode.postMessage({
+                            type: 'graphPngDataUrlFailed',
+                            requestId,
+                            message: String(error && error.message || error || GRAPH_LABELS.conversionFailed)
+                        });
+                    });
             }
         });
 

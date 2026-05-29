@@ -5,7 +5,7 @@
 
 const vscode = require('vscode');
 const config = require('../utils/config');
-const { msg } = require('../utils/common');
+const { msg, showWarn, showError } = require('../utils/common');
 
 // Stata built-in commands (should not be renamed)
 const STATA_BUILTIN_COMMANDS = [
@@ -252,7 +252,7 @@ function createRenameProvider() {
         provideRenameEdits(document, position, newName, token) {
             // Check naming rules: must start with letter or underscore and contain only alphanumeric and underscore
             if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(newName)) {
-                vscode.window.showErrorMessage(
+                showError(
                     'Invalid variable name: Must start with a letter or underscore and contain only letters, numbers, and underscores'
                 );
                 return null;
@@ -260,7 +260,7 @@ function createRenameProvider() {
             
             // Check conflicts with built-in commands
             if (STATA_BUILTIN_COMMANDS.includes(newName.toLowerCase())) {
-                vscode.window.showErrorMessage(
+                showError(
                     `Name conflicts with built-in Stata command: ${newName}`
                 );
                 return null;
@@ -268,7 +268,7 @@ function createRenameProvider() {
             
             // Check conflicts with keywords
             if (STATA_KEYWORDS.includes(newName.toLowerCase())) {
-                vscode.window.showErrorMessage(
+                showError(
                     `Name conflicts with Stata keyword: ${newName}`
                 );
                 return null;
@@ -379,14 +379,14 @@ function executeRename() {
     if (!isRenamable(word)) {
         // Show warning message at bottom-right corner
         const message = msg('cannotRenameCommand', { word: word });
-        vscode.window.showWarningMessage(message);
+        showWarn(message);
         return;
     }
 
     // Check if the word is an option name (should not be renamed)
     if (isOptionNameAtPosition(document, position)) {
         const message = msg('cannotRenameOption', { word: word });
-        vscode.window.showWarningMessage(message);
+        showWarn(message);
         return;
     }
 

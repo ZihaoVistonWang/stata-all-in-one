@@ -7,7 +7,7 @@
  */
 
 const vscode = require('vscode');
-const { isWindows } = require('../utils/common');
+const { isWindows, showInfo, showWarn } = require('../utils/common');
 const packageJson = require('../../package.json');
 
 // 升级通知的版本号（需要升级提醒的版本）
@@ -86,7 +86,7 @@ async function showWindowsUpgradeNotification(context) {
     const lang = getUserLanguage();
     const msgs = UPGRADE_MESSAGES[lang];
 
-    const result = await vscode.window.showInformationMessage(
+    const result = await showInfo(
         msgs.message,
         { modal: true },
         msgs.ok,
@@ -106,14 +106,14 @@ async function showWindowsUpgradeNotification(context) {
  */
 async function forceShowWindowsUpgradeNotification(context) {
     if (!isWindows()) {
-        vscode.window.showWarningMessage('This notification is only for Windows users');
+        showWarn('This notification is only for Windows users');
         return;
     }
 
     const lang = getUserLanguage();
     const msgs = UPGRADE_MESSAGES[lang];
 
-    const result = await vscode.window.showInformationMessage(
+    const result = await showInfo(
         msgs.message,
         { modal: true },
         msgs.ok,

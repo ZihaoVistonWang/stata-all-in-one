@@ -150,6 +150,13 @@
           "default": "",
           "markdownDescription": "%config.consoleCustomFontFamily.description%"
         },
+        "stata-all-in-one.graphPngDpi": {
+          "type": "number",
+          "default": 600,
+          "minimum": 72,
+          "maximum": 1200,
+          "markdownDescription": "%config.graphPngDpi.description%"
+        },
         "stata-all-in-one.showActionButtons": {
           "type": "boolean",
           "default": true,

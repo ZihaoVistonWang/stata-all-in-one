@@ -9,6 +9,7 @@ const path = require('path');
 const session = require('./session');
 const { getTempFilePath, cleanupTempFile } = require('../execute/tempfile');
 const config = require('../../../utils/config');
+const { showInfo, showError } = require('../../../utils/common');
 const { getWebviewTerminalSink, setGraphResourceRoot } = require('./panel');
 const { beginGraphCapture, endGraphCapture, exportCapturedGraphs, getGraphCacheDir } = require('./graphs');
 
@@ -839,12 +840,12 @@ async function initConsoleSession(context) {
     try {
         const result = await ensureConsoleSession(context);
         if (!result.success) {
-            vscode.window.showErrorMessage(result.reason);
+            showError(result.reason);
             return false;
         }
 
         if (!result.fromExisting) {
-            vscode.window.showInformationMessage(
+            showInfo(
                 `Stata ${result.edition ? result.edition.toUpperCase() : ''} 会话已初始化成功。`
             );
         }
@@ -852,7 +853,7 @@ async function initConsoleSession(context) {
         return true;
     } catch (error) {
         console.error('[runtime] initConsoleSession 异常:', error.message);
-        vscode.window.showErrorMessage(`Stata 初始化错误: ${error.message}`);
+        showError(`Stata 初始化错误: ${error.message}`);
         return false;
     }
 }

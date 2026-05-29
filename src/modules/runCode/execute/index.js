@@ -11,7 +11,7 @@ const path = require('path');
 const variableSuggestions = require('../../variableSuggestionService');
 
 // 工具函数导入
-const { isWindows, isMacOS, showError, stripSurroundingQuotes, msg } = require('../../../utils/common');
+const { isWindows, isMacOS, showInfo, showWarn, showError, stripSurroundingQuotes, msg } = require('../../../utils/common');
 const config = require('../../../utils/config');
 
 // External App 执行函数导入
@@ -159,7 +159,7 @@ async function runCurrentSection(context, editor = null) {
             if (runMode !== config.RUN_MODES.externalApp) {
                 const embeddedConsoleResult = await runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir, context);
                 if (embeddedConsoleResult.shouldOfferExternalAppFallback) {
-                    vscode.window.showWarningMessage(msg('runModeUnsupportedOnWindows', {
+                    showWarn(msg('runModeUnsupportedOnWindows', {
                         mode: 'Embedded Console'
                     }));
                 }
@@ -215,7 +215,7 @@ async function ensurePlatformExecutionReady({ onWindows, onMac }) {
             );
 
             stataPathOnWindows = stripSurroundingQuotes(userPath.trim());
-            vscode.window.showInformationMessage(msg('configSaved'));
+            showInfo(msg('configSaved'));
         }
         return stataPathOnWindows;
     }
@@ -241,7 +241,7 @@ async function ensurePlatformExecutionReady({ onWindows, onMac }) {
                 vscode.ConfigurationTarget.Global
             );
 
-            vscode.window.showInformationMessage(msg('configSaved'));
+            showInfo(msg('configSaved'));
         }
     }
 
@@ -290,7 +290,7 @@ async function runArbitraryCode(context, code, options = {}) {
             if (runMode !== config.RUN_MODES.externalApp) {
                 const embeddedConsoleResult = await runOnWindowsEmbeddedConsole(normalizedCode, tmpFilePath, docDir, context);
                 if (embeddedConsoleResult.shouldOfferExternalAppFallback) {
-                    vscode.window.showWarningMessage(msg('runModeUnsupportedOnWindows', {
+                    showWarn(msg('runModeUnsupportedOnWindows', {
                         mode: 'Embedded Console'
                     }));
                 }
@@ -347,7 +347,7 @@ async function maybeOfferGuiFallback(codeToRun, tmpFilePath, docDir, context, re
     const useGuiLabel = msg('useStataApp');
     const stayInConsoleLabel = msg('stayInConsole');
 
-    const choice = await vscode.window.showWarningMessage(
+    const choice = await showWarn(
         msg('consoleOfferGuiFallback', { reason }),
         useGuiLabel,
         stayInConsoleLabel

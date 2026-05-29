@@ -5,7 +5,7 @@
  */
 
 const vscode = require('vscode');
-const { getUserLanguage } = require('../utils/common');
+const { getUserLanguage, showInfo } = require('../utils/common');
 
 // Update changelog: version -> changelog text
 const CHANGELOG = {
@@ -130,7 +130,7 @@ function checkAndNotifyUpdate(context) {
             if (changelog) {
                 const learnMoreLabel = lang === 'zh' ? '了解更多' : 'Learn More';
                 const sponsorLabel = lang === 'zh' ? '☕ 打赏支持' : '☕ Buy me a coffee';
-                vscode.window.showInformationMessage(changelog.ver_info, 'OK', learnMoreLabel, sponsorLabel).then(selection => {
+                showInfo(changelog.ver_info, 'OK', learnMoreLabel, sponsorLabel).then(selection => {
                     if (selection === learnMoreLabel && changelog.more_url) {
                         vscode.env.openExternal(vscode.Uri.parse(changelog.more_url));
                     } else if (selection === sponsorLabel) {
@@ -160,7 +160,7 @@ function checkAndNotifyUpdate(context) {
         if (changelog) {
             const learnMoreLabel = lang === 'zh' ? '了解更多' : 'Learn More';
             const sponsorLabel = lang === 'zh' ? '☕ 打赏支持' : '☕ Buy me a coffee';
-            vscode.window.showInformationMessage(changelog.ver_info, 'OK', learnMoreLabel, sponsorLabel).then(selection => {
+            showInfo(changelog.ver_info, 'OK', learnMoreLabel, sponsorLabel).then(selection => {
                 if (selection === learnMoreLabel && changelog.more_url) {
                     vscode.env.openExternal(vscode.Uri.parse(changelog.more_url));
                 } else if (selection === sponsorLabel) {

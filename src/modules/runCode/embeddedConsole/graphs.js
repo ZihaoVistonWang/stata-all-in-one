@@ -2,7 +2,10 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const GRAPH_FORMATS = ['svg', 'png'];
+const GRAPH_FORMATS = ['svg'];
+const GRAPH_CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+let _lastCacheCleanupAt = 0;
 
 function getGraphCacheDir(context) {
     const baseDir = context && context.globalStorageUri && context.globalStorageUri.fsPath
@@ -10,7 +13,32 @@ function getGraphCacheDir(context) {
         : (context && context.globalStoragePath ? context.globalStoragePath : os.tmpdir());
     const graphDir = path.join(baseDir, 'embedded-console-graphs');
     fs.mkdirSync(graphDir, { recursive: true });
+    cleanupGraphCache(graphDir);
     return graphDir;
+}
+
+function cleanupGraphCache(graphDir) {
+    const now = Date.now();
+    if (!graphDir || now - _lastCacheCleanupAt < 60 * 60 * 1000) {
+        return;
+    }
+    _lastCacheCleanupAt = now;
+
+    try {
+        const entries = fs.readdirSync(graphDir, { withFileTypes: true });
+        for (const entry of entries) {
+            if (!entry.isFile() || !/\.(svg|png)$/i.test(entry.name)) {
+                continue;
+            }
+            const filePath = path.join(graphDir, entry.name);
+            const stat = fs.statSync(filePath);
+            if (now - stat.mtimeMs > GRAPH_CACHE_MAX_AGE_MS) {
+                fs.unlinkSync(filePath);
+            }
+        }
+    } catch (error) {
+        console.error('[graphs] Failed to clean graph cache:', error.message);
+    }
 }
 
 async function beginGraphCapture(consoleSession) {
