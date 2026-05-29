@@ -9,7 +9,8 @@ const path = require('path');
 const session = require('./session');
 const { getTempFilePath, cleanupTempFile } = require('../execute/tempfile');
 const config = require('../../../utils/config');
-const { getWebviewTerminalSink } = require('./panel');
+const { getWebviewTerminalSink, setGraphResourceRoot } = require('./panel');
+const { beginGraphCapture, endGraphCapture, exportCapturedGraphs, getGraphCacheDir } = require('./graphs');
 
 let _activeOutputSink = null;
 
@@ -385,6 +386,8 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
     let lastRealChunkAt = 0;
     let progressOutputActive = false;
     let runStartTime = null;
+    let graphCaptureState = null;
+    let graphDir = null;
     const outputSink = getOutputSink();
 
     try {
@@ -410,16 +413,23 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
         }
 
         _activeOutputSink = outputSink;
+        try {
+            graphDir = getGraphCacheDir(context);
+            setGraphResourceRoot(graphDir);
+        } catch (error) {
+            console.error('[mac.js] Failed to initialize graph cache:', error.message);
+        }
         await outputSink.prepareForExecution();
 
         const normalizedCode = normalizeCodeToRun(codeToRun);
         const progressTotal = extractProgressTotalFromCode(normalizedCode);
         await ensureWebviewBootstrap(consoleSession);
         await ensureInitialWorkingDirectory(consoleSession, docDir);
+        graphCaptureState = await beginGraphCapture(consoleSession);
         executionPlan = createExecutionPlan(normalizedCode, consoleSession.getWorkingDirectory());
         lastRealChunkAt = Date.now();
         runStartTime = lastRealChunkAt;
-        const result = await consoleSession.execute(executionPlan.command, true, (chunk) => {
+        const onExecutionChunk = (chunk) => {
             if (!chunk) {
                 return;
             }
@@ -464,9 +474,24 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
                     outputSink.setWorkingDetail(null);
                 }
             }
-        });
+        };
 
-        if (result.output) {
+        let result = null;
+        if (Array.isArray(executionPlan.commands) && executionPlan.commands.length) {
+            if (typeof outputSink.writeCommand === 'function') {
+                outputSink.writeCommand(executionPlan.displayCode || normalizedCode);
+            }
+            for (const command of executionPlan.commands) {
+                result = await consoleSession.execute(command, false, onExecutionChunk);
+                if (!result.success) {
+                    break;
+                }
+            }
+        } else {
+            result = await consoleSession.execute(executionPlan.command, true, onExecutionChunk);
+        }
+
+        if (!executionPlan.commands && result.output) {
             const tailChunk = computeIncrementalChunk(streamedOutput, result.output);
             if (tailChunk) {
                 const hasTailProgressOutput = hasProgressLine(tailChunk, progressOutputActive);
@@ -498,6 +523,11 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
             };
         }
 
+        if (graphCaptureState && graphCaptureState.enabled && graphDir && typeof outputSink.writeGraphEntries === 'function') {
+            const exportedGraphs = await exportCapturedGraphs(consoleSession, graphDir);
+            outputSink.writeGraphEntries(exportedGraphs);
+        }
+
         updateWorkingDirectoryFromCode(consoleSession, normalizedCode);
         return {
             success: true,
@@ -517,6 +547,10 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
         };
     } finally {
         outputSink.flushOutput();
+        const activeSession = session.getActiveSession();
+        if (activeSession) {
+            await endGraphCapture(activeSession, graphCaptureState);
+        }
         if (runStartTime !== null) {
             outputSink.writeRunFooter(Date.now() - runStartTime);
         }
@@ -636,7 +670,8 @@ function createExecutionPlan(codeToRun, workingDirectory) {
     if (lines.length === 0) {
         return {
             command: '',
-            displayCode: '',
+            commands: null,
+            displayCode: lines.join('\n'),
             tempFilePath: null
         };
     }
@@ -644,13 +679,28 @@ function createExecutionPlan(codeToRun, workingDirectory) {
     if (lines.length === 1 && isStandaloneCdCommand(lines[0])) {
         return {
             command: lines[0],
+            commands: null,
+            displayCode: lines.join('\n'),
             tempFilePath: null
         };
     }
 
-    if (lines.length === 1 && !shouldUseDoFileForSingleLine(lines[0])) {
+    const directLines = buildDirectExecutionLines(lines);
+
+    if (directLines.length === 1 && lines.length === 1 && canExecuteLineByLine(directLines)) {
         return {
-            command: lines[0],
+            command: directLines[0],
+            commands: null,
+            displayCode: lines.join('\n'),
+            tempFilePath: null
+        };
+    }
+
+    if (directLines.length > 0 && canExecuteLineByLine(directLines)) {
+        return {
+            command: directLines.join('\n'),
+            commands: directLines,
+            displayCode: lines.join('\n'),
             tempFilePath: null
         };
     }
@@ -660,8 +710,115 @@ function createExecutionPlan(codeToRun, workingDirectory) {
 
     return {
         command: `do "${tempFilePath.replace(/"/g, '""')}"`,
+        commands: null,
+        displayCode: lines.join('\n'),
         tempFilePath
     };
+}
+
+function canExecuteLineByLine(lines) {
+    return lines.every(line => {
+        const trimmed = String(line || '').trim();
+        if (!trimmed || shouldUseDoFileForSingleLine(trimmed)) {
+            return false;
+        }
+        if (/[{}]/.test(trimmed) || /;\s*$/.test(trimmed) || /\/\/\/\s*$/.test(trimmed)) {
+            return false;
+        }
+        if (/^#delimit\b/i.test(trimmed)) {
+            return false;
+        }
+        if (/^(program|mata|python)\b/i.test(trimmed)) {
+            return false;
+        }
+        return true;
+    });
+}
+
+function buildDirectExecutionLines(lines) {
+    const directLines = [];
+    let continuation = '';
+
+    for (const line of lines) {
+        const trimmed = String(line || '').trim();
+        if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('*')) {
+            continue;
+        }
+        if (trimmed.includes('/*')) {
+            return [];
+        }
+
+        const continuationIndex = findLineContinuationIndex(trimmed);
+        if (continuationIndex !== -1) {
+            const segment = trimmed.slice(0, continuationIndex).trimEnd();
+            continuation = appendCommandSegment(continuation, segment);
+            continue;
+        }
+
+        const normalized = stripTrailingLineComment(trimmed).trim();
+        if (!normalized) {
+            continue;
+        }
+
+        if (continuation) {
+            directLines.push(appendCommandSegment(continuation, normalized));
+            continuation = '';
+        } else {
+            directLines.push(normalized);
+        }
+    }
+
+    if (continuation) {
+        directLines.push(continuation);
+    }
+
+    return directLines;
+}
+
+function appendCommandSegment(current, segment) {
+    const cleanSegment = String(segment || '').trim();
+    if (!cleanSegment) {
+        return current;
+    }
+    return current ? `${current} ${cleanSegment}` : cleanSegment;
+}
+
+function findLineContinuationIndex(line) {
+    let inDoubleQuote = false;
+    for (let index = 0; index < line.length - 2; index += 1) {
+        const char = line[index];
+        if (char === '"') {
+            if (inDoubleQuote && line[index + 1] === '"') {
+                index += 1;
+                continue;
+            }
+            inDoubleQuote = !inDoubleQuote;
+            continue;
+        }
+        if (!inDoubleQuote && line[index] === '/' && line[index + 1] === '/' && line[index + 2] === '/') {
+            return index;
+        }
+    }
+    return -1;
+}
+
+function stripTrailingLineComment(line) {
+    let inDoubleQuote = false;
+    for (let index = 0; index < line.length - 1; index += 1) {
+        const char = line[index];
+        if (char === '"') {
+            if (inDoubleQuote && line[index + 1] === '"') {
+                index += 1;
+                continue;
+            }
+            inDoubleQuote = !inDoubleQuote;
+            continue;
+        }
+        if (!inDoubleQuote && char === '/' && line[index + 1] === '/') {
+            return line.slice(0, index);
+        }
+    }
+    return line;
 }
 
 function isStandaloneCdCommand(line) {

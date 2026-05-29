@@ -21,6 +21,7 @@ let _lastRunFailed = false;
 let _overflowNoticeSuppressed = false;
 let _extensionUri = null;
 let _workingDetail = null;
+let _graphResourceRoot = null;
 let _consoleFontOptions = {
     fontMode: 'editor',
     editorFontFamily: '',
@@ -32,6 +33,14 @@ const CODICON_RESOURCE_ROOT = vscode.Uri.joinPath(vscode.Uri.file(vscode.env.app
 
 function getCodiconFontUri(webview) {
     return webview.asWebviewUri(vscode.Uri.joinPath(vscode.Uri.file(vscode.env.appRoot), 'out', 'media', 'codicon.ttf'));
+}
+
+function getLocalResourceRoots() {
+    const roots = [CODICON_RESOURCE_ROOT];
+    if (_graphResourceRoot) {
+        roots.push(vscode.Uri.file(_graphResourceRoot));
+    }
+    return roots;
 }
 
 function getPanelTitle() {
@@ -85,7 +94,7 @@ function attachPanel(panel) {
     _panel.webview.options = {
         enableScripts: true,
         retainContextWhenHidden: true,
-        localResourceRoots: [CODICON_RESOURCE_ROOT]
+        localResourceRoots: getLocalResourceRoots()
     };
     _panel.webview.html = getWebviewHtml(_panel.webview);
     _panel.onDidDispose(() => {
@@ -144,7 +153,7 @@ function ensurePanel() {
         {
             enableScripts: true,
             retainContextWhenHidden: true,
-            localResourceRoots: [CODICON_RESOURCE_ROOT]
+            localResourceRoots: getLocalResourceRoots()
         }
     );
 
@@ -159,7 +168,7 @@ function postState() {
     _panel.webview.postMessage({
         type: 'reset',
         status: _status,
-        entries: _history,
+        entries: hydrateEntriesForWebview(_history),
         overflowNoticeSuppressed: _overflowNoticeSuppressed,
         workingDetail: _workingDetail
     });
@@ -213,9 +222,29 @@ function appendEntries(entries) {
     if (_panel) {
         _panel.webview.postMessage({
             type: 'append',
-            entries: normalized
+            entries: hydrateEntriesForWebview(normalized)
         });
     }
+}
+
+function hydrateEntriesForWebview(entries) {
+    if (!Array.isArray(entries)) {
+        return [];
+    }
+    if (!_panel) {
+        return entries;
+    }
+    return entries.map(entry => hydrateEntryForWebview(entry));
+}
+
+function hydrateEntryForWebview(entry) {
+    if (!entry || entry.kind !== 'graph' || !entry.filePath) {
+        return entry;
+    }
+    return {
+        ...entry,
+        src: String(_panel.webview.asWebviewUri(vscode.Uri.file(entry.filePath)))
+    };
 }
 
 function clearPanel() {
@@ -327,6 +356,21 @@ class WebviewTerminalSink {
         })));
     }
 
+    writeGraphEntries(graphs) {
+        const entries = Array.isArray(graphs)
+            ? graphs
+                .filter(graph => graph && graph.filePath)
+                .map(graph => ({
+                    kind: 'graph',
+                    graphName: String(graph.graphName || 'Graph'),
+                    format: String(graph.format || ''),
+                    filePath: graph.filePath,
+                    segments: []
+                }))
+            : [];
+        appendEntries(entries);
+    }
+
     flushOutput() {
         const flushed = this._renderer.flushPendingOutputSegments(this._width);
         if (flushed.length) {
@@ -405,6 +449,17 @@ function setConsoleFontOptions(options) {
     }
 }
 
+function setGraphResourceRoot(resourceRoot) {
+    _graphResourceRoot = resourceRoot || null;
+    if (_panel) {
+        _panel.webview.options = {
+            enableScripts: true,
+            retainContextWhenHidden: true,
+            localResourceRoots: getLocalResourceRoots()
+        };
+    }
+}
+
 function getAsciiLogo53x13() {
     if (_asciiLogo53x13Cache) {
         return _asciiLogo53x13Cache;
@@ -443,7 +498,7 @@ function getWebviewHtml(webview) {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; font-src ${webview.cspSource}; style-src 'unsafe-inline'; script-src 'nonce-${nonce}';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} data:; font-src ${webview.cspSource}; style-src 'unsafe-inline'; script-src 'nonce-${nonce}';">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${escapeHtml(getPanelTitle())}</title>
     <style>
@@ -1025,6 +1080,26 @@ function getWebviewHtml(webview) {
             min-width: max-content;
             white-space: pre;
             word-break: normal;
+        }
+        .graph-entry {
+            padding: 0.55rem 2ch 0.75rem;
+            margin: 0.2rem 0 0.45rem;
+            overflow-x: auto;
+        }
+        .graph-title {
+            font-family: var(--console-active-font-family);
+            font-size: 12px;
+            line-height: 1.4;
+            color: var(--vscode-descriptionForeground);
+            margin-bottom: 0.35rem;
+        }
+        .graph-image {
+            display: block;
+            max-width: min(100%, 980px);
+            height: auto;
+            background: #fff;
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: 6px;
         }
     </style>
 </head>
@@ -1613,6 +1688,12 @@ function getWebviewHtml(webview) {
                     continue;
                 }
 
+                if (entry && entry.kind === 'graph') {
+                    currentResultBlock = null;
+                    fragment.appendChild(renderEntry(entry, entries[index + 1] || null));
+                    continue;
+                }
+
                 if (!currentResultBlock) {
                     currentResultBlock = document.createElement('div');
                     fragment.appendChild(currentResultBlock);
@@ -1640,6 +1721,10 @@ function getWebviewHtml(webview) {
         }
 
         function renderEntry(entry, nextEntry) {
+            if (entry && entry.kind === 'graph') {
+                return renderGraphEntry(entry);
+            }
+
             const line = document.createElement('div');
             const kind = String((entry && entry.kind) || 'default');
             line.className = 'line line-' + kind;
@@ -1666,6 +1751,27 @@ function getWebviewHtml(webview) {
             }
 
             return line;
+        }
+
+        function renderGraphEntry(entry) {
+            const shell = document.createElement('div');
+            shell.className = 'graph-entry';
+
+            const title = document.createElement('div');
+            title.className = 'graph-title';
+            const graphName = String(entry.graphName || 'Graph');
+            const format = String(entry.format || '').toLowerCase();
+            title.textContent = format ? graphName + ' .' + format : graphName;
+            shell.appendChild(title);
+
+            const image = document.createElement('img');
+            image.className = 'graph-image';
+            image.src = String(entry.src || '');
+            image.alt = graphName;
+            image.loading = 'lazy';
+            shell.appendChild(image);
+
+            return shell;
         }
 
         function pushHistory(code) {
@@ -1913,6 +2019,7 @@ module.exports = {
     setOverflowNoticeSuppressed,
     setWorkingDetail,
     setConsoleFontOptions,
+    setGraphResourceRoot,
     registerWebviewPanelSerializer,
     clearWebviewTerminalPanel: clearPanel,
     setWebviewTerminalStatus: setStatus,
