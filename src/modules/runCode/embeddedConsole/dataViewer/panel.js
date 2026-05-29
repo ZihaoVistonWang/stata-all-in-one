@@ -2,7 +2,7 @@ const vscode = require('vscode');
 const path = require('path');
 const { fetchDataSnapshot, fetchMoreRows } = require('./provider');
 const config = require('../../../../utils/config');
-const { isMacOS, msg, showInfo, showError } = require('../../../../utils/common');
+const { isWindows, isMacOS, msg, showInfo, showError } = require('../../../../utils/common');
 const { StataTerminalRenderer, getWebviewThemeVariables } = require('../renderer');
 const variableSuggestions = require('../../../variableSuggestionService');
 
@@ -310,8 +310,11 @@ function getDataViewerHtml(webview) {
             border-spacing: 0;
             font-size: var(--vscode-editor-font-size, 13px);
         }
-        #table-data {
+        #table-data, #table-vars {
             table-layout: fixed;
+        }
+        #table-vars th {
+            /* sticky from th rule; absolute children position against sticky too */
         }
         th, td {
             padding: 4px 10px;
@@ -330,6 +333,39 @@ function getDataViewerHtml(webview) {
             color: var(--stata-comment);
             z-index: 10;
             box-shadow: 0 1px 0 color-mix(in srgb, var(--vscode-panel-border) 85%, transparent);
+        }
+        .col-resize-handle {
+            position: absolute;
+            right: -3px;
+            top: 0;
+            bottom: 0;
+            width: 7px;
+            cursor: col-resize;
+            user-select: none;
+            z-index: 11;
+            background: transparent;
+            transition: background 0.15s;
+        }
+        .col-resize-handle::after {
+            content: '';
+            position: absolute;
+            left: 50%;
+            top: 4px;
+            bottom: 4px;
+            width: 1px;
+            background: var(--vscode-panel-border);
+        }
+        .col-resize-handle:hover,
+        .col-resize-handle.active {
+            background: color-mix(in srgb, var(--stata-command) 30%, transparent);
+        }
+        .col-resize-handle:hover::after,
+        .col-resize-handle.active::after {
+            background: var(--stata-command);
+        }
+        body.col-resizing {
+            cursor: col-resize;
+            user-select: none;
         }
         td {
             font-family: var(--vscode-editor-font-family, monospace);
@@ -816,9 +852,15 @@ function getDataViewerHtml(webview) {
         var dataRowsCache = [];
         var virtualRowHeight = 28;
         var virtualOverscan = 80;
-        var virtualColumnWidth = 120;
+        var columnWidths = [];
+        var defaultColWidth = 120;
+        var colMinWidth = 40;
+        var colMaxWidth = 500;
         var virtualColumnOverscan = 4;
         var rowNumberColumnWidth = 56;
+        function getColWidth(i) { return i >= 0 && i < columnWidths.length ? columnWidths[i] : defaultColWidth; }
+        function getCumulWidth(end) { var s = 0; for (var i = 0; i < end && i < dataColumnsCache.length; i++) s += getColWidth(i); return s; }
+        function getColumnAtX(x) { var cumul = 0; for (var i = 0; i < dataColumnsCache.length; i++) { cumul += getColWidth(i); if (cumul > x) return i; } return Math.max(0, dataColumnsCache.length - 1); }
         var virtualRenderQueued = false;
         var lastVirtualStart = -1;
         var lastVirtualEnd = -1;
@@ -846,8 +888,10 @@ function getDataViewerHtml(webview) {
             lastVirtualColEnd = -1;
             contentEl.scrollTop = 0;
             contentEl.scrollLeft = 0;
+            columnWidths = [];
             for (var i = 0; i < columns.length; i++) {
                 dataColumnTypesCache.push(typeMap[columns[i]] || '');
+                columnWidths.push(defaultColWidth);
             }
             updateDataTableWidth(table);
             renderVisibleDataHeader(0, Math.min(columns.length, getVisibleColumnCount()));
@@ -858,7 +902,7 @@ function getDataViewerHtml(webview) {
 
         function updateDataTableWidth(table) {
             var dataTable = table || document.getElementById('table-data');
-            dataTable.style.width = Math.max(contentEl.clientWidth, rowNumberColumnWidth + (dataColumnsCache.length * virtualColumnWidth)) + 'px';
+            dataTable.style.width = Math.max(contentEl.clientWidth, rowNumberColumnWidth + getCumulWidth(dataColumnsCache.length)) + 'px';
         }
 
         function appendDataRows(rows) {
@@ -921,15 +965,24 @@ function getDataViewerHtml(webview) {
         }
 
         function getVisibleColumnCount() {
-            return Math.ceil(Math.max(contentEl.clientWidth - rowNumberColumnWidth, 0) / virtualColumnWidth) + virtualColumnOverscan * 2;
+            var avail = Math.max(contentEl.clientWidth - rowNumberColumnWidth, 0);
+            var count = 0;
+            var cumul = 0;
+            for (var i = 0; i < dataColumnsCache.length; i++) {
+                cumul += getColWidth(i);
+                count++;
+                if (cumul >= avail) break;
+            }
+            return Math.max(count + virtualColumnOverscan * 2, virtualColumnOverscan * 4);
         }
 
         function getVisibleColumnRange() {
-            var horizontalOffset = Math.max(0, contentEl.scrollLeft - rowNumberColumnWidth);
-            var firstVisible = Math.floor(horizontalOffset / virtualColumnWidth);
-            var start = Math.max(0, firstVisible - virtualColumnOverscan);
-            var end = Math.min(dataColumnsCache.length, start + getVisibleColumnCount());
-            return { start: start, end: end };
+            var scrollLeft = Math.max(0, contentEl.scrollLeft);
+            var colStart = getColumnAtX(scrollLeft);
+            var colEnd = Math.min(dataColumnsCache.length, getColumnAtX(scrollLeft + contentEl.clientWidth) + 1);
+            colEnd = Math.max(colEnd, colStart + getVisibleColumnCount() - virtualColumnOverscan * 2);
+            colEnd = Math.min(dataColumnsCache.length, colEnd);
+            return { start: Math.max(0, colStart - virtualColumnOverscan), end: colEnd };
         }
 
         function renderVisibleDataHeader(colStart, colEnd) {
@@ -939,14 +992,20 @@ function getDataViewerHtml(webview) {
             th.className = 'row-num';
             th.textContent = '#';
             headerRow.appendChild(th);
-            appendColumnSpacer(headerRow, colStart * virtualColumnWidth, 'th');
+            appendColumnSpacer(headerRow, getCumulWidth(colStart), 'th');
             for (var i = colStart; i < colEnd; i++) {
                 var th2 = document.createElement('th');
                 th2.textContent = dataColumnsCache[i];
-                setVirtualColumnWidth(th2);
+                setVirtualColumnWidth(th2, i);
+                // Resize handle
+                var handle = document.createElement('div');
+                handle.className = 'col-resize-handle';
+                handle.setAttribute('data-col', i);
+                th2.appendChild(handle);
                 headerRow.appendChild(th2);
             }
-            appendColumnSpacer(headerRow, Math.max(0, (dataColumnsCache.length - colEnd) * virtualColumnWidth), 'th');
+            var rightSpacer = Math.max(0, getCumulWidth(dataColumnsCache.length) - getCumulWidth(colEnd));
+            appendColumnSpacer(headerRow, rightSpacer, 'th');
             thead.innerHTML = '';
             thead.appendChild(headerRow);
         }
@@ -972,10 +1031,11 @@ function getDataViewerHtml(webview) {
             row.appendChild(cell);
         }
 
-        function setVirtualColumnWidth(cell) {
-            cell.style.width = virtualColumnWidth + 'px';
-            cell.style.minWidth = virtualColumnWidth + 'px';
-            cell.style.maxWidth = virtualColumnWidth + 'px';
+        function setVirtualColumnWidth(cell, colIndex) {
+            var w = getColWidth(colIndex);
+            cell.style.width = w + 'px';
+            cell.style.minWidth = w + 'px';
+            cell.style.maxWidth = w + 'px';
         }
 
         function createDataRow(row, colStart, colEnd) {
@@ -984,7 +1044,7 @@ function getDataViewerHtml(webview) {
             tdNum.className = 'row-num';
             tdNum.textContent = row.rowNum;
             tr.appendChild(tdNum);
-            appendColumnSpacer(tr, colStart * virtualColumnWidth, 'td');
+            appendColumnSpacer(tr, getCumulWidth(colStart), 'td');
             var vals = Array.isArray(row.values) ? row.values : [];
             for (var v = colStart; v < colEnd; v++) {
                 var td = document.createElement('td');
@@ -992,12 +1052,92 @@ function getDataViewerHtml(webview) {
                 td.textContent = val;
                 var isString = /^str/i.test(dataColumnTypesCache[v] || '');
                 td.className = isString ? 'data-string' : 'num data-number';
-                setVirtualColumnWidth(td);
+                setVirtualColumnWidth(td, v);
                 tr.appendChild(td);
             }
-            appendColumnSpacer(tr, Math.max(0, (dataColumnsCache.length - colEnd) * virtualColumnWidth), 'td');
+            var rightSpacer = Math.max(0, getCumulWidth(dataColumnsCache.length) - getCumulWidth(colEnd));
+            appendColumnSpacer(tr, rightSpacer, 'td');
             return tr;
         }
+
+        // ── Add resize handles to variables table ────────────────────────
+        (function initVarsResize() {
+            var varsTheadRow = document.querySelector('#table-vars thead tr');
+            if (!varsTheadRow) return;
+            var defaultWidths = [140, 80, 100, 200];
+            var ths = varsTheadRow.querySelectorAll('th');
+            for (var i = 0; i < ths.length; i++) {
+                var w = defaultWidths[i] || 120;
+                ths[i].style.width = w + 'px';
+                ths[i].style.minWidth = w + 'px';
+                var handle = document.createElement('div');
+                handle.className = 'col-resize-handle';
+                handle.setAttribute('data-table', 'vars');
+                handle.setAttribute('data-col', i);
+                ths[i].appendChild(handle);
+            }
+        })();
+
+        // ── Column resize via drag ──────────────────────────────────────
+        var resizeTable = null;  // 'data' or 'vars'
+        var resizeCol = -1;
+        var resizeStartX = 0;
+        var resizeStartWidth = 0;
+        var resizeTh = null;
+
+        function onResizeStart(e) {
+            var handle = e.target.closest ? e.target.closest('.col-resize-handle') : null;
+            if (!handle) return;
+            e.preventDefault();
+            resizeTable = handle.getAttribute('data-table') || 'data';
+            resizeCol = parseInt(handle.getAttribute('data-col'), 10);
+            if (isNaN(resizeCol) || resizeCol < 0) { resizeCol = -1; resizeTable = null; return; }
+            resizeStartX = e.clientX;
+            if (resizeTable === 'vars') {
+                resizeTh = handle.parentElement;
+                resizeStartWidth = resizeTh ? resizeTh.offsetWidth : defaultColWidth;
+            } else {
+                resizeStartWidth = getColWidth(resizeCol);
+            }
+            document.body.classList.add('col-resizing');
+            document.querySelectorAll('.col-resize-handle').forEach(function (h) {
+                if (h.getAttribute('data-table') === resizeTable && parseInt(h.getAttribute('data-col'), 10) === resizeCol) {
+                    h.classList.add('active');
+                }
+            });
+        }
+
+        document.getElementById('table-data').addEventListener('mousedown', onResizeStart);
+        document.getElementById('table-vars').addEventListener('mousedown', onResizeStart);
+
+        document.addEventListener('mousemove', function (e) {
+            if (resizeCol < 0 || !resizeTable) return;
+            var delta = e.clientX - resizeStartX;
+            var newWidth = Math.max(colMinWidth, Math.min(colMaxWidth, resizeStartWidth + delta));
+            if (resizeTable === 'vars') {
+                if (resizeTh) {
+                    resizeTh.style.width = newWidth + 'px';
+                    resizeTh.style.minWidth = newWidth + 'px';
+                }
+            } else {
+                if (columnWidths[resizeCol] !== newWidth) {
+                    columnWidths[resizeCol] = newWidth;
+                    updateDataTableWidth();
+                    lastVirtualColStart = -1;
+                    lastVirtualColEnd = -1;
+                    scheduleDataRender(true);
+                }
+            }
+        });
+
+        document.addEventListener('mouseup', function () {
+            if (resizeCol < 0) return;
+            document.body.classList.remove('col-resizing');
+            document.querySelectorAll('.col-resize-handle.active').forEach(function (h) { h.classList.remove('active'); });
+            resizeTable = null;
+            resizeCol = -1;
+            resizeTh = null;
+        });
 
         function requestLoadMore() {
             if (loadingMore || !hasMoreRows || (totalObs > 0 && loadedRows >= totalObs)) return;
@@ -1256,26 +1396,41 @@ function escapeStataPath(filePath) {
 }
 
 async function ensureSilentSession(context) {
-    if (!isMacOS()) {
-        return { success: false, reason: 'Data Viewer can only open .dta files directly on macOS Embedded Console for now.' };
-    }
-
     const session = require('../session');
     if (session.hasActiveConsoleSession()) {
         return { success: true, session: session.getConsoleSession(context) };
     }
 
-    const { findStataDylib } = require('../mac');
-    const savedPath = context ? context.globalState.get('stataConsoleDylibPath') : null;
-    const dylibInfo = findStataDylib(null, savedPath);
-    if (!dylibInfo.path) {
-        return { success: false, reason: 'Unable to find Stata. Please make sure Stata is installed in /Applications.' };
-    }
-    if (context && !dylibInfo.fromCache) {
-        await context.globalState.update('stataConsoleDylibPath', dylibInfo.path);
+    let libraryPath;
+    let libraryKey;
+
+    if (isMacOS()) {
+        const { findStataDylib } = require('../mac');
+        const savedPath = context ? context.globalState.get('stataConsoleDylibPath') : null;
+        const dylibInfo = findStataDylib(null, savedPath);
+        if (!dylibInfo.path) {
+            return { success: false, reason: 'Unable to find Stata. Please make sure Stata is installed in /Applications.' };
+        }
+        libraryPath = dylibInfo.path;
+        libraryKey = 'stataConsoleDylibPath';
+    } else if (isWindows()) {
+        const { findStataDll } = require('../windows');
+        const savedPath = context ? context.globalState.get('stataConsoleDllPath') : null;
+        const dllInfo = findStataDll(null, savedPath);
+        if (!dllInfo.path) {
+            return { success: false, reason: 'Unable to find Stata DLL. Please set stata-all-in-one.stataPathOnWindows in settings.' };
+        }
+        libraryPath = dllInfo.path;
+        libraryKey = 'stataConsoleDllPath';
+    } else {
+        return { success: false, reason: 'Data Viewer is not supported on this platform.' };
     }
 
-    const ok = await session.initConsoleSession(context, dylibInfo.path);
+    if (context) {
+        await context.globalState.update(libraryKey, libraryPath);
+    }
+
+    const ok = await session.initConsoleSession(context, libraryPath);
     if (!ok) {
         return { success: false, reason: 'Failed to initialize Stata session.' };
     }
