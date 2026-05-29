@@ -54,7 +54,7 @@ function getPanelIconPath() {
         return undefined;
     }
 
-    const iconUri = vscode.Uri.joinPath(_extensionUri, 'img', 'console-tab.svg');
+    const iconUri = vscode.Uri.joinPath(_extensionUri, 'img', 'tab-icon.svg');
     return {
         light: iconUri,
         dark: iconUri

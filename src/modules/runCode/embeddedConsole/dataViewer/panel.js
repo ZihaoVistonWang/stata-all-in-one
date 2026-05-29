@@ -15,6 +15,21 @@ const _renderer = new StataTerminalRenderer();
 
 const CODICON_RESOURCE_ROOT = vscode.Uri.joinPath(vscode.Uri.file(vscode.env.appRoot), 'out', 'media');
 
+function getExtensionUri() {
+    try {
+        return vscode.extensions.getExtension('ZihaoVistonWang.stata-all-in-one').extensionUri;
+    } catch (_e) {
+        return undefined;
+    }
+}
+
+function getPanelIconPath() {
+    const extUri = getExtensionUri();
+    if (!extUri) return undefined;
+    const iconUri = vscode.Uri.joinPath(extUri, 'img', 'tab-icon.svg');
+    return { light: iconUri, dark: iconUri };
+}
+
 function getPanelTitle() {
     return msg('dataViewerPanelTitle');
 }
@@ -313,6 +328,9 @@ function getDataViewerHtml(webview) {
         #table-data, #table-vars {
             table-layout: fixed;
         }
+        #table-vars {
+            min-width: unset;
+        }
         #table-vars th {
             /* sticky from th rule; absolute children position against sticky too */
         }
@@ -413,16 +431,33 @@ function getDataViewerHtml(webview) {
             background: color-mix(in srgb, var(--vscode-list-hoverBackground) 70%, transparent);
         }
         .info-bar {
-            padding: 8px 0;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            width: 100%;
+            box-sizing: border-box;
+            overflow: hidden;
             color: var(--vscode-descriptionForeground);
             font-size: 12px;
             border-top: 1px solid var(--vscode-panel-border);
             margin-top: 8px;
             flex-shrink: 0;
             padding: 8px 16px;
+            min-width: 0;
         }
         .info-bar span {
-            margin-right: 16px;
+            flex: 0 0 auto;
+            min-width: 0;
+            white-space: nowrap;
+        }
+        .info-bar .source-path {
+            flex: 1 1 auto;
+            display: block;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            text-align: right;
         }
         .empty-state, .loading-state {
             display: flex;
@@ -845,6 +880,9 @@ function getDataViewerHtml(webview) {
                     '<td class="var-label">' + esc(displayValue(v.label || v.valueLabel)) + '</td>';
                 tbody.appendChild(tr);
             }
+            for (var c = 0; c < varsColumnWidths.length; c++) {
+                setVarsColumnWidth(c, varsColumnWidths[c]);
+            }
         }
 
         var dataColumnsCache = [];
@@ -853,6 +891,7 @@ function getDataViewerHtml(webview) {
         var virtualRowHeight = 28;
         var virtualOverscan = 80;
         var columnWidths = [];
+        var varsColumnWidths = [140, 80, 100, 200];
         var defaultColWidth = 120;
         var colMinWidth = 40;
         var colMaxWidth = 500;
@@ -996,6 +1035,7 @@ function getDataViewerHtml(webview) {
             for (var i = colStart; i < colEnd; i++) {
                 var th2 = document.createElement('th');
                 th2.textContent = dataColumnsCache[i];
+                th2.setAttribute('data-col-index', i);
                 setVirtualColumnWidth(th2, i);
                 // Resize handle
                 var handle = document.createElement('div');
@@ -1038,6 +1078,14 @@ function getDataViewerHtml(webview) {
             cell.style.maxWidth = w + 'px';
         }
 
+        function applyVisibleDataColumnWidth(colIndex, width) {
+            document.querySelectorAll('#table-data [data-col-index="' + colIndex + '"]').forEach(function (cell) {
+                cell.style.width = width + 'px';
+                cell.style.minWidth = width + 'px';
+                cell.style.maxWidth = width + 'px';
+            });
+        }
+
         function createDataRow(row, colStart, colEnd) {
             var tr = document.createElement('tr');
             var tdNum = document.createElement('td');
@@ -1050,6 +1098,7 @@ function getDataViewerHtml(webview) {
                 var td = document.createElement('td');
                 var val = v < vals.length ? displayValue(vals[v]) : '';
                 td.textContent = val;
+                td.setAttribute('data-col-index', v);
                 var isString = /^str/i.test(dataColumnTypesCache[v] || '');
                 td.className = isString ? 'data-string' : 'num data-number';
                 setVirtualColumnWidth(td, v);
@@ -1061,21 +1110,37 @@ function getDataViewerHtml(webview) {
         }
 
         // ── Add resize handles to variables table ────────────────────────
+        function updateVarsTableWidth() {
+            var table = document.getElementById('table-vars');
+            var total = 0;
+            for (var i = 0; i < varsColumnWidths.length; i++) total += varsColumnWidths[i];
+            table.style.width = total + 'px';
+        }
+
+        function setVarsColumnWidth(colIndex, width) {
+            varsColumnWidths[colIndex] = width;
+            var selector = '#table-vars tr > *:nth-child(' + (colIndex + 1) + ')';
+            document.querySelectorAll(selector).forEach(function (cell) {
+                cell.style.width = width + 'px';
+                cell.style.minWidth = width + 'px';
+                cell.style.maxWidth = width + 'px';
+            });
+            updateVarsTableWidth();
+        }
+
         (function initVarsResize() {
             var varsTheadRow = document.querySelector('#table-vars thead tr');
             if (!varsTheadRow) return;
-            var defaultWidths = [140, 80, 100, 200];
             var ths = varsTheadRow.querySelectorAll('th');
             for (var i = 0; i < ths.length; i++) {
-                var w = defaultWidths[i] || 120;
-                ths[i].style.width = w + 'px';
-                ths[i].style.minWidth = w + 'px';
+                setVarsColumnWidth(i, varsColumnWidths[i] || defaultColWidth);
                 var handle = document.createElement('div');
                 handle.className = 'col-resize-handle';
                 handle.setAttribute('data-table', 'vars');
                 handle.setAttribute('data-col', i);
                 ths[i].appendChild(handle);
             }
+            updateVarsTableWidth();
         })();
 
         // ── Column resize via drag ──────────────────────────────────────
@@ -1101,7 +1166,8 @@ function getDataViewerHtml(webview) {
             }
             document.body.classList.add('col-resizing');
             document.querySelectorAll('.col-resize-handle').forEach(function (h) {
-                if (h.getAttribute('data-table') === resizeTable && parseInt(h.getAttribute('data-col'), 10) === resizeCol) {
+                var tableName = h.getAttribute('data-table') || 'data';
+                if (tableName === resizeTable && parseInt(h.getAttribute('data-col'), 10) === resizeCol) {
                     h.classList.add('active');
                 }
             });
@@ -1115,23 +1181,23 @@ function getDataViewerHtml(webview) {
             var delta = e.clientX - resizeStartX;
             var newWidth = Math.max(colMinWidth, Math.min(colMaxWidth, resizeStartWidth + delta));
             if (resizeTable === 'vars') {
-                if (resizeTh) {
-                    resizeTh.style.width = newWidth + 'px';
-                    resizeTh.style.minWidth = newWidth + 'px';
-                }
+                setVarsColumnWidth(resizeCol, newWidth);
             } else {
                 if (columnWidths[resizeCol] !== newWidth) {
                     columnWidths[resizeCol] = newWidth;
                     updateDataTableWidth();
-                    lastVirtualColStart = -1;
-                    lastVirtualColEnd = -1;
-                    scheduleDataRender(true);
+                    applyVisibleDataColumnWidth(resizeCol, newWidth);
                 }
             }
         });
 
         document.addEventListener('mouseup', function () {
             if (resizeCol < 0) return;
+            if (resizeTable === 'data') {
+                lastVirtualColStart = -1;
+                lastVirtualColEnd = -1;
+                scheduleDataRender(true);
+            }
             document.body.classList.remove('col-resizing');
             document.querySelectorAll('.col-resize-handle.active').forEach(function (h) { h.classList.remove('active'); });
             resizeTable = null;
@@ -1183,18 +1249,133 @@ function getDataViewerHtml(webview) {
         }, { passive: true });
         window.addEventListener('resize', function () {
             updateDataTableWidth();
+            fitInfoSourcePath();
             scheduleDataRender(true);
             scheduleAutoLoadCheck();
         });
 
+        // ── Source path display: right-aligned, truncate left at / or \ ────
+
+        /**
+         * Hidden off-screen <span> that mirrors .source-path font for
+         * pixel-perfect DOM text measurement (no canvas CJK errors).
+         */
+        function getPathMeasurer(sourceEl) {
+            if (!getPathMeasurer._el) {
+                var el = document.createElement('span');
+                el.style.cssText = 'position:absolute;left:-9999px;top:-9999px;white-space:nowrap;opacity:0;pointer-events:none;';
+                el.id = '__stata_path_measurer';
+                document.body.appendChild(el);
+                getPathMeasurer._el = el;
+            }
+            var m = getPathMeasurer._el;
+            var cs = window.getComputedStyle(sourceEl);
+            m.style.font = cs.font;
+            m.style.fontSize = cs.fontSize;
+            m.style.fontFamily = cs.fontFamily;
+            return m;
+        }
+
+        function measureDomText(text, sourceEl) {
+            var m = getPathMeasurer(sourceEl);
+            m.textContent = text;
+            return m.getBoundingClientRect().width;
+        }
+
+        /**
+         * Available pixel width for .source-path = bar content width
+         * minus all fixed sibling spans and flex gaps.
+         */
+        function getSourcePathAvailableWidth(source) {
+            var bar = document.getElementById('info-bar');
+            if (!bar) return 0;
+            var barRect = bar.getBoundingClientRect();
+            var barStyle = window.getComputedStyle(bar);
+            var padLeft = parseFloat(barStyle.paddingLeft) || 0;
+            var padRight = parseFloat(barStyle.paddingRight) || 0;
+            var gap = parseFloat(barStyle.columnGap || barStyle.gap || '0') || 0;
+            var avail = barRect.width - padLeft - padRight;
+
+            var children = bar.children;
+            for (var i = 0; i < children.length; i++) {
+                if (children[i] === source) continue;
+                avail -= children[i].getBoundingClientRect().width;
+            }
+            avail -= gap * (children.length - 1);
+            return Math.max(0, avail);
+        }
+
+        /**
+         * Shorten source path: keep rightmost segments, truncate from left
+         * at nearest / or \, replace left portion with "...".
+         *
+         * CSS text-align:right handles right-alignment;
+         * text-overflow:ellipsis is the safety net.
+         */
+        function fitInfoSourcePath() {
+            var source = document.querySelector('#info-bar .source-path');
+            if (!source) return;
+
+            var fullPath = source.getAttribute('data-full-path') || '';
+            var avail = getSourcePathAvailableWidth(source);
+
+            if (avail <= 4) {
+                requestAnimationFrame(fitInfoSourcePath);
+                return;
+            }
+
+            // Full path fits — done
+            if (measureDomText(fullPath, source) <= avail) {
+                source.textContent = fullPath;
+                return;
+            }
+
+            // Parse into segments
+            var raw = String(fullPath || '');
+            var sep = raw.indexOf('\\\\') >= 0 ? '\\\\' : '/';
+            var parts = raw.replace(/^[A-Za-z]:/, '').split(/[\\\\/]+/).filter(function (p) { return p !== ''; });
+            if (!parts.length) return;
+
+            // Walk from right (filename) to left, keep as many segments as fit
+            var result = parts[parts.length - 1];
+            for (var i = parts.length - 2; i >= 0; i--) {
+                var candidate = '...' + sep + parts[i] + sep + result;
+                if (measureDomText(candidate, source) <= avail) {
+                    result = parts[i] + sep + result;
+                } else {
+                    break;
+                }
+            }
+
+            source.textContent = '...' + sep + result;
+        }
+
+        var _infoSourceResizeObserver = null;
+
+        function observeInfoSourcePath() {
+            if (_infoSourceResizeObserver) {
+                _infoSourceResizeObserver.disconnect();
+                _infoSourceResizeObserver = null;
+            }
+            var source = document.querySelector('#info-bar .source-path');
+            if (!source || typeof ResizeObserver === 'undefined') return;
+            _infoSourceResizeObserver = new ResizeObserver(function () {
+                fitInfoSourcePath();
+            });
+            _infoSourceResizeObserver.observe(document.getElementById('info-bar'));
+        }
+
         function renderInfo(info) {
             var bar = document.getElementById('info-bar');
-            var parts = [];
-            if (info.observations > 0) parts.push(${JSON.stringify(msg('dataViewerObs'))} + ': ' + info.observations);
-            if (info.variables > 0) parts.push(${JSON.stringify(msg('dataViewerVars'))} + ': ' + info.variables);
-            if (info.source) parts.push(info.source);
-            if (info.sortedBy) parts.push(${JSON.stringify(msg('dataViewerSortedBy'))} + ': ' + info.sortedBy);
-            bar.innerHTML = parts.map(function (p) { return '<span>' + esc(p) + '</span>'; }).join('');
+            var html = [];
+            if (info.observations > 0) html.push('<span>' + esc(${JSON.stringify(msg('dataViewerObs'))} + ': ' + info.observations) + '</span>');
+            if (info.variables > 0) html.push('<span>' + esc(${JSON.stringify(msg('dataViewerVars'))} + ': ' + info.variables) + '</span>');
+            if (info.source) html.push('<span class="source-path" title="' + esc(info.source) + '" data-full-path="' + esc(info.source) + '">' + esc(info.source) + '</span>');
+            if (info.sortedBy) html.push('<span>' + esc(${JSON.stringify(msg('dataViewerSortedBy'))} + ': ' + info.sortedBy) + '</span>');
+            bar.innerHTML = html.join('');
+            observeInfoSourcePath();
+            requestAnimationFrame(fitInfoSourcePath);
+            setTimeout(fitInfoSourcePath, 80);
         }
 
         function esc(s) {
@@ -1203,9 +1384,10 @@ function getDataViewerHtml(webview) {
         }
 
         function displayValue(value) {
-            if (value === null || value === undefined) return '';
-            var s = String(value);
-            return /^nan$/i.test(s.trim()) ? '.' : s;
+            if (value === null || value === undefined) return '.';
+            var s = String(value).trim();
+            if (s === '' || /^nan$/i.test(s)) return '.';
+            return String(value);
         }
 
         function setData(data) {
@@ -1282,6 +1464,7 @@ function attachPanel(panel) {
     _panel = panel;
     _webviewReady = false;
     _panel.title = getPanelTitle();
+    _panel.iconPath = getPanelIconPath();
     _panel.webview.options = {
         enableScripts: true,
         localResourceRoots: [CODICON_RESOURCE_ROOT]
