@@ -173,7 +173,7 @@ async function showMigrationNotification(context) {
     const lang = getUserLanguage();
     const t = MIGRATION_MESSAGES[lang] || MIGRATION_MESSAGES.en;
 
-    const choice = await vscode.window.showInformationMessage(t.prompt, t.uninstall, t.remindLater);
+    const choice = await showInfo(t.prompt, t.uninstall, t.remindLater);
     
     if (choice === t.uninstall) {
         await vscode.commands.executeCommand('workbench.extensions.uninstallExtension', 'ZihaoVistonWang.stata-outline');
@@ -372,7 +372,7 @@ async function activate(context) {
 
         if (action === 'showOverflowNotice') {
             const dismissForeverLabel = msg('webviewOverflowDismissForever');
-            const choice = await vscode.window.showInformationMessage(
+            const choice = await showInfo(
                 msg('webviewOverflowNotice'),
                 msg('webviewOverflowConfirm'),
                 dismissForeverLabel
@@ -425,7 +425,7 @@ async function activate(context) {
         'stata-all-in-one.showDataViewer',
         (filterText) => {
             if (config.getRunMode() !== 'embeddedConsole') {
-                vscode.window.showInformationMessage(msg('dataViewerEmbeddedOnly'));
+                showInfo(msg('dataViewerEmbeddedOnly'));
                 return;
             }
             revealDataViewer(typeof filterText === 'string' ? filterText : '');

@@ -142,6 +142,17 @@ const getConsoleCustomFontFamily = () => {
 };
 
 /**
+ * Get PNG export DPI for embedded console graphs
+ */
+const getGraphPngDpi = () => {
+    const dpi = getConfigValue('graphPngDpi', 600);
+    if (typeof dpi !== 'number' || !isFinite(dpi) || dpi < 72) {
+        return 600;
+    }
+    return Math.min(1200, Math.floor(dpi));
+};
+
+/**
  * Get additional ado paths for community command scanning
  */
 const getAdditionalAdoPaths = () => {
@@ -174,5 +185,6 @@ module.exports = {
     getRunMode,
     getConsoleFontMode,
     getConsoleCustomFontFamily,
+    getGraphPngDpi,
     getAdditionalAdoPaths
 };

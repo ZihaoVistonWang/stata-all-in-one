@@ -7,6 +7,7 @@ const vscode = require('vscode');
 const path = require('path');
 const fs = require('fs');
 const config = require('../utils/config');
+const { showInfo } = require('../utils/common');
 
 /**
  * Build case-insensitive regex pattern for grammar
@@ -105,7 +106,7 @@ function registerCustomCommandHighlight(context) {
                     ? '重新加载' 
                     : 'Reload';
                 
-                vscode.window.showInformationMessage(message, reloadButton).then(selection => {
+                showInfo(message, reloadButton).then(selection => {
                     if (selection === reloadButton) {
                         vscode.commands.executeCommand('workbench.action.reloadWindow');
                     }
@@ -120,4 +121,3 @@ function registerCustomCommandHighlight(context) {
 module.exports = {
     registerCustomCommandHighlight
 };
-

@@ -2,7 +2,7 @@ const vscode = require('vscode');
 const path = require('path');
 const { fetchDataSnapshot, fetchMoreRows } = require('./provider');
 const config = require('../../../../utils/config');
-const { isMacOS, msg } = require('../../../../utils/common');
+const { isMacOS, msg, showInfo, showError } = require('../../../../utils/common');
 const { StataTerminalRenderer, getWebviewThemeVariables } = require('../renderer');
 const variableSuggestions = require('../../../variableSuggestionService');
 
@@ -1235,7 +1235,7 @@ async function refresh(filterText) {
 
 async function reveal(filterText) {
     if (config.getRunMode() !== 'embeddedConsole') {
-        vscode.window.showInformationMessage(msg('dataViewerEmbeddedOnly'));
+        showInfo(msg('dataViewerEmbeddedOnly'));
         return null;
     }
     _pendingFilterText = filterText || '';
@@ -1288,7 +1288,7 @@ async function openDtaFile(context, uri, panel) {
         return null;
     }
     if (config.getRunMode() !== 'embeddedConsole') {
-        vscode.window.showInformationMessage(msg('dataViewerEmbeddedOnly'));
+        showInfo(msg('dataViewerEmbeddedOnly'));
         return null;
     }
 
@@ -1298,20 +1298,20 @@ async function openDtaFile(context, uri, panel) {
     const filePath = uri.fsPath;
     const initResult = await ensureSilentSession(context);
     if (!initResult.success || !initResult.session) {
-        vscode.window.showErrorMessage(initResult.reason || 'Failed to initialize Stata session.');
+        showError(initResult.reason || 'Failed to initialize Stata session.');
         return targetPanel;
     }
 
     const cdResult = await initResult.session.execute('cd "' + escapeStataPath(path.dirname(filePath)) + '"', false);
     if (!cdResult.success) {
-        vscode.window.showErrorMessage(cdResult.error || 'Failed to set Stata working directory.');
+        showError(cdResult.error || 'Failed to set Stata working directory.');
         return targetPanel;
     }
     initResult.session.setWorkingDirectory(path.dirname(filePath));
 
     const result = await initResult.session.execute('use "' + escapeStataPath(filePath) + '", clear', false);
     if (!result.success) {
-        vscode.window.showErrorMessage(result.error || 'Failed to open Stata dataset in Data Viewer.');
+        showError(result.error || 'Failed to open Stata dataset in Data Viewer.');
         return targetPanel;
     }
 
