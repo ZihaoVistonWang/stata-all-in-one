@@ -344,18 +344,26 @@ async function refreshMemoryVarsAfterRun(context, result) {
 }
 
 async function maybeOfferGuiFallback(codeToRun, tmpFilePath, docDir, context, reason) {
-    const useGuiLabel = msg('useStataApp');
-    const stayInConsoleLabel = msg('stayInConsole');
+    // Auto-fallback: execute via external app immediately (no blocking modal)
+    runOnMac(codeToRun, tmpFilePath, false, docDir, context);
+
+    // Show non-blocking notification with action buttons
+    const switchLabel = msg('consoleFallbackSwitchPermanently');
+    const dismissLabel = msg('consoleFallbackDismiss');
 
     const choice = await showWarn(
-        msg('consoleOfferGuiFallback', { reason }),
-        useGuiLabel,
-        stayInConsoleLabel
+        msg('consoleFallbackAutoSwitched', { reason }),
+        switchLabel,
+        dismissLabel
     );
 
-    if (choice === useGuiLabel) {
-        showError(msg('consoleUnavailable', { reason }));
-        runOnMac(codeToRun, tmpFilePath, false, docDir, context);
+    if (choice === switchLabel) {
+        await vscode.workspace.getConfiguration('stata-all-in-one').update(
+            'runMode',
+            'externalApp',
+            vscode.ConfigurationTarget.Global
+        );
+        showInfo(msg('consoleFallbackPermanentlySet'));
     }
 }
 
