@@ -66,7 +66,7 @@ Stata All in One
 ## 功能概览
 
 <p align="center">
-   <a href="https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/img/example-marked-cn.jpg"><img src="img/example-marked-cn.jpg" alt="功能展示图"/> 点击查看大图 </a>
+   <a href="https://pan.zihaowang.cn/share/example-marked-cn.jpg"><img src="img/example-marked-cn.jpg" alt="功能展示图"/> 点击查看大图 </a>
 </p>
 
 ### 1. 代码运行 (Stata 交互)
