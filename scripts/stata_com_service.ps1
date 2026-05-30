@@ -228,6 +228,10 @@ function Invoke-Execute($command) {
     Write-Diag "DoCommandAsync: $cmdPreview"
 
     try {
+        Write-Diag "Foregrounding Stata before DoCommandAsync"
+        Invoke-Foreground | Out-Null
+        Start-Sleep -Milliseconds 150
+
         $errorCode = $script:stata.DoCommandAsync($command)
         Write-Diag "DoCommandAsync returned errorCode=$errorCode"
         return @{ success = $true; errorCode = $errorCode }
