@@ -26,6 +26,7 @@
   "command.setLevel6.title": "Stata All in One: Set as Level 6 Heading",
   "command.clearHeading.title": "Stata All in One: Clear Heading",
   "command.runSection.title": "Stata All in One: Run Current Section",
+  "command.openSettings.title": "Stata All in One: Open Settings",
   "command.insertCustomSeparator.title": "Stata All in One: Insert Custom Separator",
   "command.insertSeparatorDash.title": "Stata All in One: Insert Dash Separator",
   "command.insertSeparatorEqual.title": "Stata All in One: Insert Equal Separator",

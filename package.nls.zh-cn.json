@@ -26,6 +26,7 @@
   "command.setLevel6.title": "Stata All in One：设为 6 级标题",
   "command.clearHeading.title": "Stata All in One：清除标题",
   "command.runSection.title": "Stata All in One：运行当前 Section",
+  "command.openSettings.title": "Stata All in One：打开设置",
   "command.insertCustomSeparator.title": "Stata All in One：插入自定义分隔线",
   "command.insertSeparatorDash.title": "Stata All in One：插入 Dash 分隔线",
   "command.insertSeparatorEqual.title": "Stata All in One：插入 Equal 分隔线",

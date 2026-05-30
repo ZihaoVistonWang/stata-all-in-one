@@ -258,6 +258,11 @@
         "icon": "$(play)"
       },
       {
+        "command": "stata-all-in-one.openSettings",
+        "title": "%command.openSettings.title%",
+        "icon": "$(settings-gear)"
+      },
+      {
         "command": "stata-all-in-one.reportBug",
         "title": "%command.reportBug.title%"
       },
@@ -453,6 +458,11 @@
           "command": "stata-all-in-one.runSection",
           "when": "editorLangId == stata && config.stata-all-in-one.showRunButton",
           "group": "navigation@2"
+        },
+        {
+          "command": "stata-all-in-one.openSettings",
+          "when": "editorLangId == stata && config.stata-all-in-one.showRunButton",
+          "group": "navigation@3"
         }
       ],
       "view/title": [

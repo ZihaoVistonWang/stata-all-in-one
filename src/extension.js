@@ -397,6 +397,15 @@ async function activate(context) {
     // Register help command
     registerHelpCommand(context);
 
+    // Register open settings command
+    const openSettingsCommand = vscode.commands.registerCommand(
+        'stata-all-in-one.openSettings',
+        () => {
+            vscode.commands.executeCommand('workbench.action.openSettings', 'stata-all-in-one');
+        }
+    );
+    context.subscriptions.push(openSettingsCommand);
+
     // Register bug report command
     const reportBugCommand = vscode.commands.registerCommand(
         'stata-all-in-one.reportBug',
