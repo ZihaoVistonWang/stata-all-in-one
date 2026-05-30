@@ -198,10 +198,17 @@ class StataComService {
      *
      * @param {number} timeoutMs - max wait time (default 60s)
      */
-    async redisplayGraphAndForeground(timeoutMs = 60000) {
+    async redisplayGraphAndForeground(timeoutMs = 60000, graphFilePath = null) {
         const isFree = await this._waitUntilFree(timeoutMs);
         if (!isFree) {
             return await this.foreground();
+        }
+        if (graphFilePath) {
+            const graphResult = await this.openGraphFile(graphFilePath);
+            if (graphResult.success) {
+                return graphResult;
+            }
+            console.error('[StataComService] openGraphFile failed:', graphResult.error || 'unknown error');
         }
         const displayResult = await this.executeSync('capture graph display');
         if (!displayResult.success) {
@@ -228,6 +235,21 @@ class StataComService {
             return { success: false };
         }
         return await this._sendRequest({ action: 'foregroundGraph' });
+    }
+
+    /**
+     * Open a saved Stata graph through the GUI command window.
+     * This avoids creating the Graph window through COM, which can close
+     * immediately on some Windows/Stata combinations.
+     */
+    async openGraphFile(graphFilePath) {
+        if (!this._initialized) {
+            return { success: false };
+        }
+        return await this._sendRequest({
+            action: 'openGraphFile',
+            path: graphFilePath
+        });
     }
 
     /**

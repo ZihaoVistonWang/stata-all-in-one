@@ -78,6 +78,18 @@ public class WindowManager {
 "@ -ErrorAction SilentlyContinue | Out-Null
 } catch { }
 
+try {
+    Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+
+public static class KeyboardHelper {
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
+}
+"@ -ErrorAction SilentlyContinue | Out-Null
+} catch { }
+
 # Write diagnostic to stderr (won't interfere with JSON protocol on stdout)
 function Write-Diag($msg) {
     try {
@@ -95,6 +107,36 @@ function Test-GraphWindowTitle($title) {
         return $false
     }
     return ($title -match "(?i)^graph(?:\s|\(|-|$)")
+}
+
+function ConvertTo-StataPath($path) {
+    return ([string]$path).Replace('\', '/').Replace('"', '\"')
+}
+
+function Send-CtrlV {
+    try {
+        $VK_CONTROL = 0x11
+        $VK_V = 0x56
+        $KEYEVENTF_KEYUP = 0x0002
+
+        [KeyboardHelper]::keybd_event($VK_CONTROL, 0, 0, [UIntPtr]::Zero)
+        Start-Sleep -Milliseconds 20
+        [KeyboardHelper]::keybd_event($VK_V, 0, 0, [UIntPtr]::Zero)
+        Start-Sleep -Milliseconds 20
+        [KeyboardHelper]::keybd_event($VK_V, 0, $KEYEVENTF_KEYUP, [UIntPtr]::Zero)
+        Start-Sleep -Milliseconds 20
+        [KeyboardHelper]::keybd_event($VK_CONTROL, 0, $KEYEVENTF_KEYUP, [UIntPtr]::Zero)
+        return $true
+    } catch {
+        try {
+            $wshell = New-Object -ComObject WScript.Shell
+            $wshell.SendKeys('^v')
+            return $true
+        } catch {
+            Write-Diag "Send-CtrlV failed: $_"
+            return $false
+        }
+    }
 }
 
 function Invoke-Init($doRegister) {
@@ -271,6 +313,54 @@ function Invoke-Foreground([bool]$preferGraph = $false) {
     return @{ success = $true }
 }
 
+function Invoke-TypeCommand($command) {
+    if (-not $command) {
+        return @{ success = $false; error = 'Command is empty' }
+    }
+
+    try {
+        Invoke-Foreground | Out-Null
+        Start-Sleep -Milliseconds 150
+
+        Set-Clipboard -Value $command
+        Start-Sleep -Milliseconds 150
+
+        $pasteOk = Send-CtrlV
+        if (-not $pasteOk) {
+            return @{ success = $false; error = 'Failed to paste command into Stata' }
+        }
+        Start-Sleep -Milliseconds 100
+
+        $wshell = New-Object -ComObject WScript.Shell
+        $wshell.SendKeys('~')
+        Write-Diag "Typed command into Stata GUI: $command"
+        return @{ success = $true }
+    } catch {
+        Write-Diag "TypeCommand failed: $_"
+        return @{ success = $false; error = $_.Exception.Message }
+    }
+}
+
+function Invoke-OpenGraphFile($graphPath) {
+    if (-not $graphPath) {
+        return @{ success = $false; error = 'Graph path is empty' }
+    }
+    if (-not (Test-Path -LiteralPath $graphPath)) {
+        return @{ success = $false; error = "Graph file not found: $graphPath" }
+    }
+
+    $stataGraphPath = ConvertTo-StataPath $graphPath
+    $command = "graph use `"$stataGraphPath`", name(Graph, replace)"
+    $result = Invoke-TypeCommand $command
+    if ($result.success) {
+        for ($i = 0; $i -lt 3; $i++) {
+            Start-Sleep -Milliseconds 500
+            Invoke-Foreground $true | Out-Null
+        }
+    }
+    return $result
+}
+
 function Invoke-Shutdown {
     Write-Diag "Shutting down..."
     if ($script:stata) {
@@ -357,6 +447,12 @@ while ($true) {
         }
         'foregroundGraph' {
             $result = Invoke-Foreground $true
+            $result | Add-Member -NotePropertyName 'id' -NotePropertyValue $id -Force
+            Write-Response $result
+        }
+        'openGraphFile' {
+            $graphPath = if ($req.PSObject.Properties['path']) { $req.path } else { '' }
+            $result = Invoke-OpenGraphFile $graphPath
             $result | Add-Member -NotePropertyName 'id' -NotePropertyValue $id -Force
             Write-Response $result
         }

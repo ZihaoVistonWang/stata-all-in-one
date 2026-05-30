@@ -103,7 +103,9 @@ VS Code → windows.js → comService.js (Node.js 单例)
 - **修复方案**：
   - Windows COM 路径检测到作图命令后，先继续用 `DoCommandAsync('do "..."')` 保持 VS Code 非阻塞
   - 后台轮询 `UtilIsStataFree()`，确认 do-file 执行完
-  - 再通过同步 `DoCommand('capture graph display')` 重新显示当前 graph
+  - 在 do-file 中给作图命令自动保存最后一个 `.gph` 临时图文件
+  - do-file 结束后优先通过 GUI 命令窗口粘贴执行 `graph use "临时图.gph", name(Graph, replace)`，避免再用 COM 创建 Graph 窗口
+  - 如果 `.gph` 不存在或打开失败，再回退到同步 `DoCommand('capture graph display')`
   - 最后优先把 Graph 窗口置前；如果没有 Graph 窗口则回退到 Stata 主窗口
   - 若用户显式 `graph close` / `graph drop` / `set graphics off`，或作图命令带 `nodraw`，不会强制重显图窗
 
