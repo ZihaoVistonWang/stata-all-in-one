@@ -104,6 +104,7 @@ VS Code → windows.js → comService.js (Node.js 单例)
   - 初始化 COM 前，先用 `Start-Process -FilePath $stataPath` 普通启动 Stata GUI，并等待主窗口出现
   - 然后再 `New-Object -ComObject stata.StataOLEApp` 附着到同一个 Stata 单实例
   - 后续所有代码（包括作图命令）仍通过 `DoCommandAsync('do "..."')` 执行，不做作图命令特殊分流
+  - 每次 `DoCommandAsync` 前先恢复并激活 Stata 主窗口，再发送 `do "..."` 命令
   - 目的：验证问题是否由 `New-Object -ComObject` 直接启动 Stata Automation server 引起
 
 ## ⚠️ 未解决的问题
