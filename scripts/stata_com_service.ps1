@@ -12,7 +12,7 @@ $ErrorActionPreference = 'Continue'
 $stata = $null
 $initialized = $false
 
-# ── Embed C# WindowManager for foreground Stata window ──────────
+# ── Embed C# WindowManager + KeyboardHelper for foreground ─────
 # (same P/Invoke code used by win_run_do_file_*.ps1 scripts)
 try {
     Add-Type -TypeDefinition @"
@@ -20,6 +20,20 @@ using System;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Collections.Generic;
+
+public class KeyboardHelper {
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
+
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+
+    [DllImport("user32.dll")]
+    public static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
+}
 
 public class WindowManager {
     public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
@@ -316,6 +330,8 @@ function Invoke-Foreground([bool]$preferGraph = $false) {
                 if ([WindowManager]::IsWindowMinimized($h)) {
                     [WindowManager]::ShowWindow($h, 9) | Out-Null  # SW_RESTORE
                     Write-Diag "Restored window: $title"
+                } elseif ([WindowManager]::IsWindowMaximized($h)) {
+                    [WindowManager]::ShowWindow($h, 3) | Out-Null  # SW_MAXIMIZE
                 }
                 # Track main Stata window for foreground focus
                 if ($title -match "(?i)^stata" -and $mainHandle -eq [IntPtr]::Zero) {
@@ -335,9 +351,44 @@ function Invoke-Foreground([bool]$preferGraph = $false) {
                 $targetLabel = 'Stata Graph window'
             }
 
-            # Second pass: bring selected window to foreground
             if ($targetHandle -ne [IntPtr]::Zero) {
-                [WindowManager]::SetForegroundWindow($targetHandle) | Out-Null
+                # Trick Windows into allowing SetForegroundWindow from a background process.
+                # Simulate an Alt key press to get foreground activation permission,
+                # then attach our input thread to the foreground thread.
+                try {
+                    $VK_MENU = 0x12
+                    $KEYEVENTF_KEYUP = 0x0002
+
+                    $foregroundHwnd = [KeyboardHelper]::GetForegroundWindow()
+                    $foregroundThreadId = 0
+                    [KeyboardHelper]::GetWindowThreadProcessId($foregroundHwnd, [ref] $foregroundThreadId) | Out-Null
+
+                    $currentThreadId = [System.Threading.Thread]::CurrentThread.ManagedThreadId
+                    # Use Win32 GetCurrentThreadId via P/Invoke — approximate with AttachThreadInput workaround
+                    $attached = $false
+                    if ($foregroundThreadId -ne 0) {
+                        # Attach our thread to the foreground thread to gain foreground rights
+                        $attached = [KeyboardHelper]::AttachThreadInput(
+                            [AppDomain]::GetCurrentThreadId(), $foregroundThreadId, $true
+                        )
+                    }
+
+                    # Simulate Alt key press to trigger foreground permission
+                    [KeyboardHelper]::keybd_event($VK_MENU, 0, 0, [UIntPtr]::Zero)
+                    Start-Sleep -Milliseconds 30
+                    [KeyboardHelper]::keybd_event($VK_MENU, 0, $KEYEVENTF_KEYUP, [UIntPtr]::Zero)
+                    Start-Sleep -Milliseconds 50
+
+                    # Now SetForegroundWindow should work
+                    [WindowManager]::SetForegroundWindow($targetHandle) | Out-Null
+
+                    if ($attached) {
+                        [KeyboardHelper]::AttachThreadInput(
+                            [AppDomain]::GetCurrentThreadId(), $foregroundThreadId, $false
+                        )
+                    }
+                } catch { }
+
                 Write-Diag "$targetLabel foregrounded"
             }
         }
