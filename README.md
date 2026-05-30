@@ -72,7 +72,7 @@ Special thanks to RedNote user **Rich\*\*d**, WeChat user **早起\*\*阳光**, 
   - **Selected Code Execution**: When multiple lines of code are selected, clicking the ▶️ button or pressing `Ctrl/Cmd + D` will execute the selected code lines. Supports **fuzzy selection** - no need to precisely select the _first_ or _last_ line of a code segment; the system will automatically capture and run all lines covered by the selection.
 - **⚠️ Note**
   <a id="close_stata_other_windows"></a>
-  - On Windows, code execution relies on PowerShell automation. If your machine is slow or occasionally misses keystrokes, consider increasing the step delay (setting `stata-all-in-one.stataStepDelayOnWindows`).
+  - On Windows, code execution uses Stata Automation COM or PowerShell keystroke simulation as fallback.
   - On Windows, if Stata does not wake up and run the code when running code, please try to set `true` for the `Close Stata other windows before sending code` option (setting `stata-all-in-one.closeStataOtherWindowsBeforeSendingCode`).
 
 ### 4. Efficient Separator Lines & Styling
@@ -177,10 +177,7 @@ Search for "Stata All in One" in VS Code settings and configure:
 7. **Stata Path on Windows** (`stata-all-in-one.stataPathOnWindows`)
    - **[Windows]** Path to Stata executable file (e.g., `C:\Program Files\Stata17\StataMP-64.exe`).
 
-8. **Stata Step Delay (Windows)** (`stata-all-in-one.stataStepDelayOnWindows`)
-   - **[Windows]** Delay between PowerShell automation steps (ms). Default: `100` (min: `50`). Increase if your machine is slower or Stata misses keystrokes.
-
-9. **Close Stata Other Windows Before Sending Code (Windows)** (`stata-all-in-one.closeStataOtherWindowsBeforeSendingCode`)
+8. **Close Stata Other Windows Before Sending Code (Windows)** (`stata-all-in-one.closeStataOtherWindowsBeforeSendingCode`)
    - **[Windows]** `true`: Close Stata helper windows (such as Viewer/Data Editor) before sending run commands.
    - `false` (default): Keep those windows open and send code directly.
 

@@ -140,9 +140,7 @@ function _fallbackKeystrokeExecution(code, tmpFilePath, stataPath, docDir) {
     );
     const cleanDoFilePath = stripSurroundingQuotes(tmpFilePath);
 
-    const sleepDelay = config.getStataStepDelayOnWindows
-        ? config.getStataStepDelayOnWindows()
-        : 100;
+    const sleepDelay = 100;
 
     const psCommand = [
         'powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass',

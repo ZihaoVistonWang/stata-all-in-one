@@ -87,17 +87,6 @@ const getCustomCommands = () => {
 const getStataPathOnWindows = () => getConfigValue('stataPathOnWindows', '');
 
 /**
- * Get step delay setting for Windows commands (in milliseconds)
- */
-const getStataStepDelayOnWindows = () => {
-    const delay = getConfigValue('stataStepDelayOnWindows', 100);
-    if (typeof delay !== 'number' || !isFinite(delay) || delay < 50) {
-        return 100;
-    }
-    return Math.floor(delay);
-};
-
-/**
  * Get whether to close non-Stata windows before sending run command on Windows
  */
 const getCloseStataOtherWindowsBeforeSendingCode = () => getConfigValue('closeStataOtherWindowsBeforeSendingCode', true);
@@ -177,7 +166,6 @@ module.exports = {
     getSeparatorLength,
     getStataPathOnWindows: getStataPathOnWindows,
     getCustomCommands,
-    getStataStepDelayOnWindows,
     getCloseStataOtherWindowsBeforeSendingCode,
     getSeparatorSymmetric,
     getEnableCtrlShiftD,
