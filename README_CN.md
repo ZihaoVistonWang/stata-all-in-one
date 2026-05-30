@@ -72,7 +72,7 @@ Stata All in One
   - **选中运行**：当选中多行代码时，点击 ▶️ 按钮 或按 `Ctrl/Cmd + D`，执行选中行的代码。支持**模糊选中**——无需精确选中代码段的*首行*或*尾行*，系统会自动捕捉并运行选中内容涉及的全部行。
 - **⚠️ 注意**
   <a id="close_stata_other_windows"></a>
-  - Windows 系统下运行代码依赖 PowerShell 脚本自动化，如果电脑较慢或偶发漏键时可适当调大步骤延迟（设置项 `stata-all-in-one.stataStepDelayOnWindows`）。
+  - Windows 系统下运行代码使用 Stata Automation COM，失败时降级为 PowerShell 按键模拟。
   - Windows 系统下运行代码时，如果没有唤起Stata并运行代码，请尝试打开`发送代码前关闭 Stata 其他窗口`选项（设置项 `stata-all-in-one.closeStataOtherWindowsBeforeSendingCode`）。
 
 ### 4. 高效分隔线与样式
@@ -176,10 +176,7 @@ Stata All in One
 7. **Stata 路径（Windows）** (`stata-all-in-one.stataPathOnWindows`)
    - **[Windows]** Stata 执行文件路径（例如 `C:\Program Files\Stata17\StataMP-64.exe`）。
 
-8. **步骤延迟（Windows）** (`stata-all-in-one.stataStepDelayOnWindows`)
-   - **[Windows]** PowerShell 自动化每一步之间的延迟（毫秒）。默认：`100`（最小：`50`）。电脑较慢或偶发漏键时可适当调大。
-
-9. **发送代码前关闭 Stata 其他窗口（Windows）** (`stata-all-in-one.closeStataOtherWindowsBeforeSendingCode`)
+8. **发送代码前关闭 Stata 其他窗口（Windows）** (`stata-all-in-one.closeStataOtherWindowsBeforeSendingCode`)
    - **[Windows]** `true`：发送运行命令前先关闭 Stata 辅助窗口（如 Viewer、Data Editor）。
    - `false`（默认）：保留这些窗口，直接发送代码。
 

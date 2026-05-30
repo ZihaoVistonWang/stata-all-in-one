@@ -65,12 +65,6 @@
           "default": "",
           "markdownDescription": "%config.stataPathOnWindows.description%"
         },
-        "stata-all-in-one.stataStepDelayOnWindows": {
-          "type": "number",
-          "default": 100,
-          "minimum": 50,
-          "markdownDescription": "%config.stataStepDelayOnWindows.description%"
-        },
         "stata-all-in-one.closeStataOtherWindowsBeforeSendingCode": {
           "type": "boolean",
           "default": false,
