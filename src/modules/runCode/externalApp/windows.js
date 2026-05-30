@@ -14,6 +14,13 @@ const { showError, showWarn, stripSurroundingQuotes, msg } = require('../../../u
 const config = require('../../../utils/config');
 const { getComService } = require('./comService');
 
+const GRAPH_COMMAND_RE = /^(?:twoway|tw|scatter|sc|line|connected|area|bar|histogram|hist|kdensity|lowess|lpoly|qnorm|pnorm|qqplot|symplot|quantile|rvfplot|rvpplot|avplot|avplots|cprplot|acprplot|marginsplot|coefplot|binscatter|pvenn)\b/i;
+const GRAPH_SUBCOMMAND_RE = /^graph\s+(?!close\b|drop\b|dir\b|describe\b|export\b|save\b|rename\b|copy\b|query\b|set\b)(?:display\b|twoway\b|bar\b|box\b|dot\b|pie\b|matrix\b|combine\b|use\b|import\b|\w+)/i;
+const GRAPH_CLOSE_RE = /^graph\s+(?:close|drop)\b/i;
+const GRAPHICS_OFF_RE = /^set\s+graphics\s+off\b/i;
+const GRAPH_NODRAW_RE = /(?:,\s*|\s)nodraw(?:\s|,|$|\))/i;
+const STATA_PREFIX_RE = /^(?:quietly|qui|noisily|noi|capture|cap|version\s+\S+|by(?:sort)?\s+[^:]+|statsby\s+[^:]+|bootstrap\s+[^:]+|simulate\s+[^:]+|permute\s+[^:]+)\s*:?\s*/i;
+
 /**
  * Check if Stata is currently running on Windows
  */
@@ -24,6 +31,50 @@ function isStataRunningOnWindows() {
     } catch {
         return false;
     }
+}
+
+function stripBlockComments(code) {
+    return String(code || '').replace(/\/\*[\s\S]*?\*\//g, '');
+}
+
+function stripLineComment(line) {
+    return line.replace(/\s+\/\/.*$/, '').trim();
+}
+
+function removeStataPrefixes(line) {
+    let current = line.trim();
+    for (let i = 0; i < 8; i++) {
+        const next = current.replace(STATA_PREFIX_RE, '').trim();
+        if (next === current) {
+            break;
+        }
+        current = next;
+    }
+    return current;
+}
+
+function mayCreateGraph(code) {
+    let shouldRedisplay = false;
+
+    for (const line of stripBlockComments(code).split(/\r?\n/)) {
+        let cleaned = stripLineComment(line);
+        if (!cleaned || cleaned.startsWith('*')) {
+            continue;
+        }
+        cleaned = removeStataPrefixes(cleaned);
+
+        if (GRAPHICS_OFF_RE.test(cleaned) || GRAPH_CLOSE_RE.test(cleaned)) {
+            shouldRedisplay = false;
+            continue;
+        }
+
+        const createsGraph = GRAPH_COMMAND_RE.test(cleaned) || GRAPH_SUBCOMMAND_RE.test(cleaned);
+        if (createsGraph && !GRAPH_NODRAW_RE.test(cleaned)) {
+            shouldRedisplay = true;
+        }
+    }
+
+    return shouldRedisplay;
 }
 
 /**
@@ -76,6 +127,7 @@ async function _tryComExecution(code, tmpFilePath, stataPath, docDir, context) {
 
         // Write code to temp .do file
         fs.writeFileSync(tmpFilePath, finalCode, 'utf8');
+        const shouldRedisplayGraph = mayCreateGraph(finalCode);
 
         // Build do command with forward slashes
         const cleanPath = tmpFilePath.replace(/\\/g, '/');
@@ -87,9 +139,15 @@ async function _tryComExecution(code, tmpFilePath, stataPath, docDir, context) {
         const result = await comService.execute(runCommand);
         if (result.success) {
             console.log('[windows.js] COM do command sent');
-            // Fire-and-forget: poll until Stata finishes, then foreground
-            // (Graph windows need time to render after DoCommandAsync returns)
-            comService.waitAndForeground(60000).catch(() => {});
+            // Fire-and-forget: keep VS Code responsive while Stata runs.
+            // Graph commands need a post-run redisplay because COM execution can leave
+            // no visible Graph window after the do-file finishes.
+            const foregroundTask = shouldRedisplayGraph
+                ? comService.redisplayGraphAndForeground(60000)
+                : comService.waitAndForeground(60000);
+            foregroundTask.catch((err) => {
+                console.error('[windows.js] COM foreground task failed:', err.message);
+            });
             return { success: true };
         }
 
@@ -198,5 +256,6 @@ async function runOnWindows(codeToRun, tmpFilePath, stataPathOnWindows, docDir =
 }
 
 module.exports = {
-    runOnWindows
+    runOnWindows,
+    mayCreateGraph
 };

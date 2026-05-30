@@ -90,6 +90,13 @@ function Write-Response($obj) {
     Write-Output $json
 }
 
+function Test-GraphWindowTitle($title) {
+    if (-not $title) {
+        return $false
+    }
+    return ($title -match "(?i)^graph(?:\s|\(|-|$)")
+}
+
 function Invoke-Init($doRegister) {
     # Step 1: Register Stata Automation if requested
     if ($doRegister) {
@@ -158,6 +165,29 @@ function Invoke-Execute($command) {
     }
 }
 
+function Invoke-ExecuteSync($command) {
+    if (-not $script:initialized -or -not $script:stata) {
+        Write-Diag "ExecuteSync rejected: not initialized"
+        return @{ success = $false; error = 'COM object not initialized' }
+    }
+
+    $cmdPreview = if ($command.Length -gt 100) {
+        $command.Substring(0, 100) + '...'
+    } else {
+        $command
+    }
+    Write-Diag "DoCommand: $cmdPreview"
+
+    try {
+        $errorCode = $script:stata.DoCommand($command)
+        Write-Diag "DoCommand returned errorCode=$errorCode"
+        return @{ success = $true; errorCode = $errorCode }
+    } catch {
+        Write-Diag "DoCommand FAILED: $_"
+        return @{ success = $false; error = $_.Exception.Message; errorCode = -1 }
+    }
+}
+
 function Invoke-Status {
     if (-not $script:initialized -or -not $script:stata) {
         return @{ isFree = $false; returnCode = -1 }
@@ -184,9 +214,9 @@ function Invoke-Break {
     }
 }
 
-function Invoke-Foreground {
-    # Show all Stata windows and bring main window to foreground
-    # This ensures Graph, Viewer, Data Editor windows are also visible
+function Invoke-Foreground([bool]$preferGraph = $false) {
+    # Show all Stata windows and bring either the Graph window or main window
+    # to foreground. Graph is preferred after a post-run graph display.
 
     # First use COM to restore/show Stata
     if ($script:stata) {
@@ -202,6 +232,7 @@ function Invoke-Foreground {
         if ($proc) {
             $handles = [WindowManager]::GetProcessWindows($proc.Id)
             $mainHandle = [IntPtr]::Zero
+            $graphHandle = [IntPtr]::Zero
 
             # First pass: restore ALL minimized windows
             foreach ($h in $handles) {
@@ -214,14 +245,24 @@ function Invoke-Foreground {
                 if ($title -match "(?i)^stata" -and $mainHandle -eq [IntPtr]::Zero) {
                     $mainHandle = $h
                 }
+                if ((Test-GraphWindowTitle $title) -and $graphHandle -eq [IntPtr]::Zero) {
+                    $graphHandle = $h
+                }
             }
 
             Start-Sleep -Milliseconds 100
 
-            # Second pass: bring main Stata window to foreground
-            if ($mainHandle -ne [IntPtr]::Zero) {
-                [WindowManager]::SetForegroundWindow($mainHandle) | Out-Null
-                Write-Diag "Stata main window foregrounded"
+            $targetHandle = $mainHandle
+            $targetLabel = 'Stata main window'
+            if ($preferGraph -and $graphHandle -ne [IntPtr]::Zero) {
+                $targetHandle = $graphHandle
+                $targetLabel = 'Stata Graph window'
+            }
+
+            # Second pass: bring selected window to foreground
+            if ($targetHandle -ne [IntPtr]::Zero) {
+                [WindowManager]::SetForegroundWindow($targetHandle) | Out-Null
+                Write-Diag "$targetLabel foregrounded"
             }
         }
     } catch {
@@ -294,6 +335,11 @@ while ($true) {
             # Bring Stata to foreground after sending code
             Invoke-Foreground | Out-Null
         }
+        'executeSync' {
+            $result = Invoke-ExecuteSync $req.command
+            $result | Add-Member -NotePropertyName 'id' -NotePropertyValue $id -Force
+            Write-Response $result
+        }
         'status' {
             $result = Invoke-Status
             $result | Add-Member -NotePropertyName 'id' -NotePropertyValue $id -Force
@@ -306,6 +352,11 @@ while ($true) {
         }
         'foreground' {
             $result = Invoke-Foreground
+            $result | Add-Member -NotePropertyName 'id' -NotePropertyValue $id -Force
+            Write-Response $result
+        }
+        'foregroundGraph' {
+            $result = Invoke-Foreground $true
             $result | Add-Member -NotePropertyName 'id' -NotePropertyValue $id -Force
             Write-Response $result
         }
