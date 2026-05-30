@@ -8,6 +8,7 @@
 
 const { exec, execSync } = require('child_process');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const vscode = require('vscode');
 const { showError, showWarn, stripSurroundingQuotes, msg } = require('../../../utils/common');
@@ -19,6 +20,8 @@ const GRAPH_SUBCOMMAND_RE = /^graph\s+(?!close\b|drop\b|dir\b|describe\b|export\
 const GRAPH_CLOSE_RE = /^graph\s+(?:close|drop)\b/i;
 const GRAPHICS_OFF_RE = /^set\s+graphics\s+off\b/i;
 const GRAPH_NODRAW_RE = /(?:,\s*|\s)nodraw(?:\s|,|$|\))/i;
+const GRAPH_SAVING_RE = /(?:,\s*|\s)saving\s*\(/i;
+const GRAPH_SAVE_OPTION_COMMAND_RE = /^(?:twoway|tw|scatter|sc|line|connected|area|bar|histogram|hist|kdensity|lowess|lpoly|qnorm|pnorm|qqplot|symplot|quantile|marginsplot|graph\s+(?:twoway|bar|box|dot|pie|matrix|combine))\b/i;
 const STATA_PREFIX_RE = /^(?:quietly|qui|noisily|noi|capture|cap|version\s+\S+|by(?:sort)?\s+[^:]+|statsby\s+[^:]+|bootstrap\s+[^:]+|simulate\s+[^:]+|permute\s+[^:]+)\s*:?\s*/i;
 
 /**
@@ -77,6 +80,84 @@ function mayCreateGraph(code) {
     return shouldRedisplay;
 }
 
+function hasLineContinuation(line) {
+    return /\/\/\/\s*(?:$|\/\/.*$)/.test(line);
+}
+
+function splitInlineComment(line) {
+    const match = /\s+\/\/.*/.exec(line);
+    if (!match) {
+        return { code: line, comment: '' };
+    }
+    return {
+        code: line.slice(0, match.index),
+        comment: line.slice(match.index)
+    };
+}
+
+function stataPath(filePath) {
+    return String(filePath || '').replace(/\\/g, '/').replace(/"/g, '\\"');
+}
+
+function makeGraphCachePath() {
+    return path.join(
+        os.tmpdir(),
+        `stata_all_in_one_com_last_graph_${process.pid}.gph`
+    );
+}
+
+function appendSavingOption(line, graphFilePath) {
+    if (GRAPH_SAVING_RE.test(line) || hasLineContinuation(line)) {
+        return line;
+    }
+
+    const parts = splitInlineComment(line);
+    const codePart = parts.code;
+    const trailingWhitespace = codePart.match(/\s*$/)[0] || '';
+    const body = codePart.slice(0, codePart.length - trailingWhitespace.length);
+    const separator = body.includes(',') ? ' ' : ', ';
+    const savingOption = `saving("${stataPath(graphFilePath)}", replace)`;
+
+    return `${body}${separator}${savingOption}${trailingWhitespace}${parts.comment}`;
+}
+
+function instrumentGraphCommands(code, graphFilePath) {
+    const output = [];
+    let pendingGraphBlock = false;
+    let graphTouched = false;
+
+    for (const line of String(code || '').split(/\r?\n/)) {
+        let outputLine = line;
+        let cleaned = stripLineComment(line);
+        if (cleaned && !cleaned.startsWith('*')) {
+            cleaned = removeStataPrefixes(cleaned);
+            const createsGraph = (GRAPH_COMMAND_RE.test(cleaned) || GRAPH_SUBCOMMAND_RE.test(cleaned));
+            const shouldCapture = createsGraph && !GRAPH_NODRAW_RE.test(cleaned);
+
+            if (GRAPHICS_OFF_RE.test(cleaned) || GRAPH_CLOSE_RE.test(cleaned)) {
+                pendingGraphBlock = false;
+            } else if (shouldCapture) {
+                pendingGraphBlock = true;
+                graphTouched = true;
+                if (GRAPH_SAVE_OPTION_COMMAND_RE.test(cleaned)) {
+                    outputLine = appendSavingOption(line, graphFilePath);
+                }
+            }
+        }
+
+        output.push(outputLine);
+
+        if (!hasLineContinuation(line)) {
+            if (pendingGraphBlock) {
+                output.push(`capture graph save "${stataPath(graphFilePath)}", replace`);
+            }
+            pendingGraphBlock = false;
+        }
+    }
+
+    return { code: output.join('\n'), graphTouched };
+}
+
 /**
  * Try to execute code via Stata Automation COM.
  * Writes code to a temp .do file and sends "do <file>" command to Stata
@@ -125,9 +206,18 @@ async function _tryComExecution(code, tmpFilePath, stataPath, docDir, context) {
             finalCode = `cd "${escapedDir}"\n${code}`;
         }
 
+        const shouldRedisplayGraph = mayCreateGraph(finalCode);
+        const graphFilePath = shouldRedisplayGraph ? makeGraphCachePath() : null;
+        if (graphFilePath) {
+            try { fs.unlinkSync(graphFilePath); } catch (_) {}
+            const instrumented = instrumentGraphCommands(finalCode, graphFilePath);
+            if (instrumented.graphTouched) {
+                finalCode = instrumented.code;
+            }
+        }
+
         // Write code to temp .do file
         fs.writeFileSync(tmpFilePath, finalCode, 'utf8');
-        const shouldRedisplayGraph = mayCreateGraph(finalCode);
 
         // Build do command with forward slashes
         const cleanPath = tmpFilePath.replace(/\\/g, '/');
@@ -143,7 +233,7 @@ async function _tryComExecution(code, tmpFilePath, stataPath, docDir, context) {
             // Graph commands need a post-run redisplay because COM execution can leave
             // no visible Graph window after the do-file finishes.
             const foregroundTask = shouldRedisplayGraph
-                ? comService.redisplayGraphAndForeground(60000)
+                ? comService.redisplayGraphAndForeground(60000, graphFilePath)
                 : comService.waitAndForeground(60000);
             foregroundTask.catch((err) => {
                 console.error('[windows.js] COM foreground task failed:', err.message);
@@ -257,5 +347,6 @@ async function runOnWindows(codeToRun, tmpFilePath, stataPathOnWindows, docDir =
 
 module.exports = {
     runOnWindows,
-    mayCreateGraph
+    mayCreateGraph,
+    instrumentGraphCommands
 };
