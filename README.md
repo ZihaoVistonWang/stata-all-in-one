@@ -299,7 +299,7 @@ If this extension has been helpful to you, feel free to scan the **Alipay** (lef
 
 | Version | Changes                                                                                                              | Release Date |
 | ------- | -------------------------------------------------------------------------------------------------------------------- | ------------ |
-| 0.2.14/0.2.15  | Preview release: Introduced Embedded Console, Data Viewer, and Graph Support; improved Hover help display; bug fixes | 2024-05-31   |
+| 0.2.15/0.2.14  | Preview release: Introduced Embedded Console, Data Viewer, and Graph Support; improved Hover help display; bug fixes | 2026-05-31   |
 | 0.2.13  | On Windows, running code no longer restores a snapped or maximized Stata window to a smaller size — preserves current window state | 2026-03-12   |
 | 0.2.12  | Refactored Windows code execution logic; Added option to close other Stata windows before sending code; Added toggle for "Bug Report" and "Sponsor" buttons | 2026-03-05   |
 | 0.2.11  | New optional feature: Auto `cd` to do file directory on first Stata launch (disabled by default)                     | 2026-03-02   |
