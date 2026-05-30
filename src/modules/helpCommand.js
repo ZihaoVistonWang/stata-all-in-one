@@ -49,39 +49,52 @@ function generateHelpCode(command) {
 
 /**
  * Run help command
+ * @param {vscode.ExtensionContext} context - VS Code extension context
  */
-async function runHelpCommand() {
+async function runHelpCommand(context) {
     const editor = vscode.window.activeTextEditor;
-    
+
     if (!editor) {
         showError(msg('noEditor'));
         return;
     }
-    
+
     // Get selected text
     const selectedText = getSelectedText(editor);
-    
+
     if (!selectedText) {
         showError(msg('noTextSelected'));
         return;
     }
-    
-    // Check if selected text is a command
+
     // Check if selected text is a valid command identifier
     if (!isValidCommandIdentifier(selectedText)) {
         showError(msg('notAValidIdentifier', { command: selectedText }));
         return;
     }
-    
+
     // Platform check
     const onWindows = isWindows();
     const onMac = isMacOS();
-    
+
     if (!onWindows && !onMac) {
         showError(msg('unsupportedPlatform'));
         return;
     }
-    
+
+    // Generate help code
+    const helpCode = generateHelpCode(selectedText);
+
+    // 如果是 Embedded Console 模式，直接在控制台中运行 help 命令
+    const runMode = config.getRunMode();
+    if (runMode === config.RUN_MODES.embeddedConsole) {
+        const { runArbitraryCode } = require('./runCode/execute/index');
+        await runArbitraryCode(context, helpCode);
+        return;
+    }
+
+    // === External App 模式：通过临时文件执行 ===
+
     // Windows platform specific validation
     let stataPathOnWindows = null;
     if (onWindows) {
@@ -92,18 +105,15 @@ async function runHelpCommand() {
             return;
         }
     }
-    
-    // Generate help code
-    const helpCode = generateHelpCode(selectedText);
-    
+
     // Create temporary file
     const document = editor.document;
     const docDir = path.dirname(document.fileName);
     const tmpFilePath = path.join(docDir, 'stata_all_in_one_temp.do');
-    
+
     try {
         fs.writeFileSync(tmpFilePath, helpCode, 'utf8');
-        
+
         if (onWindows) {
             await runOnWindows(helpCode, tmpFilePath, stataPathOnWindows, null, null);
         } else if (onMac) {
@@ -119,7 +129,9 @@ async function runHelpCommand() {
  * Register help command
  */
 function registerHelpCommand(context) {
-    const disposable = vscode.commands.registerCommand('stata-all-in-one.showHelp', runHelpCommand);
+    const disposable = vscode.commands.registerCommand('stata-all-in-one.showHelp', async () => {
+        await runHelpCommand(context);
+    });
     context.subscriptions.push(disposable);
 }
 
