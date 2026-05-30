@@ -543,6 +543,12 @@ async function activate(context) {
  */
 function deactivate() {
     forceShutdownConsoleSession();
+    // Shutdown COM automation service if initialized
+    try {
+        const { getComService } = require('./modules/runCode/externalApp/comService');
+        const svc = getComService(null);
+        if (svc) svc.shutdown();
+    } catch { /* extension may be in a state where require fails */ }
 }
 
 module.exports = { 
