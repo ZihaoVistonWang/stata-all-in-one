@@ -149,6 +149,27 @@ class StataComService {
     }
 
     /**
+     * Send one Stata command synchronously via DoCommand.
+     * Intended for short follow-up commands after async execution finishes.
+     *
+     * @param {string} code - Single Stata command to execute
+     * @returns {Promise<object>} { success, errorCode?, error? }
+     */
+    async executeSync(code) {
+        if (!this._initialized) {
+            return { success: false, error: 'COM service not initialized' };
+        }
+        if (!this._childProcess) {
+            return { success: false, error: 'COM child process not running' };
+        }
+
+        return await this._sendRequest({
+            action: 'executeSync',
+            command: code
+        });
+    }
+
+    /**
      * Get Stata free/busy status.
      */
     async status() {
@@ -166,16 +187,27 @@ class StataComService {
      * @param {number} timeoutMs - max wait time (default 60s)
      */
     async waitAndForeground(timeoutMs = 60000) {
-        const start = Date.now();
-        while (Date.now() - start < timeoutMs) {
-            const s = await this.status();
-            if (s.isFree) {
-                break; // Stata finished — graph windows should be ready
-            }
-            // Poll every 500ms
-            await new Promise(r => setTimeout(r, 500));
-        }
+        await this._waitUntilFree(timeoutMs);
         return await this.foreground();
+    }
+
+    /**
+     * After an async graph command finishes, redisplay the current graph.
+     * If Automation caused the Graph window to disappear, Stata keeps the
+     * graph object in memory and graph display reopens the window.
+     *
+     * @param {number} timeoutMs - max wait time (default 60s)
+     */
+    async redisplayGraphAndForeground(timeoutMs = 60000) {
+        const isFree = await this._waitUntilFree(timeoutMs);
+        if (!isFree) {
+            return await this.foreground();
+        }
+        const displayResult = await this.executeSync('capture graph display');
+        if (!displayResult.success) {
+            return displayResult;
+        }
+        return await this.foregroundGraph();
     }
 
     /**
@@ -186,6 +218,16 @@ class StataComService {
             return { success: false };
         }
         return await this._sendRequest({ action: 'foreground' });
+    }
+
+    /**
+     * Bring Stata Graph window to foreground, falling back to the main window.
+     */
+    async foregroundGraph() {
+        if (!this._initialized) {
+            return { success: false };
+        }
+        return await this._sendRequest({ action: 'foregroundGraph' });
     }
 
     /**
@@ -228,6 +270,18 @@ class StataComService {
     }
 
     // ── Private methods ─────────────────────────────────────
+
+    async _waitUntilFree(timeoutMs) {
+        const start = Date.now();
+        while (Date.now() - start < timeoutMs) {
+            const s = await this.status();
+            if (s.isFree) {
+                return true;
+            }
+            await new Promise(r => setTimeout(r, 500));
+        }
+        return false;
+    }
 
     /**
      * Internal: spawn PS process and send init command.

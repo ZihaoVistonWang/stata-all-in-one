@@ -93,25 +93,27 @@ VS Code → windows.js → comService.js (Node.js 单例)
 - `globalState` key: `stataComLastRegisteredPath`
 - 路径不变不触发 UAC，路径变了自动重新注册
 
+## 已处理的问题
+
+### 1. Graph 作图窗口消失
+- **现象**：`twoway line` 等作图命令执行后，Graph 窗口闪现后消失，最后没有可见作图窗口
+- **调研结论**：
+  - Stata Automation 官方文档说明 `DoCommandAsync()` 是把命令加入 Stata 队列，等价于在 Stata Command window 输入命令；未说明 COM 会主动关闭 Graph 窗口
+  - Stata 图形窗口机制说明：关闭 Graph 窗口不会删除底层 graph，可以通过 `graph display` 重新显示
+- **修复方案**：
+  - Windows COM 路径检测到作图命令后，先继续用 `DoCommandAsync('do "..."')` 保持 VS Code 非阻塞
+  - 后台轮询 `UtilIsStataFree()`，确认 do-file 执行完
+  - 再通过同步 `DoCommand('capture graph display')` 重新显示当前 graph
+  - 最后优先把 Graph 窗口置前；如果没有 Graph 窗口则回退到 Stata 主窗口
+  - 若用户显式 `graph close` / `graph drop` / `set graphics off`，或作图命令带 `nodraw`，不会强制重显图窗
+
 ## ⚠️ 未解决的问题
 
-### 1. Graph 作图窗口秒关（核心问题）
-- **现象**：`twoway line` 等作图命令执行后，Graph 窗口闪现后立即关闭
-- **尝试过的方案**：
-  - `DoCommandAsync` + `waitAndForeground` 轮询 → 图窗口仍秒关
-  - `DoCommand`（同步）等待 do-file 执行完 → 图窗口仍秒关
-  - `Invoke-Foreground` 显示所有 Stata 进程窗口 → 无效
-- **猜测方向**：
-  - COM 模式下 Stata 的 Graph 窗口生命周期可能不同
-  - `do "file.do"` 结束后 Stata 可能自动清理 Graph 资源
-  - 可能需要 `graph export` 导出图片而非依赖 Graph 窗口显示
-  - 或需要 `set graph on` / `graph display` 等命令保持窗口
-
-### 2. DoCommandAsync 超时风险
+### 1. DoCommandAsync 超时风险
 - `waitAndForeground` 轮询 `UtilIsStataFree()` 时，do-file 可能需要很长时间
 - 当前超时 60 秒，超时后强制 foreground（但图可能还没渲染）
 
-### 3. 未测试其他 Stata 版本（15、16）
+### 2. 未测试其他 Stata 版本（15、16）
 - 只测了 17 SE 和 18 MP，旧版本 API 可能有差异
 
 ## key Files for Implementation
