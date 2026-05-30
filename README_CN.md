@@ -52,9 +52,6 @@ Stata All in One
 <p style="margin:0 0 8px 0; padding-left: 1.6em; text-indent: -1.6em;">
   🎯 <strong>正式版 v0.3.0 预计于 2026 年 6 月中旬发布</strong>，届时将修复已知问题并提供更稳定的体验。
 </p>
-<p style="margin:0; padding-left: 1.6em; text-indent: -1.6em;">
-  💡 本文档中 <span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">粉色高亮</span> 部分为 v0.2.15/0.2.14 版本新增功能，欢迎体验并提出宝贵意见！🙏
-</p>
 </td>
 </tr>
 </table>

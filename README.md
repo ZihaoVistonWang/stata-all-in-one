@@ -52,9 +52,6 @@ Stata All in One
 <p style="margin:0 0 8px 0; padding-left: 1.6em; text-indent: -1.6em;">
   🎯 <strong>The stable v0.3.0 is expected in mid-June 2026</strong>, with bug fixes and a more stable experience.
 </p>
-<p style="margin:0; padding-left: 1.6em; text-indent: -1.6em;">
-  💡 <span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">Pink highlighted</span> sections in this document are new features in v0.2.14/0.2.15 — feel free to try them out and share your thoughts! 🙏
-</p>
 </td>
 </tr>
 </table>
