@@ -1,8 +1,8 @@
 {
   "name": "stata-all-in-one",
   "displayName": "Stata All in One",
-  "description": "Supercharge your Stata workflow in VS Code. An enhanced version of `Stata Outline` with advanced Syntax Highlighting + Code Hints + Smart Outline + Code Execution + Quick Editing. All your Stata needs in one place.",
-  "version": "0.2.14",
+  "description": "Supercharge your Stata workflow in VS Code. An enhanced version of `Stata Outline` with advanced Syntax Highlighting + Code Hints + Smart Outline + Code Execution + Data Viewing. All your Stata needs in one place.",
+  "version": "0.2.15",
   "publisher": "ZihaoVistonWang",
   "icon": "img/icon.png",
   "keywords": [
@@ -10,6 +10,8 @@
     "do",
     "ado",
     "outline",
+    "embedded console",
+    "data viewer",
     "code runner",
     "syntax highlighting",
     "stata code",

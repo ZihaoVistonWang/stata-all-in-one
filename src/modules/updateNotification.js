@@ -10,8 +10,12 @@ const { getUserLanguage, showInfo } = require('../utils/common');
 // Update changelog: version -> changelog text
 const CHANGELOG = {
     en: {
+        '0.2.15': {
+            ver_info: '✨ Stata All in One (0.2.15): A major pre-release version. If there are any bugs, please give feedback and re-install v0.2.13! The embedded console, data viewer and hover help have been introduced, while bringing significant performance improvements on the Windows side.',
+            more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0214-2026-03-18'
+        },
         '0.2.14': {
-            ver_info: '✨ Stata All in One (0.2.14): A major pre-release update introducing an Embedded Console, Data Viewer, and Hover Help, alongside significant performance improvements on Windows side.',
+            ver_info: '✨ Stata All in One (0.2.14): A major pre-release version. If there are any bugs, please give feedback and re-install v0.2.13! The embedded console, data viewer and hover help have been introduced, while bringing significant performance improvements on the Windows side.',
             more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0214-2026-03-18'
         },
         '0.2.13': {
@@ -57,7 +61,7 @@ const CHANGELOG = {
     },
     zh: {
         '0.2.14': {
-            ver_info: '✨ Stata All in One (0.2.14)：这是一个预览版本！引入了嵌入式控制台、数据查看器和悬停帮助等，同时在 Windows 端带来了显著的性能提升。',
+            ver_info: '✨ Stata All in One (0.2.14)：这是一个预览版本，如果有Bug影响使用，请及时反馈并安装0.2.13版本！引入了嵌入式控制台、数据查看器和悬停帮助等，同时在 Windows 端带来了显著的性能提升。',
             more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0214-2026-03-18'
         },
         '0.2.13': {

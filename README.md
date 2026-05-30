@@ -13,13 +13,13 @@ Stata All in One
 </p>
 
 <p align="center">
-   | <b>Version:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.2.14</a> | <b>Author:</b> <a href="https://zihaowang.cn">Zihao Viston Wang</a> | <b>Translate:</b>
+   | <b>Version:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.2.15</a> | <b>Author:</b> <a href="https://zihaowang.cn">Zihao Viston Wang</a> | <b>Translate:</b>
   <a href="https://gitee.com/ZihaoVistonWang/stata-all-in-one">中文版本</a> |
 </p>
 
 ---
 
-<h3 align="center"><b>All-in-one</b> Stata experience: </br>Code Execution + Syntax Highlighting + Code Completion + Smart Outline + Quick Editing!</h3>
+<h3 align="center"><b>All-in-one</b> Stata experience: </br>Code Execution + Syntax Highlighting + Code Completion + Smart Outline + Data Viewing!</h3>
 
 <p align="center">
    <a href="https://marketplace.visualstudio.com/items?itemName=ZihaoVistonWang.stata-all-in-one"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fapi.zihaowang.cn%2Fvscode-install&style=for-the-badge&labelColor=363a4f&color=a6da95&label=VS Code Installations" alt="VS Code Installations"></a>
@@ -44,7 +44,7 @@ Stata All in One
   🚨 <strong>Preview Release Notice</strong> 🚨
 </p>
 <p style="margin:0 0 8px 0; padding-left: 1.6em; text-indent: -1.6em;">
-  ⚠️ <strong>v0.2.14 is a preview release (pre-release)</strong> and may contain many bugs. It is not recommended for production use. Thank you to everyone willing to try it out and provide feedback!
+  ⚠️ <strong>v0.2.14/0.2.15 is a preview release (pre-release)</strong> and may contain many bugs. It is not recommended for production use. Thank you to everyone willing to try it out and provide feedback!
 </p>
 <p style="margin:0 0 8px 0; padding-left: 1.6em; text-indent: -1.6em;">
   📧 If you encounter any issues, please send bug descriptions, reproduction steps, and screenshots to <a href="mailto:hi@zihaowang.cn"><strong>hi@zihaowang.cn</strong></a>.
@@ -53,7 +53,7 @@ Stata All in One
   🎯 <strong>The stable v0.3.0 is expected in mid-June 2026</strong>, with bug fixes and a more stable experience.
 </p>
 <p style="margin:0; padding-left: 1.6em; text-indent: -1.6em;">
-  💡 <span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">Pink highlighted</span> sections in this document are new features in v0.2.14 — feel free to try them out and share your thoughts! 🙏
+  💡 <span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">Pink highlighted</span> sections in this document are new features in v0.2.14/0.2.15 — feel free to try them out and share your thoughts! 🙏
 </p>
 </td>
 </tr>
@@ -299,7 +299,7 @@ If this extension has been helpful to you, feel free to scan the **Alipay** (lef
 
 | Version | Changes                                                                                                              | Release Date |
 | ------- | -------------------------------------------------------------------------------------------------------------------- | ------------ |
-| 0.2.14  | Preview release: Introduced Embedded Console, Data Viewer, and Graph Support; improved Hover help display; bug fixes | 2024-05-30   |
+| 0.2.14/0.2.15  | Preview release: Introduced Embedded Console, Data Viewer, and Graph Support; improved Hover help display; bug fixes | 2024-05-31   |
 | 0.2.13  | On Windows, running code no longer restores a snapped or maximized Stata window to a smaller size — preserves current window state | 2026-03-12   |
 | 0.2.12  | Refactored Windows code execution logic; Added option to close other Stata windows before sending code; Added toggle for "Bug Report" and "Sponsor" buttons | 2026-03-05   |
 | 0.2.11  | New optional feature: Auto `cd` to do file directory on first Stata launch (disabled by default)                     | 2026-03-02   |
