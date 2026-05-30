@@ -230,8 +230,11 @@ function Invoke-Init($doRegister) {
 
 function Invoke-Execute($command) {
     if (-not $script:initialized -or -not $script:stata) {
-        Write-Diag "Execute rejected: not initialized"
-        return @{ success = $false; error = 'COM object not initialized' }
+        Write-Diag "Execute rejected: not initialized, attempting reinit..."
+        $reinitResult = Invoke-Init $false
+        if (-not $reinitResult.success) {
+            return @{ success = $false; error = 'COM reinit after disconnect failed' }
+        }
     }
 
     $cmdPreview = if ($command.Length -gt 100) {
@@ -250,8 +253,28 @@ function Invoke-Execute($command) {
         Write-Diag "DoCommandAsync returned errorCode=$errorCode"
         return @{ success = $true; errorCode = $errorCode }
     } catch {
-        Write-Diag "DoCommandAsync FAILED: $_"
-        return @{ success = $false; error = $_.Exception.Message; errorCode = -1 }
+        # If Stata was closed by the user, COM will be disconnected.
+        # Reinitialize and retry once before giving up.
+        Write-Diag "DoCommandAsync failed (Stata may be closed): $_"
+        Write-Diag "Attempting COM reinit..."
+
+        $reinitResult = Invoke-Init $false
+        if (-not $reinitResult.success) {
+            Write-Diag "Reinit failed, giving up"
+            return @{ success = $false; error = "Disconnected and reinit failed: $_" }
+        }
+
+        Write-Diag "Reinit succeeded, retrying command"
+        try {
+            Invoke-Foreground | Out-Null
+            Start-Sleep -Milliseconds 50
+            $errorCode = $script:stata.DoCommandAsync($command)
+            Write-Diag "Retry DoCommandAsync returned errorCode=$errorCode"
+            return @{ success = $true; errorCode = $errorCode }
+        } catch {
+            Write-Diag "Retry also failed: $_"
+            return @{ success = $false; error = "Reinit succeeded but command still failed: $_" }
+        }
     }
 }
 
