@@ -318,14 +318,6 @@
         "title": "%command.debugTestUpdateNotification.title%"
       },
       {
-        "command": "stata-all-in-one.debugForceWindowsUpgradeNotification",
-        "title": "%command.debugForceWindowsUpgradeNotification.title%"
-      },
-      {
-        "command": "stata-all-in-one.debugResetWindowsUpgradeNotification",
-        "title": "%command.debugResetWindowsUpgradeNotification.title%"
-      },
-      {
         "command": "stata-all-in-one.debugResetEmbeddedConsoleOverflowNotice",
         "title": "%command.debugResetEmbeddedConsoleOverflowNotice.title%"
       },
@@ -337,6 +329,14 @@
         "command": "stata-all-in-one.stopConsoleExecution",
         "title": "%command.stopConsoleExecution.title%",
         "icon": "$(stop-circle)"
+      },
+      {
+        "command": "stata-all-in-one.rollbackVersion",
+        "title": "%command.rollbackVersion.title%"
+      },
+      {
+        "command": "stata-all-in-one.debugResetPreviewNotification",
+        "title": "%command.debugResetPreviewNotification.title%"
       }
     ],
     "keybindings": [
@@ -449,6 +449,12 @@
           "title": "%command.showSponsor.short%",
           "when": "editorLangId == stata && config.stata-all-in-one.showActionButtons",
           "group": "navigation@1"
+        },
+        {
+          "command": "stata-all-in-one.rollbackVersion",
+          "title": "%command.rollbackVersion.short%",
+          "when": "editorLangId == stata && config.stata-all-in-one.showActionButtons",
+          "group": "navigation@1.5"
         },
         {
           "command": "stata-all-in-one.reportBug",

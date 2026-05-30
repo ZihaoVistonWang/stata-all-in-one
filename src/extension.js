@@ -29,7 +29,7 @@ const config = require('./utils/config');
 
 // Execution session state context key for "stop" button visibility
 const CONSOLE_SESSION_ACTIVE_KEY = 'stata-all-in-one.consoleSessionActive';
-const { showWindowsUpgradeNotification, forceShowWindowsUpgradeNotification, resetWindowsUpgradeNotification } = require('./modules/windowsUpgradeNotification');
+const { showPreviewNotification, resetPreviewNotification, executeRollback } = require('./modules/previewNotification');
 
 const MIGRATION_MESSAGES = {
     en: {
@@ -229,11 +229,11 @@ async function activate(context) {
         console.log('Stata All in One: Stata Outline not installed, skipping migration');
     }
 
-    // Show Windows upgrade notification for v0.2.12
-    // showWindowsUpgradeNotification(context); // Disabled: no longer needed for embedded console era
-
     // Check for updates and show notification
     registerUpdateCheck(context);
+
+    // Show preview version notification for v0.2.15
+    showPreviewNotification(context);
 
     try {
         await ensureConsoleFontCache(context);
@@ -428,6 +428,15 @@ async function activate(context) {
     );
     context.subscriptions.push(sponsorCommand);
 
+    // Register rollback version command
+    const rollbackCommand = vscode.commands.registerCommand(
+        'stata-all-in-one.rollbackVersion',
+        () => {
+            executeRollback();
+        }
+    );
+    context.subscriptions.push(rollbackCommand);
+
     // Register data viewer command
     const { revealDataViewer } = require('./modules/runCode/embeddedConsole/dataViewer/panel');
     const dataViewerCommand = vscode.commands.registerCommand(
@@ -513,26 +522,6 @@ async function activate(context) {
         }
     );
     context.subscriptions.push(testUpdateCommand);
-    // Register debug command: Force show Windows upgrade notification
-    const forceWindowsNotificationCommand = vscode.commands.registerCommand(
-        'stata-all-in-one.debugForceWindowsUpgradeNotification',
-        async () => {
-            console.log('Stata All in One: Debug force Windows upgrade notification command executed');
-            await forceShowWindowsUpgradeNotification(context);
-        }
-    );
-    context.subscriptions.push(forceWindowsNotificationCommand);
-
-    // Register debug command: Reset Windows upgrade notification
-    const resetWindowsNotificationCommand = vscode.commands.registerCommand(
-        'stata-all-in-one.debugResetWindowsUpgradeNotification',
-        async () => {
-            console.log('Stata All in One: Debug reset Windows upgrade notification command executed');
-            await resetWindowsUpgradeNotification(context);
-            showInfo('Windows upgrade notification reset. It will show again on next extension activation.');
-        }
-    );
-    context.subscriptions.push(resetWindowsNotificationCommand);
 
     const resetEmbeddedConsoleOverflowNoticeCommand = vscode.commands.registerCommand(
         'stata-all-in-one.debugResetEmbeddedConsoleOverflowNotice',
@@ -544,6 +533,20 @@ async function activate(context) {
         }
     );
     context.subscriptions.push(resetEmbeddedConsoleOverflowNoticeCommand);
+
+    // Register debug command: Reset preview notification
+    const resetPreviewNotificationCommand = vscode.commands.registerCommand(
+        'stata-all-in-one.debugResetPreviewNotification',
+        async () => {
+            console.log('Stata All in One: Debug reset preview notification command executed');
+            await resetPreviewNotification(context);
+            const { MESSAGES } = require('./modules/previewNotification');
+            const lang = getUserLanguage();
+            const t = MESSAGES[lang] || MESSAGES.en;
+            showInfo(t.resetDone);
+        }
+    );
+    context.subscriptions.push(resetPreviewNotificationCommand);
     console.log('Stata All in One: All commands registered');
 }
 
