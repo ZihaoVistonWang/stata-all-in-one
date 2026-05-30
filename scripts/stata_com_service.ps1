@@ -12,7 +12,7 @@ $ErrorActionPreference = 'Continue'
 $stata = $null
 $initialized = $false
 
-# ── Embed C# WindowManager for foreground Stata window ──────────
+# ── Embed C# WindowManager + KeyboardHelper for foreground ─────
 # (same P/Invoke code used by win_run_do_file_*.ps1 scripts)
 try {
     Add-Type -TypeDefinition @"
@@ -20,6 +20,20 @@ using System;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Collections.Generic;
+
+public class KeyboardHelper {
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
+
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+
+    [DllImport("user32.dll")]
+    public static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
+}
 
 public class WindowManager {
     public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
@@ -90,6 +104,79 @@ function Write-Response($obj) {
     Write-Output $json
 }
 
+function Test-GraphWindowTitle($title) {
+    if (-not $title) {
+        return $false
+    }
+    return ($title -match "(?i)^graph(?:\s|\(|-|$)")
+}
+
+function Get-StataProcess {
+    $regex = "(?i)^stata(mp|se|ic|be)?[^a-z]*$"
+    return Get-Process | Where-Object { $_.ProcessName -match $regex } | Select-Object -First 1
+}
+
+function Test-StataMainWindow($proc) {
+    if (-not $proc) {
+        return $false
+    }
+    try {
+        $handles = [WindowManager]::GetProcessWindows($proc.Id)
+        foreach ($h in $handles) {
+            $title = [WindowManager]::GetWindowTitle($h)
+            if ($title -match "(?i)^stata") {
+                return $true
+            }
+        }
+    } catch { }
+    return $false
+}
+
+function Wait-StataGuiReady([int]$timeoutSeconds = 20) {
+    $startTime = Get-Date
+    $timeout = New-TimeSpan -Seconds $timeoutSeconds
+
+    while ((Get-Date) - $startTime -lt $timeout) {
+        $proc = Get-StataProcess
+        if ($proc -and (Test-StataMainWindow $proc)) {
+            return $true
+        }
+        Start-Sleep -Milliseconds 250
+    }
+
+    return $false
+}
+
+function Ensure-StataGuiRunning {
+    $proc = Get-StataProcess
+    if ($proc) {
+        Write-Diag "Stata GUI process already running: pid=$($proc.Id)"
+        [void](Wait-StataGuiReady 10)
+        return $true
+    }
+
+    if (-not (Test-Path -LiteralPath $stataPath)) {
+        Write-Diag "Invalid Stata path: $stataPath"
+        return $false
+    }
+
+    Write-Diag "Starting Stata GUI normally before COM attach: $stataPath"
+    try {
+        Start-Process -FilePath $stataPath
+    } catch {
+        Write-Diag "Failed to start Stata GUI: $_"
+        return $false
+    }
+
+    if (-not (Wait-StataGuiReady 20)) {
+        Write-Diag "Timed out waiting for Stata GUI main window"
+        return $false
+    }
+
+    Start-Sleep -Milliseconds 1000
+    return $true
+}
+
 function Invoke-Init($doRegister) {
     # Step 1: Register Stata Automation if requested
     if ($doRegister) {
@@ -107,7 +194,13 @@ function Invoke-Init($doRegister) {
         }
     }
 
-    # Step 2: Try to create COM object
+    # Step 2: Start regular GUI first. Let COM attach to that singleton instead
+    # of letting New-Object launch Stata as an Automation server.
+    if (-not (Ensure-StataGuiRunning)) {
+        return @{ success = $false; error = 'Failed to start Stata GUI before COM attach' }
+    }
+
+    # Step 3: Try to create COM object
     Write-Diag "Creating COM object: stata.StataOLEApp"
     try {
         $script:stata = New-Object -ComObject stata.StataOLEApp
@@ -149,11 +242,38 @@ function Invoke-Execute($command) {
     Write-Diag "DoCommandAsync: $cmdPreview"
 
     try {
+        Write-Diag "Foregrounding Stata before DoCommandAsync"
+        Invoke-Foreground | Out-Null
+        Start-Sleep -Milliseconds 150
+
         $errorCode = $script:stata.DoCommandAsync($command)
         Write-Diag "DoCommandAsync returned errorCode=$errorCode"
         return @{ success = $true; errorCode = $errorCode }
     } catch {
         Write-Diag "DoCommandAsync FAILED: $_"
+        return @{ success = $false; error = $_.Exception.Message; errorCode = -1 }
+    }
+}
+
+function Invoke-ExecuteSync($command) {
+    if (-not $script:initialized -or -not $script:stata) {
+        Write-Diag "ExecuteSync rejected: not initialized"
+        return @{ success = $false; error = 'COM object not initialized' }
+    }
+
+    $cmdPreview = if ($command.Length -gt 100) {
+        $command.Substring(0, 100) + '...'
+    } else {
+        $command
+    }
+    Write-Diag "DoCommand: $cmdPreview"
+
+    try {
+        $errorCode = $script:stata.DoCommand($command)
+        Write-Diag "DoCommand returned errorCode=$errorCode"
+        return @{ success = $true; errorCode = $errorCode }
+    } catch {
+        Write-Diag "DoCommand FAILED: $_"
         return @{ success = $false; error = $_.Exception.Message; errorCode = -1 }
     }
 }
@@ -184,9 +304,9 @@ function Invoke-Break {
     }
 }
 
-function Invoke-Foreground {
-    # Show all Stata windows and bring main window to foreground
-    # This ensures Graph, Viewer, Data Editor windows are also visible
+function Invoke-Foreground([bool]$preferGraph = $false) {
+    # Show all Stata windows and bring either the Graph window or main window
+    # to foreground. Graph is preferred after a post-run graph display.
 
     # First use COM to restore/show Stata
     if ($script:stata) {
@@ -202,6 +322,7 @@ function Invoke-Foreground {
         if ($proc) {
             $handles = [WindowManager]::GetProcessWindows($proc.Id)
             $mainHandle = [IntPtr]::Zero
+            $graphHandle = [IntPtr]::Zero
 
             # First pass: restore ALL minimized windows
             foreach ($h in $handles) {
@@ -209,19 +330,66 @@ function Invoke-Foreground {
                 if ([WindowManager]::IsWindowMinimized($h)) {
                     [WindowManager]::ShowWindow($h, 9) | Out-Null  # SW_RESTORE
                     Write-Diag "Restored window: $title"
+                } elseif ([WindowManager]::IsWindowMaximized($h)) {
+                    [WindowManager]::ShowWindow($h, 3) | Out-Null  # SW_MAXIMIZE
                 }
                 # Track main Stata window for foreground focus
                 if ($title -match "(?i)^stata" -and $mainHandle -eq [IntPtr]::Zero) {
                     $mainHandle = $h
                 }
+                if ((Test-GraphWindowTitle $title) -and $graphHandle -eq [IntPtr]::Zero) {
+                    $graphHandle = $h
+                }
             }
 
             Start-Sleep -Milliseconds 100
 
-            # Second pass: bring main Stata window to foreground
-            if ($mainHandle -ne [IntPtr]::Zero) {
-                [WindowManager]::SetForegroundWindow($mainHandle) | Out-Null
-                Write-Diag "Stata main window foregrounded"
+            $targetHandle = $mainHandle
+            $targetLabel = 'Stata main window'
+            if ($preferGraph -and $graphHandle -ne [IntPtr]::Zero) {
+                $targetHandle = $graphHandle
+                $targetLabel = 'Stata Graph window'
+            }
+
+            if ($targetHandle -ne [IntPtr]::Zero) {
+                # Trick Windows into allowing SetForegroundWindow from a background process.
+                # Simulate an Alt key press to get foreground activation permission,
+                # then attach our input thread to the foreground thread.
+                try {
+                    $VK_MENU = 0x12
+                    $KEYEVENTF_KEYUP = 0x0002
+
+                    $foregroundHwnd = [KeyboardHelper]::GetForegroundWindow()
+                    $foregroundThreadId = 0
+                    [KeyboardHelper]::GetWindowThreadProcessId($foregroundHwnd, [ref] $foregroundThreadId) | Out-Null
+
+                    $currentThreadId = [System.Threading.Thread]::CurrentThread.ManagedThreadId
+                    # Use Win32 GetCurrentThreadId via P/Invoke — approximate with AttachThreadInput workaround
+                    $attached = $false
+                    if ($foregroundThreadId -ne 0) {
+                        # Attach our thread to the foreground thread to gain foreground rights
+                        $attached = [KeyboardHelper]::AttachThreadInput(
+                            [AppDomain]::GetCurrentThreadId(), $foregroundThreadId, $true
+                        )
+                    }
+
+                    # Simulate Alt key press to trigger foreground permission
+                    [KeyboardHelper]::keybd_event($VK_MENU, 0, 0, [UIntPtr]::Zero)
+                    Start-Sleep -Milliseconds 30
+                    [KeyboardHelper]::keybd_event($VK_MENU, 0, $KEYEVENTF_KEYUP, [UIntPtr]::Zero)
+                    Start-Sleep -Milliseconds 50
+
+                    # Now SetForegroundWindow should work
+                    [WindowManager]::SetForegroundWindow($targetHandle) | Out-Null
+
+                    if ($attached) {
+                        [KeyboardHelper]::AttachThreadInput(
+                            [AppDomain]::GetCurrentThreadId(), $foregroundThreadId, $false
+                        )
+                    }
+                } catch { }
+
+                Write-Diag "$targetLabel foregrounded"
             }
         }
     } catch {
@@ -294,6 +462,11 @@ while ($true) {
             # Bring Stata to foreground after sending code
             Invoke-Foreground | Out-Null
         }
+        'executeSync' {
+            $result = Invoke-ExecuteSync $req.command
+            $result | Add-Member -NotePropertyName 'id' -NotePropertyValue $id -Force
+            Write-Response $result
+        }
         'status' {
             $result = Invoke-Status
             $result | Add-Member -NotePropertyName 'id' -NotePropertyValue $id -Force
@@ -306,6 +479,11 @@ while ($true) {
         }
         'foreground' {
             $result = Invoke-Foreground
+            $result | Add-Member -NotePropertyName 'id' -NotePropertyValue $id -Force
+            Write-Response $result
+        }
+        'foregroundGraph' {
+            $result = Invoke-Foreground $true
             $result | Add-Member -NotePropertyName 'id' -NotePropertyValue $id -Force
             Write-Response $result
         }

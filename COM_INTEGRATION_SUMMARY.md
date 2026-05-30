@@ -93,25 +93,27 @@ VS Code → windows.js → comService.js (Node.js 单例)
 - `globalState` key: `stataComLastRegisteredPath`
 - 路径不变不触发 UAC，路径变了自动重新注册
 
+## 当前排查方案
+
+### 1. Graph 作图窗口消失
+- **现象**：`twoway line` 等作图命令执行后，Graph 窗口闪现后消失，最后没有可见作图窗口
+- **调研结论**：
+  - Stata Automation 官方文档说明 `DoCommandAsync()` 是把命令加入 Stata 队列，等价于在 Stata Command window 输入命令；未说明 COM 会主动关闭 Graph 窗口
+  - 旧的 `win_run_do_file_*.ps1` 脚本通过普通 GUI 启动 Stata + 粘贴 `do "..."` 执行，Graph 窗口正常
+- **当前实验**：
+  - 初始化 COM 前，先用 `Start-Process -FilePath $stataPath` 普通启动 Stata GUI，并等待主窗口出现
+  - 然后再 `New-Object -ComObject stata.StataOLEApp` 附着到同一个 Stata 单实例
+  - 后续所有代码（包括作图命令）仍通过 `DoCommandAsync('do "..."')` 执行，不做作图命令特殊分流
+  - 每次 `DoCommandAsync` 前先恢复并激活 Stata 主窗口，再发送 `do "..."` 命令
+  - 目的：验证问题是否由 `New-Object -ComObject` 直接启动 Stata Automation server 引起
+
 ## ⚠️ 未解决的问题
 
-### 1. Graph 作图窗口秒关（核心问题）
-- **现象**：`twoway line` 等作图命令执行后，Graph 窗口闪现后立即关闭
-- **尝试过的方案**：
-  - `DoCommandAsync` + `waitAndForeground` 轮询 → 图窗口仍秒关
-  - `DoCommand`（同步）等待 do-file 执行完 → 图窗口仍秒关
-  - `Invoke-Foreground` 显示所有 Stata 进程窗口 → 无效
-- **猜测方向**：
-  - COM 模式下 Stata 的 Graph 窗口生命周期可能不同
-  - `do "file.do"` 结束后 Stata 可能自动清理 Graph 资源
-  - 可能需要 `graph export` 导出图片而非依赖 Graph 窗口显示
-  - 或需要 `set graph on` / `graph display` 等命令保持窗口
-
-### 2. DoCommandAsync 超时风险
+### 1. DoCommandAsync 超时风险
 - `waitAndForeground` 轮询 `UtilIsStataFree()` 时，do-file 可能需要很长时间
 - 当前超时 60 秒，超时后强制 foreground（但图可能还没渲染）
 
-### 3. 未测试其他 Stata 版本（15、16）
+### 2. 未测试其他 Stata 版本（15、16）
 - 只测了 17 SE 和 18 MP，旧版本 API 可能有差异
 
 ## key Files for Implementation

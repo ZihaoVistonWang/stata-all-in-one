@@ -87,9 +87,10 @@ async function _tryComExecution(code, tmpFilePath, stataPath, docDir, context) {
         const result = await comService.execute(runCommand);
         if (result.success) {
             console.log('[windows.js] COM do command sent');
-            // Fire-and-forget: poll until Stata finishes, then foreground
-            // (Graph windows need time to render after DoCommandAsync returns)
-            comService.waitAndForeground(60000).catch(() => {});
+            // Fire-and-forget: keep VS Code responsive while Stata runs.
+            comService.waitAndForeground(60000).catch((err) => {
+                console.error('[windows.js] COM foreground task failed:', err.message);
+            });
             return { success: true };
         }
 

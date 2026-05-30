@@ -166,15 +166,7 @@ class StataComService {
      * @param {number} timeoutMs - max wait time (default 60s)
      */
     async waitAndForeground(timeoutMs = 60000) {
-        const start = Date.now();
-        while (Date.now() - start < timeoutMs) {
-            const s = await this.status();
-            if (s.isFree) {
-                break; // Stata finished — graph windows should be ready
-            }
-            // Poll every 500ms
-            await new Promise(r => setTimeout(r, 500));
-        }
+        await this._waitUntilFree(timeoutMs);
         return await this.foreground();
     }
 
@@ -228,6 +220,18 @@ class StataComService {
     }
 
     // ── Private methods ─────────────────────────────────────
+
+    async _waitUntilFree(timeoutMs) {
+        const start = Date.now();
+        while (Date.now() - start < timeoutMs) {
+            const s = await this.status();
+            if (s.isFree) {
+                return true;
+            }
+            await new Promise(r => setTimeout(r, 500));
+        }
+        return false;
+    }
 
     /**
      * Internal: spawn PS process and send init command.
