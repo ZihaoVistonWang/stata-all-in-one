@@ -149,27 +149,6 @@ class StataComService {
     }
 
     /**
-     * Send one Stata command synchronously via DoCommand.
-     * Intended for short follow-up commands after async execution finishes.
-     *
-     * @param {string} code - Single Stata command to execute
-     * @returns {Promise<object>} { success, errorCode?, error? }
-     */
-    async executeSync(code) {
-        if (!this._initialized) {
-            return { success: false, error: 'COM service not initialized' };
-        }
-        if (!this._childProcess) {
-            return { success: false, error: 'COM child process not running' };
-        }
-
-        return await this._sendRequest({
-            action: 'executeSync',
-            command: code
-        });
-    }
-
-    /**
      * Get Stata free/busy status.
      */
     async status() {
@@ -192,32 +171,6 @@ class StataComService {
     }
 
     /**
-     * After an async graph command finishes, redisplay the current graph.
-     * If Automation caused the Graph window to disappear, Stata keeps the
-     * graph object in memory and graph display reopens the window.
-     *
-     * @param {number} timeoutMs - max wait time (default 60s)
-     */
-    async redisplayGraphAndForeground(timeoutMs = 60000, graphFilePath = null) {
-        const isFree = await this._waitUntilFree(timeoutMs);
-        if (!isFree) {
-            return await this.foreground();
-        }
-        if (graphFilePath) {
-            const graphResult = await this.openGraphFile(graphFilePath);
-            if (graphResult.success) {
-                return graphResult;
-            }
-            console.error('[StataComService] openGraphFile failed:', graphResult.error || 'unknown error');
-        }
-        const displayResult = await this.executeSync('capture graph display');
-        if (!displayResult.success) {
-            return displayResult;
-        }
-        return await this.foregroundGraph();
-    }
-
-    /**
      * Bring Stata window to foreground.
      */
     async foreground() {
@@ -225,31 +178,6 @@ class StataComService {
             return { success: false };
         }
         return await this._sendRequest({ action: 'foreground' });
-    }
-
-    /**
-     * Bring Stata Graph window to foreground, falling back to the main window.
-     */
-    async foregroundGraph() {
-        if (!this._initialized) {
-            return { success: false };
-        }
-        return await this._sendRequest({ action: 'foregroundGraph' });
-    }
-
-    /**
-     * Open a saved Stata graph through the GUI command window.
-     * This avoids creating the Graph window through COM, which can close
-     * immediately on some Windows/Stata combinations.
-     */
-    async openGraphFile(graphFilePath) {
-        if (!this._initialized) {
-            return { success: false };
-        }
-        return await this._sendRequest({
-            action: 'openGraphFile',
-            path: graphFilePath
-        });
     }
 
     /**

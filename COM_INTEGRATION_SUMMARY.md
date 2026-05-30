@@ -93,21 +93,18 @@ VS Code → windows.js → comService.js (Node.js 单例)
 - `globalState` key: `stataComLastRegisteredPath`
 - 路径不变不触发 UAC，路径变了自动重新注册
 
-## 已处理的问题
+## 当前排查方案
 
 ### 1. Graph 作图窗口消失
 - **现象**：`twoway line` 等作图命令执行后，Graph 窗口闪现后消失，最后没有可见作图窗口
 - **调研结论**：
   - Stata Automation 官方文档说明 `DoCommandAsync()` 是把命令加入 Stata 队列，等价于在 Stata Command window 输入命令；未说明 COM 会主动关闭 Graph 窗口
-  - Stata 图形窗口机制说明：关闭 Graph 窗口不会删除底层 graph，可以通过 `graph display` 重新显示
-- **修复方案**：
-  - Windows COM 路径检测到作图命令后，先继续用 `DoCommandAsync('do "..."')` 保持 VS Code 非阻塞
-  - 后台轮询 `UtilIsStataFree()`，确认 do-file 执行完
-  - 在 do-file 中给作图命令自动保存最后一个 `.gph` 临时图文件
-  - do-file 结束后优先通过 GUI 命令窗口粘贴执行 `graph use "临时图.gph", name(Graph, replace)`，避免再用 COM 创建 Graph 窗口
-  - 如果 `.gph` 不存在或打开失败，再回退到同步 `DoCommand('capture graph display')`
-  - 最后优先把 Graph 窗口置前；如果没有 Graph 窗口则回退到 Stata 主窗口
-  - 若用户显式 `graph close` / `graph drop` / `set graphics off`，或作图命令带 `nodraw`，不会强制重显图窗
+  - 旧的 `win_run_do_file_*.ps1` 脚本通过普通 GUI 启动 Stata + 粘贴 `do "..."` 执行，Graph 窗口正常
+- **当前实验**：
+  - 初始化 COM 前，先用 `Start-Process -FilePath $stataPath` 普通启动 Stata GUI，并等待主窗口出现
+  - 然后再 `New-Object -ComObject stata.StataOLEApp` 附着到同一个 Stata 单实例
+  - 后续所有代码（包括作图命令）仍通过 `DoCommandAsync('do "..."')` 执行，不做作图命令特殊分流
+  - 目的：验证问题是否由 `New-Object -ComObject` 直接启动 Stata Automation server 引起
 
 ## ⚠️ 未解决的问题
 
