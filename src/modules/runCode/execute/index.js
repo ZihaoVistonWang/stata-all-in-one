@@ -157,7 +157,7 @@ async function runCurrentSection(context, editor = null) {
         
         if (onWindows) {
             if (runMode === config.RUN_MODES.externalApp) {
-                runOnWindows(codeToRun, tmpFilePath, stataPathOnWindows, docDir);
+                await runOnWindows(codeToRun, tmpFilePath, stataPathOnWindows, docDir, context);
                 vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', false);
             } else {
                 vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
@@ -293,7 +293,7 @@ async function runArbitraryCode(context, code, options = {}) {
         let result = null;
         if (onWindows) {
             if (runMode === config.RUN_MODES.externalApp) {
-                runOnWindows(normalizedCode, tmpFilePath, stataPathOnWindows, docDir);
+                await runOnWindows(normalizedCode, tmpFilePath, stataPathOnWindows, docDir, context);
                 await vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', false);
                 result = { success: true };
                 await refreshMemoryVarsAfterRun(context, result);
@@ -361,7 +361,7 @@ async function maybeOfferGuiFallback(codeToRun, tmpFilePath, docDir, context, re
         const rawPath = config.getStataPathOnWindows();
         const stataPath = stripSurroundingQuotes(rawPath.trim());
         if (stataPath) {
-            runOnWindows(codeToRun, tmpFilePath, stataPath, docDir);
+            await runOnWindows(codeToRun, tmpFilePath, stataPath, docDir, context);
         }
     } else {
         runOnMac(codeToRun, tmpFilePath, false, docDir, context);

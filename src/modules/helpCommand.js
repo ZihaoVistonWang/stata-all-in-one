@@ -105,7 +105,7 @@ async function runHelpCommand() {
         fs.writeFileSync(tmpFilePath, helpCode, 'utf8');
         
         if (onWindows) {
-            runOnWindows(helpCode, tmpFilePath, stataPathOnWindows);
+            await runOnWindows(helpCode, tmpFilePath, stataPathOnWindows, null, null);
         } else if (onMac) {
             runOnMac(helpCode, tmpFilePath, true); // Pass true to indicate this is a help command
         }
