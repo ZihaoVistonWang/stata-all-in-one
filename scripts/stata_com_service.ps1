@@ -173,7 +173,7 @@ function Ensure-StataGuiRunning {
         return $false
     }
 
-    Start-Sleep -Milliseconds 1000
+    Start-Sleep -Milliseconds 500
     return $true
 }
 
@@ -212,7 +212,7 @@ function Invoke-Init($doRegister) {
 
         # Warm-up: run a simple DoCommand to ensure Stata is fully initialized
         # DoCommand is synchronous — blocks until Stata finishes the command
-        Start-Sleep -Milliseconds 1000
+        Start-Sleep -Milliseconds 500
         Write-Diag "Running warm-up command..."
         $warmupResult = $script:stata.DoCommand('display "Stata COM ready"')
         Write-Diag "Warm-up result: errorCode=$warmupResult"
@@ -244,7 +244,7 @@ function Invoke-Execute($command) {
     try {
         Write-Diag "Foregrounding Stata before DoCommandAsync"
         Invoke-Foreground | Out-Null
-        Start-Sleep -Milliseconds 150
+        Start-Sleep -Milliseconds 50
 
         $errorCode = $script:stata.DoCommandAsync($command)
         Write-Diag "DoCommandAsync returned errorCode=$errorCode"
@@ -342,8 +342,6 @@ function Invoke-Foreground([bool]$preferGraph = $false) {
                 }
             }
 
-            Start-Sleep -Milliseconds 100
-
             $targetHandle = $mainHandle
             $targetLabel = 'Stata main window'
             if ($preferGraph -and $graphHandle -ne [IntPtr]::Zero) {
@@ -375,9 +373,9 @@ function Invoke-Foreground([bool]$preferGraph = $false) {
 
                     # Simulate Alt key press to trigger foreground permission
                     [KeyboardHelper]::keybd_event($VK_MENU, 0, 0, [UIntPtr]::Zero)
-                    Start-Sleep -Milliseconds 30
+                    Start-Sleep -Milliseconds 20
                     [KeyboardHelper]::keybd_event($VK_MENU, 0, $KEYEVENTF_KEYUP, [UIntPtr]::Zero)
-                    Start-Sleep -Milliseconds 50
+                    Start-Sleep -Milliseconds 30
 
                     # Now SetForegroundWindow should work
                     [WindowManager]::SetForegroundWindow($targetHandle) | Out-Null
@@ -459,8 +457,6 @@ while ($true) {
             $result = Invoke-Execute $req.command
             $result | Add-Member -NotePropertyName 'id' -NotePropertyValue $id -Force
             Write-Response $result
-            # Bring Stata to foreground after sending code
-            Invoke-Foreground | Out-Null
         }
         'executeSync' {
             $result = Invoke-ExecuteSync $req.command
