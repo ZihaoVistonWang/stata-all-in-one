@@ -13,13 +13,13 @@ Stata All in One
 </p>
 
 <p align="center">
-   | <b>版本:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.2.13</a> | <b>作者:</b> <a href="https://zihaowang.cn">王梓豪</a> | <b>Translate:</b>
+   | <b>版本:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.2.14</a> | <b>作者:</b> <a href="https://zihaowang.cn">王梓豪</a> | <b>Translate:</b>
   <a href="https://github.com/ZihaoVistonWang/stata-all-in-one">English Version</a> |
 </p>
 
 ---
 
-<h3 align="center">一站式 Stata 体验：</br>语法高亮 + 代码提示 + 智能大纲 + 运行代码 + 快捷编辑，<b>All in One</b>!</h3>
+<h3 align="center">一站式 Stata 体验：</br>运行代码 + 语法高亮 + 代码提示 + 智能大纲 + 快捷编辑，<b>All in One</b>!</h3>
 
 <p align="center">
    <a href="https://marketplace.visualstudio.com/items?itemName=ZihaoVistonWang.stata-all-in-one"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fapi.zihaowang.cn%2Fvscode-install&style=for-the-badge&labelColor=363a4f&color=a6da95&label=VS Code安装" alt="VS Code 安装次数"></a>
@@ -32,6 +32,33 @@ Stata All in One
 
 ---
 
+<table style="border-collapse: separate; border-spacing: 0; border-radius: 10px; overflow: hidden; display: block;">
+<tr>
+<td style="
+  background: linear-gradient(135deg, #ff6b6b10, #ffd93d10);
+  border: 3px solid #ff6b6b;
+  border-radius: 10px;
+  padding: 18px 22px;
+">
+<p style="margin:0 0 12px 0; font-size:1.25em; text-align:center;">
+  🚨 <strong>预览版提醒</strong> 🚨
+</p>
+<p style="margin:0 0 8px 0; padding-left: 1.6em; text-indent: -1.6em;">
+  ⚠️ <strong>v0.2.14 为预览版本（pre-release）</strong>，可能存在较多 bug，不建议在生产环境中使用。感谢每一位愿意尝鲜并反馈问题的用户！
+</p>
+<p style="margin:0 0 8px 0; padding-left: 1.6em; text-indent: -1.6em;">
+  📧 如遇到任何问题，请将 bug 描述、复现步骤和截图发送至 <a href="mailto:hi@zihaowang.cn"><strong>hi@zihaowang.cn</strong></a>。
+</p>
+<p style="margin:0 0 8px 0; padding-left: 1.6em; text-indent: -1.6em;">
+  🎯 <strong>正式版 v0.3.0 预计于 2026 年 6 月中旬发布</strong>，届时将修复已知问题并提供更稳定的体验。
+</p>
+<p style="margin:0; padding-left: 1.6em; text-indent: -1.6em;">
+  💡 本文档中 <span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">粉色高亮</span> 部分为 v0.2.14 版本新增功能，欢迎体验并提出宝贵意见！🙏
+</p>
+</td>
+</tr>
+</table>
+
 ## 致谢
 
 感谢小红书用户 **Rich\*\*d**、微信用户 **早起\*\*阳光** 、Buy me a coffee 用户 **LB\*\*PG@gmail.com** 对本项目的支持。
@@ -39,17 +66,29 @@ Stata All in One
 ## 功能概览
 
 <p align="center">
-   <img src="img/example-marked.png" alt="An example of Stata All in One Icon"/>
+   <a href="https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/img/example-marked-cn.jpg"><img src="img/example-marked-cn.jpg" alt="功能展示图"/> 点击查看大图 </a>
 </p>
 
-### 1. 增强语法高亮与代码提示
+### 1. 代码运行 (Stata 交互)
+
+- **平台支持**：无需额外扩展即可与 **macOS** 和 **Windows** 上的 Stata 无缝集成。
+- **两种运行模式**：
+  - **嵌入式控制台**（默认模式）：<span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">现在可以在 VS Code 内直接运行并展示Stata输出啦！包括*命令结果*、*错误信息*、*命令行窗口*、*数据查看*和*图形输出*，真正实现 IDE 一体化体验。</span>
+  - **外部应用**：继续支持传统的通过 Stata 窗口运行代码的方式，适合喜欢使用 Stata 原生界面的用户。<span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">Windows端现在使用[Stata COM自动化](https://www.stata.com/automation/)，性能相比之前基于 PowerShell 的实现有显著提升。</span>
+- **多场景执行策略**：
+  - **章节运行**：当光标在标题行（如 `** # 标题`）时，点击 ▶️ 按钮 或按 `Ctrl/Cmd + D`，将执行从该标题起始至下一个同级或高级别标题前的所有代码（即整个章节）。
+  - **单行运行**：当光标在普通代码行（选中）时，点击 ▶️ 按钮 或按 `Ctrl/Cmd + D`，只执行当前行代码。
+  - **选中运行**：当选中多行代码时，点击 ▶️ 按钮 或按 `Ctrl/Cmd + D`，执行选中行的代码。支持**模糊选中**——无需精确选中代码段的*首行*或*尾行*，系统会自动捕捉并运行选中内容涉及的全部行。
+
+### 2. 增强语法高亮与代码提示
 
 - **完整语法高亮和代码提示支持**：集成 [Stata Enhanced](https://github.com/kylebarron/language-stata) 语法引擎[^1]，为 `.do` 文件提供精确的语法高亮和代码提示（遵循 [MIT](https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/THIRD_PARTY_NOTICES.md) 许可）。
 - **自定义命令高亮**：支持为用户常用的第三方命令（如 `reghdfe`、`ivreghdfe`、`gtools` 等）添加关键字高亮，可在设置中自由配置。
+- **数据集变量名自动补全**：<span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">（运行一次代码后）在编辑器和控制台中输入变量名时，提供基于当前数据集的智能补全建议，提升编码效率。</span>
 
 [^1]: [Stata Enhanced](https://github.com/kylebarron/language-stata) 语法引擎由 Kyle Barron 开发，提供了对 Stata 语言的全面支持。本拓展遵循 [MIT](https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/THIRD_PARTY_NOTICES.md) 许可协议，感谢 Kyle Barron 的贡献！
 
-### 2. 智能大纲与结构导航
+### 3. 智能大纲与结构导航
 
 - **多级大纲识别**：自动识别 `**#` 至 `**######` 格式的注释行，最高支持 _6 级层级标题_。
   - **快捷键**：`Ctrl/Cmd + 1-6` 快速转换对应等级标题，`Ctrl/Cmd + 0` 恢复为普通代码行。
@@ -63,19 +102,15 @@ Stata All in One
 
 <a id="code_execution"></a>
 
-### 3. 代码运行 (Stata 交互)
+### 4. 数据查看器
 
-- **平台支持**：无需额外扩展即可与 **macOS** 和 **Windows** 上的 Stata 无缝集成。
-- **多场景执行策略**：
-  - **章节运行**：当光标在标题行（如 `** # 标题`）时，点击 ▶️ 按钮 或按 `Ctrl/Cmd + D`，将执行从该标题起始至下一个同级或高级别标题前的所有代码（即整个章节）。
-  - **单行运行**：当光标在普通代码行（无选中）时，点击 ▶️ 按钮 或按 `Ctrl/Cmd + D`，只执行当前行代码。
-  - **选中运行**：当选中多行代码时，点击 ▶️ 按钮 或按 `Ctrl/Cmd + D`，执行选中行的代码。支持**模糊选中**——无需精确选中代码段的*首行*或*尾行*，系统会自动捕捉并运行选中内容涉及的全部行。
-- **⚠️ 注意**
-  <a id="close_stata_other_windows"></a>
-  - Windows 系统下运行代码使用 Stata Automation COM，失败时降级为 PowerShell 按键模拟。
-  - Windows 系统下运行代码时，如果没有唤起Stata并运行代码，请尝试打开`发送代码前关闭 Stata 其他窗口`选项（设置项 `stata-all-in-one.closeStataOtherWindowsBeforeSendingCode`）。
+- **即点即看**：<span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">点击Vs Code资源管理器中的 `.dta` 文件，即可在全新的 `数据查看器` 面板中打开数据集。</span>
+  - **变量信息**：变量表格显示变量名称、标签、类型等元数据。
+  - **数据浏览**：支持行列动态加载，无需打开Stata，现在在Vs Code中就能轻松浏览大数据集。
+- **跑完就看**：<span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">使用`嵌入控制台`运行模式跑完代码后，可以立即在`控制台`面板中的`数据查看器`中查看上述结果。</span>
+- **数据过滤**：<span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">提供 Stata 风格的列过滤功能，支持快速定位感兴趣的数据子集。</span>
 
-### 4. 高效分隔线与样式
+### 5. 高效分隔线与样式
 
 - **快速插入**：支持多种符号，显著提升代码的可读性。
   - **标准分隔符**：通过 `Ctrl/Cmd + [符号]` 快速插入分隔线：
@@ -89,31 +124,47 @@ Stata All in One
   - **标题修饰**：选中标题的若干字符按快捷键，将生成带有平衡装饰符的标题（例如：`**# === 标题内容 ===`），且不影响大纲识别。
     - 标题居中：如果使用 **标题修饰** + **自定义*空格*分隔符**，则标题内容将自动居中显示。
 
-### 5. 更多精彩
+### 6. 更多精彩
 
-1. 注释增强（Enhanced Comments）
+1. 优化嵌入式控制台
+   - **图片输出**
+     - **直接显示**：<span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">在嵌入式控制台中直接渲染 Stata 图形输出。</span>
+     - **导出选项**：<span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">支持将图形保存为SVG、PNG（可配置 DPI）或复制到剪贴板。</span>
+     - **全屏查看**：<span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">点击图形可在全屏模式下查看细节。</span>
+
+   - **进度显示**
+     - **命令执行状态**：<span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">对于像`bootstrap`命令，控制台会显示其执行进度和状态。其他命令会显示运行时间，以便观察其运行状态。</span>
+
+   - **自定义字体**：
+     - **设置字体**：<span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">通过 `stata-all-in-one.consoleFontMode` 和 `stata-all-in-one.consoleCustomFontFamily` 设置项，用户可以自定义控制台的字体，以获得更好的阅读体验。</span>
+
+2. 注释增强
    - **一键切换**：使用 `Ctrl/Cmd + /` 快速切换行注释状态。
    - **可选样式**：默认使用 `//`，支持在设置中更改为其他合法注释符。
 
-2. 内置帮助（Built-in Help）
-   - **快捷帮助**：例如：选中 `regress`，按下快捷键`Ctrl/Cmd + Shift + H`，即可打开 Stata 的 `regress` 帮助页面。
+3. 内置帮助
+   - **输出帮助文本**：例如：选中 `regress`，按下快捷键`Ctrl/Cmd + Shift + H`，外部应用（externalApp）模式会打开 Stata 的 `regress` 帮助页面，<span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">而嵌入式控制台（embeddedConsole）模式则会在控制台中直接显示 `regress` 的帮助文本。</span>
+   - **悬浮帮助提示**：<span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">鼠标悬停在 Stata 命令上时显示帮助信息，并自动过滤掉一些非实用命令（如 `#delimit`、`using` 等）。</span>
 
 <a id="line-break"></a>
 
-3. 智能换行（Smart Line Break）
+4. 智能换行
    - **一键换行**：使用 `Shift+Enter` 在光标位置插入 Stata 换行符 `///`。
    - **智能缩进**：自动缩进 4 个空格
 
-4. 安全重命名模式（Safe Rename Mode）
+5. 安全重命名模式
    - **重命名**：选中变量，按 `F2` 键可重命名当前文档中的所有该变量。
    - **智能验证**：自动验证新名称是否符合 Stata 命名规则，并检查是否与内置命令或关键字冲突。
    - **命令保护**：智能识别并阻止重命名 Stata 命令（如 `reghdfe`、`outreg2`）及其选项（如 `absorb`、`ctitle`）。
 
 <a id="cd-to-do-file-dir"></a>
 
-5. 自动 `cd` 到 do 文件目录
+6. 自动 `cd` 到 do 文件目录
    - **自动设置工作目录**：开启后，Stata 首次启动时会自动将工作目录切换到当前 do 文件所在位置。
    <!-- - **默认关闭**：为避免影响习惯在 do 文件开头手动写 `cd` 命令的用户，防止产生意料之外的错误，该功能默认不启用。需要时可在设置中开启 `stata-all-in-one.cdToDoFileDir`。 -->
+
+7. 快速设置
+   - **设置按钮**：<span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">点击编辑器标题栏的齿轮图标，快速访问 Stata All in One 的相关设置。</span>
 
 ---
 
@@ -143,69 +194,94 @@ Stata All in One
 
 在 VS Code 设置中搜索 "Stata All in One"，配置以下选项：
 
-### 语法高亮和代码提示
-
-1. **自定义命令高亮** (`stata-all-in-one.customCommands`)
-   - 自定义需要高亮的 Stata 命令（字符串数组），默认包含 `reghdfe`。
-   - 示例：`["reghdfe", "ivreghdfe", "gtools", "winsor2", "outreg2"]`
-   - **配置后需要重载窗口生效**。
-
-### 大纲与导航
-
-2. **显示多级序号** (`stata-all-in-one.numberingShow`)
-   - `true`：大纲显示 `1.1`、`1.2.1` 等序号。
-   - `false`（默认）：显示原始标题。
-
-3. **自动添加标题序号** (`stata-all-in-one.numberingAdd`)
-   - `true`：**当启用序号时**，自动更新.do文件中的section标题以包含序号。
-   - `false`（默认）：仅大纲显示序号，不修改文件。
-
 ### 代码运行
 
-4. **显示运行按钮** (`stata-all-in-one.showRunButton`)
-   - `true`（默认）：是否在编辑器标题栏显示运行按钮。
+1. <span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">**运行模式** (`stata-all-in-one.runMode`)</span>
+   - `embeddedConsole`（默认）：在 VS Code 内置的 **控制台 | Stata All in One** 面板中运行代码，直接查看输出并交互。
+   - `externalApp`：将代码发送到系统安装的外部 Stata 应用执行。
+
+2. **Stata 版本（macOS）** (`stata-all-in-one.stataVersionOnMacOS`)
+   - Stata 运行版本。可选择 `StataMP`、`StataSE`、`StataIC`、`StataBE`。
+
+3. **Stata 路径（Windows）** (`stata-all-in-one.stataPathOnWindows`)
+   - Stata 执行文件路径（例如 `C:\Program Files\Stata17\StataMP-64.exe`）。
+
+4. **发送代码前关闭 Stata 其他窗口（Windows）** (`stata-all-in-one.closeStataOtherWindowsBeforeSendingCode`)
+   - `true`：发送运行命令前先关闭 Stata 辅助窗口（如 Viewer、Data Editor）。
+   - `false`（默认）：保留这些窗口，直接发送代码。
+
+5. **自动 cd 到 do 文件目录** (`stata-all-in-one.cdToDoFileDir`)
+   - `true`（默认）：Stata 首次启动时自动将工作目录切换到当前 do 文件所在位置。
+   - `false`：Stata 启动后不更改工作目录。
+
+6. **显示运行按钮** (`stata-all-in-one.showRunButton`)
+   - `true`（默认）：在编辑器标题栏显示运行按钮。
    - `false`：隐藏按钮。
 
-5. **显示操作按钮** (`stata-all-in-one.showActionButtons`)
+7. **显示操作按钮** (`stata-all-in-one.showActionButtons`)
    - `true`（默认）：在编辑器标题栏显示"Bug 反馈"和"打赏支持"按钮。
    - `false`：隐藏这两个按钮。
 
-6. **Stata 版本（macOS）** (`stata-all-in-one.stataVersionOnMacOS`)
-   - **[macOS]** Stata 运行版本。可选择 `StataMP`、`StataIC`、`StataSE` 版本。
-
-7. **Stata 路径（Windows）** (`stata-all-in-one.stataPathOnWindows`)
-   - **[Windows]** Stata 执行文件路径（例如 `C:\Program Files\Stata17\StataMP-64.exe`）。
-
-8. **发送代码前关闭 Stata 其他窗口（Windows）** (`stata-all-in-one.closeStataOtherWindowsBeforeSendingCode`)
-   - **[Windows]** `true`：发送运行命令前先关闭 Stata 辅助窗口（如 Viewer、Data Editor）。
-   - `false`（默认）：保留这些窗口，直接发送代码。
-
-10. **启用 Ctrl+Shift+D 作为运行快捷键** (`stata-all-in-one.enableCtrlShiftD`)
+8. **启用 Ctrl+Shift+D 作为运行快捷键** (`stata-all-in-one.enableCtrlShiftD`)
    - `true`：使用 `Ctrl/Cmd+Shift+D` 作为运行代码的快捷键。
    - `false`（默认）：使用默认的 `Ctrl/Cmd+D` 快捷键。
 
-11. **自动 cd 到 do 文件目录** (`stata-all-in-one.cdToDoFileDir`)
-    <!-- - `true`：Stata 首次启动时自动将工作目录切换到当前 do 文件所在位置。
-    - `false`（默认）：Stata 启动后不更改工作目录。 -->
-    - `true`（默认）：Stata 首次启动时自动将工作目录切换到当前 do 文件所在位置。
-    - `false`：Stata 启动后不更改工作目录。
+### 嵌入式控制台
+
+9. <span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">**控制台字体模式** (`stata-all-in-one.consoleFontMode`)</span>
+   - `editor`（默认）：跟随编辑器字体，降级到系统等宽字体。
+   - `system`：直接使用系统等宽字体。
+   - `custom`：使用下方自定义字体设置。
+
+10. <span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">**控制台自定义字体** (`stata-all-in-one.consoleCustomFontFamily`)</span>
+    - 当字体模式设为 `custom` 时，控制台使用的 CSS `font-family` 列表。
+    - 示例：`"Maple Mono NF CN", Menlo, Monaco, monospace`
+
+11. <span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">**图形导出 DPI** (`stata-all-in-one.graphPngDpi`)</span>
+    - 嵌入式控制台图形保存为 PNG 时的 DPI 值。默认 `600`，范围 72–1200。
+
+### 语法高亮和代码提示
+
+12. **自定义命令高亮** (`stata-all-in-one.customCommands`)
+    - 自定义需要高亮的 Stata 命令（字符串数组），默认包含 `reghdfe`。
+    - 示例：`["reghdfe", "ivreghdfe", "gtools", "winsor2", "outreg2"]`
+    - **配置后需要重载窗口生效**。
+
+### Hover 悬停帮助
+
+13. <span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">**启用悬停文档** (`stata-all-in-one.enableHoverDocs`)</span>
+    - `true`（默认）：鼠标悬停在 Stata 命令上时显示官方帮助信息。
+    - `false`：关闭悬停帮助。
+
+14. <span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">**额外 ADO 路径** (`stata-all-in-one.additionalAdoPaths`)</span>
+    - 用于扫描社区贡献命令帮助文件的额外 Stata ADO 路径。
+    - 示例：`["/Users/username/ado/personal", "C:\\Users\\username\\ado\\personal"]`
+
+### 大纲与导航
+
+15. **显示多级序号** (`stata-all-in-one.numberingShow`)
+    - `true`：大纲显示 `1.1`、`1.2.1` 等序号。
+    - `false`（默认）：显示原始标题。
+
+16. **自动添加标题序号** (`stata-all-in-one.numberingAdd`)
+    - `true`：**当启用序号时**，自动更新 `.do` 文件中的 section 标题以包含序号。
+    - `false`（默认）：仅大纲显示序号，不修改文件。
 
 ### 代码风格
 
-12. **注释样式** (`stata-all-in-one.commentStyle`)
+17. **注释样式** (`stata-all-in-one.commentStyle`)
     - `// `（默认）：用于切换注释的样式。选项包括 `//`、`*` 或 `/* ... */`
 
-13. **分隔线长度** (`stata-all-in-one.separatorLength`)
-    - 分割线所在行的字符总长度（包括前缀 \'\*\* #\' 和分隔符）。默认值：`60`
+18. **分隔线长度** (`stata-all-in-one.separatorLength`)
+    - 分割线所在行的字符总长度（包括前缀 `** #` 和分隔符）。默认值：`60`
 
 <a id="separatorSymmetric"></a>
 
-14. **分隔线对称性** (`stata-all-in-one.separatorSymmetric`)
+19. **分隔线对称性** (`stata-all-in-one.separatorSymmetric`)
+    - `true`：在分割线末尾添加 ` **` 以保证视觉对称（例如 `** === 标题 === **`）。
+    - `false`（默认）：分割线不添加末尾后缀。
 
-- `true`：在分割线末尾添加 ` **` 以保证视觉对称（例如 `** === 标题 === **`）。
-- `false`（默认）：分割线不添加末尾后缀。
-
-> **注意**：修改设置后需重新打开 `.do` 文件生效。禁用 `numberingAdd` 时，文件中现有序号将被自动移除。
+> **注意**：修改 `numberingShow`、`numberingAdd`、`customCommands` 设置后需重新打开 `.do` 文件生效。禁用 `numberingAdd` 时，文件中现有序号将被自动移除。
 
 ---
 
@@ -223,6 +299,7 @@ Stata All in One
 
 | 版本   | 更新内容                                                                           | 发布日期   |
 | ------ | ---------------------------------------------------------------------------------- | ---------- |
+| 0.2.14 | 预览版：引入嵌入式控制台、数据查看器和图形支持等核心功能；优化 Hover 帮助显示；修复已知问题 | 2024-05-30 |
 | 0.2.13 | Windows 下运行代码时，不再把已贴靠或最大化 的 Stata 窗口还原成更小的普通窗口，现会保持 Stata 当前窗口大小不变 | 2026-03-12 |
 | 0.2.12 | 重构 Windows 端代码执行逻辑；新增配置：发送代码前可选关闭 Viewer、数据编辑器等辅助窗口；新增配置：是否显示“Bug 反馈”和“项目支持”按钮 | 2026-03-05 |
 | 0.2.11 | 新增可选配置：Stata 首次启动时自动 `cd` 到 do 文件所在目录（默认关闭）             | 2026-03-02 |
