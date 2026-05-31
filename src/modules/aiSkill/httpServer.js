@@ -141,9 +141,36 @@ function startServer(session, port) {
         try {
             server = http.createServer(handleRequest);
             server.on('error', (err) => {
-                console.error('[Stata AI Skill] Server error:', err.message);
+                if (err.code === 'EADDRINUSE') {
+                    console.log(`[Stata AI Skill] Port ${serverPort} in use, killing old process...`);
+                    try {
+                        const { execSync } = require('child_process');
+                        if (process.platform === 'win32') {
+                            const out = execSync(`netstat -ano | findstr :${serverPort}`, { encoding: 'utf8' });
+                            const pid = (out.match(/LISTENING\s+(\d+)/) || [])[1];
+                            if (pid) execSync(`taskkill /PID ${pid} /F`, { stdio: 'ignore' });
+                        } else {
+                            execSync(`lsof -ti :${serverPort} | xargs kill -9 2>/dev/null; true`, { stdio: 'ignore' });
+                        }
+                        // 短暂等待端口释放后重试
+                        setTimeout(() => {
+                            const retryServer = http.createServer(handleRequest);
+                            retryServer.listen(serverPort, '127.0.0.1', () => {
+                                server = retryServer;  // 更新外层引用
+                                console.log(`[Stata AI Skill] ✅ HTTP server started on http://127.0.0.1:${serverPort} (reclaimed port)`);
+                                resolve(true);
+                            });
+                            retryServer.on('error', () => resolve(false));
+                        }, 800);
+                    } catch (e) {
+                        console.error(`[Stata AI Skill] ❌ Failed to free port ${serverPort}:`, e.message);
+                        resolve(false);
+                    }
+                } else {
+                    console.error('[Stata AI Skill] Server error:', err.message);
+                    resolve(false);
+                }
                 server = null;
-                resolve(false);
             });
 
             server.listen(serverPort, '127.0.0.1', () => {
