@@ -122,7 +122,16 @@ const UI_TEXT = {
         dataViewerClearFilter: 'Clear filter',
         dataViewerApplyFilter: 'Apply filter (Enter)',
         dataViewerClearFilterShortcut: 'Clear filter (Esc)',
-        dataViewerFilterPlaceholder: 'varlist if exp in range, nolabel'
+        dataViewerFilterPlaceholder: 'varlist if exp in range, nolabel',
+        aiSkillDisabled: 'AI Skill is disabled in settings. Enable "Stata All in One > AI Skill Enabled" first.',
+        aiSkillNotFound: 'SKILL.md not found in the extension directory. Please reinstall the extension.',
+        aiSkillSelectTool: 'Select AI coding tool to install the skill to',
+        aiSkillSessionNotReady: 'Stata session not ready. Open a .do file and run some code first.',
+        aiSkillServerFailed: 'Failed to start AI Skill server. Check the console for details.',
+        aiSkillInstalled: 'AI Skill installed successfully',
+        aiSkillServerStarted: (p) => `AI Skill server started on http://127.0.0.1:${p.port}`,
+        aiSkillServerStopped: 'AI Skill server stopped.',
+        aiSkillServerNotRunning: 'AI Skill server is not running.'
     },
     zh: {
         lineTooLong: '行长度不足，请在设置中增大分隔线长度。',
@@ -238,7 +247,16 @@ const UI_TEXT = {
         dataViewerClearFilter: '取消筛选',
         dataViewerApplyFilter: '执行筛选 (Enter)',
         dataViewerClearFilterShortcut: '清空筛选 (Esc)',
-        dataViewerFilterPlaceholder: '变量列表 if 条件 in 范围, nolabel'
+        dataViewerFilterPlaceholder: '变量列表 if 条件 in 范围, nolabel',
+        aiSkillDisabled: 'AI 编程技能已在设置中禁用。请先启用 "Stata All in One › AI Skill Enabled"。',
+        aiSkillNotFound: '未在扩展目录中找到 SKILL.md，请重新安装扩展。',
+        aiSkillSelectTool: '选择要安装技能的 AI 编程工具',
+        aiSkillSessionNotReady: 'Stata 会话未就绪。请先打开一个 .do 文件并运行代码。',
+        aiSkillServerFailed: '无法启动 AI Skill 服务器，请查看控制台了解详情。',
+        aiSkillInstalled: 'AI 编程技能安装成功',
+        aiSkillServerStarted: (p) => `AI Skill 服务器已启动：http://127.0.0.1:${p.port}`,
+        aiSkillServerStopped: 'AI Skill 服务器已停止。',
+        aiSkillServerNotRunning: 'AI Skill 服务器未运行。'
     }
 };
 

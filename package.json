@@ -2,7 +2,7 @@
   "name": "stata-all-in-one",
   "displayName": "Stata All in One",
   "description": "Supercharge your Stata workflow in VS Code. An enhanced version of `Stata Outline` with advanced Syntax Highlighting + Code Hints + Smart Outline + Code Execution + Data Viewing. All your Stata needs in one place.",
-  "version": "0.2.15",
+  "version": "0.2.16",
   "publisher": "ZihaoVistonWang",
   "icon": "img/icon.png",
   "keywords": [
@@ -25,7 +25,8 @@
   "activationEvents": [
     "onLanguage:stata",
     "onCommand:stata-all-in-one.showDataViewer",
-    "onCustomEditor:stata-all-in-one.dtaViewer"
+    "onCustomEditor:stata-all-in-one.dtaViewer",
+    "onStartupFinished"
   ],
   "main": "./main.js",
   "categories": [
@@ -170,6 +171,18 @@
           },
           "default": [],
           "markdownDescription": "%config.additionalAdoPaths.description%"
+        },
+        "stata-all-in-one.aiSkillEnabled": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "%config.aiSkillEnabled.description%",
+          "order": 20
+        },
+        "stata-all-in-one.aiSkillPort": {
+          "type": "number",
+          "default": 19521,
+          "markdownDescription": "%config.aiSkillPort.description%",
+          "order": 21
         }
       }
     },
@@ -337,6 +350,18 @@
       {
         "command": "stata-all-in-one.debugResetPreviewNotification",
         "title": "%command.debugResetPreviewNotification.title%"
+      },
+      {
+        "command": "stata-all-in-one.installAISkill",
+        "title": "%command.installAISkill.title%"
+      },
+      {
+        "command": "stata-all-in-one.startAIServer",
+        "title": "%command.startAIServer.title%"
+      },
+      {
+        "command": "stata-all-in-one.stopAIServer",
+        "title": "%command.stopAIServer.title%"
       }
     ],
     "keybindings": [
