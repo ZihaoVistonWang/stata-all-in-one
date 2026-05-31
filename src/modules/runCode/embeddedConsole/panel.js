@@ -1126,7 +1126,7 @@ function getWebviewHtml(webview) {
             height: 100%;
             resize: none;
             box-sizing: border-box;
-            border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
+            border: 1px solid var(--vscode-panel-border);
             background: transparent;
             color: transparent;
             caret-color: var(--vscode-input-foreground);
