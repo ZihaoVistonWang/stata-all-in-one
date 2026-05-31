@@ -362,6 +362,10 @@
       {
         "command": "stata-all-in-one.stopAIServer",
         "title": "%command.stopAIServer.title%"
+      },
+      {
+        "command": "stata-all-in-one.showAISkillDialog",
+        "title": "%command.showAISkillDialog.title%"
       }
     ],
     "keybindings": [
@@ -480,6 +484,11 @@
           "title": "%command.rollbackVersion.short%",
           "when": "editorLangId == stata && config.stata-all-in-one.showActionButtons",
           "group": "navigation@1.5"
+        },
+        {
+          "command": "stata-all-in-one.showAISkillDialog",
+          "when": "editorLangId == stata && config.stata-all-in-one.showActionButtons",
+          "group": "navigation@1.8"
         },
         {
           "command": "stata-all-in-one.reportBug",

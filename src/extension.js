@@ -350,6 +350,54 @@ tools:
 }
 
 /**
+ * Show AI Skill welcome dialog
+ * 显示 AI Skill 欢迎弹窗
+ * 内容：标题 + 功能介绍 + 提示词预览 + 操作提示
+ * 按钮：打开/关闭（醒目）、复制提示词、关闭
+ * 复制后弹出中心弹窗告知用户粘贴到 AI 工具
+ */
+async function showAISkillDialog() {
+    const config = vscode.workspace.getConfiguration('stata-all-in-one');
+    const aiSkillEnabled = config.get('aiSkillEnabled', true);
+
+    const toggleLabel = aiSkillEnabled
+        ? msg('aiSkillToggleDisable')
+        : msg('aiSkillToggleEnable');
+    const copyLabel = msg('aiSkillCopyBtn');
+
+    // 弹窗内容：欢迎标题 + 介绍 + 操作提示（提示词不显示，只进剪贴板）
+    const body = msg('aiSkillWelcomeTitle') + '\n\n'
+        + msg('aiSkillWelcomeIntro') + '\n\n'
+        + msg('aiSkillWelcomeHint');
+
+    // modal 会自动加一个"取消"按钮，所以这里只要两个自定义按钮
+    const choice = await vscode.window.showInformationMessage(
+        body,
+        { modal: true },
+        toggleLabel,
+        copyLabel
+    );
+
+    if (choice === toggleLabel) {
+        const newValue = !aiSkillEnabled;
+        await config.update('aiSkillEnabled', newValue, vscode.ConfigurationTarget.Global);
+        const statusText = newValue
+            ? msg('aiSkillServerStarted', { port: config.get('aiSkillPort', 19521) })
+            : msg('aiSkillServerStopped');
+        showInfo(statusText);
+    } else if (choice === copyLabel) {
+        await vscode.env.clipboard.writeText(msg('aiSkillWelcomePrompt'));
+        // 中心弹窗，不是右下角 toast
+        await vscode.window.showInformationMessage(
+            msg('aiSkillCopiedMessage'),
+            { modal: true },
+            msg('aiSkillCopiedOk')
+        );
+    }
+    // choice === closeLabel 或关闭弹窗 → 什么都不做
+}
+
+/**
  * Activate the extension
  */
 async function activate(context) {
@@ -700,6 +748,13 @@ async function activate(context) {
     context.subscriptions.push(resetPreviewNotificationCommand);
 
     // ========== AI Skill ==========
+
+    // Register AI Skill dialog command (editor title button)
+    const showAISkillDialogCommand = vscode.commands.registerCommand(
+        'stata-all-in-one.showAISkillDialog',
+        () => showAISkillDialog()
+    );
+    context.subscriptions.push(showAISkillDialogCommand);
 
     // Register install AI skill command
     const installAISkillCommand = vscode.commands.registerCommand(

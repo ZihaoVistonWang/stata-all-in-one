@@ -23,6 +23,8 @@
   "command.installAISkill.title": "Stata All in One: Install AI Coding Skill",
   "command.startAIServer.title": "Stata All in One: Start AI Skill Server",
   "command.stopAIServer.title": "Stata All in One: Stop AI Skill Server",
+  "command.showAISkillDialog.title": "AI",
+  "command.showAISkillDialog.tooltip": "Stata All in One AI Skill — Let AI agents run Stata code",
   "command.setLevel1.title": "Stata All in One: Set as Level 1 Heading",
   "command.setLevel2.title": "Stata All in One: Set as Level 2 Heading",
   "command.setLevel3.title": "Stata All in One: Set as Level 3 Heading",

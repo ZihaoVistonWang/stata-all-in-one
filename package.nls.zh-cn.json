@@ -23,6 +23,8 @@
   "command.installAISkill.title": "Stata All in One：安装 AI 编程技能",
   "command.startAIServer.title": "Stata All in One：启动 AI Skill 服务器",
   "command.stopAIServer.title": "Stata All in One：停止 AI Skill 服务器",
+  "command.showAISkillDialog.title": "AI",
+  "command.showAISkillDialog.tooltip": "Stata All in One AI Skill — 让 AI 编程工具运行 Stata 代码",
   "command.setLevel1.title": "Stata All in One：设为 1 级标题",
   "command.setLevel2.title": "Stata All in One：设为 2 级标题",
   "command.setLevel3.title": "Stata All in One：设为 3 级标题",
