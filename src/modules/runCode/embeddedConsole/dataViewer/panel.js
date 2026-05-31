@@ -1600,8 +1600,7 @@ async function ensureSilentSession(context) {
         libraryKey = 'stataConsoleDylibPath';
     } else if (isWindows()) {
         const { findStataDll } = require('../windows');
-        const savedPath = context ? context.globalState.get('stataConsoleDllPath') : null;
-        const dllInfo = findStataDll(null, savedPath);
+        const dllInfo = findStataDll();
         if (!dllInfo.path) {
             return { success: false, reason: 'Unable to find Stata DLL. Please set stata-all-in-one.stataPathOnWindows in settings.' };
         }
@@ -1615,9 +1614,9 @@ async function ensureSilentSession(context) {
         await context.globalState.update(libraryKey, libraryPath);
     }
 
-    const ok = await session.initConsoleSession(context, libraryPath);
-    if (!ok) {
-        return { success: false, reason: 'Failed to initialize Stata session.' };
+    const initResult = await session.initConsoleSession(context, libraryPath);
+    if (!initResult.success) {
+        return { success: false, reason: `Failed to initialize Stata session: ${initResult.error}` };
     }
 
     return { success: true, session: session.getConsoleSession(context) };

@@ -4,6 +4,7 @@
  * to execute code and stream output to the embedded console webview.
  */
 
+const vscode = require('vscode');
 const fs = require('fs');
 const path = require('path');
 
@@ -15,6 +16,37 @@ const { getWebviewTerminalSink, setGraphResourceRoot } = require('./panel');
 const { beginGraphCapture, endGraphCapture, exportCapturedGraphs, getGraphCacheDir } = require('./graphs');
 
 let _activeOutputSink = null;
+
+const LICENSE_DIALOG_SUPPRESSED_KEY = 'stata-all-in-one.consoleLicenseDialogSuppressed';
+const LICENSE_DIALOG_REMIND_KEY = 'stata-all-in-one.consoleLicenseDialogNextReminder';
+const LICENSE_DIALOG_REMIND_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+async function showConsoleLicenseDialog(context) {
+    if (!context) return;
+    // Respect "don't show again"
+    if (context.globalState.get(LICENSE_DIALOG_SUPPRESSED_KEY)) return;
+    // Respect 7-day snooze
+    const nextReminder = context.globalState.get(LICENSE_DIALOG_REMIND_KEY, 0);
+    if (Date.now() < nextReminder) return;
+
+    const { msg } = require('../../../utils/common');
+    const reminder = msg('consoleLicenseMissingRemind');
+    const never = msg('consoleLicenseMissingNever');
+
+    const choice = await vscode.window.showWarningMessage(
+        `Stata All in One: ${msg('consoleLicenseMissing')}`,
+        { modal: true },
+        reminder,
+        never
+    );
+
+    if (choice === never) {
+        await context.globalState.update(LICENSE_DIALOG_SUPPRESSED_KEY, true);
+    } else if (choice === reminder) {
+        await context.globalState.update(LICENSE_DIALOG_REMIND_KEY, Date.now() + LICENSE_DIALOG_REMIND_MS);
+    }
+    // Closed → do nothing, will show again next time
+}
 
 // =========================================================================
 // Output processing helpers (shared logic, functionally identical to mac.js)
@@ -273,144 +305,41 @@ function getOutputSink() {
  *   fromCache: boolean
  * }}
  */
-function findStataDll(preferredEdition = null, savedPath = null) {
-    // Known DLL name patterns per edition (ordered by priority)
+function findStataDll() {
     const editionPatterns = {
-        mp: ['mp-64.dll', 'StataMP-64.dll', 'StataMP.dll'],
-        se: ['se-64.dll', 'StataSE-64.dll', 'StataSE.dll'],
-        be: ['be-64.dll', 'StataBE-64.dll', 'StataBE.dll'],
-        ic: ['ic-64.dll', 'StataIC-64.dll', 'StataIC.dll']
+        mp: ['mp-64.dll', 'StataMP-64.dll'],
+        se: ['se-64.dll', 'StataSE-64.dll'],
+        be: ['be-64.dll', 'StataBE-64.dll'],
+        ic: ['ic-64.dll', 'StataIC-64.dll']
     };
 
-    // Helper: extract edition from a DLL filename
-    function editionFromDllPath(dllPath) {
-        const lower = path.basename(dllPath).toLowerCase();
-        for (const edition of Object.keys(editionPatterns)) {
-            for (const pattern of editionPatterns[edition]) {
-                if (lower === pattern.toLowerCase()) return edition;
-            }
-        }
-        const match = lower.match(/^(mp|se|be|ic)-\d+\.dll$/);
-        return match ? match[1] : null;
+    const exePath = config.getStataPathOnWindows ? config.getStataPathOnWindows() : '';
+    const cleanExePath = String(exePath).replace(/^["']|["']$/g, '').trim();
+
+    if (!cleanExePath) {
+        return { path: null, edition: null, installed: [] };
     }
 
-    // 1. Check saved/cached path first
-    if (savedPath && fs.existsSync(savedPath)) {
-        return {
-            path: savedPath,
-            edition: editionFromDllPath(savedPath),
-            installed: [],
-            fromCache: true
-        };
-    }
+    const exeDir = path.dirname(cleanExePath);
+    const exeName = path.basename(cleanExePath).toLowerCase();
+    const exeEditionMatch = exeName.match(/stata(mp|se|be|ic)-?\d*\.exe$/);
+    const exeEdition = exeEditionMatch ? exeEditionMatch[1] : null;
 
-    // 2. Derive from user-configured EXE path (stata-all-in-one.stataPathOnWindows)
-    const exePath = config.getStataPathOnWindows ? config.getStataPathOnWindows() : null;
-    if (exePath) {
-        const cleanExePath = String(exePath).replace(/^["']|["']$/g, '').trim();
-        if (cleanExePath && fs.existsSync(cleanExePath)) {
-            const exeDir = path.dirname(cleanExePath);
-            const exeName = path.basename(cleanExePath).toLowerCase();
+    // Try the matching edition first, then all patterns
+    const editionsToTry = exeEdition
+        ? [exeEdition, ...Object.keys(editionPatterns).filter(e => e !== exeEdition)]
+        : Object.keys(editionPatterns);
 
-            // Extract edition from EXE name: StataMP-64.exe, StataSE-64.exe, etc.
-            const exeEditionMatch = exeName.match(/stata(mp|se|be|ic)-?\d*\.exe$/);
-            const exeEdition = exeEditionMatch ? exeEditionMatch[1] : null;
-
-            if (exeEdition) {
-                for (const dllName of editionPatterns[exeEdition]) {
-                    const dllPath = path.join(exeDir, dllName);
-                    if (fs.existsSync(dllPath)) {
-                        return { path: dllPath, edition: exeEdition, installed: [exeEdition], fromCache: false };
-                    }
-                }
-            }
-
-            // Fallback: scan all patterns in the EXE's directory
-            for (const [edition, dllNames] of Object.entries(editionPatterns)) {
-                for (const dllName of dllNames) {
-                    const dllPath = path.join(exeDir, dllName);
-                    if (fs.existsSync(dllPath)) {
-                        return { path: dllPath, edition, installed: [edition], fromCache: false };
-                    }
-                }
+    for (const edition of editionsToTry) {
+        for (const dllName of editionPatterns[edition]) {
+            const dllPath = path.join(exeDir, dllName);
+            if (fs.existsSync(dllPath)) {
+                return { path: dllPath, edition, installed: [edition] };
             }
         }
     }
 
-    // 3. Common Stata installation directories to scan
-    const scanRoots = [];
-
-    // Program Files variants
-    const programFilesDirs = [
-        process.env['ProgramFiles'],
-        process.env['ProgramFiles(x86)'],
-        process.env['ProgramW6432']
-    ].filter(Boolean);
-
-    for (const pf of programFilesDirs) {
-        if (!fs.existsSync(pf)) continue;
-        try {
-            const entries = fs.readdirSync(pf, { withFileTypes: true });
-            for (const entry of entries) {
-                if (entry.isDirectory() && /^Stata/i.test(entry.name)) {
-                    scanRoots.push(path.join(pf, entry.name));
-                }
-            }
-        } catch (_) { /* skip inaccessible directories */ }
-    }
-
-    // Additional drive roots: D:\, E:\, etc.
-    for (const driveLetter of ['D', 'E', 'F', 'G']) {
-        const driveRoot = `${driveLetter}:\\`;
-        if (!fs.existsSync(driveRoot)) continue;
-        try {
-            const entries = fs.readdirSync(driveRoot, { withFileTypes: true });
-            for (const entry of entries) {
-                if (entry.isDirectory() && /^Stata/i.test(entry.name)) {
-                    scanRoots.push(path.join(driveRoot, entry.name));
-                }
-            }
-        } catch (_) { /* skip */ }
-    }
-
-    // Deduplicate scan roots
-    const uniqueRoots = [...new Set(scanRoots.map(p => p.toLowerCase()))]
-        .map(lower => scanRoots.find(p => p.toLowerCase() === lower))
-        .filter(Boolean);
-
-    const installed = [];
-    let targetPath = null;
-    let targetEdition = null;
-
-    // Scan all roots
-    for (const root of uniqueRoots) {
-        for (const [edition, dllNames] of Object.entries(editionPatterns)) {
-            for (const dllName of dllNames) {
-                const dllPath = path.join(root, dllName);
-                if (fs.existsSync(dllPath)) {
-                    if (!installed.includes(edition)) {
-                        installed.push(edition);
-                    }
-                    if (!targetPath) {
-                        targetPath = dllPath;
-                        targetEdition = edition;
-                    }
-                    // If user prefers this edition, prefer it
-                    if (preferredEdition && edition === preferredEdition && targetEdition !== preferredEdition) {
-                        targetPath = dllPath;
-                        targetEdition = edition;
-                    }
-                }
-            }
-        }
-    }
-
-    return {
-        path: targetPath,
-        edition: targetEdition,
-        installed,
-        fromCache: false
-    };
+    return { path: null, edition: null, installed: [] };
 }
 
 // =========================================================================
@@ -425,29 +354,45 @@ async function ensureConsoleSession(context) {
         };
     }
 
-    const savedPath = context ? context.globalState.get('stataConsoleDllPath') : null;
-    const dllInfo = findStataDll(null, savedPath);
+    const dllInfo = findStataDll();
 
     if (!dllInfo.path) {
-        console.error('[windows.js] Stata DLL not found. Installed editions:', dllInfo.installed);
         return {
             success: false,
-            reason: '无法找到 Stata DLL。请确保 Stata MP/SE/BE/IC 已安装，或在设置中指定 DLL 路径。'
+            reason: '无法找到 Stata DLL。请在设置 stata-all-in-one.stataPathOnWindows 中指定 Stata EXE 路径（如 D:\\Stata17\\StataMP-64.exe）。'
         };
     }
 
-    if (context && !dllInfo.fromCache) {
-        await context.globalState.update('stataConsoleDllPath', dllInfo.path);
-        console.log('[windows.js] Saved DLL path:', dllInfo.path);
+    const exeDir = path.dirname(
+        String(config.getStataPathOnWindows()).replace(/^["']|["']$/g, '').trim()
+    );
+    const licPath = path.join(exeDir, 'stata.lic');
+
+    // Pre-check: no license file → bail out early, let the caller show dialog.
+    if (!fs.existsSync(licPath)) {
+        console.log('[windows.js] No stata.lic found in', exeDir);
+        return { success: false, noLicense: true, reason: '' };
     }
 
-    const success = await session.initConsoleSession(context, dllInfo.path);
-    if (!success) {
-        console.error('[windows.js] Session initialization failed');
+    process.env.STATA_LICENSE = licPath;
+    console.log('[windows.js] License file found:', licPath);
+
+    const initResult = await session.initConsoleSession(context, dllInfo.path);
+    if (!initResult.success) {
+        console.error('[windows.js] Session initialization failed:', initResult.error);
         return {
             success: false,
-            reason: `Stata 会话初始化失败。请检查 Stata ${dllInfo.edition ? dllInfo.edition.toUpperCase() : ''} 是否正确安装。`
+            reason: `Stata 会话初始化失败 (${dllInfo.path})：${initResult.error}。请检查 Stata ${dllInfo.edition ? dllInfo.edition.toUpperCase() : ''} 是否正确安装。`
         };
+    }
+
+    // The user previously dismissed the license dialog but now has a
+    // license → clear the preference and notify that console mode works.
+    if (context && context.globalState.get(LICENSE_DIALOG_SUPPRESSED_KEY)) {
+        await context.globalState.update(LICENSE_DIALOG_SUPPRESSED_KEY, false);
+        await context.globalState.update(LICENSE_DIALOG_REMIND_KEY, 0);
+        const { showInfo, msg } = require('../../../utils/common');
+        showInfo(`Stata All in One: ${msg('consoleLicenseFound')}`);
     }
 
     return {
@@ -487,7 +432,8 @@ async function runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir = null
                 success: false,
                 shouldOfferGuiFallback: true,
                 errorType: 'extension',
-                message: initResult.reason
+                message: initResult.reason,
+                noLicense: initResult.noLicense || false
             };
         }
 
@@ -1006,6 +952,7 @@ function forceShutdownEmbeddedConsoleSession() {
 
 module.exports = {
     findStataDll,
+    showConsoleLicenseDialog,
     runOnWindowsEmbeddedConsole,
     initConsoleSession,
     stopEmbeddedConsoleExecution,

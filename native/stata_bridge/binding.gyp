@@ -2,9 +2,7 @@
   "targets": [
     {
       "target_name": "stata_bridge",
-      "defines": [
-        "NAPI_DISABLE_CPP_EXCEPTIONS"
-      ],
+      "defines": [],
       "include_dirs": [
         "<!@(node -p \"require('node-addon-api').include\")",
         "<!@(node -p \"require('node-addon-api').gyp\")"
@@ -38,6 +36,7 @@
           "msvs_settings": {
             "VCCLCompilerTool": {
               "ExceptionHandling": 1,
+              "RuntimeLibrary": 0,
               "AdditionalOptions": ["/std:c++17"]
             }
           }

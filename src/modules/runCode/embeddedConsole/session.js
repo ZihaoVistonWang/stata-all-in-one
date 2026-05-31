@@ -107,19 +107,17 @@ class StataConsoleSession {
      * Initialize Stata session
      * Async initialization; does not block extension activation.
      * @param {string} libraryPath - Path to Stata dylib/DLL
-     * @returns {Promise<boolean>} - true on success, false on failure (does not throw)
+     * @returns {Promise<{success: boolean, error: string}>}
      */
     async init(libraryPath) {
         if (!native.isLoaded()) {
-            console.error('[StataConsoleSession] Native module not loaded. Cannot initialize session.');
-            return false;
+            return { success: false, error: 'Native module not loaded.' };
         }
 
         if (this._initialized) {
             if (this._libraryPath === libraryPath) {
-                return true;
+                return { success: true, error: '' };
             }
-            // Different library — shutdown and reinitialize
             this.shutdown();
         }
 
@@ -134,14 +132,14 @@ class StataConsoleSession {
                 this._initialized = true;
                 this._libraryPath = libraryPath;
                 this._saveState();
-                return true;
+                return { success: true, error: '' };
             }
 
             console.error('[StataConsoleSession] Initialization returned false.');
-            return false;
+            return { success: false, error: 'StataSO_Main returned failure.' };
         } catch (error) {
             console.error('[StataConsoleSession] Initialization failed:', error.message);
-            return false;
+            return { success: false, error: error.message };
         }
     }
 
@@ -309,7 +307,7 @@ function getConsoleSession(context) {
  * 创建单例并尝试初始化
  * @param {vscode.ExtensionContext} context - VS Code 扩展上下文
  * @param {string} dylibPath - Stata dylib 路径
- * @returns {Promise<boolean>} - 初始化结果
+ * @returns {Promise<{success: boolean, error: string}>}
  */
 async function initConsoleSession(context, dylibPath) {
     const session = getConsoleSession(context);

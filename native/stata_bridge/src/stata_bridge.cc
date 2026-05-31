@@ -264,6 +264,15 @@ Napi::Value InitSession(const Napi::CallbackInfo& info) {
     if (info.Length() >= 4 && info[3].IsString()) {
         st_home = info[3].As<Napi::String>().Utf8Value();
         SetPlatformEnv("SYSDIR_STATA", st_home.c_str());
+        #ifdef _WIN32
+        SetPlatformEnv("STATA", st_home.c_str());
+        char tmpBuf[MAX_PATH];
+        DWORD tmpLen = GetTempPathA(MAX_PATH, tmpBuf);
+        if (tmpLen > 0 && tmpLen < MAX_PATH) {
+            SetPlatformEnv("STATATMP", tmpBuf);
+        }
+        SetCurrentDirectoryA(st_home.c_str());
+        #endif
     }
 
     Napi::Function callback;
@@ -274,18 +283,32 @@ Napi::Value InitSession(const Napi::CallbackInfo& info) {
 
     std::string error = LoadLibraryAndResolveSymbols(lib_path);
     if (!error.empty()) {
+        fprintf(stderr, "[stata_bridge] %s\n", error.c_str());
         if (has_callback) {
             callback.Call({Napi::Boolean::New(env, false), Napi::String::New(env, error)});
+        } else {
+            Napi::Error::New(env, error).ThrowAsJavaScriptException();
+            return env.Null();
         }
         return Napi::Boolean::New(env, false);
     }
 
     std::vector<std::string> args;
+    #ifdef _WIN32
+    // Windows: skip -pyexec (process.execPath is Electron, not Python);
+    // use "stata" as argv[0] instead of empty string.
+    if (splash) {
+        args = {"stata"};
+    } else {
+        args = {"stata", "-q"};
+    }
+    #else
     if (splash) {
         args = {"-pyexec", exec_path.empty() ? "" : exec_path};
     } else {
         args = {"", "-q", "-pyexec", exec_path.empty() ? "" : exec_path};
     }
+    #endif
 
     std::vector<char*> argv;
     for (const auto& arg : args) {
@@ -318,8 +341,12 @@ Napi::Value InitSession(const Napi::CallbackInfo& info) {
         if (!output_msg.empty()) {
             error_msg += "\nOutput: " + output_msg;
         }
+        fprintf(stderr, "[stata_bridge] %s\n", error_msg.c_str());
         if (has_callback) {
             callback.Call({Napi::Boolean::New(env, false), Napi::String::New(env, error_msg)});
+        } else {
+            Napi::Error::New(env, error_msg).ThrowAsJavaScriptException();
+            return env.Null();
         }
         return Napi::Boolean::New(env, false);
     }

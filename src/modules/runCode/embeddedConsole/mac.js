@@ -357,12 +357,13 @@ async function ensureConsoleSession(context) {
         console.log('[mac.js] 已保存 dylib 路径:', dylibInfo.path);
     }
 
-    const success = await session.initConsoleSession(context, dylibInfo.path);
-    if (!success) {
-        console.error('[runtime] 会话初始化失败');
+    const initResult = await session.initConsoleSession(context, dylibInfo.path);
+    if (!initResult.success) {
+        console.error('[runtime] 会话初始化失败:', initResult.error);
+        const detail = initResult.error ? `：${initResult.error}` : '';
         return {
             success: false,
-            reason: `Stata 会话初始化失败。请检查 Stata ${dylibInfo.edition ? dylibInfo.edition.toUpperCase() : ''} 是否正确安装。`
+            reason: `Stata 会话初始化失败${detail}。请检查 Stata ${dylibInfo.edition ? dylibInfo.edition.toUpperCase() : ''} 是否正确安装。`
         };
     }
 
