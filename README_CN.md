@@ -204,103 +204,103 @@ Stata All in One
 
 在 VS Code 设置中搜索 "Stata All in One"，配置以下选项：
 
+### AI Skill
+
+1. <mark>**AI Skill 启用** (`stata-all-in-one.aiSkillEnabled`)</mark>
+   - `true`（默认）：VS Code 打开时自动启动 localhost HTTP 服务器，允许 AI 编程工具执行 Stata 代码。
+   - `false`：仅在打开 `.do`/`.dta` 文件时激活扩展，不启动 HTTP 服务器。
+
+2. <mark>**AI Skill 端口** (`stata-all-in-one.aiSkillPort`)</mark>
+   - AI Skill HTTP 服务器的端口号。默认 `19521`。如果端口被占用可在此更改。
+
 ### 代码运行
 
-1. <mark>**运行模式** (`stata-all-in-one.runMode`)</mark>
+3. <mark>**运行模式** (`stata-all-in-one.runMode`)</mark>
    - `embeddedConsole`（默认）：在 VS Code 内置的 **控制台 | Stata All in One** 面板中运行代码，直接查看输出并交互。
    - `externalApp`：将代码发送到系统安装的外部 Stata 应用执行。
 
-2. **Stata 版本（macOS）** (`stata-all-in-one.stataVersionOnMacOS`)
+4. **Stata 版本（macOS）** (`stata-all-in-one.stataVersionOnMacOS`)
    - Stata 运行版本。可选择 `StataMP`、`StataSE`、`StataIC`、`StataBE`。
 
-3. **Stata 路径（Windows）** (`stata-all-in-one.stataPathOnWindows`)
+5. **Stata 路径（Windows）** (`stata-all-in-one.stataPathOnWindows`)
    - Stata 执行文件路径（例如 `C:\Program Files\Stata17\StataMP-64.exe`）。
 
-4. **发送代码前关闭 Stata 其他窗口（Windows）** (`stata-all-in-one.closeStataOtherWindowsBeforeSendingCode`)
+6. **发送代码前关闭 Stata 其他窗口（Windows）** (`stata-all-in-one.closeStataOtherWindowsBeforeSendingCode`)
    - `true`：发送运行命令前先关闭 Stata 辅助窗口（如 Viewer、Data Editor）。
    - `false`（默认）：保留这些窗口，直接发送代码。
 
-5. **自动 cd 到 do 文件目录** (`stata-all-in-one.cdToDoFileDir`)
+7. **自动 cd 到 do 文件目录** (`stata-all-in-one.cdToDoFileDir`)
    - `true`（默认）：Stata 首次启动时自动将工作目录切换到当前 do 文件所在位置。
    - `false`：Stata 启动后不更改工作目录。
 
-6. **显示运行按钮** (`stata-all-in-one.showRunButton`)
+8. **显示运行按钮** (`stata-all-in-one.showRunButton`)
    - `true`（默认）：在编辑器标题栏显示运行按钮。
    - `false`：隐藏按钮。
 
-7. **显示操作按钮** (`stata-all-in-one.showActionButtons`)
+9. **显示操作按钮** (`stata-all-in-one.showActionButtons`)
    - `true`（默认）：在编辑器标题栏显示"Bug 反馈"和"打赏支持"按钮。
    - `false`：隐藏这两个按钮。
 
-8. **启用 Ctrl+Shift+D 作为运行快捷键** (`stata-all-in-one.enableCtrlShiftD`)
+10. **启用 Ctrl+Shift+D 作为运行快捷键** (`stata-all-in-one.enableCtrlShiftD`)
    - `true`：使用 `Ctrl/Cmd+Shift+D` 作为运行代码的快捷键。
    - `false`（默认）：使用默认的 `Ctrl/Cmd+D` 快捷键。
 
 ### 嵌入式控制台
 
-9. <mark>**控制台字体模式** (`stata-all-in-one.consoleFontMode`)</mark>
+11. <mark>**控制台字体模式** (`stata-all-in-one.consoleFontMode`)</mark>
    - `editor`（默认）：跟随编辑器字体，降级到系统等宽字体。
    - `system`：直接使用系统等宽字体。
    - `custom`：使用下方自定义字体设置。
 
-10. <mark>**控制台自定义字体** (`stata-all-in-one.consoleCustomFontFamily`)</mark>
+12. <mark>**控制台自定义字体** (`stata-all-in-one.consoleCustomFontFamily`)</mark>
     - 当字体模式设为 `custom` 时，控制台使用的 CSS `font-family` 列表。
     - 示例：`"Maple Mono NF CN", Menlo, Monaco, monospace`
 
-11. <mark>**图形导出 DPI** (`stata-all-in-one.graphPngDpi`)</mark>
+13. <mark>**图形导出 DPI** (`stata-all-in-one.graphPngDpi`)</mark>
     - 嵌入式控制台图形保存为 PNG 时的 DPI 值。默认 `600`，范围 72–1200。
 
 ### 语法高亮和代码提示
 
-12. **自定义命令高亮** (`stata-all-in-one.customCommands`)
+14. **自定义命令高亮** (`stata-all-in-one.customCommands`)
     - 自定义需要高亮的 Stata 命令（字符串数组），默认包含 `reghdfe`。
     - 示例：`["reghdfe", "ivreghdfe", "gtools", "winsor2", "outreg2"]`
     - **配置后需要重载窗口生效**。
 
 ### Hover 悬停帮助
 
-13. <mark>**启用悬停文档** (`stata-all-in-one.enableHoverDocs`)</mark>
+15. <mark>**启用悬停文档** (`stata-all-in-one.enableHoverDocs`)</mark>
     - `true`（默认）：鼠标悬停在 Stata 命令上时显示官方帮助信息。
     - `false`：关闭悬停帮助。
 
-14. <mark>**额外 ADO 路径** (`stata-all-in-one.additionalAdoPaths`)</mark>
+16. <mark>**额外 ADO 路径** (`stata-all-in-one.additionalAdoPaths`)</mark>
     - 用于扫描社区贡献命令帮助文件的额外 Stata ADO 路径。
     - 示例：`["/Users/username/ado/personal", "C:\\Users\\username\\ado\\personal"]`
 
 ### 大纲与导航
 
-15. **显示多级序号** (`stata-all-in-one.numberingShow`)
+17. **显示多级序号** (`stata-all-in-one.numberingShow`)
     - `true`：大纲显示 `1.1`、`1.2.1` 等序号。
     - `false`（默认）：显示原始标题。
 
-16. **自动添加标题序号** (`stata-all-in-one.numberingAdd`)
+18. **自动添加标题序号** (`stata-all-in-one.numberingAdd`)
     - `true`：**当启用序号时**，自动更新 `.do` 文件中的 section 标题以包含序号。
     - `false`（默认）：仅大纲显示序号，不修改文件。
 
+> **注意**：修改 `numberingShow`、`numberingAdd`、`customCommands` 设置后需重新打开 `.do` 文件生效。禁用 `numberingAdd` 时，文件中现有序号将被自动移除。
+
 ### 代码风格
 
-17. **注释样式** (`stata-all-in-one.commentStyle`)
+19. **注释样式** (`stata-all-in-one.commentStyle`)
     - `// `（默认）：用于切换注释的样式。选项包括 `//`、`*` 或 `/* ... */`
 
-18. **分隔线长度** (`stata-all-in-one.separatorLength`)
+20. **分隔线长度** (`stata-all-in-one.separatorLength`)
     - 分割线所在行的字符总长度（包括前缀 `** #` 和分隔符）。默认值：`60`
 
 <a id="separatorSymmetric"></a>
 
-19. **分隔线对称性** (`stata-all-in-one.separatorSymmetric`)
+21. **分隔线对称性** (`stata-all-in-one.separatorSymmetric`)
     - `true`：在分割线末尾添加 ` **` 以保证视觉对称（例如 `** === 标题 === **`）。
     - `false`（默认）：分割线不添加末尾后缀。
-
-### AI Skill
-
-20. <mark>**AI Skill 启用** (`stata-all-in-one.aiSkillEnabled`)</mark>
-    - `true`（默认）：VS Code 打开时自动启动 localhost HTTP 服务器，允许 AI 编程工具执行 Stata 代码。
-    - `false`：仅在打开 `.do`/`.dta` 文件时激活扩展，不启动 HTTP 服务器。
-
-21. <mark>**AI Skill 端口** (`stata-all-in-one.aiSkillPort`)</mark>
-    - AI Skill HTTP 服务器的端口号。默认 `19521`。如果端口被占用可在此更改。
-
-> **注意**：修改 `numberingShow`、`numberingAdd`、`customCommands` 设置后需重新打开 `.do` 文件生效。禁用 `numberingAdd` 时，文件中现有序号将被自动移除。
 
 ---
 
@@ -318,6 +318,7 @@ Stata All in One
 
 | 版本   | 更新内容                                                                           | 发布日期   |
 | ------ | ---------------------------------------------------------------------------------- | ---------- |
+| 0.2.16 | 预览版：引入 AI Skill —— 让 AI 编程工具通过 localhost HTTP 服务器运行 Stata 代码 | 2026-05-31 |
 | 0.2.15/0.2.14 | 预览版：引入嵌入式控制台、数据查看器和图形支持等核心功能；优化 Hover 帮助显示；修复已知问题 | 2026-05-31 |
 | 0.2.13 | Windows 下运行代码时，不再把已贴靠或最大化 的 Stata 窗口还原成更小的普通窗口，现会保持 Stata 当前窗口大小不变 | 2026-03-12 |
 | 0.2.12 | 重构 Windows 端代码执行逻辑；新增配置：发送代码前可选关闭 Viewer、数据编辑器等辅助窗口；新增配置：是否显示“Bug 反馈”和“项目支持”按钮 | 2026-03-05 |

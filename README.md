@@ -204,103 +204,103 @@ Click [here](https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/SHORT
 
 Search for "Stata All in One" in VS Code settings and configure:
 
+### AI Skill
+
+1. <mark>**AI Skill Enabled** (`stata-all-in-one.aiSkillEnabled`)</mark>
+   - `true` (default): Start a localhost HTTP server when VS Code opens, allowing AI coding tools to execute Stata code.
+   - `false`: The extension only activates when `.do`/`.dta` files are opened, and no HTTP server is started.
+
+2. <mark>**AI Skill Port** (`stata-all-in-one.aiSkillPort`)</mark>
+   - Port number for the AI Skill HTTP server. Default `19521`. Change if the port is in use.
+
 ### Code Execution
 
-1. <mark>**Run Mode** (`stata-all-in-one.runMode`)</mark>
+3. <mark>**Run Mode** (`stata-all-in-one.runMode`)</mark>
    - `embeddedConsole` (default): Run code in the built-in **Console | Stata All in One** panel within VS Code, with direct output viewing and interaction.
    - `externalApp`: Send code to the system-installed Stata application for execution.
 
-2. **Stata Version on macOS** (`stata-all-in-one.stataVersionOnMacOS`)
+4. **Stata Version on macOS** (`stata-all-in-one.stataVersionOnMacOS`)
    - Stata runtime version. Choose from `StataMP`, `StataSE`, `StataIC`, or `StataBE`.
 
-3. **Stata Path on Windows** (`stata-all-in-one.stataPathOnWindows`)
+5. **Stata Path on Windows** (`stata-all-in-one.stataPathOnWindows`)
    - Path to Stata executable file (e.g., `C:\Program Files\Stata17\StataMP-64.exe`).
 
-4. **Close Stata Other Windows Before Sending Code (Windows)** (`stata-all-in-one.closeStataOtherWindowsBeforeSendingCode`)
+6. **Close Stata Other Windows Before Sending Code (Windows)** (`stata-all-in-one.closeStataOtherWindowsBeforeSendingCode`)
    - `true`: Close Stata helper windows (such as Viewer/Data Editor) before sending run commands.
    - `false` (default): Keep those windows open and send code directly.
 
-5. **Auto cd to Do File Directory** (`stata-all-in-one.cdToDoFileDir`)
+7. **Auto cd to Do File Directory** (`stata-all-in-one.cdToDoFileDir`)
    - `true` (default): Automatically set Stata's working directory to the do file's location on first launch.
    - `false`: Stata's working directory is not changed on startup.
 
-6. **Show Run Button** (`stata-all-in-one.showRunButton`)
+8. **Show Run Button** (`stata-all-in-one.showRunButton`)
    - `true` (default): Show the run button in the editor title bar.
    - `false`: Hide the button.
 
-7. **Show Action Buttons** (`stata-all-in-one.showActionButtons`)
+9. **Show Action Buttons** (`stata-all-in-one.showActionButtons`)
    - `true` (default): Show the "Bug Report" and "Sponsor" buttons in the editor title bar.
    - `false`: Hide these buttons.
 
-8. **Enable Ctrl+Shift+D for Run Shortcut** (`stata-all-in-one.enableCtrlShiftD`)
-   - `true`: Use `Ctrl/Cmd+Shift+D` as the run code shortcut.
-   - `false` (default): Use the default `Ctrl/Cmd+D` shortcut.
+10. **Enable Ctrl+Shift+D for Run Shortcut** (`stata-all-in-one.enableCtrlShiftD`)
+    - `true`: Use `Ctrl/Cmd+Shift+D` as the run code shortcut.
+    - `false` (default): Use the default `Ctrl/Cmd+D` shortcut.
 
 ### Embedded Console
 
-9. <mark>**Console Font Mode** (`stata-all-in-one.consoleFontMode`)</mark>
-   - `editor` (default): Follow the editor font, falling back to the system monospace font.
-   - `system`: Use the system monospace font directly.
-   - `custom`: Use the custom font specified below.
+11. <mark>**Console Font Mode** (`stata-all-in-one.consoleFontMode`)</mark>
+    - `editor` (default): Follow the editor font, falling back to the system monospace font.
+    - `system`: Use the system monospace font directly.
+    - `custom`: Use the custom font specified below.
 
-10. <mark>**Console Custom Font Family** (`stata-all-in-one.consoleCustomFontFamily`)</mark>
+12. <mark>**Console Custom Font Family** (`stata-all-in-one.consoleCustomFontFamily`)</mark>
     - When font mode is set to `custom`, the CSS `font-family` list used by the console.
     - Example: `"Maple Mono NF CN", Menlo, Monaco, monospace`
 
-11. <mark>**Graph Export DPI** (`stata-all-in-one.graphPngDpi`)</mark>
+13. <mark>**Graph Export DPI** (`stata-all-in-one.graphPngDpi`)</mark>
     - DPI value for saving embedded console graphs as PNG. Default `600`, range 72–1200.
 
 ### Syntax Highlighting and Code Completion
 
-12. **Custom Command Highlighting** (`stata-all-in-one.customCommands`)
+14. **Custom Command Highlighting** (`stata-all-in-one.customCommands`)
     - User-defined Stata commands to highlight as keywords (array of strings). Default: `reghdfe`.
     - Example: `["reghdfe", "ivreghdfe", "gtools", "winsor2", "outreg2"]`
     - **Requires reloading window** after configuration.
 
 ### Hover Help
 
-13. <mark>**Enable Hover Docs** (`stata-all-in-one.enableHoverDocs`)</mark>
+15. <mark>**Enable Hover Docs** (`stata-all-in-one.enableHoverDocs`)</mark>
     - `true` (default): Show official Stata help information when hovering over Stata commands.
     - `false`: Disable hover help.
 
-14. <mark>**Additional ADO Paths** (`stata-all-in-one.additionalAdoPaths`)</mark>
+16. <mark>**Additional ADO Paths** (`stata-all-in-one.additionalAdoPaths`)</mark>
     - Extra Stata ADO paths for scanning help files of community-contributed commands.
     - Example: `["/Users/username/ado/personal", "C:\\Users\\username\\ado\\personal"]`
 
 ### Outline & Navigation
 
-15. **Display Multi-level Numbering** (`stata-all-in-one.numberingShow`)
+17. **Display Multi-level Numbering** (`stata-all-in-one.numberingShow`)
     - `true`: Outline displays `1.1`, `1.2.1` style numbering.
     - `false` (default): Displays original headings.
 
-16. **Auto-update Heading Numbering** (`stata-all-in-one.numberingAdd`)
+18. **Auto-update Heading Numbering** (`stata-all-in-one.numberingAdd`)
     - `true`: **When numbering is enabled**, automatically update section titles in `.do` files to include numbers.
     - `false` (default): Only displays numbering in outline, doesn't modify file.
 
+> **Note**: Changes to `numberingShow`, `numberingAdd`, and `customCommands` require reopening `.do` files to take effect. When `numberingAdd` is disabled, existing numbering in `.do` files will be automatically removed.
+
 ### Code Style
 
-17. **Comment Style** (`stata-all-in-one.commentStyle`)
+19. **Comment Style** (`stata-all-in-one.commentStyle`)
     - `// ` (default): Comment style used for toggling comments. Options include `//`, `*`, or `/* ... */`
 
-18. **Separator Length** (`stata-all-in-one.separatorLength`)
+20. **Separator Length** (`stata-all-in-one.separatorLength`)
     - Total character length of the separator line (including the `** #` prefix and separators). Default: `60`
 
 <a id="separatorSymmetric"></a>
 
-19. **Separator Symmetric** (`stata-all-in-one.separatorSymmetric`)
+21. **Separator Symmetric** (`stata-all-in-one.separatorSymmetric`)
     - `true`: Add ` **` at the end of separator lines to ensure visual symmetry (e.g., `** === Title === **`).
     - `false` (default): Separator lines without the suffix.
-
-### AI Skill
-
-20. <mark>**AI Skill Enabled** (`stata-all-in-one.aiSkillEnabled`)</mark>
-    - `true` (default): Start a localhost HTTP server when VS Code opens, allowing AI coding tools to execute Stata code.
-    - `false`: The extension only activates when `.do`/`.dta` files are opened, and no HTTP server is started.
-
-21. <mark>**AI Skill Port** (`stata-all-in-one.aiSkillPort`)</mark>
-    - Port number for the AI Skill HTTP server. Default `19521`. Change if the port is in use.
-
-> **Note**: Changes to `numberingShow`, `numberingAdd`, and `customCommands` require reopening `.do` files to take effect. When `numberingAdd` is disabled, existing numbering in `.do` files will be automatically removed.
 
 ---
 
@@ -318,6 +318,7 @@ If this extension has been helpful to you, feel free to scan the **Alipay** (lef
 
 | Version | Changes                                                                                                              | Release Date |
 | ------- | -------------------------------------------------------------------------------------------------------------------- | ------------ |
+| 0.2.16  | Preview release: Introduced AI Skill — let AI coding tools run Stata code via localhost HTTP server | 2026-05-31   |
 | 0.2.15/0.2.14  | Preview release: Introduced Embedded Console, Data Viewer, and Graph Support; improved Hover help display; bug fixes | 2026-05-31   |
 | 0.2.13  | On Windows, running code no longer restores a snapped or maximized Stata window to a smaller size — preserves current window state | 2026-03-12   |
 | 0.2.12  | Refactored Windows code execution logic; Added option to close other Stata windows before sending code; Added toggle for "Bug Report" and "Sponsor" buttons | 2026-03-05   |
