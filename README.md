@@ -54,6 +54,9 @@ Stata All in One
 <p style="margin:0 0 8px 0; padding-left: 1.6em; text-indent: -1.6em;">
   🎯 <strong>The stable v0.3.0 is expected in mid-June 2026</strong>, with bug fixes and a more stable experience.
 </p>
+<p style="margin:0 0 8px 0; padding-left: 1.6em; text-indent: -1.6em;">
+  📌 <mark>Highlighted text</mark> denotes new additions in the preview version.
+</p>
 </td>
 </tr>
 </table>
@@ -70,18 +73,18 @@ Special thanks to RedNote user **Rich\*\*d**, WeChat user **早起\*\*阳光**, 
 
 ### 1. AI Skill (Experimental)
 
-- **Let AI Agents Run Stata Code**: <span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">Start a local HTTP server (default port `19521`) inside VS Code, allowing AI coding tools (Claude Code, Cursor, Codex CLI, Open Code, OpenClaw, etc.) to execute Stata code and read results using only the built-in `curl` command.</span>
-- **Zero External Dependencies**: No need to install Python, Node.js, or any third-party tools — just VS Code and the system `curl` (or PowerShell).
-- **Copy the Prompt**: Click the `AI` button in the editor toolbar, copy the prompt, and paste it to your AI tool. The AI will configure itself automatically.
-- **Auto-Start**: When enabled, the HTTP server starts automatically when VS Code opens. AI agents can run Stata code anytime.
-- **Toggle Control**: Find the `AI` button in the editor toolbar (next to `Run`), or manage via `Stata All in One > AI Skill Enabled` in settings. When disabled, the server is not started.
+- **Let AI Agents Run Stata Code**: <mark>Start a local HTTP server (default port `19521`) inside VS Code, allowing AI coding tools (Claude Code, Cursor, Codex CLI, Open Code, OpenClaw, etc.) to execute Stata code and read results using only the built-in `curl` command.</mark>
+- **Zero External Dependencies**: <mark>No need to install Python, Node.js, or any third-party tools — just VS Code and the system `curl` (or PowerShell).</mark>
+- **Leave the setup to AI**: <mark>Click the `AI` button in the editor toolbar, copy the prompt, and paste it to your AI tool. The AI will configure itself automatically.</mark>
+- **Auto-Start**: <mark>When enabled, the HTTP server starts automatically when VS Code opens. AI agents can run Stata code anytime.</mark>
+- **Toggle Control**: <mark>Find the `AI` button in the editor toolbar (next to `Run`), or manage via `Stata All in One > AI Skill Enabled` in settings. When disabled, the server is not started.</mark>
 
 ### 2. Code Execution (Stata Interaction)
 
 - **Platform Support**: Seamlessly integrates with Stata on both **macOS** and **Windows** without requiring additional extensions.
 - **Two Run Modes**:
-  - **Embedded Console** (default): <span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">Run and display Stata output directly within VS Code! Including *command results*, *error messages*, *command window output*, *data viewing*, and *graph output* — a true all-in-one IDE experience.</span>
-  - **External App**: Continue using the traditional approach of sending code to the Stata GUI, for users who prefer Stata's native interface. <span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">Windows now uses [Stata COM Automation](https://www.stata.com/automation/), delivering significantly better performance than the previous PowerShell-based implementation.</span>
+  - **Embedded Console** (default): <mark>Run and display Stata output directly within VS Code! Including *command results*, *error messages*, *command window output*, *data viewing*, and *graph output* — a true all-in-one IDE experience.</mark>
+  - **External App**: Continue using the traditional approach of sending code to the Stata GUI, for users who prefer Stata's native interface. <mark>Windows now uses [Stata COM Automation](https://www.stata.com/automation/), delivering significantly better performance than the previous PowerShell-based implementation.</mark>
 - **Multi-Scenario Execution Strategies**:
   - **Section Execution**: When the cursor is on a header line (e.g., `** # Title`), click the ▶️ button or press `Ctrl/Cmd + D` to execute all code from that header to the next same-level or higher-level header (i.e., the entire section).
   - **Single Line Execution**: When the cursor is on a regular code line (no selection), click the ▶️ button or press `Ctrl/Cmd + D` to execute only that specific line.
@@ -91,7 +94,7 @@ Special thanks to RedNote user **Rich\*\*d**, WeChat user **早起\*\*阳光**, 
 
 - **Full Syntax Highlighting and Code Completion Support**: Integrates [Stata Enhanced](https://github.com/kylebarron/language-stata) syntax engine[^1], providing precise syntax highlighting and code completion for `.do` files (under [MIT](https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/THIRD_PARTY_NOTICES.md) License).
 - **Custom Command Highlighting**: Supports highlighting for commonly used third-party commands (e.g., `reghdfe`, `ivreghdfe`, `gtools`), freely configurable in settings.
-- **Dataset Variable Autocompletion**: <span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">(After running code once) Provides intelligent autocomplete suggestions based on the current dataset when typing variable names in the editor and console, boosting coding efficiency.</span>
+- **Dataset Variable Autocompletion**: <mark>(After running code once) Provides intelligent autocomplete suggestions based on the current dataset when typing variable names in the editor and console, boosting coding efficiency.</mark>
 
 [^1]: [Stata Enhanced](https://github.com/kylebarron/language-stata) syntax engine was developed by Kyle Barron, providing comprehensive support for the Stata language. This extension follows the [MIT](https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/THIRD_PARTY_NOTICES.md) License. Thanks to Kyle Barron for his contribution!
 
@@ -111,11 +114,11 @@ Special thanks to RedNote user **Rich\*\*d**, WeChat user **早起\*\*阳光**, 
 
 ### 5. Data Viewer
 
-- **Click to View**: <span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">Click a `.dta` file in the VS Code Explorer to open it in the new `Data Viewer` panel.</span>
+- **Click to View**: <mark>Click a `.dta` file in the VS Code Explorer to open it in the new `Data Viewer` panel.</mark>
   - **Variable Info**: Variable table displays metadata such as name, label, and type.
   - **Data Browsing**: Supports lazy loading of rows and columns — easily browse large datasets right in VS Code without opening Stata.
-- **View After Run**: <span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">After running code in `Embedded Console` mode, instantly view results in the `Data Viewer` within the `Console` panel.</span>
-- **Data Filtering**: <span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">Provides Stata-style filtering for quickly locating subsets of data.</span>
+- **View After Run**: <mark>After running code in `Embedded Console` mode, instantly view results in the `Data Viewer` within the `Console` panel.</mark>
+- **Data Filtering**: <mark>Provides Stata-style filtering for quickly locating subsets of data.</mark>
 
 ### 6. Efficient Separator Lines & Styling
 
@@ -135,23 +138,23 @@ Special thanks to RedNote user **Rich\*\*d**, WeChat user **早起\*\*阳光**, 
 
 1. Enhanced Embedded Console
    - **Graph Output**
-     - **Direct Display**: <span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">Render Stata graph output directly in the embedded console.</span>
-     - **Export Options**: <span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">Save graphs as SVG, PNG (configurable DPI), or copy to clipboard.</span>
-     - **Fullscreen View**: <span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">Click a graph to view it in fullscreen mode for detailed inspection.</span>
+     - **Direct Display**: <mark>Render Stata graph output directly in the embedded console.</mark>
+     - **Export Options**: <mark>Save graphs as SVG, PNG (configurable DPI), or copy to clipboard.</mark>
+     - **Fullscreen View**: <mark>Click a graph to view it in fullscreen mode for detailed inspection.</mark>
 
    - **Progress Display**
-     - **Command Execution Status**: <span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">For commands like `bootstrap`, the console shows execution progress and status. Other commands display elapsed time to help you monitor their state.</span>
+     - **Command Execution Status**: <mark>For commands like `bootstrap`, the console shows execution progress and status. Other commands display elapsed time to help you monitor their state.</mark>
 
    - **Custom Font**:
-     - **Font Settings**: <span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">Use `stata-all-in-one.consoleFontMode` and `stata-all-in-one.consoleCustomFontFamily` to customize the console font for a better reading experience.</span>
+     - **Font Settings**: <mark>Use `stata-all-in-one.consoleFontMode` and `stata-all-in-one.consoleCustomFontFamily` to customize the console font for a better reading experience.</mark>
 
 2. Enhanced Comments
    - **Toggle Comments**: Quickly toggle line comments using `Ctrl/Cmd + /`.
    - **Optional Styles**: Defaults to `//`, with support for switching to other valid Stata comment delimiters in settings.
 
 3. Built-in Help
-   - **Show Help Text**: For example, select `regress` and press `Ctrl/Cmd + Shift + H`. In External App mode, this opens Stata's `regress` help page; <span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">in Embedded Console mode, the help text is displayed directly in the console.</span>
-   - **Hover Help**: <span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">Hover over a Stata command to see help information, with automatic filtering of non-practical commands like `#delimit`, `using`, etc.</span>
+   - **Show Help Text**: For example, select `regress` and press `Ctrl/Cmd + Shift + H`. In External App mode, this opens Stata's `regress` help page; <mark>in Embedded Console mode, the help text is displayed directly in the console.</mark>
+   - **Hover Help**: <mark>Hover over a Stata command to see help information, with automatic filtering of non-practical commands like `#delimit`, `using`, etc.</mark>
 
 <a id="line-break"></a>
 
@@ -171,7 +174,7 @@ Special thanks to RedNote user **Rich\*\*d**, WeChat user **早起\*\*阳光**, 
    <!-- - **Disabled by default**: This feature is off by default to avoid unexpected behavior for users who manually write `cd` at the top of their do files. Enable via setting `stata-all-in-one.cdToDoFileDir`. -->
 
 7. Quick Settings
-   - **Settings Button**: <span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">Click the gear icon in the editor title bar to quickly access Stata All in One settings.</span>
+   - **Settings Button**: <mark>Click the gear icon in the editor title bar to quickly access Stata All in One settings.</mark>
 
 ---
 
@@ -203,7 +206,7 @@ Search for "Stata All in One" in VS Code settings and configure:
 
 ### Code Execution
 
-1. <span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">**Run Mode** (`stata-all-in-one.runMode`)</span>
+1. <mark>**Run Mode** (`stata-all-in-one.runMode`)</mark>
    - `embeddedConsole` (default): Run code in the built-in **Console | Stata All in One** panel within VS Code, with direct output viewing and interaction.
    - `externalApp`: Send code to the system-installed Stata application for execution.
 
@@ -235,16 +238,16 @@ Search for "Stata All in One" in VS Code settings and configure:
 
 ### Embedded Console
 
-9. <span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">**Console Font Mode** (`stata-all-in-one.consoleFontMode`)</span>
+9. <mark>**Console Font Mode** (`stata-all-in-one.consoleFontMode`)</mark>
    - `editor` (default): Follow the editor font, falling back to the system monospace font.
    - `system`: Use the system monospace font directly.
    - `custom`: Use the custom font specified below.
 
-10. <span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">**Console Custom Font Family** (`stata-all-in-one.consoleCustomFontFamily`)</span>
+10. <mark>**Console Custom Font Family** (`stata-all-in-one.consoleCustomFontFamily`)</mark>
     - When font mode is set to `custom`, the CSS `font-family` list used by the console.
     - Example: `"Maple Mono NF CN", Menlo, Monaco, monospace`
 
-11. <span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">**Graph Export DPI** (`stata-all-in-one.graphPngDpi`)</span>
+11. <mark>**Graph Export DPI** (`stata-all-in-one.graphPngDpi`)</mark>
     - DPI value for saving embedded console graphs as PNG. Default `600`, range 72–1200.
 
 ### Syntax Highlighting and Code Completion
@@ -256,11 +259,11 @@ Search for "Stata All in One" in VS Code settings and configure:
 
 ### Hover Help
 
-13. <span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">**Enable Hover Docs** (`stata-all-in-one.enableHoverDocs`)</span>
+13. <mark>**Enable Hover Docs** (`stata-all-in-one.enableHoverDocs`)</mark>
     - `true` (default): Show official Stata help information when hovering over Stata commands.
     - `false`: Disable hover help.
 
-14. <span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">**Additional ADO Paths** (`stata-all-in-one.additionalAdoPaths`)</span>
+14. <mark>**Additional ADO Paths** (`stata-all-in-one.additionalAdoPaths`)</mark>
     - Extra Stata ADO paths for scanning help files of community-contributed commands.
     - Example: `["/Users/username/ado/personal", "C:\\Users\\username\\ado\\personal"]`
 
@@ -290,11 +293,11 @@ Search for "Stata All in One" in VS Code settings and configure:
 
 ### AI Skill
 
-20. <span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">**AI Skill Enabled** (`stata-all-in-one.aiSkillEnabled`)</span>
+20. <mark>**AI Skill Enabled** (`stata-all-in-one.aiSkillEnabled`)</mark>
     - `true` (default): Start a localhost HTTP server when VS Code opens, allowing AI coding tools to execute Stata code.
     - `false`: The extension only activates when `.do`/`.dta` files are opened, and no HTTP server is started.
 
-21. <span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">**AI Skill Port** (`stata-all-in-one.aiSkillPort`)</span>
+21. <mark>**AI Skill Port** (`stata-all-in-one.aiSkillPort`)</mark>
     - Port number for the AI Skill HTTP server. Default `19521`. Change if the port is in use.
 
 > **Note**: Changes to `numberingShow`, `numberingAdd`, and `customCommands` require reopening `.do` files to take effect. When `numberingAdd` is disabled, existing numbering in `.do` files will be automatically removed.

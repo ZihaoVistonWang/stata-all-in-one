@@ -54,6 +54,9 @@ Stata All in One
 <p style="margin:0 0 8px 0; padding-left: 1.6em; text-indent: -1.6em;">
   🎯 <strong>正式版 v0.3.0 预计于 2026 年 6 月中旬发布</strong>，届时将修复已知问题并提供更稳定的体验。
 </p>
+<p style="margin:0 0 8px 0; padding-left: 1.6em; text-indent: -1.6em;">
+  📌 本文档内的<mark>高亮部分</mark>代表预览版中的新增内容。
+</p>
 </td>
 </tr>
 </table>
@@ -70,18 +73,18 @@ Stata All in One
 
 ### 1. AI Skill 功能（实验性）
 
-- **让 AI Agent 运行 Stata 代码**：<span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">在 VS Code 内部启动 localhost HTTP 服务器（默认端口 `19521`），让 AI 编程工具（Claude Code、Cursor、Codex CLI、Open Code、OpenClaw 等）通过系统自带的 `curl` 命令直接运行 Stata 代码并读取结果。</span>
-- **零外部依赖**：无需安装 Python、Node.js 或任何第三方工具 —— 只需 VS Code 和系统自带的 `curl`（或 PowerShell）。
-- **复制即用**：点击编辑器工具栏的 `AI` 按钮，复制提示词粘贴到 AI 工具即可，AI 将自行完成配置。
-- **自动启动**：启用后，HTTP 服务器随 VS Code 开启自动启动，AI Agent 可以随时运行 Stata 代码。
-- **开关控制**：点击编辑器工具栏的 `AI` 按钮（位于运行按钮旁），或在设置中管理 `Stata All in One > AI Skill Enabled`。关闭后不启动服务。
+- **让 AI Agent 运行 Stata 代码**：<mark>在 VS Code 内部启动 localhost HTTP 服务器（默认端口 `19521`），让 AI 编程工具（Claude Code、Cursor、Codex CLI、Open Code、OpenClaw 等）通过系统自带的 `curl` 命令直接运行 Stata 代码并读取结果。</mark>
+- **零外部依赖**：<mark>无需安装 Python、Node.js 或任何第三方工具 —— 只需 VS Code 和系统自带的 `curl`（或 PowerShell）。</mark>
+- **安装交给AI就行**：<mark>点击编辑器工具栏的 `AI` 按钮，复制提示词粘贴到 AI 工具即可，AI 将自行完成配置。</mark>
+- **自动启动**：<mark>启用后，HTTP 服务器随 VS Code 开启自动启动，AI Agent 可以随时运行 Stata 代码。</mark>
+- **开关控制**：<mark>点击编辑器工具栏的 `AI` 按钮（位于运行按钮旁），或在设置中管理 `Stata All in One > AI Skill Enabled`。关闭后不启动服务。</mark>
 
 ### 2. 代码运行 (Stata 交互)
 
 - **平台支持**：无需额外扩展即可与 **macOS** 和 **Windows** 上的 Stata 无缝集成。
 - **两种运行模式**：
-  - **嵌入式控制台**（默认模式）：<span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">现在可以在 VS Code 内直接运行并展示Stata输出啦！包括*命令结果*、*错误信息*、*命令行窗口*、*数据查看*和*图形输出*，真正实现 IDE 一体化体验。</span>
-  - **外部应用**：继续支持传统的通过 Stata 窗口运行代码的方式，适合喜欢使用 Stata 原生界面的用户。<span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">Windows端现在使用[Stata COM自动化](https://www.stata.com/automation/)，性能相比之前基于 PowerShell 的实现有显著提升。</span>
+  - **嵌入式控制台**（默认模式）：<mark>现在可以在 VS Code 内直接运行并展示Stata输出啦！包括*命令结果*、*错误信息*、*命令行窗口*、*数据查看*和*图形输出*，真正实现 IDE 一体化体验。</mark>
+  - **外部应用**：继续支持传统的通过 Stata 窗口运行代码的方式，适合喜欢使用 Stata 原生界面的用户。<mark>Windows端现在使用[Stata COM自动化](https://www.stata.com/automation/)，性能相比之前基于 PowerShell 的实现有显著提升。</mark>
 - **多场景执行策略**：
   - **章节运行**：当光标在标题行（如 `** # 标题`）时，点击 ▶️ 按钮 或按 `Ctrl/Cmd + D`，将执行从该标题起始至下一个同级或高级别标题前的所有代码（即整个章节）。
   - **单行运行**：当光标在普通代码行（选中）时，点击 ▶️ 按钮 或按 `Ctrl/Cmd + D`，只执行当前行代码。
@@ -91,7 +94,7 @@ Stata All in One
 
 - **完整语法高亮和代码提示支持**：集成 [Stata Enhanced](https://github.com/kylebarron/language-stata) 语法引擎[^1]，为 `.do` 文件提供精确的语法高亮和代码提示（遵循 [MIT](https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/THIRD_PARTY_NOTICES.md) 许可）。
 - **自定义命令高亮**：支持为用户常用的第三方命令（如 `reghdfe`、`ivreghdfe`、`gtools` 等）添加关键字高亮，可在设置中自由配置。
-- **数据集变量名自动补全**：<span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">（运行一次代码后）在编辑器和控制台中输入变量名时，提供基于当前数据集的智能补全建议，提升编码效率。</span>
+- **数据集变量名自动补全**：<mark>（运行一次代码后）在编辑器和控制台中输入变量名时，提供基于当前数据集的智能补全建议，提升编码效率。</mark>
 
 [^1]: [Stata Enhanced](https://github.com/kylebarron/language-stata) 语法引擎由 Kyle Barron 开发，提供了对 Stata 语言的全面支持。本拓展遵循 [MIT](https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/THIRD_PARTY_NOTICES.md) 许可协议，感谢 Kyle Barron 的贡献！
 
@@ -111,11 +114,11 @@ Stata All in One
 
 ### 5. 数据查看器
 
-- **即点即看**：<span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">点击Vs Code资源管理器中的 `.dta` 文件，即可在全新的 `数据查看器` 面板中打开数据集。</span>
+- **即点即看**：<mark>点击Vs Code资源管理器中的 `.dta` 文件，即可在全新的 `数据查看器` 面板中打开数据集。</mark>
   - **变量信息**：变量表格显示变量名称、标签、类型等元数据。
   - **数据浏览**：支持行列动态加载，无需打开Stata，现在在Vs Code中就能轻松浏览大数据集。
-- **跑完就看**：<span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">使用`嵌入控制台`运行模式跑完代码后，可以立即在`控制台`面板中的`数据查看器`中查看上述结果。</span>
-- **数据过滤**：<span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">提供 Stata 风格的列过滤功能，支持快速定位感兴趣的数据子集。</span>
+- **跑完就看**：<mark>使用`嵌入控制台`运行模式跑完代码后，可以立即在`控制台`面板中的`数据查看器`中查看上述结果。</mark>
+- **数据过滤**：<mark>提供 Stata 风格的列过滤功能，支持快速定位感兴趣的数据子集。</mark>
 
 ### 6. 高效分隔线与样式
 
@@ -135,23 +138,23 @@ Stata All in One
 
 1. 优化嵌入式控制台
    - **图片输出**
-     - **直接显示**：<span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">在嵌入式控制台中直接渲染 Stata 图形输出。</span>
-     - **导出选项**：<span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">支持将图形保存为SVG、PNG（可配置 DPI）或复制到剪贴板。</span>
-     - **全屏查看**：<span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">点击图形可在全屏模式下查看细节。</span>
+     - **直接显示**：<mark>在嵌入式控制台中直接渲染 Stata 图形输出。</mark>
+     - **导出选项**：<mark>支持将图形保存为SVG、PNG（可配置 DPI）或复制到剪贴板。</mark>
+     - **全屏查看**：<mark>点击图形可在全屏模式下查看细节。</mark>
 
    - **进度显示**
-     - **命令执行状态**：<span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">对于像`bootstrap`命令，控制台会显示其执行进度和状态。其他命令会显示运行时间，以便观察其运行状态。</span>
+     - **命令执行状态**：<mark>对于像`bootstrap`命令，控制台会显示其执行进度和状态。其他命令会显示运行时间，以便观察其运行状态。</mark>
 
    - **自定义字体**：
-     - **设置字体**：<span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">通过 `stata-all-in-one.consoleFontMode` 和 `stata-all-in-one.consoleCustomFontFamily` 设置项，用户可以自定义控制台的字体，以获得更好的阅读体验。</span>
+     - **设置字体**：<mark>通过 `stata-all-in-one.consoleFontMode` 和 `stata-all-in-one.consoleCustomFontFamily` 设置项，用户可以自定义控制台的字体，以获得更好的阅读体验。</mark>
 
 2. 注释增强
    - **一键切换**：使用 `Ctrl/Cmd + /` 快速切换行注释状态。
    - **可选样式**：默认使用 `//`，支持在设置中更改为其他合法注释符。
 
 3. 内置帮助
-   - **输出帮助文本**：例如：选中 `regress`，按下快捷键`Ctrl/Cmd + Shift + H`，外部应用（externalApp）模式会打开 Stata 的 `regress` 帮助页面，<span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">而嵌入式控制台（embeddedConsole）模式则会在控制台中直接显示 `regress` 的帮助文本。</span>
-   - **悬浮帮助提示**：<span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">鼠标悬停在 Stata 命令上时显示帮助信息，并自动过滤掉一些非实用命令（如 `#delimit`、`using` 等）。</span>
+   - **输出帮助文本**：例如：选中 `regress`，按下快捷键`Ctrl/Cmd + Shift + H`，外部应用（externalApp）模式会打开 Stata 的 `regress` 帮助页面，<mark>而嵌入式控制台（embeddedConsole）模式则会在控制台中直接显示 `regress` 的帮助文本。</mark>
+   - **悬浮帮助提示**：<mark>鼠标悬停在 Stata 命令上时显示帮助信息，并自动过滤掉一些非实用命令（如 `#delimit`、`using` 等）。</mark>
 
 <a id="line-break"></a>
 
@@ -171,7 +174,7 @@ Stata All in One
    <!-- - **默认关闭**：为避免影响习惯在 do 文件开头手动写 `cd` 命令的用户，防止产生意料之外的错误，该功能默认不启用。需要时可在设置中开启 `stata-all-in-one.cdToDoFileDir`。 -->
 
 7. 快速设置
-   - **设置按钮**：<span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">点击编辑器标题栏的齿轮图标，快速访问 Stata All in One 的相关设置。</span>
+   - **设置按钮**：<mark>点击编辑器标题栏的齿轮图标，快速访问 Stata All in One 的相关设置。</mark>
 
 ---
 
@@ -203,7 +206,7 @@ Stata All in One
 
 ### 代码运行
 
-1. <span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">**运行模式** (`stata-all-in-one.runMode`)</span>
+1. <mark>**运行模式** (`stata-all-in-one.runMode`)</mark>
    - `embeddedConsole`（默认）：在 VS Code 内置的 **控制台 | Stata All in One** 面板中运行代码，直接查看输出并交互。
    - `externalApp`：将代码发送到系统安装的外部 Stata 应用执行。
 
@@ -235,16 +238,16 @@ Stata All in One
 
 ### 嵌入式控制台
 
-9. <span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">**控制台字体模式** (`stata-all-in-one.consoleFontMode`)</span>
+9. <mark>**控制台字体模式** (`stata-all-in-one.consoleFontMode`)</mark>
    - `editor`（默认）：跟随编辑器字体，降级到系统等宽字体。
    - `system`：直接使用系统等宽字体。
    - `custom`：使用下方自定义字体设置。
 
-10. <span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">**控制台自定义字体** (`stata-all-in-one.consoleCustomFontFamily`)</span>
+10. <mark>**控制台自定义字体** (`stata-all-in-one.consoleCustomFontFamily`)</mark>
     - 当字体模式设为 `custom` 时，控制台使用的 CSS `font-family` 列表。
     - 示例：`"Maple Mono NF CN", Menlo, Monaco, monospace`
 
-11. <span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">**图形导出 DPI** (`stata-all-in-one.graphPngDpi`)</span>
+11. <mark>**图形导出 DPI** (`stata-all-in-one.graphPngDpi`)</mark>
     - 嵌入式控制台图形保存为 PNG 时的 DPI 值。默认 `600`，范围 72–1200。
 
 ### 语法高亮和代码提示
@@ -256,11 +259,11 @@ Stata All in One
 
 ### Hover 悬停帮助
 
-13. <span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">**启用悬停文档** (`stata-all-in-one.enableHoverDocs`)</span>
+13. <mark>**启用悬停文档** (`stata-all-in-one.enableHoverDocs`)</mark>
     - `true`（默认）：鼠标悬停在 Stata 命令上时显示官方帮助信息。
     - `false`：关闭悬停帮助。
 
-14. <span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">**额外 ADO 路径** (`stata-all-in-one.additionalAdoPaths`)</span>
+14. <mark>**额外 ADO 路径** (`stata-all-in-one.additionalAdoPaths`)</mark>
     - 用于扫描社区贡献命令帮助文件的额外 Stata ADO 路径。
     - 示例：`["/Users/username/ado/personal", "C:\\Users\\username\\ado\\personal"]`
 
@@ -290,11 +293,11 @@ Stata All in One
 
 ### AI Skill
 
-20. <span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">**AI Skill 启用** (`stata-all-in-one.aiSkillEnabled`)</span>
+20. <mark>**AI Skill 启用** (`stata-all-in-one.aiSkillEnabled`)</mark>
     - `true`（默认）：VS Code 打开时自动启动 localhost HTTP 服务器，允许 AI 编程工具执行 Stata 代码。
     - `false`：仅在打开 `.do`/`.dta` 文件时激活扩展，不启动 HTTP 服务器。
 
-21. <span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">**AI Skill 端口** (`stata-all-in-one.aiSkillPort`)</span>
+21. <mark>**AI Skill 端口** (`stata-all-in-one.aiSkillPort`)</mark>
     - AI Skill HTTP 服务器的端口号。默认 `19521`。如果端口被占用可在此更改。
 
 > **注意**：修改 `numberingShow`、`numberingAdd`、`customCommands` 设置后需重新打开 `.do` 文件生效。禁用 `numberingAdd` 时，文件中现有序号将被自动移除。
