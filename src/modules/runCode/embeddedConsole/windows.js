@@ -520,14 +520,24 @@ async function runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir = null
             if (typeof outputSink.writeCommand === 'function') {
                 outputSink.writeCommand(executionPlan.displayCode || normalizedCode);
             }
-            for (const command of executionPlan.commands) {
+            console.log(`[windows.js] Executing ${executionPlan.commands.length} command(s) line-by-line`);
+            for (let ci = 0; ci < executionPlan.commands.length; ci++) {
+                const command = executionPlan.commands[ci];
+                const cmdStart = Date.now();
+                console.log(`[windows.js] [${ci + 1}/${executionPlan.commands.length}] Executing: ${command.substring(0, 100)}`);
                 result = await consoleSession.execute(command, false, onExecutionChunk);
+                const cmdElapsed = Date.now() - cmdStart;
+                console.log(`[windows.js] [${ci + 1}/${executionPlan.commands.length}] Done in ${cmdElapsed}ms, success=${result.success}, rc=${result.returnCode}`);
                 if (!result.success) {
+                    console.error(`[windows.js] Command failed: ${result.error}`);
                     break;
                 }
             }
         } else {
+            const cmdStart = Date.now();
+            console.log(`[windows.js] Executing single command via do-file: ${executionPlan.command.substring(0, 100)}`);
             result = await consoleSession.execute(executionPlan.command, true, onExecutionChunk);
+            console.log(`[windows.js] Do-file execution done in ${Date.now() - cmdStart}ms, success=${result.success}`);
         }
 
         if (!executionPlan.commands && result.output) {

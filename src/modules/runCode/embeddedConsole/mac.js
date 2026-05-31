@@ -3,17 +3,45 @@
  * 使用 Stata 会话执行代码，并通过 Stata All in One Console 显示输出
  */
 
+const vscode = require('vscode');
 const fs = require('fs');
 const path = require('path');
 
 const session = require('./session');
 const { getTempFilePath, cleanupTempFile } = require('../execute/tempfile');
 const config = require('../../../utils/config');
-const { showInfo, showError } = require('../../../utils/common');
+const { showInfo, showError, msg } = require('../../../utils/common');
 const { getWebviewTerminalSink, setGraphResourceRoot } = require('./panel');
 const { beginGraphCapture, endGraphCapture, exportCapturedGraphs, getGraphCacheDir } = require('./graphs');
 
 let _activeOutputSink = null;
+
+const LICENSE_DIALOG_SUPPRESSED_KEY = 'stata-all-in-one.consoleLicenseDialogSuppressed';
+const LICENSE_DIALOG_REMIND_KEY = 'stata-all-in-one.consoleLicenseDialogNextReminder';
+const LICENSE_DIALOG_REMIND_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+async function showConsoleLicenseDialog(context) {
+    if (!context) return;
+    if (context.globalState.get(LICENSE_DIALOG_SUPPRESSED_KEY)) return;
+    const nextReminder = context.globalState.get(LICENSE_DIALOG_REMIND_KEY, 0);
+    if (Date.now() < nextReminder) return;
+
+    const reminder = msg('consoleLicenseMissingRemind');
+    const never = msg('consoleLicenseMissingNever');
+
+    const choice = await vscode.window.showWarningMessage(
+        `Stata All in One: ${msg('consoleLicenseMissing')}`,
+        { modal: true },
+        reminder,
+        never
+    );
+
+    if (choice === never) {
+        await context.globalState.update(LICENSE_DIALOG_SUPPRESSED_KEY, true);
+    } else if (choice === reminder) {
+        await context.globalState.update(LICENSE_DIALOG_REMIND_KEY, Date.now() + LICENSE_DIALOG_REMIND_MS);
+    }
+}
 
 function normalizeChunk(chunk) {
     return String(chunk || '').replace(/\r/g, '');
@@ -359,6 +387,22 @@ async function ensureConsoleSession(context) {
         console.log('[mac.js] 已保存 dylib 路径:', dylibInfo.path);
     }
 
+    // Derive the Stata install directory to check for license file
+    // macOS: /Applications/StataMP.app/Contents/MacOS/libstata-mp.dylib → /Applications
+    const stHomeDir = dylibInfo.path
+        ? path.dirname(path.dirname(path.dirname(path.dirname(dylibInfo.path))))
+        : null;
+    const licPath = stHomeDir ? path.join(stHomeDir, 'stata.lic') : null;
+
+    // Pre-check: no license file → bail out early, let caller show dialog
+    if (!licPath || !fs.existsSync(licPath)) {
+        console.log('[mac.js] No stata.lic found in', stHomeDir);
+        return { success: false, noLicense: true, reason: '' };
+    }
+
+    process.env.STATA_LICENSE = licPath;
+    console.log('[mac.js] License file found:', licPath);
+
     const initResult = await session.initConsoleSession(context, dylibInfo.path);
     if (!initResult.success) {
         console.error('[runtime] 会话初始化失败:', initResult.error);
@@ -367,6 +411,13 @@ async function ensureConsoleSession(context) {
             success: false,
             reason: `Stata 会话初始化失败${detail}。请检查 Stata ${dylibInfo.edition ? dylibInfo.edition.toUpperCase() : ''} 是否正确安装。`
         };
+    }
+
+    // License was found and session initialized — clear any suppression preference
+    if (context && context.globalState.get(LICENSE_DIALOG_SUPPRESSED_KEY)) {
+        await context.globalState.update(LICENSE_DIALOG_SUPPRESSED_KEY, false);
+        await context.globalState.update(LICENSE_DIALOG_REMIND_KEY, 0);
+        showInfo(`Stata All in One: ${msg('consoleLicenseFound')}`);
     }
 
     return {
@@ -401,7 +452,8 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
                 success: false,
                 shouldOfferGuiFallback: true,
                 errorType: 'extension',
-                message: initResult.reason
+                message: initResult.reason,
+                noLicense: initResult.noLicense || false
             };
         }
 
@@ -911,6 +963,7 @@ function forceShutdownConsoleSession() {
 
 module.exports = {
     findStataDylib,
+    showConsoleLicenseDialog,
     runOnMacWebview,
     initConsoleSession,
     stopConsoleExecution,

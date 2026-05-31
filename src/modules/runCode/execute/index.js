@@ -189,14 +189,20 @@ async function runCurrentSection(context, editor = null) {
                     vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
                     await refreshMemoryVarsAfterRun(context, consoleResult);
                 } else if (consoleResult.shouldOfferGuiFallback) {
-                    await maybeOfferGuiFallback(codeToRun, tmpFilePath, docDir, context, consoleResult.message || 'Embedded Console 执行失败');
+                    if (consoleResult.noLicense) {
+                        const { showConsoleLicenseDialog } = require('../embeddedConsole/mac');
+                        await showConsoleLicenseDialog(context);
+                        runOnMac(codeToRun, tmpFilePath, false, docDir, context);
+                    } else {
+                        await maybeOfferGuiFallback(codeToRun, tmpFilePath, docDir, context, consoleResult.message || 'Embedded Console 执行失败');
+                    }
                     vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', false);
                 } else {
                     vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
                 }
             }
         }
-        
+
     } catch (error) {
         showError(msg('tmpFileFailed', { message: error.message }));
         console.error('[execute] 执行异常:', error.message);
@@ -344,7 +350,15 @@ async function runArbitraryCode(context, code, options = {}) {
             return consoleResult;
         }
         if (consoleResult.shouldOfferGuiFallback) {
-            await maybeOfferGuiFallback(normalizedCode, tmpFilePath, docDir, context, consoleResult.message || 'Embedded Console 执行失败');
+            if (consoleResult.noLicense) {
+                // License missing → show dedicated modal dialog, then
+                // silently fall back to External App (no extra notification).
+                const { showConsoleLicenseDialog } = require('../embeddedConsole/mac');
+                await showConsoleLicenseDialog(context);
+                runOnMac(normalizedCode, tmpFilePath, false, docDir, context);
+            } else {
+                await maybeOfferGuiFallback(normalizedCode, tmpFilePath, docDir, context, consoleResult.message || 'Embedded Console 执行失败');
+            }
             await vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', false);
         }
         return consoleResult;

@@ -84,13 +84,78 @@ function initSession(dylibPath, splash = false, execPath = '', stHome = '') {
 }
 
 /**
- * Execute Stata code
+ * Execute Stata code on Windows using ExecuteSync (main thread)
+ *
+ * On Windows, the Stata DLL (mp-64.dll) requires StataSO_Execute to be
+ * called from the same thread that called StataSO_Main (the main JS thread).
+ * Calling it from a worker thread causes g_StataSO_Execute to hang indefinitely.
+ *
+ * macOS does not have this restriction — dlopen'd dylibs are thread-safe.
+ *
+ * This function uses nativeModule.executeSync() which calls StataSO_Execute
+ * synchronously from the main thread via setImmediate to give the event loop
+ * a chance to process pending UI updates before blocking.
+ *
+ * @param {string} code - Stata code to execute
+ * @param {boolean} echo - Whether Stata should echo the command
+ * @param {function} onOutput - Called with full output after execution
+ * @returns {Promise<{success: boolean, returnCode: number, output: string, error: string}>}
+ */
+function executeSyncWin(code, echo = false, onOutput = null) {
+    return new Promise((resolve, reject) => {
+        if (!isNativeLoaded()) {
+            reject(new Error('Native module not loaded.'));
+            return;
+        }
+
+        if (!sessionInitialized) {
+            reject(new Error('Session not initialized. Call initSession() first.'));
+            return;
+        }
+
+        // setImmediate defers the blocking call so the event loop can
+        // flush pending UI updates (e.g. "working" status) before we block.
+        setImmediate(() => {
+            const t0 = Date.now();
+            try {
+                clearOutput();
+                const result = nativeModule.executeSync(code, echo ? 1 : 0);
+                const elapsed = Date.now() - t0;
+                const output = result.output || '';
+
+                if (elapsed > 200) {
+                    console.log(`[stata_session] executeSync took ${elapsed}ms for: ${code.substring(0, 80)}`);
+                }
+
+                if (typeof onOutput === 'function' && output) {
+                    onOutput(output);
+                }
+
+                resolve({
+                    success: result.returnCode === 0,
+                    returnCode: result.returnCode,
+                    output: output,
+                    error: result.error || (result.returnCode !== 0
+                        ? `Execution failed with return code ${result.returnCode}`
+                        : '')
+                });
+            } catch (error) {
+                console.error('[stata_session] executeSync error:', error.message);
+                reject(new Error('Error executing code: ' + error.message));
+            }
+        });
+    });
+}
+
+/**
+ * Execute Stata code (async, via worker thread — macOS / fallback)
  * 执行 Stata 代码
  * @param {string} code - Stata code to execute
  * @param {boolean} echo - Whether Stata should echo the command
+ * @param {function} onOutput - Called for each output chunk (streaming)
  * @returns {Promise<{success: boolean, returnCode: number, output: string, error: string}>}
  */
-function execute(code, echo = false, onOutput = null) {
+function executeAsync(code, echo = false, onOutput = null) {
     return new Promise((resolve, reject) => {
         if (!isNativeLoaded()) {
             reject(new Error('Native module not loaded. Please ensure stata_bridge.node is compiled and in the bin directory.'));
@@ -105,6 +170,7 @@ function execute(code, echo = false, onOutput = null) {
         try {
             clearOutput();
             let latestOutput = '';
+            const t0 = Date.now();
             nativeModule.execute(code, echo, (payload) => {
                 if (!payload || typeof payload !== 'object') {
                     return;
@@ -122,6 +188,10 @@ function execute(code, echo = false, onOutput = null) {
                 }
 
                 if (payload.type === 'done') {
+                    const elapsed = Date.now() - t0;
+                    if (elapsed > 500) {
+                        console.log(`[stata_session] executeAsync took ${elapsed}ms for: ${code.substring(0, 80)}`);
+                    }
                     const finalOutput = payload.output || latestOutput || '';
                     resolve({
                         success: payload.returnCode === 0,
@@ -137,6 +207,27 @@ function execute(code, echo = false, onOutput = null) {
             reject(new Error('Error executing code: ' + error.message));
         }
     });
+}
+
+/**
+ * Execute Stata code — platform-aware dispatcher
+ *
+ * Windows: Uses ExecuteSync (main-thread synchronous call via setImmediate)
+ *          because Stata DLL on Windows requires main-thread affinity for
+ *          StataSO_Execute. Worker-thread calls hang indefinitely.
+ * macOS:   Uses async Execute (worker thread with streaming output) because
+ *          dylib on macOS is thread-safe.
+ *
+ * @param {string} code - Stata code to execute
+ * @param {boolean} echo - Whether Stata should echo the command
+ * @param {function} onOutput - Called for output chunks (streaming on macOS, full output on Windows)
+ * @returns {Promise<{success: boolean, returnCode: number, output: string, error: string}>}
+ */
+function execute(code, echo = false, onOutput = null) {
+    if (process.platform === 'win32') {
+        return executeSyncWin(code, echo, onOutput);
+    }
+    return executeAsync(code, echo, onOutput);
 }
 
 /**
