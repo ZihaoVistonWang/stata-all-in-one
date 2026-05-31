@@ -19,7 +19,7 @@ Stata All in One
 
 ---
 
-<h3 align="center">一站式 Stata 体验：</br>运行代码 + 语法高亮 + 代码提示 + 智能大纲 + 数据查看，<b>All in One</b>!</h3>
+<h3 align="center">一站式 Stata 体验：</br>运行代码 + 语法高亮 + 代码提示 + 智能大纲 + 数据查看 + AI Skill，<b>All in One</b>!</h3>
 
 <h3 align="center"><b>开箱即用！</b></br>所有功能均原生集成于 VS Code，无需额外配置 Python、Node.js 等任何第三方环境。</h3>
 
@@ -68,7 +68,15 @@ Stata All in One
    <a href="https://pan.zihaowang.cn/share/example-marked-cn.jpg"><img src="img/example-marked-cn.jpg" alt="功能展示图"/> 点击查看大图 </a>
 </p>
 
-### 1. 代码运行 (Stata 交互)
+### 1. AI Skill 功能（实验性）
+
+- **让 AI Agent 运行 Stata 代码**：<span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">在 VS Code 内部启动 localhost HTTP 服务器（默认端口 `19521`），让 AI 编程工具（Claude Code、Cursor、Codex CLI、Open Code、OpenClaw 等）通过系统自带的 `curl` 命令直接运行 Stata 代码并读取结果。</span>
+- **零外部依赖**：无需安装 Python、Node.js 或任何第三方工具 —— 只需 VS Code 和系统自带的 `curl`（或 PowerShell）。
+- **复制即用**：点击编辑器工具栏的 `AI` 按钮，复制提示词粘贴到 AI 工具即可，AI 将自行完成配置。
+- **自动启动**：启用后，HTTP 服务器随 VS Code 开启自动启动，AI Agent 可以随时运行 Stata 代码。
+- **开关控制**：点击编辑器工具栏的 `AI` 按钮（位于运行按钮旁），或在设置中管理 `Stata All in One > AI Skill Enabled`。关闭后不启动服务。
+
+### 2. 代码运行 (Stata 交互)
 
 - **平台支持**：无需额外扩展即可与 **macOS** 和 **Windows** 上的 Stata 无缝集成。
 - **两种运行模式**：
@@ -79,7 +87,7 @@ Stata All in One
   - **单行运行**：当光标在普通代码行（选中）时，点击 ▶️ 按钮 或按 `Ctrl/Cmd + D`，只执行当前行代码。
   - **选中运行**：当选中多行代码时，点击 ▶️ 按钮 或按 `Ctrl/Cmd + D`，执行选中行的代码。支持**模糊选中**——无需精确选中代码段的*首行*或*尾行*，系统会自动捕捉并运行选中内容涉及的全部行。
 
-### 2. 增强语法高亮与代码提示
+### 3. 增强语法高亮与代码提示
 
 - **完整语法高亮和代码提示支持**：集成 [Stata Enhanced](https://github.com/kylebarron/language-stata) 语法引擎[^1]，为 `.do` 文件提供精确的语法高亮和代码提示（遵循 [MIT](https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/THIRD_PARTY_NOTICES.md) 许可）。
 - **自定义命令高亮**：支持为用户常用的第三方命令（如 `reghdfe`、`ivreghdfe`、`gtools` 等）添加关键字高亮，可在设置中自由配置。
@@ -87,7 +95,7 @@ Stata All in One
 
 [^1]: [Stata Enhanced](https://github.com/kylebarron/language-stata) 语法引擎由 Kyle Barron 开发，提供了对 Stata 语言的全面支持。本拓展遵循 [MIT](https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/THIRD_PARTY_NOTICES.md) 许可协议，感谢 Kyle Barron 的贡献！
 
-### 3. 智能大纲与结构导航
+### 4. 智能大纲与结构导航
 
 - **多级大纲识别**：自动识别 `**#` 至 `**######` 格式的注释行，最高支持 _6 级层级标题_。
   - **快捷键**：`Ctrl/Cmd + 1-6` 快速转换对应等级标题，`Ctrl/Cmd + 0` 恢复为普通代码行。
@@ -101,7 +109,7 @@ Stata All in One
 
 <a id="code_execution"></a>
 
-### 4. 数据查看器
+### 5. 数据查看器
 
 - **即点即看**：<span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">点击Vs Code资源管理器中的 `.dta` 文件，即可在全新的 `数据查看器` 面板中打开数据集。</span>
   - **变量信息**：变量表格显示变量名称、标签、类型等元数据。
@@ -109,7 +117,7 @@ Stata All in One
 - **跑完就看**：<span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">使用`嵌入控制台`运行模式跑完代码后，可以立即在`控制台`面板中的`数据查看器`中查看上述结果。</span>
 - **数据过滤**：<span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">提供 Stata 风格的列过滤功能，支持快速定位感兴趣的数据子集。</span>
 
-### 5. 高效分隔线与样式
+### 6. 高效分隔线与样式
 
 - **快速插入**：支持多种符号，显著提升代码的可读性。
   - **标准分隔符**：通过 `Ctrl/Cmd + [符号]` 快速插入分隔线：
@@ -123,7 +131,7 @@ Stata All in One
   - **标题修饰**：选中标题的若干字符按快捷键，将生成带有平衡装饰符的标题（例如：`**# === 标题内容 ===`），且不影响大纲识别。
     - 标题居中：如果使用 **标题修饰** + **自定义*空格*分隔符**，则标题内容将自动居中显示。
 
-### 6. 更多精彩
+### 7. 更多精彩
 
 1. 优化嵌入式控制台
    - **图片输出**
@@ -279,6 +287,15 @@ Stata All in One
 19. **分隔线对称性** (`stata-all-in-one.separatorSymmetric`)
     - `true`：在分割线末尾添加 ` **` 以保证视觉对称（例如 `** === 标题 === **`）。
     - `false`（默认）：分割线不添加末尾后缀。
+
+### AI Skill
+
+20. <span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">**AI Skill 启用** (`stata-all-in-one.aiSkillEnabled`)</span>
+    - `true`（默认）：VS Code 打开时自动启动 localhost HTTP 服务器，允许 AI 编程工具执行 Stata 代码。
+    - `false`：仅在打开 `.do`/`.dta` 文件时激活扩展，不启动 HTTP 服务器。
+
+21. <span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">**AI Skill 端口** (`stata-all-in-one.aiSkillPort`)</span>
+    - AI Skill HTTP 服务器的端口号。默认 `19521`。如果端口被占用可在此更改。
 
 > **注意**：修改 `numberingShow`、`numberingAdd`、`customCommands` 设置后需重新打开 `.do` 文件生效。禁用 `numberingAdd` 时，文件中现有序号将被自动移除。
 

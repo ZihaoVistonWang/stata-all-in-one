@@ -19,7 +19,7 @@ Stata All in One
 
 ---
 
-<h3 align="center"><b>All-in-one</b> Stata experience: </br>Code Execution + Syntax Highlighting + Code Completion + Smart Outline + Data Viewing!</h3>
+<h3 align="center"><b>All-in-one</b> Stata experience: </br>Code Execution + Syntax Highlighting + Code Completion + Smart Outline + Data Viewing + AI Skill!</h3>
 
 <h3 align="center"><b>Ready out of the box!</b><br>Natively integrated into VS Code—no need to configure external environments like Python or Node.js.</h3>
 
@@ -68,7 +68,15 @@ Special thanks to RedNote user **Rich\*\*d**, WeChat user **早起\*\*阳光**, 
    <a href="https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/img/example-marked-en.jpg"><img src="img/example-marked-en.jpg" alt="Feature Showcase"/> Click to view full image </a>
 </p>
 
-### 1. Code Execution (Stata Interaction)
+### 1. AI Skill (Experimental)
+
+- **Let AI Agents Run Stata Code**: <span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">Start a local HTTP server (default port `19521`) inside VS Code, allowing AI coding tools (Claude Code, Cursor, Codex CLI, Open Code, OpenClaw, etc.) to execute Stata code and read results using only the built-in `curl` command.</span>
+- **Zero External Dependencies**: No need to install Python, Node.js, or any third-party tools — just VS Code and the system `curl` (or PowerShell).
+- **Copy the Prompt**: Click the `AI` button in the editor toolbar, copy the prompt, and paste it to your AI tool. The AI will configure itself automatically.
+- **Auto-Start**: When enabled, the HTTP server starts automatically when VS Code opens. AI agents can run Stata code anytime.
+- **Toggle Control**: Find the `AI` button in the editor toolbar (next to `Run`), or manage via `Stata All in One > AI Skill Enabled` in settings. When disabled, the server is not started.
+
+### 2. Code Execution (Stata Interaction)
 
 - **Platform Support**: Seamlessly integrates with Stata on both **macOS** and **Windows** without requiring additional extensions.
 - **Two Run Modes**:
@@ -79,7 +87,7 @@ Special thanks to RedNote user **Rich\*\*d**, WeChat user **早起\*\*阳光**, 
   - **Single Line Execution**: When the cursor is on a regular code line (no selection), click the ▶️ button or press `Ctrl/Cmd + D` to execute only that specific line.
   - **Selected Code Execution**: When multiple lines are selected, click the ▶️ button or press `Ctrl/Cmd + D` to execute the selected lines. Supports **fuzzy selection** — no need to precisely select the *first* or *last* line of a code segment; the system automatically captures and runs all lines covered by the selection.
 
-### 2. Enhanced Syntax Highlighting & Code Completion
+### 3. Enhanced Syntax Highlighting & Code Completion
 
 - **Full Syntax Highlighting and Code Completion Support**: Integrates [Stata Enhanced](https://github.com/kylebarron/language-stata) syntax engine[^1], providing precise syntax highlighting and code completion for `.do` files (under [MIT](https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/THIRD_PARTY_NOTICES.md) License).
 - **Custom Command Highlighting**: Supports highlighting for commonly used third-party commands (e.g., `reghdfe`, `ivreghdfe`, `gtools`), freely configurable in settings.
@@ -87,7 +95,7 @@ Special thanks to RedNote user **Rich\*\*d**, WeChat user **早起\*\*阳光**, 
 
 [^1]: [Stata Enhanced](https://github.com/kylebarron/language-stata) syntax engine was developed by Kyle Barron, providing comprehensive support for the Stata language. This extension follows the [MIT](https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/THIRD_PARTY_NOTICES.md) License. Thanks to Kyle Barron for his contribution!
 
-### 3. Smart Outline & Structural Navigation
+### 4. Smart Outline & Structural Navigation
 
 - **Multi-level Outline Recognition**: Automatically detects comment lines from `**#` to `**######` as hierarchical headers, supporting up to _6 levels_.
   - **Shortcuts**: `Ctrl/Cmd + 1-6` to quickly convert to the corresponding header level; `Ctrl/Cmd + 0` to revert to a standard code line.
@@ -101,7 +109,7 @@ Special thanks to RedNote user **Rich\*\*d**, WeChat user **早起\*\*阳光**, 
 
 <a id="code_execution"></a>
 
-### 4. Data Viewer
+### 5. Data Viewer
 
 - **Click to View**: <span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">Click a `.dta` file in the VS Code Explorer to open it in the new `Data Viewer` panel.</span>
   - **Variable Info**: Variable table displays metadata such as name, label, and type.
@@ -109,7 +117,7 @@ Special thanks to RedNote user **Rich\*\*d**, WeChat user **早起\*\*阳光**, 
 - **View After Run**: <span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">After running code in `Embedded Console` mode, instantly view results in the `Data Viewer` within the `Console` panel.</span>
 - **Data Filtering**: <span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">Provides Stata-style filtering for quickly locating subsets of data.</span>
 
-### 5. Efficient Separator Lines & Styling
+### 6. Efficient Separator Lines & Styling
 
 - **Quick Insertion**: Supports various symbols to significantly enhance code readability.
   - **Standard Separators**: Use `Ctrl/Cmd + Symbol` to quickly insert separator lines:
@@ -123,7 +131,7 @@ Special thanks to RedNote user **Rich\*\*d**, WeChat user **早起\*\*阳光**, 
   - **Header Decoration**: Select some characters of a header and press the shortcut to generate a title with balanced decorative symbols (e.g., `**# === Title ===`), without affecting outline recognition.
     - **Centered Header**: If using **Header Decoration** + **Custom _space_ separator**, the header content will be automatically centered.
 
-### 6. More Features
+### 7. More Features
 
 1. Enhanced Embedded Console
    - **Graph Output**
@@ -279,6 +287,15 @@ Search for "Stata All in One" in VS Code settings and configure:
 19. **Separator Symmetric** (`stata-all-in-one.separatorSymmetric`)
     - `true`: Add ` **` at the end of separator lines to ensure visual symmetry (e.g., `** === Title === **`).
     - `false` (default): Separator lines without the suffix.
+
+### AI Skill
+
+20. <span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">**AI Skill Enabled** (`stata-all-in-one.aiSkillEnabled`)</span>
+    - `true` (default): Start a localhost HTTP server when VS Code opens, allowing AI coding tools to execute Stata code.
+    - `false`: The extension only activates when `.do`/`.dta` files are opened, and no HTTP server is started.
+
+21. <span style="background: linear-gradient(to top, #f286c4 50%, transparent 50%);">**AI Skill Port** (`stata-all-in-one.aiSkillPort`)</span>
+    - Port number for the AI Skill HTTP server. Default `19521`. Change if the port is in use.
 
 > **Note**: Changes to `numberingShow`, `numberingAdd`, and `customCommands` require reopening `.do` files to take effect. When `numberingAdd` is disabled, existing numbering in `.do` files will be automatically removed.
 

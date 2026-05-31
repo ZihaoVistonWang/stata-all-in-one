@@ -1,7 +1,7 @@
 {
   "name": "stata-all-in-one",
   "displayName": "Stata All in One",
-  "description": "Supercharge your Stata workflow in VS Code. An enhanced version of `Stata Outline` with advanced Syntax Highlighting + Code Hints + Smart Outline + Code Execution + Data Viewing. All your Stata needs in one place.",
+  "description": "Supercharge your Stata workflow in VS Code. An enhanced version of `Stata Outline` with advanced Syntax Highlighting + Code Hints + Smart Outline + Code Execution + Data Viewing + AI Skill. All your Stata needs in one place.",
   "version": "0.2.16",
   "publisher": "ZihaoVistonWang",
   "icon": "img/icon.png",
@@ -17,7 +17,8 @@
     "stata code",
     "stata do file",
     "stata outline",
-    "stata runner"
+    "stata runner",
+    "AI coding skill"
   ],
   "engines": {
     "vscode": "^1.70.0"
@@ -350,10 +351,6 @@
       {
         "command": "stata-all-in-one.debugResetPreviewNotification",
         "title": "%command.debugResetPreviewNotification.title%"
-      },
-      {
-        "command": "stata-all-in-one.installAISkill",
-        "title": "%command.installAISkill.title%"
       },
       {
         "command": "stata-all-in-one.startAIServer",
