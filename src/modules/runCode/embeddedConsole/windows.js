@@ -66,7 +66,8 @@ function isProgressPayload(text) {
         return false;
     }
 
-    return /^[>\s.,\d]+$/.test(normalized);
+    // Allow '+' for commands like xthreg that use ".......... +  50" markers
+    return /^[>\s.,\d+]+$/.test(normalized);
 }
 
 function getProgressPayloadFromLine(line, allowContinuation = false) {
@@ -106,7 +107,7 @@ function getProgressPayloadFromLine(line, allowContinuation = false) {
         return withoutPrompt;
     }
 
-    const markerMatch = withoutPrompt.match(/(?:\.{2,}\s*\d|\.\d)/);
+    const markerMatch = withoutPrompt.match(/(?:\.{2,}[\s+]*\d|\.\d)/);
     if (!markerMatch) {
         return null;
     }
@@ -160,7 +161,8 @@ function parseIntegerWithCommas(value) {
 }
 
 function extractProgressTotalFromCode(code) {
-    const matches = [...String(code || '').matchAll(/\breps\s*\(\s*(\d[\d,]*)\s*\)/gi)];
+    // bootstrap: reps(2000), xthreg: bs(300) / bootstrap(300)
+    const matches = [...String(code || '').matchAll(/\b(?:reps|bs|bootstrap)\s*\(\s*(\d[\d,]*)\s*\)/gi)];
     if (!matches.length) {
         return null;
     }
