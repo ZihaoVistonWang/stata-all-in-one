@@ -112,8 +112,8 @@ async function showPreviewNotification(context) {
         await context.globalState.update(PREVIEW_SNOOZE_KEY, Date.now() + SEVEN_DAYS_MS);
     } else if (result === t.learnMore) {
         const moreUrl = lang === 'zh'
-            ? 'https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0216-0214-2026-05-31'
-            : 'https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0216-0214-2026-05-31';
+            ? 'https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0217-0214-2026-05-31'
+            : 'https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0217-0214-2026-05-31';
         vscode.env.openExternal(vscode.Uri.parse(moreUrl));
     }
     // If "Remind Later" (稍后提醒) or closed, do nothing — will show again on next activation

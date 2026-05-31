@@ -234,10 +234,7 @@ async function showAISkillDialog() {
     if (choice === toggleLabel) {
         const newValue = !aiSkillEnabled;
         await config.update('aiSkillEnabled', newValue, vscode.ConfigurationTarget.Global);
-        const statusText = newValue
-            ? msg('aiSkillServerStarted', { port: config.get('aiSkillPort', 19521) })
-            : msg('aiSkillServerStopped');
-        showInfo(statusText);
+        // 启动/停止由下面的配置监听器统一处理，避免重复弹窗
     } else if (choice === copyLabel) {
         await vscode.env.clipboard.writeText(msg('aiSkillWelcomePrompt'));
         // 中心弹窗，不是右下角 toast
@@ -284,7 +281,7 @@ async function activate(context) {
     // Check for updates and show notification
     registerUpdateCheck(context);
 
-    // Show preview version notification for v0.2.15
+    // Show preview version notification (≥ v0.2.14, < v0.3.0)
     showPreviewNotification(context);
 
     try {
@@ -609,18 +606,46 @@ async function activate(context) {
     );
     context.subscriptions.push(showAISkillDialogCommand);
 
+    // Shared helper: ensure Stata session is initialized and start HTTP server
+    const ensureSessionAndStartServer = async () => {
+        if (isAIServerRunning()) return true;
+
+        let session = getActiveSession();
+        if (!session || !session.isInitialized()) {
+            const cfg = vscode.workspace.getConfiguration('stata-all-in-one');
+            const savedPath = context.globalState.get('stataConsoleDylibPath');
+            const preferredEdition = (cfg.get('stataVersionOnMacOS') || '').replace('Stata', '').toLowerCase();
+
+            const dylibInfo = findStataDylib(preferredEdition, savedPath);
+            if (!dylibInfo || !dylibInfo.path) {
+                console.log('[Stata AI Skill] Stata dylib not found');
+                return false;
+            }
+
+            session = getConsoleSession(context);
+            const initOk = await session.init(dylibInfo.path);
+            if (!initOk) {
+                console.log('[Stata AI Skill] Session init failed');
+                return false;
+            }
+
+            await session.execute('quietly set more off', false);
+            await session.execute('quietly set linesize 255', false);
+            session.setBootstrapped(true);
+            console.log('[Stata AI Skill] Stata session initialized');
+        }
+
+        const port = vscode.workspace.getConfiguration('stata-all-in-one').get('aiSkillPort', 19521);
+        return await startAIServer(session, port);
+    };
+
     // Register start AI server command
     const startAIServerCommand = vscode.commands.registerCommand(
         'stata-all-in-one.startAIServer',
         async () => {
-            const session = getActiveSession();
-            if (!session || !session.isInitialized()) {
-                showWarn(msg('aiSkillSessionNotReady') || 'Stata session not ready. Open a .do file first.');
-                return;
-            }
-            const port = vscode.workspace.getConfiguration('stata-all-in-one').get('aiSkillPort', 19521);
-            const ok = await startAIServer(session, port);
+            const ok = await ensureSessionAndStartServer();
             if (ok) {
+                const port = vscode.workspace.getConfiguration('stata-all-in-one').get('aiSkillPort', 19521);
                 showInfo(`AI Skill server started on http://127.0.0.1:${port}`);
             } else {
                 showWarn(msg('aiSkillServerFailed') || 'Failed to start AI Skill server. Check console for details.');
@@ -648,44 +673,11 @@ async function activate(context) {
     if (aiSkillEnabled) {
         const tryAutoStart = async () => {
             try {
-                // 1. Check if server is already running
-                if (isAIServerRunning()) {
-                    return;
-                }
-
-                // 2. Get or create session
-                let session = getActiveSession();
-                if (!session || !session.isInitialized()) {
-                    // Session not initialized yet — proactively init it
-                    const config = vscode.workspace.getConfiguration('stata-all-in-one');
-                    const savedPath = context.globalState.get('stataConsoleDylibPath');
-                    const preferredEdition = (config.get('stataVersionOnMacOS') || '').replace('Stata', '').toLowerCase();
-
-                    const dylibInfo = findStataDylib(preferredEdition, savedPath);
-                    if (!dylibInfo || !dylibInfo.path) {
-                        console.log('[Stata AI Skill] Cannot auto-start: Stata dylib not found');
-                        return;
-                    }
-
-                    session = getConsoleSession(context);
-                    const initOk = await session.init(dylibInfo.path);
-                    if (!initOk) {
-                        console.log('[Stata AI Skill] Cannot auto-start: session init failed');
-                        return;
-                    }
-
-                    // Bootstrap the session
-                    await session.execute('quietly set more off', false);
-                    await session.execute('quietly set linesize 255', false);
-                    session.setBootstrapped(true);
-                    console.log('[Stata AI Skill] Stata session initialized for AI skill');
-                }
-
-                // 3. Start HTTP server
-                const port = vscode.workspace.getConfiguration('stata-all-in-one').get('aiSkillPort', 19521);
-                const ok = await startAIServer(session, port);
+                const ok = await ensureSessionAndStartServer();
                 if (ok) {
+                    const port = vscode.workspace.getConfiguration('stata-all-in-one').get('aiSkillPort', 19521);
                     console.log(`[Stata AI Skill] Server auto-started on port ${port}`);
+                    showInfo(msg('aiSkillServerStarted', { port }));
                 }
             } catch (err) {
                 console.error('[Stata AI Skill] Auto-start failed:', err.message);
@@ -696,17 +688,20 @@ async function activate(context) {
         tryAutoStart();
         setTimeout(tryAutoStart, 5000);
 
-        // Listen for config changes
-        context.subscriptions.push(vscode.workspace.onDidChangeConfiguration((event) => {
-            if (event.affectsConfiguration('stata-all-in-one.aiSkillEnabled')) {
-                const enabled = vscode.workspace.getConfiguration('stata-all-in-one').get('aiSkillEnabled', true);
-                if (!enabled && isAIServerRunning()) {
-                    stopAIServer();
-                    showInfo('AI Skill server stopped (disabled in settings).');
-                }
-            }
-        }));
     }
+
+    // Listen for AI Skill config changes (always registered)
+    context.subscriptions.push(vscode.workspace.onDidChangeConfiguration((event) => {
+        if (event.affectsConfiguration('stata-all-in-one.aiSkillEnabled')) {
+            const enabled = vscode.workspace.getConfiguration('stata-all-in-one').get('aiSkillEnabled', true);
+            if (enabled && !isAIServerRunning()) {
+                vscode.commands.executeCommand('stata-all-in-one.startAIServer');
+            } else if (!enabled && isAIServerRunning()) {
+                stopAIServer();
+                showInfo('AI Skill server stopped (disabled in settings).');
+            }
+        }
+    }));
 
     console.log('Stata All in One: AI Skill commands registered');
     console.log('Stata All in One: All commands registered');

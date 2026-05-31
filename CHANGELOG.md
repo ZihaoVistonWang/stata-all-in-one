@@ -3,7 +3,7 @@
 All notable changes to the Stata All in One extension will be documented in this file.
 本文件记录 Stata All in One 扩展的所有重要更改。
 
-## 0.2.16-0.2.14 (2026-05-31)
+## 0.2.17-0.2.14 (2026-05-31)
 
 > This is a major pre-release update with significant new features and improvements, currently in testing phase. Expected to be officially released in mid-June.
 >
