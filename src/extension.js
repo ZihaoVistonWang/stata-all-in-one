@@ -23,10 +23,11 @@ const { syncConsoleTerminalTheme } = require('./modules/runCode/embeddedConsole/
 const { prewarmConsoleTextmateTokenizer } = require('./modules/runCode/embeddedConsole/textmateTokenizer');
 const { registerDtaDataViewer } = require('./modules/runCode/embeddedConsole/dataViewer/dtaEditor');
 const { registerHoverProvider, buildHelpIndex, createHoverProvider, DocumentCache } = require('./modules/hoverProvider');
-const { isMacOS, showInfo, showWarn, msg } = require('./utils/common');
+const { isWindows, isMacOS, showInfo, showWarn, msg } = require('./utils/common');
 const { startServer: startAIServer, stopServer: stopAIServer, isServerRunning: isAIServerRunning, getServerPort: getAIServerPort } = require('./modules/aiSkill/httpServer');
 const { getActiveSession, getConsoleSession, initConsoleSession } = require('./modules/runCode/embeddedConsole/session');
 const { findStataDylib } = require('./modules/runCode/embeddedConsole/mac');
+const { findStataDll } = require('./modules/runCode/embeddedConsole/windows');
 
 const { ensureConsoleFontCache, getConsoleFontWebviewOptions } = require('./utils/consoleFonts');
 const config = require('./utils/config');
@@ -613,19 +614,30 @@ async function activate(context) {
         let session = getActiveSession();
         if (!session || !session.isInitialized()) {
             const cfg = vscode.workspace.getConfiguration('stata-all-in-one');
-            const savedPath = context.globalState.get('stataConsoleDylibPath');
-            const preferredEdition = (cfg.get('stataVersionOnMacOS') || '').replace('Stata', '').toLowerCase();
+            let libPath = null;
 
-            const dylibInfo = findStataDylib(preferredEdition, savedPath);
-            if (!dylibInfo || !dylibInfo.path) {
-                console.log('[Stata AI Skill] Stata dylib not found');
-                return false;
+            if (isWindows()) {
+                const dllInfo = findStataDll();
+                if (!dllInfo || !dllInfo.path) {
+                    console.log('[Stata AI Skill] Stata DLL not found');
+                    return false;
+                }
+                libPath = dllInfo.path;
+            } else {
+                const savedPath = context.globalState.get('stataConsoleDylibPath');
+                const preferredEdition = (cfg.get('stataVersionOnMacOS') || '').replace('Stata', '').toLowerCase();
+                const dylibInfo = findStataDylib(preferredEdition, savedPath);
+                if (!dylibInfo || !dylibInfo.path) {
+                    console.log('[Stata AI Skill] Stata dylib not found');
+                    return false;
+                }
+                libPath = dylibInfo.path;
             }
 
             session = getConsoleSession(context);
-            const initOk = await session.init(dylibInfo.path);
-            if (!initOk) {
-                console.log('[Stata AI Skill] Session init failed');
+            const initResult = await session.init(libPath);
+            if (!initResult.success) {
+                console.log('[Stata AI Skill] Session init failed:', initResult.error);
                 return false;
             }
 

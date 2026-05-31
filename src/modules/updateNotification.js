@@ -10,21 +10,25 @@ const { getUserLanguage, showInfo } = require('../utils/common');
 // Update changelog: version -> changelog text
 const CHANGELOG = {
     en: {
+        '0.2.18': {
+            ver_info: '✨ Stata All in One (0.2.18): Fixed Windows Embedded Console initialization failure and STATA.LIC detection; improved error reporting and console input styling.',
+            more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0218-0214-2026-06-01'
+        },
         '0.2.17': {
             ver_info: '✨ Stata All in One (0.2.17): A major pre-release version. If there are any bugs, please give feedback and re-install v0.2.13! The embedded console, data viewer, AI skill function and hover help have been introduced, while bringing significant performance improvements on the Windows side.',
-            more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0217-0214-2026-05-31'
+            more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0218-0214-2026-06-01'
         },
         '0.2.16': {
             ver_info: '✨ Stata All in One (0.2.16): A major pre-release version. If there are any bugs, please give feedback and re-install v0.2.13! The embedded console, data viewer, AI skill function and hover help have been introduced, while bringing significant performance improvements on the Windows side.',
-            more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0217-0214-2026-05-31'
+            more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0218-0214-2026-06-01'
         },
         '0.2.15': {
             ver_info: '✨ Stata All in One (0.2.15): A major pre-release version. If there are any bugs, please give feedback and re-install v0.2.13! The embedded console, data viewer and hover help have been introduced, while bringing significant performance improvements on the Windows side.',
-            more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0217-0214-2026-05-31'
+            more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0218-0214-2026-06-01'
         },
         '0.2.14': {
             ver_info: '✨ Stata All in One (0.2.14): A major pre-release version. If there are any bugs, please give feedback and re-install v0.2.13! The embedded console, data viewer and hover help have been introduced, while bringing significant performance improvements on the Windows side.',
-            more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0217-0214-2026-05-31'
+            more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0218-0214-2026-06-01'
         },
         '0.2.13': {
             ver_info: '✨ Stata All in One (0.2.13): On Windows, running code no longer resets a snapped or maximized Stata window to a smaller size, it will now keep the current window size unchanged.',
@@ -68,21 +72,25 @@ const CHANGELOG = {
         }
     },
     zh: {
+        '0.2.18': {
+            ver_info: '✨ Stata All in One (0.2.18)：修复 Windows 嵌入式控制台初始化失败与 STATA.LIC 证书检测；优化错误信息展示与控制台输入框样式。',
+            more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0218-0214-2026-06-01'
+        },
         '0.2.17': {
             ver_info: '✨ Stata All in One (0.2.17)：这是一个预览版本，如果有Bug影响使用，请及时反馈并安装0.2.13版本！引入了嵌入式控制台、数据查看器、AI Skill功能和悬停帮助等，同时在 Windows 端带来了显著的性能提升。',
-            more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0217-0214-2026-05-31'
+            more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0218-0214-2026-06-01'
         },
         '0.2.16': {
             ver_info: '✨ Stata All in One (0.2.16)：这是一个预览版本，如果有Bug影响使用，请及时反馈并安装0.2.13版本！引入了嵌入式控制台、数据查看器、AI Skill功能和悬停帮助等，同时在 Windows 端带来了显著的性能提升。',
-            more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0217-0214-2026-05-31'
+            more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0218-0214-2026-06-01'
         },
         '0.2.15': {
             ver_info: '✨ Stata All in One (0.2.15)：这是一个预览版本，如果有Bug影响使用，请及时反馈并安装0.2.13版本！引入了嵌入式控制台、数据查看器和悬停帮助等，同时在 Windows 端带来了显著的性能提升。',
-            more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0217-0214-2026-05-31'
+            more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0218-0214-2026-06-01'
         },
         '0.2.14': {
             ver_info: '✨ Stata All in One (0.2.14)：这是一个预览版本，如果有Bug影响使用，请及时反馈并安装0.2.13版本！引入了嵌入式控制台、数据查看器和悬停帮助等，同时在 Windows 端带来了显著的性能提升。',
-            more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0217-0214-2026-05-31'
+            more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0218-0214-2026-06-01'
         },
         '0.2.13': {
             ver_info: '✨ Stata All in One (0.2.13)：Windows 下运行代码时，不再把已贴靠或最大化 的 Stata 窗口还原成更小的普通窗口，现会保持 Stata 当前窗口大小不变。',

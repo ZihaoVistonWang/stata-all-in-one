@@ -13,7 +13,7 @@ Stata All in One
 </p>
 
 <p align="center">
-   | <b>Version:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.2.17</a> | <b>Author:</b> <a href="https://zihaowang.cn">Zihao Viston Wang</a> | <b>Translate:</b>
+   | <b>Version:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.2.18</a> | <b>Author:</b> <a href="https://zihaowang.cn">Zihao Viston Wang</a> | <b>Translate:</b>
   <a href="https://gitee.com/ZihaoVistonWang/stata-all-in-one">中文版本</a> |
 </p>
 
@@ -46,7 +46,7 @@ Stata All in One
   🚨 <strong>Preview Release Notice</strong> 🚨
 </p>
 <p style="margin:0 0 8px 0; padding-left: 1.6em; text-indent: -1.6em;">
-  ⚠️ <strong>v0.2.17-0.2.14 are preview releases (pre-release)</strong> and may contain many bugs. It is not recommended for production use. Thank you to everyone willing to try it out and provide feedback!
+  ⚠️ <strong>v0.2.18-0.2.14 are preview releases (pre-release)</strong> and may contain many bugs. It is not recommended for production use. Thank you to everyone willing to try it out and provide feedback!
 </p>
 <p style="margin:0 0 8px 0; padding-left: 1.6em; text-indent: -1.6em;">
   📧 If you encounter any issues, please send bug descriptions, reproduction steps, and screenshots to <a href="mailto:hi@zihaowang.cn"><strong>hi@zihaowang.cn</strong></a>.
@@ -71,7 +71,9 @@ Special thanks to RedNote user **Rich\*\*d**, WeChat user **早起\*\*阳光**, 
    <a href="https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/img/example-marked-en.jpg"><img src="img/example-marked-en.jpg" alt="Feature Showcase"/> Click to view full image </a>
 </p>
 
-### 1. AI Skill (Experimental)
+> ⚠️ Features marked with $^*$ require a `STATA.LIC` license file. Please support genuine software to enjoy the full experience.
+
+### 1. AI Skill (Experimental)$^*$
 
 - **Let AI Agents Run Stata Code**: <mark>Start a local HTTP server (default port `19521`) inside VS Code, allowing AI coding tools (Claude Code, Cursor, Codex CLI, Open Code, OpenClaw, etc.) to execute Stata code and read results using only the built-in `curl` command.</mark>
 - **Zero External Dependencies**: <mark>No need to install Python, Node.js, or any third-party tools — just VS Code and the system `curl` (or PowerShell).</mark>
@@ -83,7 +85,7 @@ Special thanks to RedNote user **Rich\*\*d**, WeChat user **早起\*\*阳光**, 
 
 - **Platform Support**: Seamlessly integrates with Stata on both **macOS** and **Windows** without requiring additional extensions.
 - **Two Run Modes**:
-  - **Embedded Console** (default): <mark>Run and display Stata output directly within VS Code! Including *command results*, *error messages*, *command window output*, *data viewing*, and *graph output* — a true all-in-one IDE experience.</mark>
+  - **Embedded Console** (default)$^*$: <mark>Run and display Stata output directly within VS Code! Including *command results*, *error messages*, *command window output*, *data viewing*, and *graph output* — a true all-in-one IDE experience.</mark>
   - **External App**: Continue using the traditional approach of sending code to the Stata GUI, for users who prefer Stata's native interface. <mark>Windows now uses [Stata COM Automation](https://www.stata.com/automation/), delivering significantly better performance than the previous PowerShell-based implementation.</mark>
 - **Multi-Scenario Execution Strategies**:
   - **Section Execution**: When the cursor is on a header line (e.g., `** # Title`), click the ▶️ button or press `Ctrl/Cmd + D` to execute all code from that header to the next same-level or higher-level header (i.e., the entire section).
@@ -112,7 +114,7 @@ Special thanks to RedNote user **Rich\*\*d**, WeChat user **早起\*\*阳光**, 
 
 <a id="code_execution"></a>
 
-### 5. Data Viewer
+### 5. Data Viewer$^*$
 
 - **Click to View**: <mark>Click a `.dta` file in the VS Code Explorer to open it in the new `Data Viewer` panel.</mark>
   - **Variable Info**: Variable table displays metadata such as name, label, and type.
@@ -136,7 +138,7 @@ Special thanks to RedNote user **Rich\*\*d**, WeChat user **早起\*\*阳光**, 
 
 ### 7. More Features
 
-1. Enhanced Embedded Console
+1. Enhanced Embedded Console$^*$
    - **Graph Output**
      - **Direct Display**: <mark>Render Stata graph output directly in the embedded console.</mark>
      - **Export Options**: <mark>Save graphs as SVG, PNG (configurable DPI), or copy to clipboard.</mark>
@@ -318,6 +320,7 @@ If this extension has been helpful to you, feel free to scan the **Alipay** (lef
 
 | Version | Changes                                                                                                              | Release Date |
 | ------- | -------------------------------------------------------------------------------------------------------------------- | ------------ |
+| 0.2.18  | Preview release: Fixed Windows Embedded Console init failure; Added STATA.LIC license detection with dialog prompt; Fixed webview Service Worker registration error; Improved console input styling | 2026-06-01   |
 | 0.2.17-0.2.14  | Preview release: Introduced AI Skill, Embedded Console, Data Viewer, and Graph Support; improved Hover help display; bug fixes | 2026-05-31   |
 | 0.2.13  | On Windows, running code no longer restores a snapped or maximized Stata window to a smaller size — preserves current window state | 2026-03-12   |
 | 0.2.12  | Refactored Windows code execution logic; Added option to close other Stata windows before sending code; Added toggle for "Bug Report" and "Sponsor" buttons | 2026-03-05   |

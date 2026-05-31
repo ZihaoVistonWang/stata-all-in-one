@@ -13,7 +13,7 @@ Stata All in One
 </p>
 
 <p align="center">
-   | <b>版本:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.2.17</a> | <b>作者:</b> <a href="https://zihaowang.cn">王梓豪</a> | <b>Translate:</b>
+   | <b>版本:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.2.18</a> | <b>作者:</b> <a href="https://zihaowang.cn">王梓豪</a> | <b>Translate:</b>
   <a href="https://github.com/ZihaoVistonWang/stata-all-in-one">English Version</a> |
 </p>
 
@@ -46,7 +46,7 @@ Stata All in One
   🚨 <strong>预览版提醒</strong> 🚨
 </p>
 <p style="margin:0 0 8px 0; padding-left: 1.6em; text-indent: -1.6em;">
-  ⚠️ <strong>v0.2.17-0.2.14 为预览版本（pre-release）</strong>，可能存在较多 bug，不建议在生产环境中使用。感谢每一位愿意尝鲜并反馈问题的用户！
+  ⚠️ <strong>v0.2.18-0.2.14 为预览版本（pre-release）</strong>，可能存在较多 bug，不建议在生产环境中使用。感谢每一位愿意尝鲜并反馈问题的用户！
 </p>
 <p style="margin:0 0 8px 0; padding-left: 1.6em; text-indent: -1.6em;">
   📧 如遇到任何问题，请将 bug 描述、复现步骤和截图发送至 <a href="mailto:hi@zihaowang.cn"><strong>hi@zihaowang.cn</strong></a>。
@@ -71,7 +71,9 @@ Stata All in One
    <a href="https://pan.zihaowang.cn/share/example-marked-cn.jpg"><img src="img/example-marked-cn.jpg" alt="功能展示图"/> 点击查看大图 </a>
 </p>
 
-### 1. AI Skill 功能（实验性）
+> ⚠️ 以下标注 $^*$ 角标的功能需要`STATA.LIC`证书文件，请支持正版软件以获得完整功能体验。
+
+### 1. AI Skill 功能（实验性）$^*$
 
 - **让 AI Agent 运行 Stata 代码**：<mark>在 VS Code 内部启动 localhost HTTP 服务器（默认端口 `19521`），让 AI 编程工具（Claude Code、Cursor、Codex CLI、Open Code、OpenClaw 等）通过系统自带的 `curl` 命令直接运行 Stata 代码并读取结果。</mark>
 - **零外部依赖**：<mark>无需安装 Python、Node.js 或任何第三方工具 —— 只需 VS Code 和系统自带的 `curl`（或 PowerShell）。</mark>
@@ -83,7 +85,7 @@ Stata All in One
 
 - **平台支持**：无需额外扩展即可与 **macOS** 和 **Windows** 上的 Stata 无缝集成。
 - **两种运行模式**：
-  - **嵌入式控制台**（默认模式）：<mark>现在可以在 VS Code 内直接运行并展示Stata输出啦！包括*命令结果*、*错误信息*、*命令行窗口*、*数据查看*和*图形输出*，真正实现 IDE 一体化体验。</mark>
+  - **嵌入式控制台**（默认模式）$^*$：<mark>现在可以在 VS Code 内直接运行并展示Stata输出啦！包括*命令结果*、*错误信息*、*命令行窗口*、*数据查看*和*图形输出*，真正实现 IDE 一体化体验。</mark>
   - **外部应用**：继续支持传统的通过 Stata 窗口运行代码的方式，适合喜欢使用 Stata 原生界面的用户。<mark>Windows端现在使用[Stata COM自动化](https://www.stata.com/automation/)，性能相比之前基于 PowerShell 的实现有显著提升。</mark>
 - **多场景执行策略**：
   - **章节运行**：当光标在标题行（如 `** # 标题`）时，点击 ▶️ 按钮 或按 `Ctrl/Cmd + D`，将执行从该标题起始至下一个同级或高级别标题前的所有代码（即整个章节）。
@@ -112,7 +114,7 @@ Stata All in One
 
 <a id="code_execution"></a>
 
-### 5. 数据查看器
+### 5. 数据查看器$^*$
 
 - **即点即看**：<mark>点击Vs Code资源管理器中的 `.dta` 文件，即可在全新的 `数据查看器` 面板中打开数据集。</mark>
   - **变量信息**：变量表格显示变量名称、标签、类型等元数据。
@@ -136,7 +138,7 @@ Stata All in One
 
 ### 7. 更多精彩
 
-1. 优化嵌入式控制台
+1. 优化嵌入式控制台$^*$
    - **图片输出**
      - **直接显示**：<mark>在嵌入式控制台中直接渲染 Stata 图形输出。</mark>
      - **导出选项**：<mark>支持将图形保存为SVG、PNG（可配置 DPI）或复制到剪贴板。</mark>
@@ -318,6 +320,7 @@ Stata All in One
 
 | 版本   | 更新内容                                                                           | 发布日期   |
 | ------ | ---------------------------------------------------------------------------------- | ---------- |
+| 0.2.18 | 预览版：修复 Windows 嵌入式控制台初始化失败；新增 STATA.LIC 证书检测与弹窗提示；修复 webview Service Worker 注册错误；优化命令行输入框样式 | 2026-06-01 |
 | 0.2.17-0.2.14 | 预览版：引入 AI Skill、嵌入式控制台、数据查看器和图形支持等核心功能；优化 Hover 帮助显示；修复已知问题 | 2026-05-31 |
 | 0.2.13 | Windows 下运行代码时，不再把已贴靠或最大化 的 Stata 窗口还原成更小的普通窗口，现会保持 Stata 当前窗口大小不变 | 2026-03-12 |
 | 0.2.12 | 重构 Windows 端代码执行逻辑；新增配置：发送代码前可选关闭 Viewer、数据编辑器等辅助窗口；新增配置：是否显示“Bug 反馈”和“项目支持”按钮 | 2026-03-05 |
