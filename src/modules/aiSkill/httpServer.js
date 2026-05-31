@@ -56,36 +56,32 @@ async function handleRequest(req, res) {
         return;
     }
 
-    // POST /execute —— 执行 Stata 代码
+    // POST /execute —— 执行 Stata 代码或 .do 文件
     if (req.method === 'POST' && req.url === '/execute') {
         try {
             const body = await readBody(req);
             const requestData = JSON.parse(body);
             const code = requestData.code || '';
+            const doFile = requestData.file || '';
 
-            if (!code.trim()) {
+            if (!code.trim() && !doFile.trim()) {
                 res.writeHead(400, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({
-                    success: false,
-                    output: '',
-                    error: 'No code provided. Please include a "code" field in the JSON body.'
-                }));
+                res.end(JSON.stringify({ success: false, output: '', error: 'Provide "code" or "file" in JSON body.' }));
                 return;
             }
 
             if (!consoleSession || !consoleSession.isInitialized()) {
                 res.writeHead(503, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({
-                    success: false,
-                    output: '',
-                    error: 'Stata session not initialized. Open a .do file in VS Code to activate Stata first.'
-                }));
+                res.end(JSON.stringify({ success: false, output: '', error: 'Stata session not initialized. Open a .do file in VS Code first.' }));
                 return;
             }
 
-            // 调用已有 StataConsoleSession 执行代码
+            // 如果是 .do 文件，构造 do 命令；否则直接执行代码
+            const stataCode = doFile ? `do "${doFile.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"` : code;
             const echo = requestData.echo !== undefined ? requestData.echo : false;
-            const result = await consoleSession.execute(code, echo);
+
+            console.log('[Stata AI Skill] Execute:', doFile ? `do "${doFile}"` : code.substring(0, 80));
+            const result = await consoleSession.execute(stataCode, echo);
 
             const statusCode = result.success ? 200 : 500;
             res.writeHead(statusCode, { 'Content-Type': 'application/json' });
@@ -96,12 +92,9 @@ async function handleRequest(req, res) {
                 error: result.error || ''
             }));
         } catch (err) {
+            console.error('[Stata AI Skill] Execute error:', err.message);
             res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({
-                success: false,
-                output: '',
-                error: 'Invalid request: ' + (err.message || 'Unknown error')
-            }));
+            res.end(JSON.stringify({ success: false, output: '', error: 'Invalid request: ' + (err.message || 'Unknown error') }));
         }
         return;
     }
