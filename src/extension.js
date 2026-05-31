@@ -4,7 +4,6 @@
  */
 
 const vscode = require('vscode');
-const path = require('path');
 const { setHeadingLevel, createDocumentSymbolProvider } = require('./modules/outlineView');
 const { registerSeparatorCommands } = require('./modules/separator');
 const { registerCommentCommand, toggleComment } = require('./modules/comment');
@@ -28,7 +27,7 @@ const { isMacOS, showInfo, showWarn, msg } = require('./utils/common');
 const { startServer: startAIServer, stopServer: stopAIServer, isServerRunning: isAIServerRunning, getServerPort: getAIServerPort } = require('./modules/aiSkill/httpServer');
 const { getActiveSession, getConsoleSession, initConsoleSession } = require('./modules/runCode/embeddedConsole/session');
 const { findStataDylib } = require('./modules/runCode/embeddedConsole/mac');
-const fs = require('fs');
+
 const { ensureConsoleFontCache, getConsoleFontWebviewOptions } = require('./utils/consoleFonts');
 const config = require('./utils/config');
 
@@ -201,152 +200,6 @@ async function showMigrationNotification(context) {
  */
 async function resetMigrationPrompt(context) {
     await context.globalState.update(MIGRATION_STATE_KEYS.next, 0);
-}
-
-/**
- * Install AI Coding Skill
- * 一键安装 skill 到 Claude Code / Cursor / Codex CLI / Open Code
- */
-async function installAISkill(context) {
-    const aiSkillEnabled = vscode.workspace.getConfiguration('stata-all-in-one').get('aiSkillEnabled', true);
-    if (!aiSkillEnabled) {
-        showWarn(msg('aiSkillDisabled'));
-        return;
-    }
-
-    const skillDir = path.join(context.extensionPath, 'skill');
-    const skillMdPath = path.join(skillDir, 'SKILL.md');
-
-    if (!fs.existsSync(skillMdPath)) {
-        showWarn(msg('aiSkillNotFound'));
-        return;
-    }
-
-    let skillContent = fs.readFileSync(skillMdPath, 'utf-8');
-    // 替换端口号占位符
-    const port = vscode.workspace.getConfiguration('stata-all-in-one').get('aiSkillPort', 19521);
-    skillContent = skillContent.replace(/19521/g, String(port));
-
-    const homedir = require('os').homedir();
-    const tools = [];
-
-    // 检测已安装的 AI 编程工具
-    if (fs.existsSync(path.join(homedir, '.claude'))) {
-        tools.push({ label: 'Claude Code', dir: path.join(homedir, '.claude', 'skills', 'stata-all-in-one-skill') });
-    }
-    // Cursor 通过检查其配置目录
-    if (fs.existsSync(path.join(homedir, '.cursor'))) {
-        tools.push({ label: 'Cursor', type: 'cursor' });
-    }
-    // Codex CLI
-    if (fs.existsSync(path.join(homedir, '.codex'))) {
-        tools.push({ label: 'Codex CLI', type: 'codex' });
-    }
-    // Open Code (VS Code extension for AI)
-    if (fs.existsSync(path.join(homedir, '.opencode'))) {
-        tools.push({ label: 'Open Code', type: 'opencode' });
-    }
-
-    if (tools.length === 0) {
-        // 没有检测到任何 AI 工具，仍然可以安装 Claude Code skill
-        tools.push({ label: 'Claude Code', dir: path.join(homedir, '.claude', 'skills', 'stata-all-in-one-skill') });
-    }
-
-    const selected = await vscode.window.showQuickPick(
-        tools.map(t => t.label),
-        { placeHolder: msg('aiSkillSelectTool') || 'Select AI coding tool to install the skill to' }
-    );
-
-    if (!selected) {
-        return;
-    }
-
-    const tool = tools.find(t => t.label === selected);
-    if (!tool) {
-        return;
-    }
-
-    const results = [];
-
-    try {
-        if (tool.dir) {
-            // Claude Code: 写入 skill 目录
-            const targetDir = tool.dir;
-            if (!fs.existsSync(targetDir)) {
-                fs.mkdirSync(targetDir, { recursive: true });
-            }
-            fs.writeFileSync(path.join(targetDir, 'SKILL.md'), skillContent, 'utf-8');
-            results.push(`Claude Code: ✅ ${targetDir}/SKILL.md`);
-        }
-
-        if (tool.type === 'cursor') {
-            // Cursor: 写入 .cursorrules
-            const cursorRulesPath = path.join(homedir, '.cursorrules');
-            const cursorContent = `
-# Stata Code Execution
-When you need to run Stata code, use curl to call the Stata All in One HTTP server:
-\`\`\`bash
-curl -s -X POST http://127.0.0.1:${port}/execute -H "Content-Type: application/json" -d '{"code":"<stata code>"}'
-\`\`\`
-Check status: curl -s http://127.0.0.1:${port}/status
-`;
-            if (fs.existsSync(cursorRulesPath)) {
-                fs.appendFileSync(cursorRulesPath, cursorContent, 'utf-8');
-                results.push(`Cursor: ✅ Appended to ${cursorRulesPath}`);
-            } else {
-                fs.writeFileSync(cursorRulesPath, cursorContent, 'utf-8');
-                results.push(`Cursor: ✅ Created ${cursorRulesPath}`);
-            }
-        }
-
-        if (tool.type === 'codex') {
-            // Codex CLI
-            const codexDir = path.join(homedir, '.codex');
-            const codexConfigPath = path.join(codexDir, 'config.yaml');
-            const codexContent = `
-# Stata All in One - AI Skill
-tools:
-  stata:
-    command: curl -s -X POST http://127.0.0.1:${port}/execute -H "Content-Type: application/json" -d "{\\"code\\":\\"$CODE\\"}"
-    description: Execute Stata code via VS Code extension
-`;
-            if (!fs.existsSync(codexDir)) {
-                fs.mkdirSync(codexDir, { recursive: true });
-            }
-            if (fs.existsSync(codexConfigPath)) {
-                fs.appendFileSync(codexConfigPath, codexContent, 'utf-8');
-                results.push(`Codex CLI: ✅ Appended to ${codexConfigPath}`);
-            } else {
-                fs.writeFileSync(codexConfigPath, codexContent, 'utf-8');
-                results.push(`Codex CLI: ✅ Created ${codexConfigPath}`);
-            }
-        }
-
-        if (tool.type === 'opencode') {
-            // Open Code
-            const opencodeDir = path.join(homedir, '.opencode');
-            const opencodeConfigPath = path.join(opencodeDir, 'config.json');
-            const opencodeConfig = {
-                tools: {
-                    stata: {
-                        command: `curl -s -X POST http://127.0.0.1:${port}/execute -H "Content-Type: application/json" -d '{"code":"$CODE"}'`,
-                        description: 'Execute Stata code via VS Code Stata All in One extension'
-                    }
-                }
-            };
-            if (!fs.existsSync(opencodeDir)) {
-                fs.mkdirSync(opencodeDir, { recursive: true });
-            }
-            fs.writeFileSync(opencodeConfigPath, JSON.stringify(opencodeConfig, null, 2), 'utf-8');
-            results.push(`Open Code: ✅ ${opencodeConfigPath}`);
-        }
-
-    } catch (err) {
-        showWarn(`Install failed: ${err.message}`);
-        return;
-    }
-
-    showInfo(results.join('\n'));
 }
 
 /**
@@ -756,14 +609,9 @@ async function activate(context) {
     );
     context.subscriptions.push(showAISkillDialogCommand);
 
-    // Register install AI skill command
-    const installAISkillCommand = vscode.commands.registerCommand(
-        'stata-all-in-one.installAISkill',
-        () => installAISkill(context)
-    );
-    context.subscriptions.push(installAISkillCommand);
 
-    // Register start AI server command
+
+/**
     const startAIServerCommand = vscode.commands.registerCommand(
         'stata-all-in-one.startAIServer',
         async () => {

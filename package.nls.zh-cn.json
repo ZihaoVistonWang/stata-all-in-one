@@ -20,7 +20,6 @@
   "config.additionalAdoPaths.description": "额外的 Stata ado 路径，用于扫描社区贡献命令的帮助文件。路径按顺序扫描，在默认 Stata 安装路径之后。示例：[\"/Users/username/ado/personal\", \"C:\\Users\\username\\ado\\personal\"]",
   "config.aiSkillEnabled.description": "启用 AI 编程技能。启用后，扩展会在 VS Code 启动时自动激活，并启动 localhost HTTP 服务器（默认端口 19521），让 AI 编程工具（Claude Code、Cursor、Codex CLI、Open Code 等）通过 `curl` 命令执行 Stata 代码。禁用后，扩展仅在打开 .do/.dta 文件时激活，不会启动 HTTP 服务器。",
   "config.aiSkillPort.description": "AI Skill HTTP 服务器的端口号（默认：19521）。如果该端口已被其他应用占用，可在此更改。",
-  "command.installAISkill.title": "Stata All in One：安装 AI 编程技能",
   "command.startAIServer.title": "Stata All in One：启动 AI Skill 服务器",
   "command.stopAIServer.title": "Stata All in One：停止 AI Skill 服务器",
   "command.showAISkillDialog.title": "AI",

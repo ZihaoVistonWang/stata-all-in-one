@@ -20,7 +20,6 @@
   "config.additionalAdoPaths.description": "Additional Stata ado paths to scan for community-contributed command help files. Paths are scanned in order, after the default Stata installation path. Example: [\"/Users/username/ado/personal\", \"C:\\Users\\username\\ado\\personal\"]",
   "config.aiSkillEnabled.description": "Enable AI coding skill. When enabled, the extension activates on VS Code startup and starts a localhost HTTP server (default port: 19521) allowing AI coding tools (Claude Code, Cursor, Codex CLI, Open Code, etc.) to execute Stata code via simple `curl` commands. When disabled, the extension only activates when a .do/.dta file is opened, and no HTTP server is started.",
   "config.aiSkillPort.description": "Port number for the AI Skill HTTP server (default: 19521). Change this if the port is already in use by another application.",
-  "command.installAISkill.title": "Stata All in One: Install AI Coding Skill",
   "command.startAIServer.title": "Stata All in One: Start AI Skill Server",
   "command.stopAIServer.title": "Stata All in One: Stop AI Skill Server",
   "command.showAISkillDialog.title": "AI",
