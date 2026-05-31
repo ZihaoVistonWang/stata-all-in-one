@@ -609,9 +609,7 @@ async function activate(context) {
     );
     context.subscriptions.push(showAISkillDialogCommand);
 
-
-
-/**
+    // Register start AI server command
     const startAIServerCommand = vscode.commands.registerCommand(
         'stata-all-in-one.startAIServer',
         async () => {
