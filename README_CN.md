@@ -21,6 +21,8 @@ Stata All in One
 
 <h3 align="center">一站式 Stata 体验：</br>运行代码 + 语法高亮 + 代码提示 + 智能大纲 + 数据查看，<b>All in One</b>!</h3>
 
+<h3 align="center"><b>开箱即用！</b></br>所有功能均原生集成于 VS Code，无需额外配置 Python、Node.js 等任何第三方环境。</h3>
+
 <p align="center">
    <a href="https://marketplace.visualstudio.com/items?itemName=ZihaoVistonWang.stata-all-in-one"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fapi.zihaowang.cn%2Fvscode-install&style=for-the-badge&labelColor=363a4f&color=a6da95&label=VS Code安装" alt="VS Code 安装次数"></a>
    <a href="https://xhslink.com/o/4Zs0aSfJSK"><img src="https://img.shields.io/endpoint?url=https://api.zihaowang.cn/rednote-noteinfo&label=Rednote互动数据&labelColor=363a4f&color=b7bdf8&style=for-the-badge" alt="Rednote互动数据 ~500"></a>
