@@ -93,11 +93,6 @@ function attachPanel(panel) {
     _panel = panel;
     _panel.title = getPanelTitle();
     _panel.iconPath = getPanelIconPath();
-    _panel.webview.options = {
-        enableScripts: true,
-        retainContextWhenHidden: true,
-        localResourceRoots: getLocalResourceRoots()
-    };
     _panel.webview.html = getWebviewHtml(_panel.webview);
     _panel.onDidDispose(() => {
         if (_panel === panel) {
@@ -164,6 +159,7 @@ function ensurePanel() {
         {
             enableScripts: true,
             retainContextWhenHidden: true,
+            enableServiceWorker: false,
             localResourceRoots: getLocalResourceRoots()
         }
     );
@@ -580,6 +576,7 @@ function setGraphResourceRoot(resourceRoot) {
         _panel.webview.options = {
             enableScripts: true,
             retainContextWhenHidden: true,
+            enableServiceWorker: false,
             localResourceRoots: getLocalResourceRoots()
         };
     }

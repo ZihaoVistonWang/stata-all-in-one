@@ -31,7 +31,9 @@ function registerDtaDataViewer(context) {
         vscode.window.registerCustomEditorProvider(DTA_EDITOR_VIEW_TYPE, provider, {
             supportsMultipleEditorsPerDocument: false,
             webviewOptions: {
-                retainContextWhenHidden: false
+                enableScripts: true,
+                retainContextWhenHidden: false,
+                enableServiceWorker: false
             }
         })
     );

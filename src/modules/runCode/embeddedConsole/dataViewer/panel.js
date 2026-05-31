@@ -1467,7 +1467,8 @@ function attachPanel(panel) {
     _panel.iconPath = getPanelIconPath();
     _panel.webview.options = {
         enableScripts: true,
-        localResourceRoots: [CODICON_RESOURCE_ROOT]
+        localResourceRoots: [CODICON_RESOURCE_ROOT],
+        enableServiceWorker: false
     };
     _panel.webview.html = getDataViewerHtml(_panel.webview);
     _panel.onDidDispose(() => {
@@ -1532,6 +1533,7 @@ function ensurePanel() {
         {
             enableScripts: true,
             retainContextWhenHidden: false,
+            enableServiceWorker: false,
             localResourceRoots: [CODICON_RESOURCE_ROOT]
         }
     );
