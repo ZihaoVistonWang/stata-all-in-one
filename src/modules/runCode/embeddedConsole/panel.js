@@ -194,7 +194,8 @@ function postState() {
         status: _status,
         entries: hydrateEntriesForWebview(_history),
         overflowNoticeSuppressed: _overflowNoticeSuppressed,
-        workingDetail: _workingDetail
+        workingDetail: _workingDetail,
+        composerTips: msg('composerTips')
     });
 }
 
@@ -1052,7 +1053,7 @@ function getWebviewHtml(webview) {
             flex-direction: column;
             gap: 4px;
             flex-shrink: 0;
-            height: 74px;
+            height: 84px;
         }
         .composer-label {
             display: flex;
@@ -1158,6 +1159,11 @@ function getWebviewHtml(webview) {
         }
         #input:focus {
             border-color: var(--vscode-focusBorder);
+        }
+        #input::placeholder {
+            color: var(--vscode-descriptionForeground);
+            opacity: 0.5;
+            font-size: 12px;
         }
         #input:disabled {
             opacity: 0.5;
@@ -1397,6 +1403,33 @@ function getWebviewHtml(webview) {
         const graphFullscreenImage = document.getElementById('graph-fullscreen-image');
         const graphFullscreenClose = document.getElementById('graph-fullscreen-close');
         const inputHighlight = document.getElementById('input-highlight');
+
+        // --- Tip carousel in the input placeholder ---
+        let composerTips = [];
+        let composerTipIndex = 0;
+        let composerTipTimer = null;
+
+        function startComposerTipCarousel() {
+            if (!composerTips.length) return;
+            stopComposerTipCarousel();
+            composerTipIndex = 0;
+            input.placeholder = composerTips[0] || '';
+            composerTipTimer = setInterval(() => {
+                composerTipIndex = (composerTipIndex + 1) % composerTips.length;
+                input.placeholder = composerTips[composerTipIndex] || '';
+            }, 5000);
+        }
+
+        function stopComposerTipCarousel() {
+            if (composerTipTimer) { clearInterval(composerTipTimer); composerTipTimer = null; }
+        }
+
+        // Pause carousel when input is focused or has text, resume on blur when empty
+        input.addEventListener('focus', stopComposerTipCarousel);
+        input.addEventListener('input', stopComposerTipCarousel);
+        input.addEventListener('blur', () => {
+            if (!input.value.trim().length) startComposerTipCarousel();
+        });
         const autocompleteDropdown = document.getElementById('autocomplete-dropdown');
         const inputHistory = [];
         let historyIndex = -1;
@@ -2438,7 +2471,7 @@ function getWebviewHtml(webview) {
             inputHighlight.scrollLeft = input.scrollLeft;
         });
 
-        const MIN_COMPOSER_HEIGHT = 74;
+        const MIN_COMPOSER_HEIGHT = 84;
         let isResizing = false;
         let resizeStartY = 0;
         let resizeStartHeight = 0;
@@ -2535,6 +2568,11 @@ function getWebviewHtml(webview) {
                 refreshDisplayedRemainingSeconds();
                 updateWorkingMeta();
                 resetOutput(message.entries || []);
+                // Start tip carousel
+                if (Array.isArray(message.composerTips) && message.composerTips.length) {
+                    composerTips = message.composerTips;
+                    startComposerTipCarousel();
+                }
             } else if (message.type === 'workingDetail') {
                 currentWorkingDetail = message.detail || null;
                 updateEstimatedFinishTime();
