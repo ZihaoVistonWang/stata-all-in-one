@@ -90,6 +90,13 @@ function highlightInputText(text) {
 }
 
 function attachPanel(panel) {
+    // Prevent duplicate console panels on VS Code restore:
+    // if a panel already exists (e.g. from ensurePanel during activation),
+    // dispose the incoming restored panel to keep only one.
+    if (_panel && _panel !== panel) {
+        panel.dispose();
+        return;
+    }
     _panel = panel;
     _panel.title = getPanelTitle();
     _panel.iconPath = getPanelIconPath();

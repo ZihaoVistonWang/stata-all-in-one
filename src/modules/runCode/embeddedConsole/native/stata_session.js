@@ -11,6 +11,45 @@ let nativeModule = null;
 let sessionInitialized = false;
 let currentDylibPath = null;
 
+// Windows: dedicated Worker thread for Stata execution.
+// Both StataSO_Main and StataSO_Execute must run on the SAME thread
+// (thread affinity required by Windows Stata DLL), but the main JS
+// thread must stay responsive for UI events including the stop button.
+let _stataWorker = null;
+let _workerMsgId = 0;
+
+function _getWorker() {
+    if (!_stataWorker) {
+        const { Worker } = require('worker_threads');
+        const workerPath = path.join(__dirname, 'stata_worker.js');
+        _stataWorker = new Worker(workerPath);
+    }
+    return _stataWorker;
+}
+
+function _workerRequest(msg) {
+    return new Promise((resolve, reject) => {
+        const worker = _getWorker();
+        const id = ++_workerMsgId;
+        const handler = (response) => {
+            if (response.id === id) {
+                worker.off('message', handler);
+                resolve(response);
+            }
+        };
+        worker.on('message', handler);
+        worker.postMessage({ ...msg, id });
+    });
+}
+
+async function _terminateWorker() {
+    if (_stataWorker) {
+        try { _stataWorker.postMessage({ type: 'shutdown' }); } catch (_e) {}
+        try { await _stataWorker.terminate(); } catch (_e) {}
+        _stataWorker = null;
+    }
+}
+
 /**
  * Try to load the native .node module
  * 尝试加载原生 .node 模块
@@ -61,6 +100,13 @@ function isNativeLoaded() {
  * @returns {Promise<boolean>} - True if initialization succeeded
  */
 function initSession(dylibPath, splash = false, execPath = '', stHome = '') {
+    // Windows: delegate to dedicated Worker thread so that both
+    // StataSO_Main and StataSO_Execute run on the same thread.
+    if (process.platform === 'win32') {
+        return _initSessionWinWorker(dylibPath, splash, execPath, stHome);
+    }
+
+    // macOS: init synchronously on the main thread (dlopen is thread-safe)
     return new Promise((resolve, reject) => {
         if (!isNativeLoaded()) {
             reject(new Error('Native module not loaded. Please ensure stata_bridge.node is compiled and in the bin directory.'));
@@ -69,7 +115,7 @@ function initSession(dylibPath, splash = false, execPath = '', stHome = '') {
 
         try {
             const result = nativeModule.initSession(dylibPath, splash, execPath, stHome);
-            
+
             if (result) {
                 sessionInitialized = true;
                 currentDylibPath = dylibPath;
@@ -81,6 +127,29 @@ function initSession(dylibPath, splash = false, execPath = '', stHome = '') {
             reject(new Error('Error initializing session: ' + error.message));
         }
     });
+}
+
+async function _initSessionWinWorker(dylibPath, splash, execPath, stHome) {
+    // Ensure the native module is loaded on the main thread so that
+    // setBreak() can access g_StataSO_SetBreak (process-wide global).
+    if (!isNativeLoaded()) {
+        throw new Error('Native module not available on main thread.');
+    }
+    const nativePath = path.join(__dirname, '..', '..', '..', '..', '..', 'bin', 'stata_bridge-win32.node');
+    const response = await _workerRequest({
+        type: 'init',
+        nativePath,
+        dllPath: dylibPath,
+        splash,
+        execPath,
+        stHome
+    });
+    if (response.success) {
+        sessionInitialized = true;
+        currentDylibPath = dylibPath;
+        return true;
+    }
+    throw new Error(response.error || 'Failed to initialize Stata session on Worker');
 }
 
 /**
@@ -101,50 +170,36 @@ function initSession(dylibPath, splash = false, execPath = '', stHome = '') {
  * @param {function} onOutput - Called with full output after execution
  * @returns {Promise<{success: boolean, returnCode: number, output: string, error: string}>}
  */
-function executeSyncWin(code, echo = false, onOutput = null) {
-    return new Promise((resolve, reject) => {
-        if (!isNativeLoaded()) {
-            reject(new Error('Native module not loaded.'));
-            return;
-        }
+async function executeSyncWin(code, echo = false, onOutput = null) {
+    if (!sessionInitialized) {
+        throw new Error('Session not initialized. Call initSession() first.');
+    }
 
-        if (!sessionInitialized) {
-            reject(new Error('Session not initialized. Call initSession() first.'));
-            return;
-        }
-
-        // setImmediate defers the blocking call so the event loop can
-        // flush pending UI updates (e.g. "working" status) before we block.
-        setImmediate(() => {
-            const t0 = Date.now();
-            try {
-                clearOutput();
-                const result = nativeModule.executeSync(code, echo ? 1 : 0);
-                const elapsed = Date.now() - t0;
-                const output = result.output || '';
-
-                if (elapsed > 200) {
-                    console.log(`[stata_session] executeSync took ${elapsed}ms for: ${code.substring(0, 80)}`);
-                }
-
-                if (typeof onOutput === 'function' && output) {
-                    onOutput(output);
-                }
-
-                resolve({
-                    success: result.returnCode === 0,
-                    returnCode: result.returnCode,
-                    output: output,
-                    error: result.error || (result.returnCode !== 0
-                        ? `Execution failed with return code ${result.returnCode}`
-                        : '')
-                });
-            } catch (error) {
-                console.error('[stata_session] executeSync error:', error.message);
-                reject(new Error('Error executing code: ' + error.message));
-            }
-        });
+    const t0 = Date.now();
+    const response = await _workerRequest({
+        type: 'execute',
+        code,
+        echo: echo ? 1 : 0
     });
+
+    const elapsed = Date.now() - t0;
+    if (elapsed > 200) {
+        console.log(`[stata_session] Worker execute took ${elapsed}ms for: ${code.substring(0, 80)}`);
+    }
+
+    const output = response.output || '';
+    if (typeof onOutput === 'function' && output) {
+        onOutput(output);
+    }
+
+    return {
+        success: response.success,
+        returnCode: response.returnCode,
+        output: output,
+        error: response.error || (response.returnCode !== 0
+            ? `Execution failed with return code ${response.returnCode}`
+            : '')
+    };
 }
 
 /**
@@ -224,6 +279,8 @@ function executeAsync(code, echo = false, onOutput = null) {
  * @returns {Promise<{success: boolean, returnCode: number, output: string, error: string}>}
  */
 function execute(code, echo = false, onOutput = null) {
+    // Windows: delegate to Worker thread (non-blocking, stop button works)
+    // macOS:   use async worker-thread Execute (streaming output)
     if (process.platform === 'win32') {
         return executeSyncWin(code, echo, onOutput);
     }
@@ -264,7 +321,12 @@ function setBreak() {
         return;
     }
 
-    if (!sessionInitialized) {
+    // On Windows the session lives on the Worker thread, so
+    // sessionInitialized is always false on the main thread.
+    // g_StataSO_SetBreak is process-wide and thread-safe —
+    // calling it from the main thread interrupts the Worker's
+    // StataSO_Execute.
+    if (!sessionInitialized && process.platform !== 'win32') {
         console.warn('Session not initialized. Cannot set break.');
         return;
     }
@@ -285,6 +347,11 @@ function shutdown() {
     if (!isNativeLoaded()) {
         console.warn('Native module not loaded. Cannot shutdown.');
         return;
+    }
+
+    // Windows: terminate the Worker thread
+    if (process.platform === 'win32') {
+        _terminateWorker().catch(() => {});
     }
 
     if (!sessionInitialized) {
