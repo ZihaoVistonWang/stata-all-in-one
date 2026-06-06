@@ -1559,10 +1559,6 @@ async function refresh(filterText) {
 }
 
 async function reveal(filterText) {
-    if (config.getRunMode() !== 'embeddedConsole') {
-        showInfo(msg('dataViewerEmbeddedOnly'));
-        return null;
-    }
     _pendingFilterText = filterText || '';
     const panel = ensurePanel();
     panel.reveal(vscode.ViewColumn.Two, true);
@@ -1626,18 +1622,13 @@ async function openDtaFile(context, uri, panel) {
     if (!uri || uri.scheme !== 'file') {
         return null;
     }
-    if (config.getRunMode() !== 'embeddedConsole') {
-        showInfo(msg('dataViewerEmbeddedOnly'));
-        return null;
-    }
-
     const targetPanel = panel ? attachPanel(panel) : ensurePanel();
     targetPanel.reveal(undefined, true);
 
     const filePath = uri.fsPath;
     const initResult = await ensureSilentSession(context);
     if (!initResult.success || !initResult.session) {
-        showError(initResult.reason || 'Failed to initialize Stata session.');
+        showError(initResult.reason || 'Failed to initialize Stata session for Data Viewer.');
         return targetPanel;
     }
 

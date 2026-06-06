@@ -492,10 +492,6 @@ async function activate(context) {
     const dataViewerCommand = vscode.commands.registerCommand(
         'stata-all-in-one.showDataViewer',
         (filterText) => {
-            if (config.getRunMode() !== 'embeddedConsole') {
-                showInfo(msg('dataViewerEmbeddedOnly'));
-                return;
-            }
             revealDataViewer(typeof filterText === 'string' ? filterText : '');
         }
     );
