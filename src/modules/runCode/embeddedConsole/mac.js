@@ -532,11 +532,12 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
             }
         };
 
+        if (typeof outputSink.writeCommand === 'function') {
+            outputSink.writeCommand(executionPlan.displayCode || normalizedCode);
+        }
+
         let result = null;
         if (Array.isArray(executionPlan.commands) && executionPlan.commands.length) {
-            if (typeof outputSink.writeCommand === 'function') {
-                outputSink.writeCommand(executionPlan.displayCode || normalizedCode);
-            }
             for (const command of executionPlan.commands) {
                 result = await consoleSession.execute(command, false, onExecutionChunk);
                 if (!result.success) {

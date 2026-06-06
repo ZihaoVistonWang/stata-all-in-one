@@ -515,11 +515,12 @@ async function runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir = null
             }
         };
 
+        if (typeof outputSink.writeCommand === 'function') {
+            outputSink.writeCommand(executionPlan.displayCode || normalizedCode);
+        }
+
         let result = null;
         if (Array.isArray(executionPlan.commands) && executionPlan.commands.length) {
-            if (typeof outputSink.writeCommand === 'function') {
-                outputSink.writeCommand(executionPlan.displayCode || normalizedCode);
-            }
             console.log(`[windows.js] Executing ${executionPlan.commands.length} command(s) line-by-line`);
             for (let ci = 0; ci < executionPlan.commands.length; ci++) {
                 const command = executionPlan.commands[ci];
