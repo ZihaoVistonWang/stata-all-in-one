@@ -85,7 +85,7 @@ Special thanks to RedNote user **Rich\*\*d**, WeChat user **早起\*\*阳光**, 
 
 - **Platform Support**: Seamlessly integrates with Stata on both **macOS** and **Windows** without requiring additional extensions.
 - **Two Run Modes**:
-  - **Embedded Console** (default)$^*$: <mark>Run and display Stata output directly within VS Code! Including *command results*, *error messages*, *command window output*, *data viewing*, and *graph output* — a true all-in-one IDE experience.</mark>
+  - **Embedded Console** (default)$^*$: <mark>Run and display Stata output directly within VS Code! Including *command results*, *error messages*, *command window output*, and *graph output* — a true all-in-one IDE experience.</mark>
   - **External App**: Continue using the traditional approach of sending code to the Stata GUI, for users who prefer Stata's native interface. <mark>Windows now uses [Stata COM Automation](https://www.stata.com/automation/), delivering significantly better performance than the previous PowerShell-based implementation.</mark>
 - **Multi-Scenario Execution Strategies**:
   - **Section Execution**: When the cursor is on a header line (e.g., `** # Title`), click the ▶️ button or press `Ctrl/Cmd + D` to execute all code from that header to the next same-level or higher-level header (i.e., the entire section).
@@ -119,7 +119,7 @@ Special thanks to RedNote user **Rich\*\*d**, WeChat user **早起\*\*阳光**, 
 - **Click to View**: <mark>Click a `.dta` file in the VS Code Explorer to open it in the new `Data Viewer` panel.</mark>
   - **Variable Info**: Variable table displays metadata such as name, label, and type.
   - **Data Browsing**: Supports lazy loading of rows and columns — easily browse large datasets right in VS Code without opening Stata.
-- **View After Run**: <mark>After running code in `Embedded Console` mode, instantly view results in the `Data Viewer` within the `Console` panel.</mark>
+- **View After Run**: <mark>After running code, instantly view results in the `Data Viewer` within the `Console` panel. Works in both run modes — no need to switch back and forth.</mark>
 - **Data Filtering**: <mark>Provides Stata-style filtering for quickly locating subsets of data.</mark>
 
 ### 6. Efficient Separator Lines & Styling
@@ -145,7 +145,7 @@ Special thanks to RedNote user **Rich\*\*d**, WeChat user **早起\*\*阳光**, 
      - **Fullscreen View**: <mark>Click a graph to view it in fullscreen mode for detailed inspection.</mark>
 
    - **Progress Display**
-     - **Command Execution Status**: <mark>For commands like `bootstrap`, the console shows execution progress and status. Other commands display elapsed time to help you monitor their state.</mark>
+     - **Command Execution Status**: <mark>For long-running commands like `bootstrap`, `bdiff`, and `xthreg`, the console shows real-time progress (e.g. 50/2000) and estimated time remaining. Other commands display elapsed time.</mark>
 
    - **Custom Font**:
      - **Font Settings**: <mark>Use `stata-all-in-one.consoleFontMode` and `stata-all-in-one.consoleCustomFontFamily` to customize the console font for a better reading experience.</mark>
