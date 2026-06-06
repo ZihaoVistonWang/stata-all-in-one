@@ -104,6 +104,16 @@ function attachPanel(panel) {
     _panel.onDidDispose(() => {
         if (_panel === panel) {
             _panel = null;
+            // Clear all state — fresh console on next open
+            _history = [];
+            _status = 'idle';
+            _workingDetail = null;
+            _lastRunFailed = false;
+            // Destroy the Stata session so a fresh one starts next time
+            try {
+                const session = require('./session');
+                session.forceShutdownConsoleSession();
+            } catch (_e) {}
         }
     });
     _panel.webview.onDidReceiveMessage(async (message) => {
