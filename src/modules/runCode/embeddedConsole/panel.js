@@ -1830,6 +1830,12 @@ function getWebviewHtml(webview) {
             }
             displayedRemainingSeconds = 0;
             updateWorkingMeta();
+            // Move indicator back to #output and reset inline padding
+            if (workingIndicator.parentElement !== output) {
+                output.appendChild(workingIndicator);
+                workingIndicator.style.paddingLeft = '';
+                workingIndicator.style.paddingRight = '';
+            }
             workingIndicator.style.display = 'none';
         }
 
@@ -2507,6 +2513,15 @@ function getWebviewHtml(webview) {
             const message = event.data || {};
             if (message.type === 'append') {
                 appendEntries(message.entries || []);
+                // Re-position working indicator right after the last command line
+                if (workingIndicator.style.display === 'flex') {
+                    const cmds = outputShell.querySelectorAll('.line-command');
+                    if (cmds.length) {
+                        cmds[cmds.length - 1].insertAdjacentElement('afterend', workingIndicator);
+                        workingIndicator.style.paddingLeft = '0';
+                        workingIndicator.style.paddingRight = '0';
+                    }
+                }
             } else if (message.type === 'status') {
                 setStatus(message.status);
             } else if (message.type === 'clear') {
