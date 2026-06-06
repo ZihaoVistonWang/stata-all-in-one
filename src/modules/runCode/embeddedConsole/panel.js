@@ -1641,12 +1641,13 @@ function getWebviewHtml(webview) {
             }
 
             if (currentWorkingDetail.kind === 'progress') {
-                const current = Number(currentWorkingDetail.current) || 0;
                 const total = Number(currentWorkingDetail.total) || 0;
-                if (current <= 0 || total <= 0) {
-                    return '';
+                if (total <= 0) { return ''; }
+                const current = (currentWorkingDetail.current != null) ? Number(currentWorkingDetail.current) : NaN;
+                if (isNaN(current) || current <= 0) {
+                    // No current count (bidiff pure dots, xthreg gaps) — show total only
+                    return formatCount(total) + ' reps';
                 }
-
                 return formatCount(current) + '/' + formatCount(total) + ' [' + formatDurationSeconds(displayedRemainingSeconds) + ']';
             }
 
@@ -1660,11 +1661,14 @@ function getWebviewHtml(webview) {
                 return;
             }
 
-            const current = Number(currentWorkingDetail.current) || 0;
+            const current = (currentWorkingDetail.current != null) ? Number(currentWorkingDetail.current) : NaN;
             const total = Number(currentWorkingDetail.total) || 0;
-            if (current <= 0 || total <= 0 || current >= total) {
-                estimatedFinishAt = 0;
-                displayedRemainingSeconds = 0;
+            if (isNaN(current) || current <= 0 || total <= 0 || current >= total) {
+                // current unknown → keep previous ETA, don't reset to 0
+                if (!isNaN(current) && current > 0) {
+                    estimatedFinishAt = 0;
+                    displayedRemainingSeconds = 0;
+                }
                 return;
             }
 

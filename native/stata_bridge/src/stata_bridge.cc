@@ -15,6 +15,7 @@
 #include <atomic>
 #include <chrono>
 #include <cctype>
+#include <condition_variable>
 
 #ifdef _WIN32
   #include <windows.h>
@@ -29,7 +30,7 @@
 // ---------------------------------------------------------------------------
 
 static void* g_library_handle = nullptr;
-static bool g_initialized = false;
+static std::atomic<bool> g_initialized{false};
 static std::mutex g_stata_mutex;
 static std::mutex g_output_mutex;
 
@@ -54,7 +55,7 @@ inline bool AreFunctionsResolved() {
            g_StataSO_GetOutputBuffer && g_StataSO_SetBreak && g_StataSO_Shutdown;
 }
 
-inline bool IsInitialized() { return g_initialized; }
+inline bool IsInitialized() { return g_initialized.load(); }
 
 // ---------------------------------------------------------------------------
 // ComputeIncrementalChunk – shared across platforms
@@ -116,7 +117,7 @@ std::string LoadLibraryAndResolveSymbols(const std::string& lib_path) {
     if (IsLibraryLoaded()) {
         FreeLibrary((HMODULE)g_library_handle);
         g_library_handle = nullptr;
-        g_initialized = false;
+        g_initialized.store(false);
     }
 
     // Add the DLL's directory to the search path so its dependencies
@@ -164,7 +165,7 @@ void UnloadLibrary() {
     g_StataSO_GetOutputBuffer = nullptr;
     g_StataSO_SetBreak = nullptr;
     g_StataSO_Shutdown = nullptr;
-    g_initialized = false;
+    g_initialized.store(false);
 }
 
 void SetPlatformEnv(const char* name, const char* value) {
@@ -188,7 +189,7 @@ std::string LoadLibraryAndResolveSymbols(const std::string& lib_path) {
     if (IsLibraryLoaded()) {
         dlclose(g_library_handle);
         g_library_handle = nullptr;
-        g_initialized = false;
+        g_initialized.store(false);
     }
 
     g_library_handle = dlopen(lib_path.c_str(), RTLD_LAZY);
@@ -227,7 +228,7 @@ void UnloadLibrary() {
     g_StataSO_GetOutputBuffer = nullptr;
     g_StataSO_SetBreak = nullptr;
     g_StataSO_Shutdown = nullptr;
-    g_initialized = false;
+    g_initialized.store(false);
 }
 
 void SetPlatformEnv(const char* name, const char* value) {
@@ -235,6 +236,140 @@ void SetPlatformEnv(const char* name, const char* value) {
 }
 
 #endif
+
+// ===========================================================================
+// Windows: dedicated Stata thread + polling thread
+//
+// On Windows the Stata DLL (mp-64.dll) requires StataSO_Main and
+// StataSO_Execute to be called from the SAME OS thread.  We run
+// both on a dedicated C++ thread, while a separate polling thread
+// reads Stata's output buffer every 50ms and forwards chunks to
+// JavaScript via Napi::ThreadSafeFunction.
+//
+// macOS dylibs are thread-safe — the async Execute + worker-thread
+// approach works without a dedicated thread.
+// ===========================================================================
+
+#ifdef _WIN32
+
+static std::thread g_stata_thread;
+static std::atomic<bool> g_stata_running{false};
+
+// Command queue (single-slot — one command at a time)
+static std::mutex g_cmd_mutex;
+static std::condition_variable g_cmd_cv;
+static std::string g_cmd_code;
+static int g_cmd_echo = 0;
+static bool g_cmd_pending = false;
+static bool g_cmd_done = false;
+static int g_cmd_return_code = 0;
+
+// Polling thread for incremental output
+static std::thread g_poll_thread;
+static std::atomic<bool> g_poll_running{false};
+static std::string g_poll_emitted;
+static std::mutex g_poll_emitted_mutex;
+static Napi::ThreadSafeFunction g_poll_tsfn;
+
+static void StataThreadLoop() {
+    while (g_stata_running.load()) {
+        // Wait for a command
+        {
+            std::unique_lock<std::mutex> lock(g_cmd_mutex);
+            g_cmd_cv.wait(lock, []{ return g_cmd_pending || !g_stata_running.load(); });
+            if (!g_stata_running.load()) break;
+        }
+
+        // Execute the command on THIS thread (same as StataSO_Main)
+        {
+            std::lock_guard<std::mutex> lock(g_stata_mutex);
+            if (g_StataSO_ClearOutputBuffer) {
+                g_StataSO_ClearOutputBuffer();
+            }
+        }
+        g_cmd_return_code = g_StataSO_Execute(g_cmd_code.c_str(), g_cmd_echo);
+
+        // Signal completion
+        {
+            std::lock_guard<std::mutex> lock(g_cmd_mutex);
+            g_cmd_pending = false;
+            g_cmd_done = true;
+        }
+        g_cmd_cv.notify_one();
+    }
+
+    // Shutdown Stata on this thread before exiting
+    if (g_StataSO_Shutdown) {
+        g_StataSO_Shutdown();
+    }
+    g_initialized.store(false);
+}
+
+static void PollThreadLoop() {
+    while (g_poll_running.load()) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+        if (!g_cmd_pending && g_cmd_done) continue;
+
+        std::string current;
+        {
+            std::lock_guard<std::mutex> lock(g_output_mutex);
+            if (g_StataSO_GetOutputBuffer) {
+                char* out = g_StataSO_GetOutputBuffer();
+                if (out) current = std::string(out);
+            }
+        }
+
+        std::string chunk;
+        {
+            std::lock_guard<std::mutex> lock(g_poll_emitted_mutex);
+            chunk = ComputeIncrementalChunk(g_poll_emitted, current);
+            if (!chunk.empty()) g_poll_emitted += chunk;
+        }
+
+        if (!chunk.empty() && g_poll_tsfn) {
+            g_poll_tsfn.NonBlockingCall([chunk](Napi::Env env, Napi::Function cb) {
+                Napi::Object p = Napi::Object::New(env);
+                p.Set("type", Napi::String::New(env, "output"));
+                p.Set("data", Napi::String::New(env, chunk));
+                cb.Call({p});
+            });
+        }
+    }
+}
+
+// Submit a command to the dedicated Stata thread and wait synchronously.
+// Used by ExecuteStataAndGetOutput for data-access helpers.
+static int SubmitStataCommand(const std::string& code, int echo, std::string& out_output) {
+    {
+        std::unique_lock<std::mutex> lock(g_cmd_mutex);
+        // Wait for any previous command to finish
+        g_cmd_cv.wait(lock, []{ return !g_cmd_pending; });
+        g_cmd_code = code;
+        g_cmd_echo = echo;
+        g_cmd_pending = true;
+        g_cmd_done = false;
+    }
+    g_cmd_cv.notify_one();
+
+    // Wait for completion
+    {
+        std::unique_lock<std::mutex> lock(g_cmd_mutex);
+        g_cmd_cv.wait(lock, []{ return g_cmd_done; });
+    }
+
+    // Read final output
+    {
+        std::lock_guard<std::mutex> lock(g_output_mutex);
+        if (g_StataSO_GetOutputBuffer) {
+            char* out = g_StataSO_GetOutputBuffer();
+            out_output = out ? std::string(out) : "";
+        }
+    }
+    return g_cmd_return_code;
+}
+
+#endif // _WIN32
 
 // ===========================================================================
 // N-API exported functions
@@ -315,6 +450,53 @@ Napi::Value InitSession(const Napi::CallbackInfo& info) {
         argv.push_back(const_cast<char*>(arg.c_str()));
     }
 
+    #ifdef _WIN32
+    // Windows: run StataSO_Main on a dedicated thread. All subsequent
+    // StataSO_Execute calls will also run on this same thread, satisfying
+    // the thread-affinity requirement of the Windows Stata DLL.
+    bool main_ok = false;
+    std::string main_error;
+    {
+        g_stata_running.store(true);
+        g_stata_thread = std::thread([&]() {
+            int rc = g_StataSO_Main(static_cast<int>(args.size()), argv.data());
+            if (rc >= 0 || rc == -7100) {
+                g_initialized.store(true);
+                main_ok = true;
+                // Enter command-processing loop (blocks until shutdown)
+                StataThreadLoop();
+            } else {
+                main_error = "StataSO_Main failed with return code: " + std::to_string(rc);
+            }
+        });
+        // Wait for StataSO_Main to complete (or fail) before returning.
+        // StataThreadLoop blocks on g_cmd_cv, so we poll until initialized.
+        while (!g_initialized.load() && g_stata_running.load()) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        }
+    }
+
+    if (main_ok) {
+        if (has_callback) {
+            callback.Call({Napi::Boolean::New(env, true), Napi::String::New(env, "Stata initialized on dedicated thread.")});
+        }
+        return Napi::Boolean::New(env, true);
+    } else {
+        g_stata_running.store(false);
+        g_cmd_cv.notify_one();
+        if (g_stata_thread.joinable()) g_stata_thread.join();
+        fprintf(stderr, "[stata_bridge] %s\n", main_error.c_str());
+        if (has_callback) {
+            callback.Call({Napi::Boolean::New(env, false), Napi::String::New(env, main_error)});
+        } else {
+            Napi::Error::New(env, main_error).ThrowAsJavaScriptException();
+            return env.Null();
+        }
+        return Napi::Boolean::New(env, false);
+    }
+    #else
+    // macOS: call StataSO_Main directly on the calling thread.
+    // dylib functions are thread-safe on macOS.
     int rc = g_StataSO_Main(static_cast<int>(args.size()), argv.data());
 
     std::string output_msg = "";
@@ -325,10 +507,8 @@ Napi::Value InitSession(const Napi::CallbackInfo& info) {
         }
     }
 
-    // -7100 means Python integration failed, but Stata might still work for code execution
-    // For our use case (Node.js), we don't need Python integration
     if (rc >= 0 || rc == -7100) {
-        g_initialized = true;
+        g_initialized.store(true);
         std::string status_msg = (rc == -7100) ?
             "Stata initialized (Python integration skipped for Node.js). " + output_msg :
             output_msg;
@@ -350,6 +530,7 @@ Napi::Value InitSession(const Napi::CallbackInfo& info) {
         }
         return Napi::Boolean::New(env, false);
     }
+    #endif
 }
 
 struct ExecuteContext {
@@ -399,6 +580,87 @@ Napi::Value Execute(const Napi::CallbackInfo& info) {
     context->code = code;
     context->echo = echo;
 
+    #ifdef _WIN32
+    // Windows: submit command to the dedicated Stata thread and use a
+    // polling thread to read incremental output.  The dedicated thread
+    // is the same one that ran StataSO_Main, satisfying DLL thread affinity.
+    std::thread worker([context, tsfn, has_callback]() {
+        // Start polling thread for incremental output
+        g_poll_emitted.clear();
+        g_poll_running.store(true);
+        if (has_callback) {
+            g_poll_tsfn = tsfn;
+        }
+        g_poll_thread = std::thread(PollThreadLoop);
+
+        // Submit command to dedicated thread
+        {
+            std::unique_lock<std::mutex> lock(g_cmd_mutex);
+            // Wait for any previous command to finish
+            g_cmd_cv.wait(lock, []{ return !g_cmd_pending; });
+            g_cmd_code = context->code;
+            g_cmd_echo = context->echo;
+            g_cmd_pending = true;
+            g_cmd_done = false;
+        }
+        g_cmd_cv.notify_one();
+
+        // Wait for dedicated thread to finish
+        {
+            std::unique_lock<std::mutex> lock(g_cmd_mutex);
+            g_cmd_cv.wait(lock, []{ return g_cmd_done; });
+        }
+        context->return_code = g_cmd_return_code;
+
+        // Stop polling thread
+        g_poll_running.store(false);
+        if (g_poll_thread.joinable()) g_poll_thread.join();
+        g_poll_tsfn = nullptr;
+
+        // Drain final output (accounting for what the polling thread emitted)
+        std::string final_output;
+        {
+            std::lock_guard<std::mutex> lock(g_output_mutex);
+            if (g_StataSO_GetOutputBuffer) {
+                char* out = g_StataSO_GetOutputBuffer();
+                if (out) final_output = std::string(out);
+            }
+        }
+        std::string tail_chunk;
+        {
+            std::lock_guard<std::mutex> lock(g_poll_emitted_mutex);
+            tail_chunk = ComputeIncrementalChunk(g_poll_emitted, final_output);
+        }
+        context->output = final_output;
+
+        if (context->return_code != 0) {
+            context->error = "StataSO_Execute failed with return code: " + std::to_string(context->return_code);
+        }
+
+        if (has_callback) {
+            if (!tail_chunk.empty()) {
+                tsfn.NonBlockingCall([tail_chunk](Napi::Env env, Napi::Function cb) {
+                    Napi::Object p = Napi::Object::New(env);
+                    p.Set("type", Napi::String::New(env, "output"));
+                    p.Set("data", Napi::String::New(env, tail_chunk));
+                    cb.Call({p});
+                });
+            }
+            tsfn.NonBlockingCall([context](Napi::Env env, Napi::Function cb) {
+                Napi::Object p = Napi::Object::New(env);
+                p.Set("type", Napi::String::New(env, "done"));
+                p.Set("returnCode", Napi::Number::New(env, context->return_code));
+                p.Set("output", Napi::String::New(env, context->output));
+                p.Set("error", Napi::String::New(env, context->error));
+                cb.Call({p});
+            });
+            tsfn.Release();
+        }
+    });
+    worker.detach();
+    #else
+    // macOS: create a C++ worker thread that runs StataSO_Execute in
+    // a sub-thread and polls output via TSFN.  dylib is thread-safe.
     std::thread worker([context, tsfn, has_callback]() {
         {
             std::lock_guard<std::mutex> stata_lock(g_stata_mutex);
@@ -475,7 +737,6 @@ Napi::Value Execute(const Napi::CallbackInfo& info) {
                     continue;
                 }
             }
-
             break;
         }
 
@@ -507,8 +768,9 @@ Napi::Value Execute(const Napi::CallbackInfo& info) {
             tsfn.Release();
         }
     });
-
     worker.detach();
+    #endif
+
     return env.Undefined();
 }
 
@@ -624,14 +886,29 @@ Napi::Value Shutdown(const Napi::CallbackInfo& info) {
         return Napi::Boolean::New(env, true);
     }
 
+    #ifdef _WIN32
+    // Signal the dedicated Stata thread to exit.  StataThreadLoop
+    // calls g_StataSO_Shutdown before returning.
+    g_stata_running.store(false);
+    {
+        std::lock_guard<std::mutex> lock(g_cmd_mutex);
+        g_cmd_pending = false;
+        g_cmd_done = true;  // unblock any waiter
+    }
+    g_cmd_cv.notify_one();
+    if (g_stata_thread.joinable()) {
+        g_stata_thread.join();
+    }
+    UnloadLibrary();
+    g_initialized.store(false);
+    #else
     std::lock_guard<std::mutex> lock(g_stata_mutex);
-
     if (g_StataSO_Shutdown && IsInitialized()) {
         g_StataSO_Shutdown();
     }
-
     UnloadLibrary();
-    g_initialized = false;
+    g_initialized.store(false);
+    #endif
 
     return Napi::Boolean::New(env, true);
 }
@@ -650,6 +927,12 @@ std::string ExecuteStataAndGetOutput(const std::string& code) {
     if (!IsInitialized() || !AreFunctionsResolved()) {
         return "";
     }
+    #ifdef _WIN32
+    // Submit to dedicated Stata thread and wait synchronously
+    std::string output;
+    SubmitStataCommand(code, 0, output);
+    return output;
+    #else
     std::lock_guard<std::mutex> lock(g_stata_mutex);
     if (g_StataSO_ClearOutputBuffer) {
         g_StataSO_ClearOutputBuffer();
@@ -661,6 +944,7 @@ std::string ExecuteStataAndGetOutput(const std::string& code) {
         if (out) output = std::string(out);
     }
     return output;
+    #endif
 }
 
 std::string Trim(const std::string& s) {

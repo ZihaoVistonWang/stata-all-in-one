@@ -81,7 +81,7 @@ function getProgressPayloadFromLine(line, allowContinuation = false) {
     if (/^[.\s]+$/.test(withoutPrompt) && bareDotCount >= (allowContinuation ? 1 : 2)) {
         return withoutPrompt || normalized;
     }
-    if (allowContinuation && /^[\s.,\d]+(?:\s+done)?$/i.test(withoutPrompt) && /[.\d]/.test(withoutPrompt)) {
+    if (allowContinuation && /^[\s.,\d+]+(?:\s+done)?$/i.test(withoutPrompt) && /[.\d]/.test(withoutPrompt)) {
         return withoutPrompt;
     }
     if (allowContinuation && /^>\s*$/.test(normalized)) {
@@ -129,7 +129,10 @@ function getProgressPayloadFromLine(line, allowContinuation = false) {
 }
 
 function extractProgressDetailFromPayload(payload) {
-    const matches = [...String(payload || '').matchAll(/(\d{1,3}(?:,\d{3})*)(?=(?:\.+|\s|done|$))/gi)];
+    // Match comma-separated numbers (2,000) and plain numbers (1050).
+    // \d[\d,]* greedily consumes all contiguous digits/commas so 4-digit
+    // numbers like 1000 are captured as "1000", not "000".
+    const matches = [...String(payload || '').matchAll(/(\d[\d,]*)(?=(?:\.+|\s|done|$))/gi)];
     if (!matches.length) {
         return null;
     }
@@ -188,7 +191,7 @@ function stripProgressFromLine(line, allowContinuation = false) {
     if (/^[.\s]+$/.test(withoutPrompt) && bareDotCount >= (allowContinuation ? 1 : 2)) {
         return null;
     }
-    if (allowContinuation && /^[\s.,\d]+(?:\s+done)?$/i.test(withoutPrompt) && /[.\d]/.test(withoutPrompt)) {
+    if (allowContinuation && /^[\s.,\d+]+(?:\s+done)?$/i.test(withoutPrompt) && /[.\d]/.test(withoutPrompt)) {
         return null;
     }
     if (allowContinuation && /^>\s*$/.test(normalized)) {
@@ -422,6 +425,7 @@ async function runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir = null
     let streamedOutput = '';
     let lastRealChunkAt = 0;
     let progressOutputActive = false;
+    let lastProgressState = '';
     let runStartTime = null;
     let graphCaptureState = null;
     let graphDir = null;
@@ -484,18 +488,23 @@ async function runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir = null
 
             if (progressOutputActive && typeof outputSink.setWorkingDetail === 'function') {
                 const progressDetail = extractProgressDetail(chunk);
+                let nextState = '';
                 if (progressDetail) {
                     const current = parseIntegerWithCommas(progressDetail);
                     if (progressTotal && current !== null) {
-                        outputSink.setWorkingDetail({
-                            kind: 'progress',
-                            current,
-                            total: progressTotal
-                        });
+                        nextState = current + '/' + progressTotal;
+                        outputSink.setWorkingDetail({ kind: 'progress', current, total: progressTotal });
                     } else {
+                        nextState = String(progressDetail);
                         outputSink.setWorkingDetail(progressDetail);
                     }
+                } else if (progressTotal && hasProgressOutput && !lastProgressState) {
+                    // Pure-dot lines without a number (bidiff, xthreg continuation).
+                    // Only send once initially to avoid flickering.
+                    nextState = '?' + '/' + progressTotal;
+                    outputSink.setWorkingDetail({ kind: 'progress', total: progressTotal });
                 }
+                if (nextState) lastProgressState = nextState;
             }
 
             const visibleChunk = progressOutputActive || hasProgressOutput
@@ -537,7 +546,8 @@ async function runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir = null
         } else {
             const cmdStart = Date.now();
             console.log(`[windows.js] Executing single command via do-file: ${executionPlan.command.substring(0, 100)}`);
-            result = await consoleSession.execute(executionPlan.command, true, onExecutionChunk);
+            // writeCommand already shows the code; echo:false avoids duplicate
+            result = await consoleSession.execute(executionPlan.command, false, onExecutionChunk);
             console.log(`[windows.js] Do-file execution done in ${Date.now() - cmdStart}ms, success=${result.success}`);
         }
 

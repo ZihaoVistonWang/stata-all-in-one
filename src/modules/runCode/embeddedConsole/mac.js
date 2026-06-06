@@ -72,7 +72,7 @@ function getProgressPayloadFromLine(line, allowContinuation = false) {
     if (/^[.\s]+$/.test(withoutPrompt) && bareDotCount >= (allowContinuation ? 1 : 2)) {
         return withoutPrompt || normalized;
     }
-    if (allowContinuation && /^[\s.,\d]+(?:\s+done)?$/i.test(withoutPrompt) && /[.\d]/.test(withoutPrompt)) {
+    if (allowContinuation && /^[\s.,\d+]+(?:\s+done)?$/i.test(withoutPrompt) && /[.\d]/.test(withoutPrompt)) {
         return withoutPrompt;
     }
     if (allowContinuation && /^>\s*$/.test(normalized)) {
@@ -120,7 +120,7 @@ function getProgressPayloadFromLine(line, allowContinuation = false) {
 }
 
 function extractProgressDetailFromPayload(payload) {
-    const matches = [...String(payload || '').matchAll(/(\d{1,3}(?:,\d{3})*)(?=(?:\.+|\s|done|$))/gi)];
+    const matches = [...String(payload || '').matchAll(/(\d[\d,]*)(?=(?:\.+|\s|done|$))/gi)];
     if (!matches.length) {
         return null;
     }
@@ -179,7 +179,7 @@ function stripProgressFromLine(line, allowContinuation = false) {
     if (/^[.\s]+$/.test(withoutPrompt) && bareDotCount >= (allowContinuation ? 1 : 2)) {
         return null;
     }
-    if (allowContinuation && /^[\s.,\d]+(?:\s+done)?$/i.test(withoutPrompt) && /[.\d]/.test(withoutPrompt)) {
+    if (allowContinuation && /^[\s.,\d+]+(?:\s+done)?$/i.test(withoutPrompt) && /[.\d]/.test(withoutPrompt)) {
         return null;
     }
     if (allowContinuation && /^>\s*$/.test(normalized)) {
@@ -440,6 +440,7 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
     let streamedOutput = '';
     let lastRealChunkAt = 0;
     let progressOutputActive = false;
+    let lastProgressState = '';
     let runStartTime = null;
     let graphCaptureState = null;
     let graphDir = null;
@@ -501,18 +502,21 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
 
             if (progressOutputActive && typeof outputSink.setWorkingDetail === 'function') {
                 const progressDetail = extractProgressDetail(chunk);
+                let nextState = '';
                 if (progressDetail) {
                     const current = parseIntegerWithCommas(progressDetail);
                     if (progressTotal && current !== null) {
-                        outputSink.setWorkingDetail({
-                            kind: 'progress',
-                            current,
-                            total: progressTotal
-                        });
+                        nextState = current + '/' + progressTotal;
+                        outputSink.setWorkingDetail({ kind: 'progress', current, total: progressTotal });
                     } else {
+                        nextState = String(progressDetail);
                         outputSink.setWorkingDetail(progressDetail);
                     }
+                } else if (progressTotal && hasProgressOutput && !lastProgressState) {
+                    nextState = '?' + '/' + progressTotal;
+                    outputSink.setWorkingDetail({ kind: 'progress', total: progressTotal });
                 }
+                if (nextState) lastProgressState = nextState;
             }
 
             const visibleChunk = progressOutputActive || hasProgressOutput
@@ -545,7 +549,8 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
                 }
             }
         } else {
-            result = await consoleSession.execute(executionPlan.command, true, onExecutionChunk);
+            // writeCommand already shows the code; echo:false avoids duplicate
+            result = await consoleSession.execute(executionPlan.command, false, onExecutionChunk);
         }
 
         if (!executionPlan.commands && result.output) {
