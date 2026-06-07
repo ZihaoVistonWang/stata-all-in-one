@@ -170,6 +170,7 @@ async function runCurrentSection(context, editor = null) {
     // 控制台显示保留原始代码（graph export 行以删除线标注），执行使用剥离后代码
     const stripped = stripGraphExport(originalCode);
     const codeToRun = originalCode; // 用于显示
+    const runMode = config.getRunMode();
     let graphExportOptions;
     if (stripped.removed.length) {
         // 计算 graph export 行在原始代码中的行号（0-based）
@@ -184,14 +185,15 @@ async function runCurrentSection(context, editor = null) {
             execCode: stripped.code,          // 剥离后代码，用于执行
             graphExportLineIndices: indices   // 删除线行号，用于显示
         };
-        const msgText = stripped.removed.length === 1
-            ? `⚠️ 已跳过 graph export 命令。图形已自动捕获，请点击图片右上角的保存按钮进行保存。`
-            : `⚠️ 已跳过 ${stripped.removed.length} 条 graph export 命令。图形已自动捕获，请点击图片右上角的保存按钮进行保存。`;
-        vscode.window.showInformationMessage(msgText);
+        // 仅在 embedded console 模式提示（external app 模式下 graph export 正常执行，无需跳过）
+        if (runMode !== config.RUN_MODES.externalApp) {
+            const msgText = stripped.removed.length === 1
+                ? `⚠️ 已跳过 graph export 命令。图形已自动捕获，请点击图片右上角的保存按钮进行保存。`
+                : `⚠️ 已跳过 ${stripped.removed.length} 条 graph export 命令。图形已自动捕获，请点击图片右上角的保存按钮进行保存。`;
+            vscode.window.showInformationMessage(msgText);
+        }
     }
 
-    const runMode = config.getRunMode();
-    
     // 获取文档目录
     const docDir = path.dirname(document.fileName);
     
