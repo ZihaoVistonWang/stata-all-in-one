@@ -25,6 +25,35 @@ const TEMP_DO_FILENAME = 'stata_ai_skill_temp.do';
 const STATA_TEMP_DIR = '.stata-all-in-one';
 const MAX_TEMP_FILES = 10;
 
+// Timeout defaults (seconds): normal commands vs long-running jobs
+const DEFAULT_TIMEOUT_SEC = 30;        // 30s for normal commands
+const MAX_TIMEOUT_SEC = 600;           // 10min hard cap
+
+/**
+ * Execute Stata code with timeout. On timeout, interrupts Stata via setBreak.
+ * @param {string} stataCode
+ * @param {boolean} echo
+ * @param {number} timeoutSec
+ * @returns {Promise<object>}
+ */
+async function executeWithTimeout(stataCode, echo, timeoutSec) {
+    const execPromise = consoleSession.execute(stataCode, echo);
+    if (!timeoutSec || timeoutSec <= 0) {
+        return await execPromise;
+    }
+    const capped = Math.min(timeoutSec, MAX_TIMEOUT_SEC);
+    const timeoutMs = capped * 1000;
+    return await Promise.race([
+        execPromise,
+        new Promise((_, reject) =>
+            setTimeout(() => {
+                consoleSession.stop();
+                reject(Object.assign(new Error(`执行超时（${capped}s）`), { isTimeout: true }));
+            }, timeoutMs)
+        )
+    ]);
+}
+
 /**
  * Normalize Stata code: strip ". " prefixes, normalize line endings
  * @param {string} code
@@ -261,6 +290,7 @@ async function handleRequest(req, res) {
             }
 
             const echo = requestData.echo !== undefined ? requestData.echo : false;
+            const timeout = requestData.timeout !== undefined ? parseInt(requestData.timeout, 10) : DEFAULT_TIMEOUT_SEC;
             let stataCode;
             let tempFilePath = null;
             let graphExportStripped = [];
@@ -297,7 +327,7 @@ async function handleRequest(req, res) {
             if (graphExportStripped.length) {
                 console.log(`[Stata AI Skill] ⚠️ Stripped ${graphExportStripped.length} graph export line(s):`, graphExportStripped);
             }
-            const result = await consoleSession.execute(stataCode, echo);
+            const result = await executeWithTimeout(stataCode, echo, timeout);
 
             // Clean up temp file after execution
             if (tempFilePath) {
@@ -333,6 +363,21 @@ async function handleRequest(req, res) {
             // Auto-cleanup old temp files after each execution
             cleanupStataTempFiles();
         } catch (err) {
+            if (err && err.isTimeout) {
+                console.error('[Stata AI Skill] Execution timed out:', err.message);
+                // Still try to export any graphs generated before the timeout
+                let graphs = [];
+                try { graphs = await exportCapturedGraphs(); } catch (_) { /* ignore */ }
+                res.writeHead(408, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({
+                    success: false, returnCode: -1,
+                    output: err.message + '\n建议：对于长时间运行的命令（如 bootstrap、大型回归），设置 "timeout" 参数延长超时时间（单位毫秒），例如 {"timeout": 300} 表示 5 分钟。',
+                    error: err.message,
+                    graphs: graphs
+                }));
+                cleanupStataTempFiles();
+                return;
+            }
             console.error('[Stata AI Skill] Execute error:', err.message);
             res.writeHead(400, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ success: false, output: '', error: 'Invalid request: ' + (err.message || 'Unknown error') }));

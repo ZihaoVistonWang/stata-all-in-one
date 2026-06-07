@@ -37,7 +37,7 @@ New-Item -ItemType Directory -Force -Path ".\.stata-all-in-one"
 
 ### 自动清理
 
-**清理由服务器自动完成** —— 每次 `/execute` 被调用后，Stata All in One HTTP 服务会自动扫描 `.stata-all-in-one/` 目录，只保留最新的 10 个文件，删除更旧的。你**无需**手动运行任何清理命令。
+**清理由服务器自动完成** —— 每次 `/execute` 被调用后，服务器自动扫描 `.stata-all-in-one/` 目录，**每种格式（.log、.do、.svg、.png 等）各保留最新 10 个**，删除更旧的。你**无需**手动运行任何清理命令。
 
 ---
 
@@ -153,6 +153,25 @@ curl -s -X POST http://127.0.0.1:19521/execute -H "Content-Type: application/jso
 ```
 `graphs` 数组包含服务器自动导出的图形文件路径（SVG + PNG），通常为空；当代码包含画图命令（`scatter`、`histogram` 等）时自动填充。
 
+### 超时设置
+
+默认超时 **30 秒**。长时间运行的命令（bootstrap、大型回归等）需要显式设置 `timeout`（秒）：
+
+```bash
+# 设置 5 分钟超时
+curl -s -X POST http://127.0.0.1:19521/execute \
+  -H "Content-Type: application/json" \
+  -d '{"code":"bootstrap r(p50), reps(1000): summarize price", "timeout": 300}'
+```
+
+| 场景 | 建议 timeout（秒） |
+|------|-------------------|
+| 普通命令（`summarize`、`regress` 等） | 默认 30，无需设置 |
+| bootstrap、permute 等重复抽样 | 300（5 分钟） |
+| 超大循环、大型数据合并 | 600（10 分钟，上限） |
+
+超时后服务器会中断 Stata 执行并返回 408 状态码，已生成的图形仍会导出。
+
 ### 单行命令
 
 **macOS:**
@@ -185,6 +204,8 @@ Invoke-WebRequest -Uri "http://127.0.0.1:19521/execute" -Method POST -ContentTyp
 
 对于较长的 Stata 代码（超过 5 行、含循环/宏/局部变量、或输出量很大），**务必**写入临时 .do 文件运行并生成 .log 日志文件，由 agent 读取 .log 获取完整输出。这避免了 JSON 转义问题，且能确保捕获全部结果。
 
+**长时间运行的 .do 文件（bootstrap、大型循环等）必须设置 `timeout`：**
+
 **macOS:**
 ```bash
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
@@ -202,10 +223,13 @@ estimates store m1
 log close
 STATAEOF
 
-# 2. 通过 API 运行 .do 文件
+# 2. 通过 API 运行 .do 文件（普通命令 30s 默认超时，bootstrap 等需加 "timeout"）
 curl -s -X POST http://127.0.0.1:19521/execute \
   -H "Content-Type: application/json" \
   -d "{\"file\":\"./.stata-all-in-one/script_${TIMESTAMP}.do\"}"
+
+# 长时间运行需设置 timeout（单位秒）：
+# curl -s -X POST ... -d "{\"file\":\"...\", \"timeout\": 300}"
 
 # 3. 读取日志文件查看完整输出
 cat ./.stata-all-in-one/output_${TIMESTAMP}.log
@@ -225,7 +249,7 @@ estimates store m1
 log close
 "@ | Out-File -FilePath ".\.stata-all-in-one\script_${timestamp}.do" -Encoding UTF8
 
-# 2. 通过 API 运行
+# 2. 通过 API 运行（长时间运行需加 "timeout": 300）
 $filePath = ".\.stata-all-in-one\script_${timestamp}.do"
 Invoke-WebRequest -Uri "http://127.0.0.1:19521/execute" -Method POST -ContentType "application/json" -Body "{`"file`":`"$filePath`"}" -UseBasicParsing | Select-Object -ExpandProperty Content
 
@@ -244,6 +268,7 @@ Get-Content ".\.stata-all-in-one\output_${timestamp}.log" -Raw
 | 预计输出很长（大型回归表、多步骤结果） | .do 文件 + .log | agent 可直接读 .log，避免输出截断 |
 | 需要生成图表 | .do 文件（服务器自动导出图形） | 画图命令即可，服务器自动导出 SVG+PNG |
 | 多步骤分析（加载数据→处理→回归→检验） | .do 文件 + .log | 一次执行保证上下文连续，避免模型分批丢失状态 |
+| bootstrap / permute / 大型循环 | .do 文件 + .log + `"timeout": 300` | 默认 30s 不够，需 5 分钟超时 |
 
 ### 处理图表输出
 
@@ -276,15 +301,15 @@ curl -s -X POST http://127.0.0.1:19521/execute \
 
 然后 agent 使用 Read 工具读取 PNG 文件展示给用户。
 
-**如果需要保存特定命名图形（如叠加图），可以手动 `graph export`：**
+**命名图形也会自动导出：**
 ```bash
-# 手动导出叠加图（必须声明 name，且用 quietly + SVG 格式，PNG 会卡死）
+# 创建命名图形，服务器自动导出为 Graph_xxx_0.svg / .png 和 mygraph_xxx_1.svg / .png
 curl -s -X POST http://127.0.0.1:19521/execute \
   -H "Content-Type: application/json" \
-  -d '{"code":"sysuse auto, clear\nscatter price mpg, name(mygraph, replace)\nquietly graph export ./.stata-all-in-one/mygraph.svg, name(mygraph) replace"}'
+  -d '{"code":"sysuse auto, clear\nscatter price mpg, name(mygraph, replace)"}'
 ```
 
-**⚠️ 重要：不要在 Stata 代码中使用 `graph export ... .png`——PNG 导出需要显示服务器，会卡死会话。用服务器自动导出的 PNG，或手动导出为 SVG。**
+**⚠️ 严禁在代码中使用 `graph export`：** 服务器会自动剥离所有 `graph export` 行并追加提示到 output 中。原因是 Stata 的 PNG 导出需要显示服务器，在 AI Skill 环境中会卡死会话。图形由服务器通过 `_gr_list` + sharp 自动导出为 SVG 和 PNG。**唯一例外：** 在 `.do` 文件中可以使用 `quietly graph export ... .svg`（仅 SVG），但通常不需要。
 
 ### JSON 转义规则
 
@@ -415,8 +440,9 @@ curl -s -X POST ... -d '{"code":"estimates list"}'
 
 ## 注意事项
 
-- 输出是纯文本，直接阅读 Stata 的原始输出
-- 长时间命令可能需要几秒到几十秒，`curl` 会自动等待
+- **默认超时 30 秒**：普通命令（`summarize`、`regress` 等）在 30s 内完成。bootstrap、大型循环等需显式设置 `"timeout": 300`（5 分钟），上限 600（10 分钟）
+- **严禁 `graph export`**：服务器会自动剥离代码中的 `graph export` 行（因 PNG 导出需要显示服务器会卡死）。图形由服务器自动导出为 SVG + PNG，出现在响应 JSON 的 `graphs` 字段中。唯一的例外：在 `.do` 文件中可使用 `quietly graph export ... .svg`
 - **复杂代码（5 行以上、含循环/宏、输出量大）务必使用 .do 文件 + .log 方式**，不要通过 JSON `code` 字段发送。原因：① 避免 JSON 转义错误（引号、`$` 宏等）；② .log 文件捕获完整输出，agent 直接读取更可靠；③ 一次执行保证上下文连续，避免模型在多轮对话中丢失状态
-- 所有临时文件写入 `./.stata-all-in-one/`，每次 `/execute` 被调用后，**服务器自动清理**只保留最新 10 个文件 —— agent 无需手动清理
+- 所有临时文件写入 `./.stata-all-in-one/`，每次 `/execute` 后服务器按格式分类清理，**每种格式各保留最新 10 个**——agent 无需手动清理
 - 不要关闭 VS Code 中的 Stata 会话，以免丢失数据状态
+- 图形保存在响应的 `graphs` 数组和 output 末尾的 `[Stata All in One]` 提示中，agent 应用 Read 工具读取 PNG 文件展示给用户
