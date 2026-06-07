@@ -60,6 +60,7 @@ start "" "C:\Users\$env:USERNAME\AppData\Local\Programs\Microsoft VS Code\Code.e
 start "" "C:\Program Files\Microsoft VS Code\Code.exe"
 ```
 
+上述路径是 VS Code 的默认安装路径，如果用户自定义安装位置，请相应的寻找并修改上述命令。
 依次尝试以上任一方案，成功启动 VS Code 即可。
 
 ### 第三步：等待 VS Code 就绪

@@ -5,10 +5,39 @@
  */
 
 const http = require('http');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 
 let server = null;
 let consoleSession = null;
 let serverPort = 19521;
+
+const TEMP_DO_FILENAME = 'stata_ai_skill_temp.do';
+
+/**
+ * Normalize Stata code: strip ". " prefixes, normalize line endings
+ * @param {string} code
+ * @returns {string}
+ */
+function normalizeCode(code) {
+    return String(code || '')
+        .replace(/\r\n/g, '\n')
+        .replace(/\r/g, '\n')
+        .split('\n')
+        .map(line => line.replace(/^\s*\.\s?/, ''))
+        .join('\n')
+        .trim();
+}
+
+/**
+ * Check if code contains multiple lines
+ * @param {string} code
+ * @returns {boolean}
+ */
+function isMultiLine(code) {
+    return String(code || '').replace(/\r\n/g, '\n').split('\n').filter(l => l.trim()).length > 1;
+}
 
 /**
  * 读取 HTTP 请求体
@@ -76,12 +105,31 @@ async function handleRequest(req, res) {
                 return;
             }
 
-            // 如果是 .do 文件，构造 do 命令；否则直接执行代码
-            const stataCode = doFile ? `do "${doFile.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"` : code;
             const echo = requestData.echo !== undefined ? requestData.echo : false;
+            let stataCode;
+            let tempFilePath = null;
 
-            console.log('[Stata AI Skill] Execute:', doFile ? `do "${doFile}"` : code.substring(0, 80));
+            if (doFile) {
+                // Explicit .do file path
+                stataCode = `do "${doFile.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+            } else if (isMultiLine(code)) {
+                // Multi-line code: write to temp .do file and execute via "do"
+                const normalized = normalizeCode(code);
+                tempFilePath = path.join(os.tmpdir(), TEMP_DO_FILENAME);
+                fs.writeFileSync(tempFilePath, normalized, 'utf8');
+                stataCode = `do "${tempFilePath.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+            } else {
+                // Single-line code: execute directly (StataSO_Execute handles this)
+                stataCode = normalizeCode(code);
+            }
+
+            console.log('[Stata AI Skill] Execute:', doFile ? `do "${doFile}"` : (tempFilePath ? `do "${tempFilePath}" (${code.split('\n').filter(l => l.trim()).length} lines)` : code.substring(0, 80)));
             const result = await consoleSession.execute(stataCode, echo);
+
+            // Clean up temp file after execution
+            if (tempFilePath) {
+                try { fs.unlinkSync(tempFilePath); } catch (_) { /* ignore */ }
+            }
 
             const statusCode = result.success ? 200 : 500;
             res.writeHead(statusCode, { 'Content-Type': 'application/json' });
