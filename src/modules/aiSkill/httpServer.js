@@ -32,6 +32,13 @@ const MAX_TIMEOUT_SEC = 600;           // 10min hard cap
 
 /**
  * Execute Stata code with timeout. On timeout, interrupts Stata via setBreak.
+ *
+ * CRITICAL: After calling stop(), we MUST await the original execPromise so the
+ * C++ native module's TSFN (ThreadSafeFunction) callback has a valid JS Promise
+ * to resolve into.  Abandoning the Promise via Promise.race alone causes the
+ * C++ callback to fire into a torn-down context, crashing the Node.js process
+ * on both Windows and macOS.
+ *
  * @param {string} stataCode
  * @param {boolean} echo
  * @param {number} timeoutSec
@@ -44,15 +51,39 @@ async function executeWithTimeout(stataCode, echo, timeoutSec) {
     }
     const capped = Math.min(timeoutSec, MAX_TIMEOUT_SEC);
     const timeoutMs = capped * 1000;
-    return await Promise.race([
-        execPromise,
-        new Promise((_, reject) =>
-            setTimeout(() => {
-                consoleSession.stop();
-                reject(Object.assign(new Error(`执行超时（${capped}s）`), { isTimeout: true }));
-            }, timeoutMs)
-        )
-    ]);
+
+    let timedOut = false;
+    let timerId;
+
+    const timeoutPromise = new Promise((resolve) => {
+        timerId = setTimeout(() => {
+            timedOut = true;
+            consoleSession.stop();
+            resolve();
+        }, timeoutMs);
+    });
+
+    // Race: normal completion vs timeout.  When execPromise wins we simply
+    // clear the timer and return the result.
+    const result = await Promise.race([execPromise, timeoutPromise]);
+    clearTimeout(timerId);
+
+    if (timedOut) {
+        // The timeout fired and called stop().  We must now drain execPromise
+        // so the C++ TSFN callback lands safely — StataSO_Execute returns
+        // after processing the break signal set by stop().
+        try {
+            await execPromise;
+        } catch (_) {
+            // The interrupted execution may return an error (rc=1); ignore it.
+        }
+        throw Object.assign(
+            new Error(`执行超时（${capped}s）`),
+            { isTimeout: true }
+        );
+    }
+
+    return result;
 }
 
 /**
