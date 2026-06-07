@@ -520,10 +520,16 @@ class StataTerminalRenderer {
             .join('\n') + '\n';
     }
 
-    renderCommandSegments(command, width) {
+    renderCommandSegments(command, width, strikethroughLines) {
         const normalized = String(command || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
         const lines = normalized.split('\n');
-        return lines.map((line, index) => this._segmentCommandLine(`${index === 0 ? '. ' : '> '}${line}`, width));
+        const skipSet = strikethroughLines instanceof Set ? strikethroughLines : new Set();
+        return lines.map((line, index) => {
+            if (skipSet.has(index)) {
+                return this._segmentStrikethroughCommandLine(`${index === 0 ? '. ' : '> '}${line}`);
+            }
+            return this._segmentCommandLine(`${index === 0 ? '. ' : '> '}${line}`, width);
+        });
     }
 
     renderStrikethroughCommandSegments(lines) {

@@ -166,11 +166,23 @@ async function runCurrentSection(context, editor = null) {
     const originalCode = getCodeToRun(activeEditor);
 
     // 剔除 graph export 命令：图形已由控制台自动捕获，手动 export 不必要
-    // 与 AI Skill HTTP 服务器行为一致 — stripGraphExport 会移除所有 graph export 行
+    // 控制台显示保留原始代码（graph export 行以删除线标注），执行使用剥离后代码
     const stripped = stripGraphExport(originalCode);
-    const codeToRun = stripped.removed.length ? stripped.code : originalCode;
-    const graphExportOptions = stripped.removed.length ? { graphExportLines: stripped.removed } : undefined;
+    const codeToRun = originalCode; // 用于显示
+    let graphExportOptions;
     if (stripped.removed.length) {
+        // 计算 graph export 行在原始代码中的行号（0-based）
+        const originalLines = originalCode.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+        const indices = new Set();
+        originalLines.forEach((line, i) => {
+            if (/^\s*(quietly\s+)?graph\s+export\b/i.test(line)) {
+                indices.add(i);
+            }
+        });
+        graphExportOptions = {
+            execCode: stripped.code,          // 剥离后代码，用于执行
+            graphExportLineIndices: indices   // 删除线行号，用于显示
+        };
         const msgText = stripped.removed.length === 1
             ? `⚠️ 已跳过 graph export 命令。图形已自动捕获，请点击图片右上角的保存按钮进行保存。`
             : `⚠️ 已跳过 ${stripped.removed.length} 条 graph export 命令。图形已自动捕获，请点击图片右上角的保存按钮进行保存。`;

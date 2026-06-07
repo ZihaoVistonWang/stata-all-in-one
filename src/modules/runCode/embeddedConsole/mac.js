@@ -479,11 +479,18 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
         await outputSink.prepareForExecution();
 
         const normalizedCode = normalizeCodeToRun(codeToRun);
-        const progressTotal = extractProgressTotalFromCode(normalizedCode);
+        // 执行用剥离 graph export 后的代码（options.execCode），显示用原始代码
+        const execCode = (options && options.execCode)
+            ? normalizeCodeToRun(options.execCode)
+            : normalizedCode;
+        const graphExportLineIndices = (options && options.graphExportLineIndices instanceof Set)
+            ? options.graphExportLineIndices
+            : undefined;
+        const progressTotal = extractProgressTotalFromCode(execCode);
         await ensureWebviewBootstrap(consoleSession);
         await ensureInitialWorkingDirectory(consoleSession, docDir);
         graphCaptureState = await beginGraphCapture(consoleSession);
-        executionPlan = createExecutionPlan(normalizedCode, consoleSession.getWorkingDirectory());
+        executionPlan = createExecutionPlan(execCode, consoleSession.getWorkingDirectory());
         lastRealChunkAt = Date.now();
         runStartTime = lastRealChunkAt;
         const onExecutionChunk = (chunk) => {
@@ -536,19 +543,12 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
             }
         };
 
-        // 先写出被剥离的 graph export 行（删除线样式），再写正式命令
-        if (options && options.graphExportLines && options.graphExportLines.length) {
-            if (typeof outputSink.writeStrikethroughCommand === 'function') {
-                outputSink.writeStrikethroughCommand(options.graphExportLines);
-            } else {
-                // Fallback: 作为普通输出写出，前缀提示
-                for (const line of options.graphExportLines) {
-                    outputSink.writeOutputChunk(`⚠️ 已跳过: ${line}\n`);
-                }
-            }
-        }
         if (typeof outputSink.writeCommand === 'function') {
-            outputSink.writeCommand(executionPlan.displayCode || normalizedCode);
+            // graph export 行被剥离不执行，但在控制台中保留原始位置并用删除线标注
+            const displayCode = graphExportLineIndices
+                ? normalizedCode
+                : (executionPlan.displayCode || normalizedCode);
+            outputSink.writeCommand(displayCode, graphExportLineIndices);
         }
 
         let result = null;

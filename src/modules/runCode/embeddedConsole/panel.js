@@ -419,8 +419,8 @@ class WebviewTerminalSink {
         await revealPanel(false);
     }
 
-    writeCommand(command) {
-        appendEntries(this._renderer.renderCommandSegments(command, this._width));
+    writeCommand(command, strikethroughLines) {
+        appendEntries(this._renderer.renderCommandSegments(command, this._width, strikethroughLines));
     }
 
     writeStrikethroughCommand(lines) {
