@@ -52,7 +52,7 @@ Stata All in One
   📧 如遇到任何问题，请将 bug 描述、复现步骤和截图发送至 <a href="mailto:hi@zihaowang.cn"><strong>hi@zihaowang.cn</strong></a>。
 </p>
 <p style="margin:0 0 8px 0; padding-left: 1.6em; text-indent: -1.6em;">
-  🎯 <strong>正式版 v0.3.0 预计于 2026 年 6 月中旬发布</strong>，届时将修复已知问题并提供更稳定的体验。
+  🎯 <strong>正式版 v0.3.0 预计于 2026 年 7 月初发布</strong>，届时将修复已知问题并提供更稳定的体验。
 </p>
 <p style="margin:0 0 8px 0; padding-left: 1.6em; text-indent: -1.6em;">
   📌 本文档内的<mark>高亮部分</mark>代表预览版中的新增内容。
@@ -320,7 +320,7 @@ Stata All in One
 
 | 版本   | 更新内容                                                                           | 发布日期   |
 | ------ | ---------------------------------------------------------------------------------- | ---------- |
-| 0.2.18 | 预览版：修复 Windows 嵌入式控制台初始化失败；新增 STATA.LIC 证书检测与弹窗提示；修复 webview Service Worker 注册错误；优化命令行输入框样式 | 2026-06-01 |
+| 0.2.18 | 预览版：修复 Windows 嵌入式控制台初始化失败；新增 STATA.LIC 证书检测与弹窗提示；修复 webview Service Worker 注册错误；优化命令行输入框样式；修复 AI Skill 多行代码执行问题 | 2026-06-07 |
 | 0.2.17-0.2.14 | 预览版：引入 AI Skill、嵌入式控制台、数据查看器和图形支持等核心功能；优化 Hover 帮助显示；修复已知问题 | 2026-05-31 |
 | 0.2.13 | Windows 下运行代码时，不再把已贴靠或最大化 的 Stata 窗口还原成更小的普通窗口，现会保持 Stata 当前窗口大小不变 | 2026-03-12 |
 | 0.2.12 | 重构 Windows 端代码执行逻辑；新增配置：发送代码前可选关闭 Viewer、数据编辑器等辅助窗口；新增配置：是否显示“Bug 反馈”和“项目支持”按钮 | 2026-03-05 |

@@ -11,7 +11,7 @@ const { getUserLanguage, showInfo } = require('../utils/common');
 const CHANGELOG = {
     en: {
         '0.2.18': {
-            ver_info: '✨ Stata All in One (0.2.18): Fixed Windows Embedded Console initialization failure and STATA.LIC detection; improved error reporting and console input styling.',
+            ver_info: '✨ Stata All in One (0.2.18): Fixed Windows Embedded Console initialization failure and STATA.LIC detection; improved error reporting and console input styling; fixed AI Skill multi-line code execution.',
             more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0218-0214-2026-06-01'
         },
         '0.2.17': {
@@ -73,7 +73,7 @@ const CHANGELOG = {
     },
     zh: {
         '0.2.18': {
-            ver_info: '✨ Stata All in One (0.2.18)：修复 Windows 嵌入式控制台初始化失败与 STATA.LIC 证书检测；优化错误信息展示与控制台输入框样式。',
+            ver_info: '✨ Stata All in One (0.2.18)：修复 Windows 嵌入式控制台初始化失败与 STATA.LIC 证书检测；优化错误信息展示与控制台输入框样式；修复 AI Skill 多行代码执行问题。',
             more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0218-0214-2026-06-01'
         },
         '0.2.17': {

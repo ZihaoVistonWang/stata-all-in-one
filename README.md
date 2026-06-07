@@ -52,7 +52,7 @@ Stata All in One
   📧 If you encounter any issues, please send bug descriptions, reproduction steps, and screenshots to <a href="mailto:hi@zihaowang.cn"><strong>hi@zihaowang.cn</strong></a>.
 </p>
 <p style="margin:0 0 8px 0; padding-left: 1.6em; text-indent: -1.6em;">
-  🎯 <strong>The stable v0.3.0 is expected in mid-June 2026</strong>, with bug fixes and a more stable experience.
+  🎯 <strong>The stable v0.3.0 is expected in early July 2026</strong>, with bug fixes and a more stable experience.
 </p>
 <p style="margin:0 0 8px 0; padding-left: 1.6em; text-indent: -1.6em;">
   📌 <mark>Highlighted text</mark> denotes new additions in the preview version.
@@ -320,7 +320,7 @@ If this extension has been helpful to you, feel free to scan the **Alipay** (lef
 
 | Version | Changes                                                                                                              | Release Date |
 | ------- | -------------------------------------------------------------------------------------------------------------------- | ------------ |
-| 0.2.18  | Preview release: Fixed Windows Embedded Console init failure; Added STATA.LIC license detection with dialog prompt; Fixed webview Service Worker registration error; Improved console input styling | 2026-06-01   |
+| 0.2.18  | Preview release: Fixed Windows Embedded Console init failure; Added STATA.LIC license detection with dialog prompt; Fixed webview Service Worker registration error; Improved console input styling; Fixed AI Skill multi-line code execution | 2026-06-07   |
 | 0.2.17-0.2.14  | Preview release: Introduced AI Skill, Embedded Console, Data Viewer, and Graph Support; improved Hover help display; bug fixes | 2026-05-31   |
 | 0.2.13  | On Windows, running code no longer restores a snapped or maximized Stata window to a smaller size — preserves current window state | 2026-03-12   |
 | 0.2.12  | Refactored Windows code execution logic; Added option to close other Stata windows before sending code; Added toggle for "Bug Report" and "Sponsor" buttons | 2026-03-05   |
