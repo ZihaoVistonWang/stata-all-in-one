@@ -375,7 +375,7 @@ async function ensureConsoleSession(context) {
     const dylibInfo = findStataDylib(null, savedPath);
 
     if (!dylibInfo.path) {
-        console.error('[mac.js] 未找到 Stata dylib，已安装版本:', dylibInfo.installed);
+        console.error('Stata All in One: 未找到 Stata dylib，已安装版本:', dylibInfo.installed);
         return {
             success: false,
             reason: '无法找到 Stata。请确保 Stata MP/SE/BE 已安装在 /Applications 目录下。'
@@ -384,7 +384,7 @@ async function ensureConsoleSession(context) {
 
     if (context && !dylibInfo.fromCache) {
         await context.globalState.update('stataConsoleDylibPath', dylibInfo.path);
-        console.log('[mac.js] 已保存 dylib 路径:', dylibInfo.path);
+        console.log('Stata All in One: 已保存 dylib 路径:', dylibInfo.path);
     }
 
     // Derive the Stata install directory to check for license file
@@ -396,16 +396,16 @@ async function ensureConsoleSession(context) {
 
     // Pre-check: no license file → bail out early, let caller show dialog
     if (!licPath || !fs.existsSync(licPath)) {
-        console.log('[mac.js] No stata.lic found in', stHomeDir);
+        console.log('Stata All in One: No stata.lic found in', stHomeDir);
         return { success: false, noLicense: true, reason: '' };
     }
 
     process.env.STATA_LICENSE = licPath;
-    console.log('[mac.js] License file found:', licPath);
+    console.log('Stata All in One: License file found:', licPath);
 
     const initResult = await session.initConsoleSession(context, dylibInfo.path);
     if (!initResult.success) {
-        console.error('[runtime] 会话初始化失败:', initResult.error);
+        console.error('Stata All in One: 会话初始化失败:', initResult.error);
         const detail = initResult.error ? `：${initResult.error}` : '';
         return {
             success: false,
@@ -460,7 +460,7 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
 
         const consoleSession = session.getConsoleSession(context);
         if (!consoleSession || !consoleSession.isInitialized()) {
-            console.error('[runtime] 无法获取有效的 Stata 会话');
+            console.error('Stata All in One: 无法获取有效的 Stata 会话');
             return {
                 success: false,
                 shouldOfferGuiFallback: true,
@@ -474,7 +474,7 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
             graphDir = getGraphCacheDir(context);
             setGraphResourceRoot(graphDir);
         } catch (error) {
-            console.error('[mac.js] Failed to initialize graph cache:', error.message);
+            console.error('Stata All in One: Failed to initialize graph cache:', error.message);
         }
         await outputSink.prepareForExecution();
 
@@ -583,7 +583,7 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
         outputSink.flushOutput();
 
         if (!result.success) {
-            console.error('[mac.js] 执行失败:', result.error);
+            console.error('Stata All in One: 执行失败:', result.error);
             if (!result.output) {
                 outputSink.writeError(result.error || `Execution failed (${result.returnCode})`);
             }
@@ -607,7 +607,7 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
             shouldOfferGuiFallback: false
         };
     } catch (error) {
-        console.error('[runtime] runOnMacWebview 异常:', error.message);
+        console.error('Stata All in One: runOnMacWebview 异常:', error.message);
 
         _activeOutputSink = outputSink;
         await outputSink.prepareForExecution();
@@ -924,7 +924,7 @@ async function initConsoleSession(context) {
 
         return true;
     } catch (error) {
-        console.error('[runtime] initConsoleSession 异常:', error.message);
+        console.error('Stata All in One: initConsoleSession 异常:', error.message);
         showError(`Stata 初始化错误: ${error.message}`);
         return false;
     }
@@ -950,7 +950,7 @@ async function stopConsoleExecution(context) {
 
         return true;
     } catch (error) {
-        console.error('[mac.js] stopConsoleExecution 异常:', error.message);
+        console.error('Stata All in One: stopConsoleExecution 异常:', error.message);
         return false;
     }
 }
@@ -973,7 +973,7 @@ function forceShutdownConsoleSession() {
         _activeOutputSink = null;
         return session.forceShutdownConsoleSession();
     } catch (error) {
-        console.error('[mac.js] forceShutdownConsoleSession 异常:', error.message);
+        console.error('Stata All in One: forceShutdownConsoleSession 异常:', error.message);
         return false;
     }
 }

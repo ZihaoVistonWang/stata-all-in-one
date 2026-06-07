@@ -134,7 +134,7 @@ function execute(code, echo = false, onOutput = null) {
                 if (payload.type === 'done') {
                     const elapsed = Date.now() - t0;
                     if (elapsed > 500) {
-                        console.log(`[stata_session] execute took ${elapsed}ms for: ${code.substring(0, 80)}`);
+                        console.log(`Stata All in One: [AI Skill] execute took ${elapsed}ms for: ${code.substring(0, 80)}`);
                     }
                     const finalOutput = payload.output || latestOutput || '';
                     resolve({

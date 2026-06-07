@@ -167,7 +167,7 @@ function cleanupStataTempFiles() {
             for (const file of files.slice(MAX_TEMP_FILES)) {
                 try {
                     fs.unlinkSync(file.path);
-                    console.log(`[Stata AI Skill] 🧹 Cleaned up old ${ext} file: ${file.name}`);
+                    console.log(`Stata All in One: [AI Skill] 🧹 Cleaned up old ${ext} file: ${file.name}`);
                 } catch (_) { /* ignore per-file errors */ }
             }
         }
@@ -226,7 +226,7 @@ async function exportCapturedGraphs() {
                 if (!exportResult || !exportResult.success || !fs.existsSync(svgPath) || fs.statSync(svgPath).size === 0) {
                     continue;
                 }
-                console.log(`[Stata AI Skill] 📊 Exported graph "${graphName}" → ${path.basename(svgPath)}`);
+                console.log(`Stata All in One: [AI Skill] 📊 Exported graph "${graphName}" → ${path.basename(svgPath)}`);
 
                 // Step 2: Convert SVG to PNG using sharp (cross-platform, no display server needed)
                 let pngOk = false;
@@ -356,9 +356,9 @@ async function handleRequest(req, res) {
                 stataCode = normalizeCode(stripped.code);
             }
 
-            console.log('[Stata AI Skill] Execute:', doFile ? `do "${doFile}"` : (tempFilePath ? `do "${tempFilePath}" (${code.split('\n').filter(l => l.trim()).length} lines)` : code.substring(0, 80)));
+            console.log('Stata All in One: [AI Skill] Execute:', doFile ? `do "${doFile}"` : (tempFilePath ? `do "${tempFilePath}" (${code.split('\n').filter(l => l.trim()).length} lines)` : code.substring(0, 80)));
             if (graphExportStripped.length) {
-                console.log(`[Stata AI Skill] ⚠️ Stripped ${graphExportStripped.length} graph export line(s):`, graphExportStripped);
+                console.log(`Stata All in One: [AI Skill] ⚠️ Stripped ${graphExportStripped.length} graph export line(s):`, graphExportStripped);
             }
             isExecuting = true;
             const result = await executeWithTimeout(stataCode, echo, timeout);
@@ -400,7 +400,7 @@ async function handleRequest(req, res) {
         } catch (err) {
             isExecuting = false;
             if (err && err.isTimeout) {
-                console.error('[Stata AI Skill] Execution timed out:', err.message);
+                console.error('Stata All in One: [AI Skill] Execution timed out:', err.message);
                 // Still try to export any graphs generated before the timeout
                 let graphs = [];
                 try { graphs = await exportCapturedGraphs(); } catch (_) { /* ignore */ }
@@ -414,7 +414,7 @@ async function handleRequest(req, res) {
                 cleanupStataTempFiles();
                 return;
             }
-            console.error('[Stata AI Skill] Execute error:', err.message);
+            console.error('Stata All in One: [AI Skill] Execute error:', err.message);
             res.writeHead(400, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ success: false, output: '', error: 'Invalid request: ' + (err.message || 'Unknown error') }));
         }
@@ -431,7 +431,7 @@ async function handleRequest(req, res) {
         const stopped = consoleSession.stop();
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: stopped, message: stopped ? 'Break signal sent' : 'Failed to send break' }));
-        console.log('[Stata AI Skill] ⏸ Break requested by agent');
+        console.log('Stata All in One: [AI Skill] ⏸ Break requested by agent');
         return;
     }
 
@@ -462,7 +462,7 @@ function startServer(session, port, wsRoot) {
         }
 
         if (!session || !session.isInitialized()) {
-            console.error('[Stata AI Skill] Cannot start server: Stata session not initialized');
+            console.error('Stata All in One: [AI Skill] Cannot start server: Stata session not initialized');
             resolve(false);
             return;
         }
@@ -475,7 +475,7 @@ function startServer(session, port, wsRoot) {
             server = http.createServer(handleRequest);
             server.on('error', (err) => {
                 if (err.code === 'EADDRINUSE') {
-                    console.log(`[Stata AI Skill] Port ${serverPort} in use, killing old process...`);
+                    console.log(`Stata All in One: [AI Skill] Port ${serverPort} in use, killing old process...`);
                     try {
                         const { execSync } = require('child_process');
                         if (process.platform === 'win32') {
@@ -490,30 +490,30 @@ function startServer(session, port, wsRoot) {
                             const retryServer = http.createServer(handleRequest);
                             retryServer.listen(serverPort, '127.0.0.1', () => {
                                 server = retryServer;  // 更新外层引用
-                                console.log(`[Stata AI Skill] ✅ HTTP server started on http://127.0.0.1:${serverPort} (reclaimed port)`);
+                                console.log(`Stata All in One: [AI Skill] ✅ HTTP server started on http://127.0.0.1:${serverPort} (reclaimed port)`);
                                 resolve(true);
                             });
                             retryServer.on('error', () => resolve(false));
                         }, 800);
                     } catch (e) {
-                        console.error(`[Stata AI Skill] ❌ Failed to free port ${serverPort}:`, e.message);
+                        console.error(`Stata All in One: [AI Skill] ❌ Failed to free port ${serverPort}:`, e.message);
                         resolve(false);
                     }
                 } else {
-                    console.error('[Stata AI Skill] Server error:', err.message);
+                    console.error('Stata All in One: [AI Skill] Server error:', err.message);
                     resolve(false);
                 }
                 server = null;
             });
 
             server.listen(serverPort, '127.0.0.1', () => {
-                console.log(`[Stata AI Skill] ✅ HTTP server started on http://127.0.0.1:${serverPort}`);
-                console.log(`[Stata AI Skill]    Status:  curl http://127.0.0.1:${serverPort}/status`);
-                console.log(`[Stata AI Skill]    Execute: curl -X POST http://127.0.0.1:${serverPort}/execute -H "Content-Type: application/json" -d '{"code":"display 2+2"}'`);
+                console.log(`Stata All in One: [AI Skill] ✅ HTTP server started on http://127.0.0.1:${serverPort}`);
+                console.log(`Stata All in One: [AI Skill]    Status:  curl http://127.0.0.1:${serverPort}/status`);
+                console.log(`Stata All in One: [AI Skill]    Execute: curl -X POST http://127.0.0.1:${serverPort}/execute -H "Content-Type: application/json" -d '{"code":"display 2+2"}'`);
                 resolve(true);
             });
         } catch (err) {
-            console.error('[Stata AI Skill] Failed to start server:', err.message);
+            console.error('Stata All in One: [AI Skill] Failed to start server:', err.message);
             server = null;
             resolve(false);
         }
@@ -525,11 +525,11 @@ function startServer(session, port, wsRoot) {
  */
 function stopServer() {
     if (server) {
-        console.log('[Stata AI Skill] Stopping HTTP server...');
+        console.log('Stata All in One: [AI Skill] Stopping HTTP server...');
         server.close();
         server = null;
         consoleSession = null;
-        console.log('[Stata AI Skill] Server stopped');
+        console.log('Stata All in One: [AI Skill] Server stopped');
         return true;
     }
     return false;

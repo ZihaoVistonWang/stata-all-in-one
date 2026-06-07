@@ -250,7 +250,7 @@ async function runCurrentSection(context, editor = null) {
 
     } catch (error) {
         showError(msg('tmpFileFailed', { message: error.message }));
-        console.error('[execute] 执行异常:', error.message);
+        console.error('Stata All in One: 执行异常:', error.message);
         vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', false);
     }
 }
@@ -409,7 +409,7 @@ async function runArbitraryCode(context, code, options = {}) {
         return consoleResult;
     } catch (error) {
         showError(msg('tmpFileFailed', { message: error.message }));
-        console.error('[execute] 任意代码执行异常:', error.message);
+        console.error('Stata All in One: 任意代码执行异常:', error.message);
         await vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', false);
         return { success: false, error };
     }

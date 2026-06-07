@@ -41,13 +41,13 @@ class StataComService {
      * @returns {Promise<boolean>}
      */
     async init(stataPath, context) {
-        console.log('[StataComService] init called, stataPath=' + stataPath +
+        console.log('Stata All in One: init called, stataPath=' + stataPath +
             ', alreadyInit=' + this._initialized +
             ', comUnavailable=' + this._comUnavailable);
 
         // Already initialized with same path — no-op
         if (this._initialized && this._stataPath === stataPath) {
-            console.log('[StataComService] Already initialized with same path, returning true');
+            console.log('Stata All in One: Already initialized with same path, returning true');
             return true;
         }
 
@@ -70,21 +70,21 @@ class StataComService {
 
         // Path matches → COM should already be registered, try directly
         if (lastRegisteredPath && lastRegisteredPath === stataPath) {
-            console.log('[StataComService] Path matches last registered, trying COM without registration');
+            console.log('Stata All in One: Path matches last registered, trying COM without registration');
             const result = await this._initComService(stataPath, false);
             if (result.success) {
-                console.log('[StataComService] COM init succeeded (no registration needed)');
+                console.log('Stata All in One: COM init succeeded (no registration needed)');
                 return true;
             }
             // COM creation failed even though path matches
             // Registration may have been lost — fall through to register
-            console.log('[StataComService] COM creation failed for registered path, attempting re-registration');
+            console.log('Stata All in One: COM creation failed for registered path, attempting re-registration');
         }
 
         // If no context available, try COM directly without registration
         // (The registration should have been done by the primary execution path)
         if (!context) {
-            console.log('[StataComService] No context available, trying COM directly without registration');
+            console.log('Stata All in One: No context available, trying COM directly without registration');
             const result = await this._initComService(stataPath, false);
             if (result.success) {
                 return true;
@@ -264,12 +264,12 @@ class StataComService {
             // PS diagnostic messages come via stderr
             const text = data.toString().trim();
             if (text) {
-                console.log('[StataComService] ' + text);
+                console.log('Stata All in One: ' + text);
             }
         });
 
         this._childProcess.on('exit', (code) => {
-            console.log(`[StataComService] PS process exited with code ${code}`);
+            console.log(`Stata All in One: PS process exited with code ${code}`);
             this._initialized = false;
             // Reject pending requests on unexpected exit
             this._pending.forEach(({ reject, timer }) => {
@@ -283,7 +283,7 @@ class StataComService {
         try {
             await this._waitForReady(15000);
         } catch (err) {
-            console.error('[StataComService] PS ready timeout:', err.message);
+            console.error('Stata All in One: PS ready timeout:', err.message);
             this._killProcess();
             return { success: false, error: 'PowerShell process startup timed out' };
         }
@@ -352,13 +352,13 @@ class StataComService {
             const id = ++this._requestId;
             payload.id = id;
 
-            console.log('[StataComService] Sending request #' + id +
+            console.log('Stata All in One: Sending request #' + id +
                 ' action=' + payload.action +
                 (payload.command ? ' cmdLen=' + payload.command.length : ''));
 
             const timer = setTimeout(() => {
                 this._pending.delete(id);
-                console.error('[StataComService] Request #' + id + ' TIMED OUT');
+                console.error('Stata All in One: Request #' + id + ' TIMED OUT');
                 reject(new Error(`Request #${id} timed out after ${timeoutMs}ms`));
             }, timeoutMs);
 
@@ -371,7 +371,7 @@ class StataComService {
             } catch (err) {
                 clearTimeout(timer);
                 this._pending.delete(id);
-                console.error('[StataComService] Failed to write to stdin:', err.message);
+                console.error('Stata All in One: Failed to write to stdin:', err.message);
                 reject(err);
             }
         });
@@ -401,7 +401,7 @@ class StataComService {
                     const { resolve, timer } = this._pending.get(id);
                     clearTimeout(timer);
                     this._pending.delete(id);
-                    console.log('[StataComService] Response #' + id +
+                    console.log('Stata All in One: Response #' + id +
                         ' success=' + response.success +
                         (response.error ? ' error=' + response.error : ''));
                     resolve(response);

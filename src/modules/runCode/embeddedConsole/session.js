@@ -135,10 +135,10 @@ class StataConsoleSession {
                 return { success: true, error: '' };
             }
 
-            console.error('[StataConsoleSession] Initialization returned false.');
+            console.error('Stata All in One: Initialization returned false.');
             return { success: false, error: 'StataSO_Main returned failure.' };
         } catch (error) {
-            console.error('[StataConsoleSession] Initialization failed:', error.message);
+            console.error('Stata All in One: Initialization failed:', error.message);
             return { success: false, error: error.message };
         }
     }
@@ -193,7 +193,7 @@ class StataConsoleSession {
      */
     stop() {
         if (!this._initialized) {
-            console.warn('[StataConsoleSession] Cannot stop: session not initialized.');
+            console.warn('Stata All in One: Cannot stop: session not initialized.');
             return false;
         }
 
@@ -201,7 +201,7 @@ class StataConsoleSession {
             native.setBreak();
             return true;
         } catch (error) {
-            console.error('[StataConsoleSession] Failed to set break:', error.message);
+            console.error('Stata All in One: Failed to set break:', error.message);
             return false;
         }
     }
@@ -213,7 +213,7 @@ class StataConsoleSession {
      */
     shutdown() {
         if (!this._initialized) {
-            console.warn('[StataConsoleSession] Nothing to shutdown: session not initialized.');
+            console.warn('Stata All in One: Nothing to shutdown: session not initialized.');
             return true; // 未初始化也算成功关闭
         }
 
@@ -222,7 +222,7 @@ class StataConsoleSession {
             this._clearState();
             return true;
         } catch (error) {
-            console.error('[StataConsoleSession] Shutdown failed:', error.message);
+            console.error('Stata All in One: Shutdown failed:', error.message);
             // 即使原生关闭失败，也清除本地状态
             this._clearState();
             return false;
@@ -283,7 +283,7 @@ class StataConsoleSession {
             native.clearOutput();
             return true;
         } catch (error) {
-            console.error('[StataConsoleSession] Clear output failed:', error.message);
+            console.error('Stata All in One: Clear output failed:', error.message);
             return false;
         }
     }

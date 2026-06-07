@@ -615,7 +615,7 @@ async function activate(context) {
             if (isWindows()) {
                 const dllInfo = findStataDll();
                 if (!dllInfo || !dllInfo.path) {
-                    console.log('[Stata AI Skill] Stata DLL not found');
+                    console.log('Stata All in One: [AI Skill] Stata DLL not found');
                     return false;
                 }
                 libPath = dllInfo.path;
@@ -624,7 +624,7 @@ async function activate(context) {
                 const preferredEdition = (cfg.get('stataVersionOnMacOS') || '').replace('Stata', '').toLowerCase();
                 const dylibInfo = findStataDylib(preferredEdition, savedPath);
                 if (!dylibInfo || !dylibInfo.path) {
-                    console.log('[Stata AI Skill] Stata dylib not found');
+                    console.log('Stata All in One: [AI Skill] Stata dylib not found');
                     return false;
                 }
                 libPath = dylibInfo.path;
@@ -633,7 +633,7 @@ async function activate(context) {
             session = getConsoleSession(context);
             const initResult = await session.init(libPath);
             if (!initResult.success) {
-                console.log('[Stata AI Skill] Session init failed:', initResult.error);
+                console.log('Stata All in One: [AI Skill] Session init failed:', initResult.error);
                 return false;
             }
 
@@ -642,7 +642,7 @@ async function activate(context) {
             // 启用图形捕获，防止画图命令弹出 GUI 窗口阻塞会话
             await session.execute('quietly _gr_list on', false);
             session.setBootstrapped(true);
-            console.log('[Stata AI Skill] Stata session initialized');
+            console.log('Stata All in One: [AI Skill] Stata session initialized');
         }
 
         // 确保图形捕获已启用（每次启动服务器都执行，防止画图命令弹出 GUI 窗口阻塞会话）
@@ -692,11 +692,11 @@ async function activate(context) {
                 if (ok && !autoStartNotified) {
                     autoStartNotified = true;
                     const port = vscode.workspace.getConfiguration('stata-all-in-one').get('aiSkillPort', 19521);
-                    console.log(`[Stata AI Skill] Server auto-started on port ${port}`);
+                    console.log(`Stata All in One: [AI Skill] Server auto-started on port ${port}`);
                     showInfo(msg('aiSkillServerStarted', { port }));
                 }
             } catch (err) {
-                console.error('[Stata AI Skill] Auto-start failed:', err.message);
+                console.error('Stata All in One: [AI Skill] Auto-start failed:', err.message);
             }
         };
 

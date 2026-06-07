@@ -3,6 +3,9 @@ const fs = require('fs');
 const path = require('path');
 const { StataTerminalRenderer, getWebviewThemeVariables } = require('./renderer');
 const { msg, showInfo, showWarn, showError } = require('../../../utils/common');
+
+let _context = null;
+const CONSOLE_OPEN_STATE_KEY = 'embeddedConsolePanelOpen';
 const { StataBuiltinCommands, StataKeywords, StataFunctions } = require('../../completionProvider');
 const variableSuggestions = require('../../variableSuggestionService');
 const config = require('../../../utils/config');
@@ -100,7 +103,16 @@ function attachPanel(panel) {
     _panel = panel;
     _panel.title = getPanelTitle();
     _panel.iconPath = getPanelIconPath();
-    _panel.webview.html = getWebviewHtml(_panel.webview);
+    try {
+        _panel.webview.html = getWebviewHtml(_panel.webview);
+    } catch (err) {
+        console.error('Stata All in One: Failed to generate console HTML:', err.message);
+        _panel.webview.html = '<html><body style="color:var(--vscode-foreground);font-family:sans-serif;padding:20px;"><p>控制台加载失败。</p><p>' + (err.message || 'Unknown error') + '</p></body></html>';
+    }
+    // Remember panel was open for restore on next VS Code start
+    if (_context) {
+        _context.globalState.update(CONSOLE_OPEN_STATE_KEY, true);
+    }
     _panel.onDidDispose(() => {
         if (_panel === panel) {
             _panel = null;
@@ -109,6 +121,10 @@ function attachPanel(panel) {
             _status = 'idle';
             _workingDetail = null;
             _lastRunFailed = false;
+            // Remember panel is closed
+            if (_context) {
+                _context.globalState.update(CONSOLE_OPEN_STATE_KEY, false);
+            }
             // Destroy the Stata session so a fresh one starts next time
             try {
                 const session = require('./session');
@@ -576,6 +592,9 @@ function setWorkingDetail(detail) {
 
 function registerWebviewPanelSerializer(context) {
     _extensionUri = context.extensionUri;
+    _context = context;
+    // VS Code's webview serializer is unreliable on macOS; we also use globalState
+    // to remember whether the console was open and restore it ourselves.
     context.subscriptions.push(
         vscode.window.registerWebviewPanelSerializer(PANEL_VIEW_TYPE, {
             async deserializeWebviewPanel(panel) {
@@ -584,6 +603,11 @@ function registerWebviewPanelSerializer(context) {
             }
         })
     );
+    // Restore console panel on activation if it was open when VS Code last closed
+    const wasOpen = context.globalState.get(CONSOLE_OPEN_STATE_KEY, false);
+    if (wasOpen) {
+        ensurePanel();
+    }
 }
 
 function setConsoleFontOptions(options) {

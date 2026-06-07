@@ -57,7 +57,7 @@ async function _tryComExecution(code, tmpFilePath, stataPath, docDir, context) {
                 return { success: false, fallbackReason: 'init-failed' };
             }
         } catch (err) {
-            console.error('[windows.js] COM init exception:', err.message);
+            console.error('Stata All in One: COM init exception:', err.message);
             comService.markUnavailable();
             showWarn(msg('comInitFailed'));
             return { success: false, fallbackReason: 'init-exception' };
@@ -83,23 +83,23 @@ async function _tryComExecution(code, tmpFilePath, stataPath, docDir, context) {
         const runCommand = 'do ' + quote + cleanPath + quote;
 
         // Send do command via COM (async, non-blocking)
-        console.log('[windows.js] COM sending: ' + runCommand);
+        console.log('Stata All in One: COM sending: ' + runCommand);
         const result = await comService.execute(runCommand);
         if (result.success) {
-            console.log('[windows.js] COM do command sent');
+            console.log('Stata All in One: COM do command sent');
             // Fire-and-forget: keep VS Code responsive while Stata runs.
             comService.waitAndForeground(60000).catch((err) => {
-                console.error('[windows.js] COM foreground task failed:', err.message);
+                console.error('Stata All in One: COM foreground task failed:', err.message);
             });
             return { success: true };
         }
 
-        console.error('[windows.js] COM execute error:', result.error);
+        console.error('Stata All in One: COM execute error:', result.error);
         comService.markUnavailable();
         showWarn(msg('comExecFailed'));
         return { success: false, fallbackReason: 'execute-failed' };
     } catch (err) {
-        console.error('[windows.js] COM exception:', err.message);
+        console.error('Stata All in One: COM exception:', err.message);
         comService.markUnavailable();
         showWarn(msg('comExecFailed'));
         return { success: false, fallbackReason: 'exception' };
@@ -186,10 +186,10 @@ async function runOnWindows(codeToRun, tmpFilePath, stataPathOnWindows, docDir =
             return;
         }
         console.log(
-            `[windows.js] COM path failed (${comResult.fallbackReason}), falling back to keystroke`
+            `Stata All in One: COM path failed (${comResult.fallbackReason}), falling back to keystroke`
         );
     } catch (err) {
-        console.error('[windows.js] COM path unexpected error:', err.message);
+        console.error('Stata All in One: COM path unexpected error:', err.message);
     }
 
     // Step 2: Fallback to keystroke-based execution

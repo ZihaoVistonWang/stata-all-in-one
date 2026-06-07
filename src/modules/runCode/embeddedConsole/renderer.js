@@ -415,7 +415,7 @@ function syncConsoleTerminalTheme() {
         CURRENT_THEME_DEFAULT_FOREGROUND = CURRENT_THEME_SLOT_MAP.default || null;
         setConsoleTextmateTheme(themeData);
     } catch (error) {
-        console.error('[renderer] Failed to sync console terminal theme:', error.message);
+        console.error('Stata All in One: Failed to sync console terminal theme:', error.message);
         CURRENT_THEME_SLOT_MAP = {};
         CURRENT_THEME_DATA = null;
         CURRENT_THEME_DEFAULT_FOREGROUND = null;

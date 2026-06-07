@@ -37,7 +37,7 @@ function cleanupGraphCache(graphDir) {
             }
         }
     } catch (error) {
-        console.error('[graphs] Failed to clean graph cache:', error.message);
+        console.error('Stata All in One: Failed to clean graph cache:', error.message);
     }
 }
 
@@ -46,7 +46,7 @@ async function beginGraphCapture(consoleSession) {
         const result = await consoleSession.execute('quietly _gr_list on', false);
         return { enabled: Boolean(result && result.success) };
     } catch (error) {
-        console.error('[graphs] Failed to enable graph capture:', error.message);
+        console.error('Stata All in One: Failed to enable graph capture:', error.message);
         return { enabled: false };
     }
 }
@@ -59,7 +59,7 @@ async function endGraphCapture(consoleSession, captureState) {
     try {
         await consoleSession.execute('quietly _gr_list off', false);
     } catch (error) {
-        console.error('[graphs] Failed to disable graph capture:', error.message);
+        console.error('Stata All in One: Failed to disable graph capture:', error.message);
     }
 }
 
@@ -99,7 +99,7 @@ async function getCapturedGraphNames(consoleSession) {
 
         return parseGraphNames(result.output);
     } catch (error) {
-        console.error('[graphs] Failed to list captured graphs:', error.message);
+        console.error('Stata All in One: Failed to list captured graphs:', error.message);
         return [];
     }
 }
@@ -133,7 +133,7 @@ async function exportGraph(consoleSession, graphDir, graphName, runId, index) {
                 };
             }
         } catch (error) {
-            console.error(`[graphs] Failed to export graph ${graphName} as ${format}:`, error.message);
+            console.error(`Stata All in One: Failed to export graph ${graphName} as ${format}:`, error.message);
         }
     }
 

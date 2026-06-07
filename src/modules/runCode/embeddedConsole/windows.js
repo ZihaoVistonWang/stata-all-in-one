@@ -375,16 +375,16 @@ async function ensureConsoleSession(context) {
 
     // Pre-check: no license file → bail out early, let the caller show dialog.
     if (!fs.existsSync(licPath)) {
-        console.log('[windows.js] No stata.lic found in', exeDir);
+        console.log('Stata All in One: No stata.lic found in', exeDir);
         return { success: false, noLicense: true, reason: '' };
     }
 
     process.env.STATA_LICENSE = licPath;
-    console.log('[windows.js] License file found:', licPath);
+    console.log('Stata All in One: License file found:', licPath);
 
     const initResult = await session.initConsoleSession(context, dllInfo.path);
     if (!initResult.success) {
-        console.error('[windows.js] Session initialization failed:', initResult.error);
+        console.error('Stata All in One: Session initialization failed:', initResult.error);
         return {
             success: false,
             reason: `Stata 会话初始化失败 (${dllInfo.path})：${initResult.error}。请检查 Stata ${dllInfo.edition ? dllInfo.edition.toUpperCase() : ''} 是否正确安装。`
@@ -445,7 +445,7 @@ async function runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir = null
 
         const consoleSession = session.getConsoleSession(context);
         if (!consoleSession || !consoleSession.isInitialized()) {
-            console.error('[windows.js] Unable to get valid Stata session');
+            console.error('Stata All in One: Unable to get valid Stata session');
             return {
                 success: false,
                 shouldOfferGuiFallback: true,
@@ -459,7 +459,7 @@ async function runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir = null
             graphDir = getGraphCacheDir(context);
             setGraphResourceRoot(graphDir);
         } catch (error) {
-            console.error('[windows.js] Failed to initialize graph cache:', error.message);
+            console.error('Stata All in One: Failed to initialize graph cache:', error.message);
         }
         await outputSink.prepareForExecution();
 
@@ -542,25 +542,25 @@ async function runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir = null
 
         let result = null;
         if (Array.isArray(executionPlan.commands) && executionPlan.commands.length) {
-            console.log(`[windows.js] Executing ${executionPlan.commands.length} command(s) line-by-line`);
+            console.log(`Stata All in One: Executing ${executionPlan.commands.length} command(s) line-by-line`);
             for (let ci = 0; ci < executionPlan.commands.length; ci++) {
                 const command = executionPlan.commands[ci];
                 const cmdStart = Date.now();
-                console.log(`[windows.js] [${ci + 1}/${executionPlan.commands.length}] Executing: ${command.substring(0, 100)}`);
+                console.log(`Stata All in One: [${ci + 1}/${executionPlan.commands.length}] Executing: ${command.substring(0, 100)}`);
                 result = await consoleSession.execute(command, false, onExecutionChunk);
                 const cmdElapsed = Date.now() - cmdStart;
-                console.log(`[windows.js] [${ci + 1}/${executionPlan.commands.length}] Done in ${cmdElapsed}ms, success=${result.success}, rc=${result.returnCode}`);
+                console.log(`Stata All in One: [${ci + 1}/${executionPlan.commands.length}] Done in ${cmdElapsed}ms, success=${result.success}, rc=${result.returnCode}`);
                 if (!result.success) {
-                    console.error(`[windows.js] Command failed: ${result.error}`);
+                    console.error(`Stata All in One: Command failed: ${result.error}`);
                     break;
                 }
             }
         } else {
             const cmdStart = Date.now();
-            console.log(`[windows.js] Executing single command via do-file: ${executionPlan.command.substring(0, 100)}`);
+            console.log(`Stata All in One: Executing single command via do-file: ${executionPlan.command.substring(0, 100)}`);
             // writeCommand already shows the code; echo:false avoids duplicate
             result = await consoleSession.execute(executionPlan.command, false, onExecutionChunk);
-            console.log(`[windows.js] Do-file execution done in ${Date.now() - cmdStart}ms, success=${result.success}`);
+            console.log(`Stata All in One: Do-file execution done in ${Date.now() - cmdStart}ms, success=${result.success}`);
         }
 
         if (!executionPlan.commands && result.output) {
@@ -582,7 +582,7 @@ async function runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir = null
         outputSink.flushOutput();
 
         if (!result.success) {
-            console.error('[windows.js] Execution failed:', result.error);
+            console.error('Stata All in One: Execution failed:', result.error);
             if (!result.output) {
                 outputSink.writeError(result.error || `Execution failed (${result.returnCode})`);
             }
@@ -606,7 +606,7 @@ async function runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir = null
             shouldOfferGuiFallback: false
         };
     } catch (error) {
-        console.error('[windows.js] runOnWindowsEmbeddedConsole exception:', error.message);
+        console.error('Stata All in One: runOnWindowsEmbeddedConsole exception:', error.message);
 
         _activeOutputSink = outputSink;
         await outputSink.prepareForExecution();
@@ -931,7 +931,7 @@ async function initConsoleSession(context) {
 
         return true;
     } catch (error) {
-        console.error('[windows.js] initConsoleSession exception:', error.message);
+        console.error('Stata All in One: initConsoleSession exception:', error.message);
         showError(`Stata 初始化错误: ${error.message}`);
         return false;
     }
@@ -957,7 +957,7 @@ async function stopEmbeddedConsoleExecution(context) {
 
         return true;
     } catch (error) {
-        console.error('[windows.js] stopEmbeddedConsoleExecution exception:', error.message);
+        console.error('Stata All in One: stopEmbeddedConsoleExecution exception:', error.message);
         return false;
     }
 }
@@ -980,7 +980,7 @@ function forceShutdownEmbeddedConsoleSession() {
         _activeOutputSink = null;
         return session.forceShutdownConsoleSession();
     } catch (error) {
-        console.error('[windows.js] forceShutdownEmbeddedConsoleSession exception:', error.message);
+        console.error('Stata All in One: forceShutdownEmbeddedConsoleSession exception:', error.message);
         return false;
     }
 }

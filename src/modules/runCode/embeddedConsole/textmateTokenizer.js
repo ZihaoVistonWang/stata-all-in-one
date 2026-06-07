@@ -130,7 +130,7 @@ function ensureGrammarLoadStarted() {
 function tokenizeStataLine(line) {
     if (!loadedGrammar) {
         ensureGrammarLoadStarted().catch((error) => {
-            console.error('[textmateTokenizer] Failed to load Stata grammar:', error.message);
+            console.error('Stata All in One: Failed to load Stata grammar:', error.message);
         });
         return null;
     }
@@ -138,7 +138,7 @@ function tokenizeStataLine(line) {
     const currentVersionKey = getVersionKey();
     if (currentVersionKey !== loadedVersionKey) {
         ensureGrammarLoadStarted().catch((error) => {
-            console.error('[textmateTokenizer] Failed to reload Stata grammar:', error.message);
+            console.error('Stata All in One: Failed to reload Stata grammar:', error.message);
         });
     }
 
@@ -174,7 +174,7 @@ function hasSpecificScope(scopes) {
 function tokenizeStataLineWithTheme(line) {
     if (!loadedGrammar) {
         ensureGrammarLoadStarted().catch((error) => {
-            console.error('[textmateTokenizer] Failed to load Stata grammar:', error.message);
+            console.error('Stata All in One: Failed to load Stata grammar:', error.message);
         });
         return null;
     }
@@ -228,7 +228,7 @@ async function prewarmConsoleTextmateTokenizer() {
     try {
         await ensureGrammarLoadStarted();
     } catch (error) {
-        console.error('[textmateTokenizer] Failed to prewarm Stata grammar:', error.message);
+        console.error('Stata All in One: Failed to prewarm Stata grammar:', error.message);
     }
 }
 

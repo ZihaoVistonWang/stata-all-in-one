@@ -1500,7 +1500,7 @@ function attachPanel(panel) {
                     }
                 }
             } catch (e) {
-                console.error('[dataViewer] loadMore failed:', e.message);
+                console.error('Stata All in One: loadMore failed:', e.message);
                 if (_panel) {
                     _panel.webview.postMessage({ type: 'loadMoreDone', hasMore: true });
                 }
@@ -1552,7 +1552,7 @@ async function refresh(filterText) {
         data.variableSuggestions = variableSuggestions.getActiveVariables();
         _panel.webview.postMessage({ type: 'setData', data });
     } catch (e) {
-        console.error('[dataViewer] refresh failed:', e.message);
+        console.error('Stata All in One: refresh failed:', e.message);
         _panel.webview.postMessage({ type: 'setData', data: { error: e.message } });
     }
     _panel.webview.postMessage({ type: 'setStatus', status: 'ready' });
