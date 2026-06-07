@@ -144,6 +144,12 @@ async function runCurrentSection(context, editor = null) {
 
     // 获取要运行的代码
     const codeToRun = getCodeToRun(activeEditor);
+
+    // 检测 graph export 命令：图形已由控制台自动捕获，手动 export 不必要
+    if (/^\s*(quietly\s+)?graph\s+export\b/im.test(codeToRun)) {
+        vscode.window.showInformationMessage('⚠️ 检测到 graph export 命令。图形已自动捕获，请点击图片右上角的保存按钮进行保存。');
+    }
+
     const runMode = config.getRunMode();
     
     // 获取文档目录

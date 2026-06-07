@@ -14,6 +14,33 @@ compatibility: 需要 macOS/Windows，VS Code + Stata All in One 扩展。零外
 2. 已在 VS Code 中运行过 `Stata All in One: Install AI Coding Skill`（首次使用）
 3. 在扩展设置中 `AI Skill Enabled` 已开启（默认开启）
 
+## 工作目录与临时文件
+
+所有临时 .do 文件、.log 文件和导出的图表都存放在项目工作目录的 `./.stata-all-in-one/` 下。
+
+### 创建目录（首次使用）
+
+**macOS:**
+```bash
+mkdir -p ./.stata-all-in-one
+```
+
+**Windows (PowerShell):**
+```powershell
+New-Item -ItemType Directory -Force -Path ".\.stata-all-in-one"
+```
+
+### 文件命名规范
+
+- 所有临时文件以时间戳结尾，格式：`名称_YYYYMMDD_HHMMSS.扩展名`
+- 示例：`script_20260607_143021.do`、`output_20260607_143021.log`、`scatter_20260607_143021.png`
+
+### 自动清理
+
+**清理由服务器自动完成** —— 每次 `/execute` 被调用后，Stata All in One HTTP 服务会自动扫描 `.stata-all-in-one/` 目录，只保留最新的 10 个文件，删除更旧的。你**无需**手动运行任何清理命令。
+
+---
+
 ## 启动 VS Code（如果未运行）
 
 执行 Stata 代码前，先确保 VS Code 已打开且 HTTP 服务在线。
@@ -120,9 +147,11 @@ curl -s -X POST http://127.0.0.1:19521/execute -H "Content-Type: application/jso
   "success": true,
   "returnCode": 0,
   "output": "<Stata 输出>",
-  "error": ""
+  "error": "",
+  "graphs": []
 }
 ```
+`graphs` 数组包含服务器自动导出的图形文件路径（SVG + PNG），通常为空；当代码包含画图命令（`scatter`、`histogram` 等）时自动填充。
 
 ### 单行命令
 
@@ -152,53 +181,110 @@ curl -s -X POST http://127.0.0.1:19521/execute \
 Invoke-WebRequest -Uri "http://127.0.0.1:19521/execute" -Method POST -ContentType "application/json" -Body '{"code":"sysuse auto, clear\nregress price mpg, vce(robust)"}' -UseBasicParsing | Select-Object -ExpandProperty Content
 ```
 
-### 运行 .do 文件（推荐复杂代码使用）
+### 运行 .do 文件并读取日志（推荐复杂代码使用）
 
-对于较长的 Stata 代码，先写入临时 .do 文件再运行，避免 JSON 转义问题：
+对于较长的 Stata 代码（超过 5 行、含循环/宏/局部变量、或输出量很大），**务必**写入临时 .do 文件运行并生成 .log 日志文件，由 agent 读取 .log 获取完整输出。这避免了 JSON 转义问题，且能确保捕获全部结果。
 
+**macOS:**
 ```bash
-# 1. 写入 .do 文件
-cat > /tmp/stata_script.do << 'EOF'
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+mkdir -p ./.stata-all-in-one
+
+# 1. 写入 .do 文件（分两步：先用双引号 heredoc 让 bash 展开 $TIMESTAMP，再用单引号 heredoc 保护 Stata 的 $ 宏）
+cat > ./.stata-all-in-one/script_${TIMESTAMP}.do << STATAEOF
+log using "./.stata-all-in-one/output_${TIMESTAMP}.log", text replace
+STATAEOF
+
+cat >> ./.stata-all-in-one/script_${TIMESTAMP}.do << 'STATAEOF'
 sysuse auto, clear
 regress price mpg, vce(robust)
 estimates store m1
-EOF
+log close
+STATAEOF
 
-# 2. 通过 API 运行
+# 2. 通过 API 运行 .do 文件
 curl -s -X POST http://127.0.0.1:19521/execute \
   -H "Content-Type: application/json" \
-  -d '{"file":"/tmp/stata_script.do"}'
+  -d "{\"file\":\"./.stata-all-in-one/script_${TIMESTAMP}.do\"}"
+
+# 3. 读取日志文件查看完整输出
+cat ./.stata-all-in-one/output_${TIMESTAMP}.log
 ```
 
 **Windows (PowerShell):**
 ```powershell
-@'
+$timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+New-Item -ItemType Directory -Force -Path ".\.stata-all-in-one"
+
+# 1. 写入 .do 文件（含 log 开关）
+@"
+log using "./.stata-all-in-one/output_${timestamp}.log", text replace
 sysuse auto, clear
 regress price mpg, vce(robust)
 estimates store m1
-'@ | Out-File -FilePath "$env:TEMP\stata_script.do" -Encoding UTF8
+log close
+"@ | Out-File -FilePath ".\.stata-all-in-one\script_${timestamp}.do" -Encoding UTF8
 
-Invoke-WebRequest -Uri "http://127.0.0.1:19521/execute" -Method POST -ContentType "application/json" -Body "{\`"file\`": \`"$env:TEMP\stata_script.do\`"}" -UseBasicParsing | Select-Object -ExpandProperty Content
+# 2. 通过 API 运行
+$filePath = ".\.stata-all-in-one\script_${timestamp}.do"
+Invoke-WebRequest -Uri "http://127.0.0.1:19521/execute" -Method POST -ContentType "application/json" -Body "{`"file`":`"$filePath`"}" -UseBasicParsing | Select-Object -ExpandProperty Content
+
+# 3. 读取日志文件
+Get-Content ".\.stata-all-in-one\output_${timestamp}.log" -Raw
 ```
+
+### 何时使用哪种执行方式
+
+| 场景 | 推荐方式 | 原因 |
+|------|---------|------|
+| 单行简单命令（如 `summarize`、`describe`） | 直接 `curl` 传 `code` | 输出简短，JSON 转义简单 |
+| 2-5 行简单代码 | `\n` 分隔传 `code` | 代码量小，转义可控 |
+| 5 行以上或含复杂语法（引号、`$` 宏） | .do 文件 + .log | 避免 JSON 转义出错 |
+| 含循环（`foreach`/`forvalues`）、宏定义 | .do 文件 + .log | 多行结构在 JSON 中极易出错 |
+| 预计输出很长（大型回归表、多步骤结果） | .do 文件 + .log | agent 可直接读 .log，避免输出截断 |
+| 需要生成图表 | .do 文件（服务器自动导出图形） | 画图命令即可，服务器自动导出 SVG+PNG |
+| 多步骤分析（加载数据→处理→回归→检验） | .do 文件 + .log | 一次执行保证上下文连续，避免模型分批丢失状态 |
 
 ### 处理图表输出
 
-Stata 输出的**表格是纯文本**，直接阅读即可。图表需要导出为文件：
+**图表由服务器自动导出，无需在代码中写 `graph export`。** 服务器已启用图形捕获（`_gr_list on`），每次执行后自动将生成的图形导出为 SVG 和 PNG，路径在响应 JSON 的 `graphs` 字段中。
 
+**macOS / Linux:**
 ```bash
-# 导出图形到文件
+# 只需写画图命令，不需要 graph export
 curl -s -X POST http://127.0.0.1:19521/execute \
   -H "Content-Type: application/json" \
-  -d '{"code":"sysuse auto, clear\nscatter price mpg\ngraph export /tmp/scatter.png, replace"}'
-
-# 然后读取图形文件展示给用户（macOS）
-open /tmp/scatter.png
+  -d '{"code":"sysuse auto, clear\nscatter price mpg"}'
 ```
 
-**常用图形导出命令：**
-- `graph export /path/to/file.png, replace` — PNG 位图
-- `graph export /path/to/file.svg, replace` — SVG 矢量图（推荐，可直接查看源码）
-- `graph export /path/to/file.pdf, replace` — PDF
+返回 JSON：
+```json
+{
+  "success": true,
+  "returnCode": 0,
+  "output": "...",
+  "error": "",
+  "graphs": [
+    {
+      "name": "Graph",
+      "svg": "./.stata-all-in-one/Graph_1718123456789_0.svg",
+      "png": "./.stata-all-in-one/Graph_1718123456789_0.png"
+    }
+  ]
+}
+```
+
+然后 agent 使用 Read 工具读取 PNG 文件展示给用户。
+
+**如果需要保存特定命名图形（如叠加图），可以手动 `graph export`：**
+```bash
+# 手动导出叠加图（必须声明 name，且用 quietly + SVG 格式，PNG 会卡死）
+curl -s -X POST http://127.0.0.1:19521/execute \
+  -H "Content-Type: application/json" \
+  -d '{"code":"sysuse auto, clear\nscatter price mpg, name(mygraph, replace)\nquietly graph export ./.stata-all-in-one/mygraph.svg, name(mygraph) replace"}'
+```
+
+**⚠️ 重要：不要在 Stata 代码中使用 `graph export ... .png`——PNG 导出需要显示服务器，会卡死会话。用服务器自动导出的 PNG，或手动导出为 SVG。**
 
 ### JSON 转义规则
 
@@ -281,7 +367,7 @@ curl -s -X POST ... -d '{"code":"estimates list"}'
 -d '{"code":"regress y treat##post x1 x2, vce(cluster id)"}'
 
 # 事件研究 (Event Study)
--d '{"code":"eventdd y x1 x2, timevar(rel_time) method(fe, cluster(id))"'
+-d '{"code":"eventdd y x1 x2, timevar(rel_time) method(fe, cluster(id))"}'
 
 # 多期 DID (CSDID)
 -d '{"code":"csdid y, time(time) gvar(first_treat) method(dripw)"}'
@@ -331,5 +417,6 @@ curl -s -X POST ... -d '{"code":"estimates list"}'
 
 - 输出是纯文本，直接阅读 Stata 的原始输出
 - 长时间命令可能需要几秒到几十秒，`curl` 会自动等待
-- 不要一次性发送超大代码块（如几百行），分批执行更可控
+- **复杂代码（5 行以上、含循环/宏、输出量大）务必使用 .do 文件 + .log 方式**，不要通过 JSON `code` 字段发送。原因：① 避免 JSON 转义错误（引号、`$` 宏等）；② .log 文件捕获完整输出，agent 直接读取更可靠；③ 一次执行保证上下文连续，避免模型在多轮对话中丢失状态
+- 所有临时文件写入 `./.stata-all-in-one/`，每次 `/execute` 被调用后，**服务器自动清理**只保留最新 10 个文件 —— agent 无需手动清理
 - 不要关闭 VS Code 中的 Stata 会话，以免丢失数据状态

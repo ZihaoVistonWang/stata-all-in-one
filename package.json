@@ -521,6 +521,7 @@
     "url": "https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md"
   },
   "dependencies": {
+    "sharp": "^0.34.5",
     "vscode-oniguruma": "^2.0.1",
     "vscode-textmate": "^9.3.2"
   },

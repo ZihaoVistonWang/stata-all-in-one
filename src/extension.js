@@ -639,12 +639,18 @@ async function activate(context) {
 
             await session.execute('quietly set more off', false);
             await session.execute('quietly set linesize 255', false);
+            // 启用图形捕获，防止画图命令弹出 GUI 窗口阻塞会话
+            await session.execute('quietly _gr_list on', false);
             session.setBootstrapped(true);
             console.log('[Stata AI Skill] Stata session initialized');
         }
 
+        // 确保图形捕获已启用（每次启动服务器都执行，防止画图命令弹出 GUI 窗口阻塞会话）
+        try { await session.execute('quietly _gr_list on', false); } catch (_) { /* ignore */ }
+
         const port = vscode.workspace.getConfiguration('stata-all-in-one').get('aiSkillPort', 19521);
-        return await startAIServer(session, port);
+        const wsRoot = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath || null;
+        return await startAIServer(session, port, wsRoot);
     };
 
     // Register start AI server command
