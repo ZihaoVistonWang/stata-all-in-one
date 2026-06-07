@@ -1424,9 +1424,15 @@ function getWebviewHtml(webview) {
             if (composerTipTimer) { clearInterval(composerTipTimer); composerTipTimer = null; }
         }
 
-        // Pause carousel when input is focused or has text, resume on blur when empty
-        input.addEventListener('focus', stopComposerTipCarousel);
-        input.addEventListener('input', stopComposerTipCarousel);
+        // Hide tip when input is focused or has text, resume on blur when empty
+        input.addEventListener('focus', () => {
+            input.placeholder = '';
+            stopComposerTipCarousel();
+        });
+        input.addEventListener('input', () => {
+            input.placeholder = '';
+            stopComposerTipCarousel();
+        });
         input.addEventListener('blur', () => {
             if (!input.value.trim().length) startComposerTipCarousel();
         });

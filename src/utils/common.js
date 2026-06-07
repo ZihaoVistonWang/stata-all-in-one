@@ -75,7 +75,7 @@ const UI_TEXT = {
         webviewHistory: 'history',
         webviewDragResizeTip: 'Drag to resize input area height',
         composerTips: [
-            'Tip: Drag the Console tab to the bottom if your screen is too narrow for side-by-side layout.',
+            'Tip: Drag the "Console | Stata All in One" tab to the bottom if your screen is too narrow for side-by-side layout.',
             'Tip: In the editor, Ctrl/Cmd+D runs the current line or selection.',
             'Tip: In the editor, Ctrl/Cmd+Shift+H shows help for the selected command.',
             'Tip: Click a .dta file in the Explorer to open it in the Data Viewer.',
@@ -224,7 +224,7 @@ const UI_TEXT = {
         webviewHistory: '历史记录',
         webviewDragResizeTip: '拖拽调整输入区高度',
         composerTips: [
-            '提示：如果屏幕不够宽，可以拖动 Console 标签页到下方，改为纵向分布。',
+            '提示：如果屏幕不够宽，可以拖动“控制台 | Stata All in One”标签页到下方，改为纵向分布。',
             '提示：在编辑器中，Ctrl/Cmd+D 运行当前行或选中代码。',
             '提示：在编辑器中，Ctrl/Cmd+Shift+H 查看选中命令的帮助。',
             '提示：在资源管理器中点击 .dta 文件即可在数据查看器中打开。',
