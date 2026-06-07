@@ -8,9 +8,20 @@ const variableSuggestions = require('../../../variableSuggestionService');
 
 const PANEL_VIEW_TYPE = 'stata-all-in-one.dataViewer';
 
-let _panel = null;
-let _pendingFilterText = '';
-let _webviewReady = false;
+// Two independent panels: 'console' (from console data button) and 'file' (from .dta click)
+const _panels = { console: null, file: null };
+const _ready = { console: false, file: false };
+const _pendingFilter = { console: '', file: '' };
+// File-mode state: loaded entirely in memory so it doesn't touch the Stata session after initial export
+const _fileState = {
+    filePath: null,
+    allRows: null,       // all data rows exported from the .dta file
+    allVars: null,        // variable metadata
+    info: null,           // dataset info
+    dataColumns: null,    // variable names for data tab
+    allVarNames: null,    // all variable names (for autocomplete)
+    preserved: false,     // whether console session was preserved
+};
 const _renderer = new StataTerminalRenderer();
 
 const CODICON_RESOURCE_ROOT = vscode.Uri.joinPath(vscode.Uri.file(vscode.env.appRoot), 'out', 'media');
@@ -1460,71 +1471,122 @@ function getDataViewerHtml(webview) {
 </html>`;
 }
 
-function attachPanel(panel) {
-    _panel = panel;
-    _webviewReady = false;
-    _panel.title = getPanelTitle();
-    _panel.iconPath = getPanelIconPath();
-    _panel.webview.options = {
+// ── restore preserved console session ──────────────────────────────────────────
+async function restorePreservedSession() {
+    if (!_fileState.preserved) return;
+    _fileState.preserved = false;
+    const session = require('../session').getActiveSession();
+    if (!session) return;
+    try {
+        await session.execute('restore', false);
+        console.log('Stata All in One: Restored console dataset after data viewer closed.');
+    } catch (e) {
+        console.error('Stata All in One: Failed to restore preserved session:', e.message);
+    }
+}
+
+// ── attach a webview panel with mode-specific message handlers ─────────────────
+function attachPanel(panel, mode) {
+    _panels[mode] = panel;
+    _ready[mode] = false;
+    panel.title = getPanelTitle();
+    panel.iconPath = getPanelIconPath();
+    panel.webview.options = {
         enableScripts: true,
         localResourceRoots: [CODICON_RESOURCE_ROOT],
         enableServiceWorker: false
     };
-    _panel.webview.html = getDataViewerHtml(_panel.webview);
-    _panel.onDidDispose(() => {
-        if (_panel === panel) {
-            _panel = null;
-            _webviewReady = false;
-        }
-    });
-    _panel.webview.onDidReceiveMessage(async (message) => {
-        if (message && message.type === 'ready') {
-            _webviewReady = true;
-            await refresh(_pendingFilterText);
-        } else if (message && message.type === 'refresh') {
-            await refresh(message.filterText || '');
-        } else if (message && message.type === 'highlightFilter') {
-            if (_panel) {
-                _panel.webview.postMessage({ type: 'filterHighlightResult', segments: highlightFilterText(message.text || '') });
-            }
-        } else if (message && message.type === 'loadMore') {
-            const startObs = (message.startObs || 0) + 1;
-            const count = message.count || 500;
-            try {
-                const rows = await fetchMoreRows(startObs, count, message.filterText || '');
-                if (_panel) {
-                    if (rows && rows.length > 0) {
-                        _panel.webview.postMessage({ type: 'appendRows', rows, hasMore: rows.length >= count });
-                    } else {
-                        _panel.webview.postMessage({ type: 'loadMoreDone', hasMore: false });
-                    }
-                }
-            } catch (e) {
-                console.error('Stata All in One: loadMore failed:', e.message);
-                if (_panel) {
-                    _panel.webview.postMessage({ type: 'loadMoreDone', hasMore: true });
-                }
+    panel.webview.html = getDataViewerHtml(panel.webview);
+
+    panel.onDidDispose(() => {
+        if (_panels[mode] === panel) {
+            _panels[mode] = null;
+            _ready[mode] = false;
+            if (mode === 'file') {
+                // File panel closed: restore console session and clear file state
+                restorePreservedSession();
+                _fileState.filePath = null;
+                _fileState.allRows = null;
+                _fileState.allVars = null;
+                _fileState.info = null;
+                _fileState.dataColumns = null;
+                _fileState.allVarNames = null;
             }
         }
     });
-    return _panel;
+
+    panel.webview.onDidReceiveMessage(async (message) => {
+        if (!message) return;
+
+        if (message.type === 'ready') {
+            _ready[mode] = true;
+            await refreshDataViewer(mode, _pendingFilter[mode]);
+        } else if (message.type === 'refresh') {
+            await refreshDataViewer(mode, message.filterText || '');
+        } else if (message.type === 'highlightFilter') {
+            const p = _panels[mode];
+            if (p) {
+                p.webview.postMessage({ type: 'filterHighlightResult', segments: highlightFilterText(message.text || '') });
+            }
+        } else if (message.type === 'loadMore') {
+            await handleLoadMore(mode, message);
+        }
+    });
+
+    return panel;
 }
 
-function postVariables() {
-    if (!_panel) return;
+// ── handle lazy-load more rows ─────────────────────────────────────────────────
+async function handleLoadMore(mode, message) {
+    const panel = _panels[mode];
+    if (!panel) return;
+
+    // File mode: all rows were loaded upfront; just confirm no more data
+    if (mode === 'file') {
+        panel.webview.postMessage({ type: 'loadMoreDone', hasMore: false });
+        return;
+    }
+
+    // Console mode: fetch more rows from the active Stata session
+    const startObs = (message.startObs || 0) + 1;
+    const count = message.count || 500;
     try {
-        _panel.webview.postMessage({ type: 'variablesUpdate', variables: variableSuggestions.getActiveVariables() });
-    } catch (_e) {}
+        const rows = await fetchMoreRows(startObs, count, message.filterText || '');
+        if (_panels[mode]) {
+            if (rows && rows.length > 0) {
+                _panels[mode].webview.postMessage({ type: 'appendRows', rows, hasMore: rows.length >= count });
+            } else {
+                _panels[mode].webview.postMessage({ type: 'loadMoreDone', hasMore: false });
+            }
+        }
+    } catch (e) {
+        console.error('Stata All in One: loadMore failed:', e.message);
+        if (_panels[mode]) {
+            _panels[mode].webview.postMessage({ type: 'loadMoreDone', hasMore: true });
+        }
+    }
+}
+
+// ── broadcast variables to all active panels ───────────────────────────────────
+function postVariables() {
+    const vars = variableSuggestions.getActiveVariables();
+    for (const mode of ['console', 'file']) {
+        const p = _panels[mode];
+        if (p) {
+            try { p.webview.postMessage({ type: 'variablesUpdate', variables: vars }); } catch (_e) {}
+        }
+    }
 }
 
 const variableSuggestionSubscription = variableSuggestions.onDidChangeVariables(() => {
     postVariables();
 });
 
-function ensurePanel() {
-    if (_panel) {
-        _panel.title = getPanelTitle();
-        return _panel;
+// ── get or create a panel for the given mode ───────────────────────────────────
+function ensurePanel(mode) {
+    if (_panels[mode]) {
+        _panels[mode].title = getPanelTitle();
+        return _panels[mode];
     }
     const panel = vscode.window.createWebviewPanel(
         PANEL_VIEW_TYPE,
@@ -1537,41 +1599,124 @@ function ensurePanel() {
             localResourceRoots: [CODICON_RESOURCE_ROOT]
         }
     );
-    return attachPanel(panel);
+    return attachPanel(panel, mode);
 }
 
-async function refresh(filterText) {
-    if (!_panel || !_webviewReady) return;
-    _pendingFilterText = filterText || '';
-    _panel.webview.postMessage({ type: 'setStatus', status: 'loading' });
+// ── refresh data for a specific mode ───────────────────────────────────────────
+async function refreshDataViewer(mode, filterText) {
+    const panel = _panels[mode];
+    if (!panel || !_ready[mode]) return;
+    _pendingFilter[mode] = filterText || '';
+    panel.webview.postMessage({ type: 'setStatus', status: 'loading' });
+
     try {
-        const data = await fetchDataSnapshot(undefined, filterText || '');
-        if (data && Array.isArray(data.allVarNames) && data.allVarNames.length) {
-            variableSuggestions.setMemoryVars(data.allVarNames);
+        let data;
+        if (mode === 'file') {
+            // File mode: re-export from the .dta file via Stata (preserve → use → export → restore)
+            data = await refreshFileData(filterText);
+        } else {
+            // Console mode: query the active Stata session directly
+            data = await fetchDataSnapshot(undefined, filterText || '');
+            if (data && Array.isArray(data.allVarNames) && data.allVarNames.length) {
+                variableSuggestions.setMemoryVars(data.allVarNames);
+            }
         }
         data.variableSuggestions = variableSuggestions.getActiveVariables();
-        _panel.webview.postMessage({ type: 'setData', data });
+        panel.webview.postMessage({ type: 'setData', data });
     } catch (e) {
         console.error('Stata All in One: refresh failed:', e.message);
-        _panel.webview.postMessage({ type: 'setData', data: { error: e.message } });
+        panel.webview.postMessage({ type: 'setData', data: { error: e.message } });
     }
-    _panel.webview.postMessage({ type: 'setStatus', status: 'ready' });
+    panel.webview.postMessage({ type: 'setStatus', status: 'ready' });
 }
 
+// ── file-mode refresh: briefly use Stata session to export all rows, then restore ──
+async function refreshFileData(filterText) {
+    // If filter unchanged and we have cached data, skip the Stata round-trip
+    const ft = filterText || '';
+    if (_fileState.allRows && ft === (_pendingFilter['file'] || '')) {
+        return {
+            info: _fileState.info,
+            vars: _fileState.allVars,
+            dataColumns: _fileState.dataColumns,
+            dataRows: _fileState.allRows,
+            allVarNames: _fileState.allVarNames,
+            hasMore: false
+        };
+    }
+
+    const session = require('../session').getActiveSession();
+    if (!session) return { error: 'Stata session not initialized' };
+    if (!_fileState.filePath) return { error: 'No file loaded' };
+
+    // preserve current state → load file → export → restore
+    const hadData = await preserveIfNeeded(session);
+    try {
+        await session.execute('cd "' + escapeStataPath(path.dirname(_fileState.filePath)) + '"', false);
+        await session.execute('use "' + escapeStataPath(_fileState.filePath) + '", clear', false);
+
+        // Export ALL rows (up to safe limit); the webview handles virtual scrolling client-side
+        const MAX_FILE_ROWS = 200000;
+        const data = await fetchDataSnapshot(MAX_FILE_ROWS, filterText || '');
+
+        // Cache in memory so subsequent operations don't need Stata
+        if (!data.error) {
+            _fileState.allRows = data.dataRows || [];
+            _fileState.allVars = data.vars || [];
+            _fileState.info = data.info || {};
+            _fileState.dataColumns = data.dataColumns || [];
+            _fileState.allVarNames = data.allVarNames || [];
+            data.dataRows = _fileState.allRows; // send all rows at once
+            data.hasMore = false;               // signal webview: no lazy loading needed
+        }
+        return data;
+    } finally {
+        // Always restore the console's original dataset
+        if (_fileState.preserved) {
+            await session.execute('restore', false);
+        }
+    }
+}
+
+// ── preserve console session if it has data ────────────────────────────────────
+async function preserveIfNeeded(session) {
+    if (_fileState.preserved) return false;
+    try {
+        const nobsResult = await session.execute('mata: st_nobs()', false);
+        const hasData = nobsResult.success && nobsResult.output
+            && nobsResult.output.trim() !== '0'
+            && !nobsResult.output.trim().startsWith('.');
+        if (hasData) {
+            const preserveResult = await session.execute('preserve', false);
+            if (preserveResult.success) {
+                _fileState.preserved = true;
+                console.log('Stata All in One: Preserved console dataset before loading .dta file.');
+                return true;
+            }
+        }
+    } catch (_e) { /* ignore */ }
+    return false;
+}
+
+// ── console data viewer entry point ────────────────────────────────────────────
 async function reveal(filterText) {
-    _pendingFilterText = filterText || '';
-    const panel = ensurePanel();
+    // If a file was loaded and session preserved, restore console data first
+    await restorePreservedSession();
+    _pendingFilter['console'] = filterText || '';
+    const panel = ensurePanel('console');
     panel.reveal(vscode.ViewColumn.Two, true);
-    if (_webviewReady) {
-        await refresh(_pendingFilterText);
+    if (_ready['console']) {
+        await refreshDataViewer('console', _pendingFilter['console']);
     }
     return panel;
 }
 
+// ── external update trigger (e.g., after running code in console) ──────────────
 async function updateData() {
-    await refresh();
+    await refreshDataViewer('console', _pendingFilter['console']);
 }
 
+// ── helpers ────────────────────────────────────────────────────────────────────
 function escapeStataPath(filePath) {
     return String(filePath || '').replace(/\\/g, '/').replace(/"/g, '""');
 }
@@ -1618,11 +1763,16 @@ async function ensureSilentSession(context) {
     return { success: true, session: session.getConsoleSession(context) };
 }
 
+// ── open a .dta file in its own independent data viewer ────────────────────────
 async function openDtaFile(context, uri, panel) {
     if (!uri || uri.scheme !== 'file') {
         return null;
     }
-    const targetPanel = panel ? attachPanel(panel) : ensurePanel();
+
+    // File mode gets its own panel, independent of the console data viewer
+    const targetPanel = panel
+        ? attachPanel(panel, 'file')
+        : ensurePanel('file');
     targetPanel.reveal(undefined, true);
 
     const filePath = uri.fsPath;
@@ -1632,8 +1782,13 @@ async function openDtaFile(context, uri, panel) {
         return targetPanel;
     }
 
+    // Preserve console session (if it has data) before loading the file
+    await preserveIfNeeded(initResult.session);
+
+    // Load the file
     const cdResult = await initResult.session.execute('cd "' + escapeStataPath(path.dirname(filePath)) + '"', false);
     if (!cdResult.success) {
+        await restorePreservedSession();
         showError(cdResult.error || 'Failed to set Stata working directory.');
         return targetPanel;
     }
@@ -1641,20 +1796,50 @@ async function openDtaFile(context, uri, panel) {
 
     const result = await initResult.session.execute('use "' + escapeStataPath(filePath) + '", clear', false);
     if (!result.success) {
+        await restorePreservedSession();
         showError(result.error || 'Failed to open Stata dataset in Data Viewer.');
         return targetPanel;
     }
 
+    // Export ALL rows from the file into memory, then restore console session.
+    // The file panel works entirely from this in-memory snapshot — no further Stata calls.
+    _fileState.filePath = filePath;
+    try {
+        const MAX_FILE_ROWS = 200000;
+        const data = await fetchDataSnapshot(MAX_FILE_ROWS, '');
+        if (data && !data.error) {
+            _fileState.allRows = data.dataRows || [];
+            _fileState.allVars = data.vars || [];
+            _fileState.info = data.info || {};
+            _fileState.dataColumns = data.dataColumns || [];
+            _fileState.allVarNames = data.allVarNames || [];
+            data.hasMore = false; // signal webview: no lazy loading
+            data.variableSuggestions = variableSuggestions.getActiveVariables();
+            // Send initial data immediately — webview processes setData before ready message
+            const filePanel = _panels['file'];
+            if (filePanel) {
+                filePanel.webview.postMessage({ type: 'setData', data });
+            }
+        } else if (data && data.error) {
+            showError(data.error);
+        }
+    } catch (e) {
+        console.error('Stata All in One: Failed to export file data:', e.message);
+    } finally {
+        // Restore console session immediately — file data is now in memory
+        await restorePreservedSession();
+    }
+
     variableSuggestions.refreshMemoryVars(context).catch(() => {});
-    await refresh();
     return targetPanel;
 }
 
+// ── exports ────────────────────────────────────────────────────────────────────
 module.exports = {
     revealDataViewer: reveal,
     openDtaFileInDataViewer: openDtaFile,
     updateDataViewerData: updateData,
-    getDataViewerPanel: () => _panel,
+    getDataViewerPanel: () => _panels['console'],
     getPanelViewType: () => PANEL_VIEW_TYPE,
     postDataViewerVariables: postVariables,
     disposeVariableSuggestionSubscription: () => variableSuggestionSubscription.dispose()
