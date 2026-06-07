@@ -679,10 +679,12 @@ async function activate(context) {
     // Auto-start AI server if enabled
     const aiSkillEnabled = vscode.workspace.getConfiguration('stata-all-in-one').get('aiSkillEnabled', true);
     if (aiSkillEnabled) {
+        let autoStartNotified = false;
         const tryAutoStart = async () => {
             try {
                 const ok = await ensureSessionAndStartServer();
-                if (ok) {
+                if (ok && !autoStartNotified) {
+                    autoStartNotified = true;
                     const port = vscode.workspace.getConfiguration('stata-all-in-one').get('aiSkillPort', 19521);
                     console.log(`[Stata AI Skill] Server auto-started on port ${port}`);
                     showInfo(msg('aiSkillServerStarted', { port }));
