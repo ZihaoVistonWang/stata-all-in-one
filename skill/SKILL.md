@@ -57,7 +57,8 @@ curl -s --connect-timeout 2 http://127.0.0.1:19521/status 2>/dev/null || echo "O
 try { $r = Invoke-WebRequest -Uri "http://127.0.0.1:19521/status" -TimeoutSec 2 -UseBasicParsing; $r.Content } catch { "OFFLINE" }
 ```
 
-如果返回 `{"status":"running","sessionActive":true}` → 可以执行代码了。
+如果返回 `{"status":"running","sessionActive":true,"busy":false}` → 可以执行代码了。
+`busy: true` 表示 Stata 正在执行命令，agent 应等待或发送 `/break` 中断。
 
 如果返回 `OFFLINE` 或连接失败 → 需要启动 VS Code。
 
@@ -344,6 +345,47 @@ curl -s -X POST ... -d '{"code":"estimates store model1"}'
 # 第四步：查看已存储的估计
 curl -s -X POST ... -d '{"code":"estimates list"}'
 ```
+
+## 中断执行
+
+当 agent 发现代码执行时间过长或需要取消当前命令时，发送中断信号（不关闭服务器，只停止当前 Stata 命令）。
+
+### 工作流：检查 busy → 等待或中断
+
+```bash
+# 1. 检查状态
+curl -s http://127.0.0.1:19521/status
+# → {"busy":true}  Stata 正在忙
+# → {"busy":false} Stata 空闲，可以发下一个命令
+
+# 2. 如果 busy=true，可以选择：
+#    A. 等待（轮询直到 busy=false）
+#    B. 发送中断
+curl -s -X POST http://127.0.0.1:19521/break
+```
+
+**macOS 轮询等待：**
+```bash
+for i in $(seq 1 30); do
+  result=$(curl -s http://127.0.0.1:19521/status)
+  if echo "$result" | grep -q '"busy":false'; then
+    echo "✅ Stata idle"
+    break
+  fi
+  sleep 2
+done
+```
+
+**Windows (PowerShell) 轮询等待：**
+```powershell
+for ($i=1; $i -le 30; $i++) {
+  $r = Invoke-WebRequest -Uri "http://127.0.0.1:19521/status" -UseBasicParsing
+  if ($r.Content -match '"busy":false') { Write-Host "✅ Stata idle"; break }
+  Start-Sleep -Seconds 2
+}
+```
+
+返回 `{"success":true,"message":"Break signal sent"}`。中断后 Stata 会话仍然可用，可以继续执行新命令。
 
 ## 错误处理
 

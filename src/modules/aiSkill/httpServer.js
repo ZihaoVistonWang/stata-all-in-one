@@ -20,6 +20,7 @@ let server = null;
 let consoleSession = null;
 let serverPort = 19521;
 let workspaceRoot = null;
+let isExecuting = false;
 
 const TEMP_DO_FILENAME = 'stata_ai_skill_temp.do';
 const STATA_TEMP_DIR = '.stata-all-in-one';
@@ -262,8 +263,9 @@ async function handleRequest(req, res) {
         res.end(JSON.stringify({
             status: 'running',
             sessionActive: sessionActive,
+            busy: isExecuting,
             message: sessionActive
-                ? 'Stata session is active'
+                ? (isExecuting ? 'Stata is busy executing' : 'Stata session is active')
                 : 'Stata session not initialized. Open a .do file in VS Code first.'
         }));
         return;
@@ -327,7 +329,9 @@ async function handleRequest(req, res) {
             if (graphExportStripped.length) {
                 console.log(`[Stata AI Skill] ⚠️ Stripped ${graphExportStripped.length} graph export line(s):`, graphExportStripped);
             }
+            isExecuting = true;
             const result = await executeWithTimeout(stataCode, echo, timeout);
+            isExecuting = false;
 
             // Clean up temp file after execution
             if (tempFilePath) {
@@ -363,6 +367,7 @@ async function handleRequest(req, res) {
             // Auto-cleanup old temp files after each execution
             cleanupStataTempFiles();
         } catch (err) {
+            isExecuting = false;
             if (err && err.isTimeout) {
                 console.error('[Stata AI Skill] Execution timed out:', err.message);
                 // Still try to export any graphs generated before the timeout
@@ -371,7 +376,7 @@ async function handleRequest(req, res) {
                 res.writeHead(408, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({
                     success: false, returnCode: -1,
-                    output: err.message + '\n建议：对于长时间运行的命令（如 bootstrap、大型回归），设置 "timeout" 参数延长超时时间（单位毫秒），例如 {"timeout": 300} 表示 5 分钟。',
+                    output: err.message + '\n建议：对于长时间运行的命令（如 bootstrap、大型回归），设置 "timeout" 参数延长超时时间（单位秒），例如 {"timeout": 300} 表示 5 分钟。',
                     error: err.message,
                     graphs: graphs
                 }));
@@ -385,19 +390,29 @@ async function handleRequest(req, res) {
         return;
     }
 
-    // POST /shutdown —— 关闭服务器
-    if (req.method === 'POST' && req.url === '/shutdown') {
+    // POST /break —— 中断当前 Stata 执行（不关闭服务器）
+    if (req.method === 'POST' && req.url === '/break') {
+        if (!consoleSession || !consoleSession.isInitialized()) {
+            res.writeHead(503, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: 'No active Stata session' }));
+            return;
+        }
+        const stopped = consoleSession.stop();
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: true, message: 'Server shutting down' }));
-        stopServer();
+        res.end(JSON.stringify({ success: stopped, message: stopped ? 'Break signal sent' : 'Failed to send break' }));
+        console.log('[Stata AI Skill] ⏸ Break requested by agent');
         return;
     }
+
+    // POST /shutdown —— 关闭服务器（仅 VS Code 内部命令调用，不暴露给 agent）
+    // 该端点已移除对外访问，服务器只能通过 VS Code 命令关闭
+    // if (req.method === 'POST' && req.url === '/shutdown') { ... }
 
     // 404
     res.writeHead(404, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
         success: false,
-        error: 'Not Found. Available endpoints: GET /status, POST /execute, POST /shutdown'
+        error: 'Not Found. Available endpoints: GET /status, POST /execute, POST /break'
     }));
 }
 
