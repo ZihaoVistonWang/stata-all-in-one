@@ -111,6 +111,26 @@ function getCodeToRun(editor) {
 }
 
 /**
+ * 剔除代码中的 graph export 命令
+ * 图形已由控制台自动捕获导出，手动执行 graph export 在嵌入式模式下会失败（无显示服务器）
+ * @param {string} code
+ * @returns {{ code: string, removed: string[] }}
+ */
+function stripGraphExport(code) {
+    const lines = String(code || '').split('\n');
+    const kept = [];
+    const removed = [];
+    for (const line of lines) {
+        if (/^\s*(quietly\s+)?graph\s+export\b/i.test(line)) {
+            removed.push(line.trim());
+        } else {
+            kept.push(line);
+        }
+    }
+    return { code: kept.join('\n'), removed };
+}
+
+/**
  * 主调度函数：运行当前节/行/选区
  * 检查 Embedded Console 可用性，路由到 Embedded Console 或 External App 执行路径
  * 
@@ -143,11 +163,18 @@ async function runCurrentSection(context, editor = null) {
     }
 
     // 获取要运行的代码
-    const codeToRun = getCodeToRun(activeEditor);
+    const originalCode = getCodeToRun(activeEditor);
 
-    // 检测 graph export 命令：图形已由控制台自动捕获，手动 export 不必要
-    if (/^\s*(quietly\s+)?graph\s+export\b/im.test(codeToRun)) {
-        vscode.window.showInformationMessage('⚠️ 检测到 graph export 命令。图形已自动捕获，请点击图片右上角的保存按钮进行保存。');
+    // 剔除 graph export 命令：图形已由控制台自动捕获，手动 export 不必要
+    // 与 AI Skill HTTP 服务器行为一致 — stripGraphExport 会移除所有 graph export 行
+    const stripped = stripGraphExport(originalCode);
+    const codeToRun = stripped.removed.length ? stripped.code : originalCode;
+    const graphExportOptions = stripped.removed.length ? { graphExportLines: stripped.removed } : undefined;
+    if (stripped.removed.length) {
+        const msgText = stripped.removed.length === 1
+            ? `⚠️ 已跳过 graph export 命令。图形已自动捕获，请点击图片右上角的保存按钮进行保存。`
+            : `⚠️ 已跳过 ${stripped.removed.length} 条 graph export 命令。图形已自动捕获，请点击图片右上角的保存按钮进行保存。`;
+        vscode.window.showInformationMessage(msgText);
     }
 
     const runMode = config.getRunMode();
@@ -167,7 +194,7 @@ async function runCurrentSection(context, editor = null) {
                 vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', false);
             } else {
                 vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
-                const consoleResult = await runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir, context);
+                const consoleResult = await runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir, context, graphExportOptions);
                 if (consoleResult.success) {
                     vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
                     await refreshMemoryVarsAfterRun(context, consoleResult);
@@ -190,7 +217,7 @@ async function runCurrentSection(context, editor = null) {
                 vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', false);
             } else {
                 vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
-                const consoleResult = await runOnMacWebview(codeToRun, tmpFilePath, docDir, context);
+                const consoleResult = await runOnMacWebview(codeToRun, tmpFilePath, docDir, context, graphExportOptions);
                 if (consoleResult.success) {
                     vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
                     await refreshMemoryVarsAfterRun(context, consoleResult);

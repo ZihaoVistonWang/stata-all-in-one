@@ -423,6 +423,12 @@ class WebviewTerminalSink {
         appendEntries(this._renderer.renderCommandSegments(command, this._width));
     }
 
+    writeStrikethroughCommand(lines) {
+        if (lines && lines.length) {
+            appendEntries(this._renderer.renderStrikethroughCommandSegments(lines));
+        }
+    }
+
     writeOutputChunk(text) {
         const rendered = this._renderer.renderOutputChunkSegments(text, this._width);
         if (rendered.length) {
@@ -957,6 +963,9 @@ function getWebviewHtml(webview) {
         }
         .is-italic {
             font-style: italic;
+        }
+        .is-strikethrough {
+            text-decoration: line-through;
         }
         .line-error,
         .line-break,

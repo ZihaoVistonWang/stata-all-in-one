@@ -524,6 +524,17 @@ async function runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir = null
             }
         };
 
+        // 先写出被剥离的 graph export 行（删除线样式），再写正式命令
+        if (options && options.graphExportLines && options.graphExportLines.length) {
+            if (typeof outputSink.writeStrikethroughCommand === 'function') {
+                outputSink.writeStrikethroughCommand(options.graphExportLines);
+            } else {
+                // Fallback: 作为普通输出写出，前缀提示
+                for (const line of options.graphExportLines) {
+                    outputSink.writeOutputChunk(`⚠️ 已跳过: ${line}\n`);
+                }
+            }
+        }
         if (typeof outputSink.writeCommand === 'function') {
             outputSink.writeCommand(executionPlan.displayCode || normalizedCode);
         }

@@ -526,6 +526,13 @@ class StataTerminalRenderer {
         return lines.map((line, index) => this._segmentCommandLine(`${index === 0 ? '. ' : '> '}${line}`, width));
     }
 
+    renderStrikethroughCommandSegments(lines) {
+        // 删除线行不带命令提示符，作为独立提示块展示
+        return lines.map((line) =>
+            this._segmentStrikethroughCommandLine(line)
+        );
+    }
+
     renderOutputChunk(text, width) {
         const normalized = String(text || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
         if (!normalized) {
@@ -1663,6 +1670,17 @@ class StataTerminalRenderer {
         };
     }
 
+    _segmentStrikethroughCommandLine(line) {
+        const prompt = (line.startsWith('. ') || line.startsWith('> ')) ? line.slice(0, 2) : '';
+        const body = prompt ? line.slice(2) : line;
+        const segments = [];
+        if (prompt) {
+            segments.push(this._segment(prompt, this._styleForTokenType('prompt', { bold: true })));
+        }
+        segments.push(this._segment(body, this._styleForTokenType('comment', { strikethrough: true })));
+        return { kind: 'command', segments };
+    }
+
     _foregroundForCommandToken(type, scopes, tokenForeground) {
         if (hasSpecificGrammarScope(scopes)) {
             if (tokenForeground) {
@@ -1928,6 +1946,9 @@ class StataTerminalRenderer {
         if (overrides.dim) {
             style.dim = true;
         }
+        if (overrides.strikethrough) {
+            style.strikethrough = true;
+        }
         return style;
     }
 
@@ -1941,6 +1962,9 @@ class StataTerminalRenderer {
         }
         if (style.dim) {
             classNames.push('is-dim');
+        }
+        if (style.strikethrough) {
+            classNames.push('is-strikethrough');
         }
         return classNames.join(' ');
     }
