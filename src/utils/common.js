@@ -155,7 +155,23 @@ const UI_TEXT = {
         aiSkillCopiedTitle: 'Prompt Copied',
         aiSkillCopiedMessage: 'Paste the prompt into Claude Code, Codex, Open Code, OpenClaw or any other AI coding tool.',
         aiSkillCopiedOk: 'Got it',
-        aiSkillCloseBtn: 'Close'
+        aiSkillCloseBtn: 'Close',
+        // Console unavailable diagnostic toast keys
+        consoleUnavailPrefix: ({ reason }) => `Embedded Console unavailable on this device. ${reason}`,
+        consoleUnavailLicense: 'Stata license file (stata.lic) not found. Please install a licensed copy of Stata.',
+        consoleUnavailLibrary: 'Stata installation not detected. Please install Stata MP/SE/BE in /Applications.',
+        consoleUnavailNative: 'Native bridge module not loaded. Please ensure stata_bridge.node is compiled (run: npm run build:native).',
+        consoleUnavailSessionInit: ({ error }) => `Stata session initialization failed: ${error}`,
+        consoleUnavailUnknown: ({ reason }) => `Unknown error: ${reason}`,
+        // Capability state keys
+        capabilityUnverified: 'Please run Stata code in the editor first to activate data viewing features.',
+        capabilityExternalOnly: 'Data Viewer is not available on this device (Embedded Console unsupported).',
+        capabilityUnverifiedAI: 'Please run Stata code in the editor first to activate AI Skill.',
+        // Diagnose command keys
+        diagnoseConsoleAvailable: 'Embedded Console is available. Session initialized.',
+        diagnoseConsoleRunning: 'Embedded Console is available. Active session found.',
+        // Dynamic tip for when console is available but user chose external app
+        consoleAvailSuggestSwitchBack: 'Tip: Embedded Console is available on this device. You can switch from External App to Embedded Console in Settings → Stata All-in-One → Run Mode.',
     },
     zh: {
         lineTooLong: '行长度不足，请在设置中增大分隔线长度。',
@@ -304,7 +320,23 @@ const UI_TEXT = {
         aiSkillCopiedTitle: '提示词已复制',
         aiSkillCopiedMessage: '请粘贴到 Claude Code、Codex、Open Code、OpenClaw 等 AI 编程工具中。',
         aiSkillCopiedOk: '知道了',
-        aiSkillCloseBtn: '关闭'
+        aiSkillCloseBtn: '关闭',
+        // Console unavailable diagnostic toast keys
+        consoleUnavailPrefix: ({ reason }) => `本设备嵌入式控制台不可用，${reason}`,
+        consoleUnavailLicense: '未找到Stata许可证文件(stata.lic)，请安装正版Stata。',
+        consoleUnavailLibrary: '未检测到Stata安装。请在/Applications中安装Stata MP/SE/BE。',
+        consoleUnavailNative: '原生桥接模块未加载。请确保已编译stata_bridge.node（运行 npm run build:native）。',
+        consoleUnavailSessionInit: ({ error }) => `Stata会话初始化失败：${error}`,
+        consoleUnavailUnknown: ({ reason }) => `未知错误：${reason}`,
+        // Capability state keys
+        capabilityUnverified: '请先在编辑器中运行Stata代码以激活数据查看功能',
+        capabilityExternalOnly: '本设备不可使用数据查看器',
+        capabilityUnverifiedAI: '请先在编辑器中运行 Stata 代码以激活 AI Skill 功能',
+        // Diagnose command keys
+        diagnoseConsoleAvailable: '嵌入式控制台可用，会话已初始化。',
+        diagnoseConsoleRunning: '嵌入式控制台可用，当前已有活动会话。',
+        // Dynamic tip for when console is available but user chose external app
+        consoleAvailSuggestSwitchBack: '提示：本设备支持嵌入式控制台。您可以在 设置 → Stata All-in-One → Run Mode 中将运行模式从 External App 切换为 Embedded Console。',
     }
 };
 
@@ -541,11 +573,35 @@ function buildSeparatorSegment(unit, length) {
     return result.join('');
 }
 
+/**
+ * Show a non-modal bottom-right toast explaining why the Embedded Console is unavailable.
+ * Maps failCode to a specific localized reason message.
+ * @param {{ failCode?: string, message?: string, reason?: string }} result
+ */
+function showConsoleUnavailableToast({ failCode, message, reason }) {
+    const code = failCode || 'UNKNOWN_ERROR';
+    const keyMap = {
+        LICENSE_NOT_FOUND: 'consoleUnavailLicense',
+        LIBRARY_NOT_FOUND: 'consoleUnavailLibrary',
+        NATIVE_NOT_LOADED: 'consoleUnavailNative',
+        SESSION_INIT_FAILED: 'consoleUnavailSessionInit',
+        UNKNOWN_ERROR: 'consoleUnavailUnknown'
+    };
+    const key = keyMap[code] || 'consoleUnavailUnknown';
+    const params = (code === 'SESSION_INIT_FAILED') ? { error: message || reason }
+                 : (code === 'UNKNOWN_ERROR') ? { reason: reason || message }
+                 : {};
+    const specific = msg(key, params);
+    const full = msg('consoleUnavailPrefix', { reason: specific });
+    showWarn(full);
+}
+
 module.exports = {
     EXT_LABEL,
     showInfo,
     showWarn,
     showError,
+    showConsoleUnavailableToast,
     msg,
     getUserLanguage,
     isWindows,

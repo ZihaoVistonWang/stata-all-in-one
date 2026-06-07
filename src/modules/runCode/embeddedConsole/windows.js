@@ -352,6 +352,11 @@ function findStataDll() {
 // =========================================================================
 
 async function ensureConsoleSession(context) {
+    // If session was marked stale (console panel closed), shut it down first.
+    if (session.isSessionStale()) {
+        session.clearStaleSession();
+    }
+
     if (session.hasActiveConsoleSession()) {
         return {
             success: true,
@@ -364,6 +369,7 @@ async function ensureConsoleSession(context) {
     if (!dllInfo.path) {
         return {
             success: false,
+            failCode: 'LIBRARY_NOT_FOUND',
             reason: '无法找到 Stata DLL。请在设置 stata-all-in-one.stataPathOnWindows 中指定 Stata EXE 路径（如 D:\\Stata17\\StataMP-64.exe）。'
         };
     }
@@ -376,7 +382,7 @@ async function ensureConsoleSession(context) {
     // Pre-check: no license file → bail out early, let the caller show dialog.
     if (!fs.existsSync(licPath)) {
         console.log('Stata All in One: No stata.lic found in', exeDir);
-        return { success: false, noLicense: true, reason: '' };
+        return { success: false, noLicense: true, failCode: 'LICENSE_NOT_FOUND', reason: '' };
     }
 
     process.env.STATA_LICENSE = licPath;
@@ -387,6 +393,7 @@ async function ensureConsoleSession(context) {
         console.error('Stata All in One: Session initialization failed:', initResult.error);
         return {
             success: false,
+            failCode: initResult.failCode || 'SESSION_INIT_FAILED',
             reason: `Stata 会话初始化失败 (${dllInfo.path})：${initResult.error}。请检查 Stata ${dllInfo.edition ? dllInfo.edition.toUpperCase() : ''} 是否正确安装。`
         };
     }
@@ -439,7 +446,8 @@ async function runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir = null
                 shouldOfferGuiFallback: true,
                 errorType: 'extension',
                 message: initResult.reason,
-                noLicense: initResult.noLicense || false
+                noLicense: initResult.noLicense || false,
+                failCode: initResult.failCode || 'UNKNOWN_ERROR'
             };
         }
 
@@ -615,7 +623,8 @@ async function runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir = null
             success: false,
             shouldOfferGuiFallback: true,
             errorType: 'extension',
-            message: `Stata 执行错误: ${error.message}`
+            message: `Stata 执行错误: ${error.message}`,
+            failCode: 'UNKNOWN_ERROR'
         };
     } finally {
         outputSink.flushOutput();
@@ -666,6 +675,7 @@ async function ensureWebviewBootstrap(consoleSession) {
     }
 
     const bootstrapCommands = [
+        'quietly clear all',
         'quietly set more off',
         'quietly set linesize 255'
     ];
@@ -987,6 +997,7 @@ function forceShutdownEmbeddedConsoleSession() {
 
 module.exports = {
     findStataDll,
+    ensureConsoleSession,
     showConsoleLicenseDialog,
     runOnWindowsEmbeddedConsole,
     initConsoleSession,

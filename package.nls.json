@@ -22,6 +22,8 @@
   "config.aiSkillPort.description": "Port number for the AI Skill HTTP server (default: 19521). Change this if the port is already in use by another application.",
   "command.startAIServer.title": "Stata All in One: Start AI Skill Server",
   "command.stopAIServer.title": "Stata All in One: Stop AI Skill Server",
+  "command.diagnoseConsole.title": "Stata All in One: Diagnose Console Status",
+  "command.resetCapabilityState.title": "Stata All in One: Reset Capability State (Debug)",
   "command.showAISkillDialog.title": "AI",
   "command.showAISkillDialog.tooltip": "Stata All in One AI Skill — Let AI agents run Stata code",
   "command.setLevel1.title": "Stata All in One: Set as Level 1 Heading",

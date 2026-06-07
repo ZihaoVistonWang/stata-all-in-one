@@ -11,6 +11,7 @@ const nodePath = require('path');
 
 // Module-level singleton
 let _consoleSessionInstance = null;
+let _sessionStale = false; // true when console panel was closed — session should be recreated
 
 // Platform-aware globalState key for persisting library path
 const kLibraryPathKey = process.platform === 'win32'
@@ -111,7 +112,7 @@ class StataConsoleSession {
      */
     async init(libraryPath) {
         if (!native.isLoaded()) {
-            return { success: false, error: 'Native module not loaded.' };
+            return { success: false, error: 'Native module not loaded.', failCode: 'NATIVE_NOT_LOADED' };
         }
 
         if (this._initialized) {
@@ -119,6 +120,17 @@ class StataConsoleSession {
                 return { success: true, error: '' };
             }
             this.shutdown();
+        }
+
+        // If the native C++ session is still alive from a previous JS wrapper
+        // (panel was closed without native shutdown to avoid dlclose crash),
+        // just reconnect this JS wrapper to the existing native session.
+        if (native.isInitialized()) {
+            console.log('Stata All in One: Reconnecting to existing native session');
+            this._initialized = true;
+            this._libraryPath = libraryPath;
+            this._saveState();
+            return { success: true, error: '' };
         }
 
         try {
@@ -136,10 +148,10 @@ class StataConsoleSession {
             }
 
             console.error('Stata All in One: Initialization returned false.');
-            return { success: false, error: 'StataSO_Main returned failure.' };
+            return { success: false, error: 'StataSO_Main returned failure.', failCode: 'SESSION_INIT_FAILED' };
         } catch (error) {
             console.error('Stata All in One: Initialization failed:', error.message);
-            return { success: false, error: error.message };
+            return { success: false, error: error.message, failCode: 'SESSION_INIT_FAILED' };
         }
     }
 
@@ -319,7 +331,40 @@ async function initConsoleSession(context, dylibPath) {
  * @returns {boolean}
  */
 function hasActiveConsoleSession() {
+    if (_sessionStale) return false;
     return _consoleSessionInstance !== null && _consoleSessionInstance.isInitialized();
+}
+
+/**
+ * Mark the current session as stale (console panel was closed).
+ * Next run will auto-shutdown the old session and create a fresh one.
+ * The shutdown is deferred to avoid the C++ dlclose/FreeLibrary race
+ * condition with active execution worker threads.
+ */
+function markSessionStale() {
+    _sessionStale = true;
+}
+
+/**
+ * Check if a session exists but is stale (panel was closed).
+ * Caller should shut down the old session and recreate.
+ */
+function isSessionStale() {
+    return _sessionStale && _consoleSessionInstance !== null && _consoleSessionInstance.isInitialized();
+}
+
+/**
+ * Clear a stale session WITHOUT calling native shutdown.
+ * The native C++ dlclose/FreeLibrary can crash VS Code due to a race
+ * condition with detached worker threads. Instead, we just drop the JS
+ * wrapper — the next session.init() will detect that the native module
+ * is already initialized and skip the C++ init call.
+ */
+function clearStaleSession() {
+    if (_sessionStale && _consoleSessionInstance) {
+        _consoleSessionInstance = null;
+    }
+    _sessionStale = false;
 }
 
 /**
@@ -350,5 +395,8 @@ module.exports = {
     getActiveSession,
     initConsoleSession,
     hasActiveConsoleSession,
-    forceShutdownConsoleSession
+    forceShutdownConsoleSession,
+    markSessionStale,
+    isSessionStale,
+    clearStaleSession
 };

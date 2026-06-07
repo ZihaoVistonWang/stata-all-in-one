@@ -22,6 +22,8 @@
   "config.aiSkillPort.description": "AI Skill HTTP 服务器的端口号（默认：19521）。如果该端口已被其他应用占用，可在此更改。",
   "command.startAIServer.title": "Stata All in One：启动 AI Skill 服务器",
   "command.stopAIServer.title": "Stata All in One：停止 AI Skill 服务器",
+  "command.diagnoseConsole.title": "Stata All in One：诊断控制台状态",
+  "command.resetCapabilityState.title": "Stata All in One：重置能力状态（调试）",
   "command.showAISkillDialog.title": "AI",
   "command.showAISkillDialog.tooltip": "Stata All in One AI Skill — 让 AI 编程工具运行 Stata 代码",
   "command.setLevel1.title": "Stata All in One：设为 1 级标题",

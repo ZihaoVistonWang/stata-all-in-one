@@ -9,6 +9,7 @@ const CONSOLE_OPEN_STATE_KEY = 'embeddedConsolePanelOpen';
 const { StataBuiltinCommands, StataKeywords, StataFunctions } = require('../../completionProvider');
 const variableSuggestions = require('../../variableSuggestionService');
 const config = require('../../../utils/config');
+const capability = require('../../capability');
 
 const _renderer = new StataTerminalRenderer();
 
@@ -113,7 +114,7 @@ function attachPanel(panel) {
     if (_context) {
         _context.globalState.update(CONSOLE_OPEN_STATE_KEY, true);
     }
-    _panel.onDidDispose(() => {
+    _panel.onDidDispose(async () => {
         if (_panel === panel) {
             _panel = null;
             // Clear all state — fresh console on next open
@@ -125,10 +126,14 @@ function attachPanel(panel) {
             if (_context) {
                 _context.globalState.update(CONSOLE_OPEN_STATE_KEY, false);
             }
-            // Destroy the Stata session so a fresh one starts next time
+            // Mark session as stale — a fresh one will be created on next run.
+            // We do NOT force-shutdown here because the C++ output-polling
+            // worker threads race with dlclose/FreeLibrary and crash VS Code.
+            // The stale session will be cleanly shut down before the next run
+            // (when no execution workers are active).
             try {
                 const session = require('./session');
-                session.forceShutdownConsoleSession();
+                session.markSessionStale();
             } catch (_e) {}
         }
     });
@@ -205,13 +210,21 @@ function postState() {
         return;
     }
 
+    // Base tips from i18n
+    let tips = [...msg('composerTips')];
+
+    // Dynamic tip: console is proven available but user chose externalApp → suggest switching
+    if (config.getRunMode() === 'externalApp' && capability.getCapabilityState() === 'console') {
+        tips.push(msg('consoleAvailSuggestSwitchBack'));
+    }
+
     _panel.webview.postMessage({
         type: 'reset',
         status: _status,
         entries: hydrateEntriesForWebview(_history),
         overflowNoticeSuppressed: _overflowNoticeSuppressed,
         workingDetail: _workingDetail,
-        composerTips: msg('composerTips')
+        composerTips: tips
     });
 }
 

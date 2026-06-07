@@ -364,6 +364,12 @@ function findStataDylib(preferredEdition = null, savedPath = null) {
 }
 
 async function ensureConsoleSession(context) {
+    // If session was marked stale (console panel closed), shut it down first.
+    // This deferred shutdown is safe because no execution is running right now.
+    if (session.isSessionStale()) {
+        session.clearStaleSession();
+    }
+
     if (session.hasActiveConsoleSession()) {
         return {
             success: true,
@@ -378,6 +384,7 @@ async function ensureConsoleSession(context) {
         console.error('Stata All in One: 未找到 Stata dylib，已安装版本:', dylibInfo.installed);
         return {
             success: false,
+            failCode: 'LIBRARY_NOT_FOUND',
             reason: '无法找到 Stata。请确保 Stata MP/SE/BE 已安装在 /Applications 目录下。'
         };
     }
@@ -397,7 +404,7 @@ async function ensureConsoleSession(context) {
     // Pre-check: no license file → bail out early, let caller show dialog
     if (!licPath || !fs.existsSync(licPath)) {
         console.log('Stata All in One: No stata.lic found in', stHomeDir);
-        return { success: false, noLicense: true, reason: '' };
+        return { success: false, noLicense: true, failCode: 'LICENSE_NOT_FOUND', reason: '' };
     }
 
     process.env.STATA_LICENSE = licPath;
@@ -409,6 +416,7 @@ async function ensureConsoleSession(context) {
         const detail = initResult.error ? `：${initResult.error}` : '';
         return {
             success: false,
+            failCode: initResult.failCode || 'SESSION_INIT_FAILED',
             reason: `Stata 会话初始化失败${detail}。请检查 Stata ${dylibInfo.edition ? dylibInfo.edition.toUpperCase() : ''} 是否正确安装。`
         };
     }
@@ -454,7 +462,8 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
                 shouldOfferGuiFallback: true,
                 errorType: 'extension',
                 message: initResult.reason,
-                noLicense: initResult.noLicense || false
+                noLicense: initResult.noLicense || false,
+                failCode: initResult.failCode || 'UNKNOWN_ERROR'
             };
         }
 
@@ -616,7 +625,8 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
             success: false,
             shouldOfferGuiFallback: true,
             errorType: 'extension',
-            message: `Stata 执行错误: ${error.message}`
+            message: `Stata 执行错误: ${error.message}`,
+            failCode: 'UNKNOWN_ERROR'
         };
     } finally {
         outputSink.flushOutput();
@@ -663,6 +673,7 @@ async function ensureWebviewBootstrap(consoleSession) {
     }
 
     const bootstrapCommands = [
+        'quietly clear all',
         'quietly set more off',
         'quietly set linesize 255'
     ];
@@ -980,6 +991,7 @@ function forceShutdownConsoleSession() {
 
 module.exports = {
     findStataDylib,
+    ensureConsoleSession,
     showConsoleLicenseDialog,
     runOnMacWebview,
     initConsoleSession,

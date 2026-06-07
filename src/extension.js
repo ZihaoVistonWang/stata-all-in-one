@@ -23,13 +23,14 @@ const { syncConsoleTerminalTheme } = require('./modules/runCode/embeddedConsole/
 const { prewarmConsoleTextmateTokenizer } = require('./modules/runCode/embeddedConsole/textmateTokenizer');
 const { registerDtaDataViewer } = require('./modules/runCode/embeddedConsole/dataViewer/dtaEditor');
 const { registerHoverProvider, buildHelpIndex, createHoverProvider, DocumentCache } = require('./modules/hoverProvider');
-const { isWindows, isMacOS, showInfo, showWarn, msg } = require('./utils/common');
+const { isWindows, isMacOS, showInfo, showWarn, showConsoleUnavailableToast, msg } = require('./utils/common');
 const { startServer: startAIServer, stopServer: stopAIServer, isServerRunning: isAIServerRunning, getServerPort: getAIServerPort } = require('./modules/aiSkill/httpServer');
 const { getActiveSession, getConsoleSession, initConsoleSession } = require('./modules/runCode/embeddedConsole/session');
 const { findStataDylib } = require('./modules/runCode/embeddedConsole/mac');
 const { findStataDll } = require('./modules/runCode/embeddedConsole/windows');
 
 const { ensureConsoleFontCache, getConsoleFontWebviewOptions } = require('./utils/consoleFonts');
+const capability = require('./modules/capability');
 const config = require('./utils/config');
 
 // Execution session state context key for "stop" button visibility
@@ -264,6 +265,9 @@ async function activate(context) {
     
     // Initialize execution session context to false
     vscode.commands.executeCommand('setContext', CONSOLE_SESSION_ACTIVE_KEY, false);
+
+    // Initialize capability state (UNVERIFIED → CONSOLE | EXTERNAL)
+    capability.initCapabilityState(context);
     
     // Check if Stata Outline is installed
     if (isStataOutlineInstalled()) {
@@ -594,6 +598,56 @@ async function activate(context) {
     );
     context.subscriptions.push(resetPreviewNotificationCommand);
 
+    // ========== Diagnose Console ==========
+
+    // Register diagnose console command
+    const diagnoseConsoleCommand = vscode.commands.registerCommand(
+        'stata-all-in-one.diagnoseConsole',
+        async () => {
+            console.log('Stata All in One: Diagnose console command triggered');
+            try {
+                let ensureConsoleSessionFn;
+                if (isWindows()) {
+                    ensureConsoleSessionFn = require('./modules/runCode/embeddedConsole/windows').ensureConsoleSession;
+                } else if (isMacOS()) {
+                    ensureConsoleSessionFn = require('./modules/runCode/embeddedConsole/mac').ensureConsoleSession;
+                } else {
+                    showInfo(msg('unsupportedPlatform'));
+                    return;
+                }
+
+                const result = await ensureConsoleSessionFn(context);
+                if (result.success) {
+                    await capability.setCapabilityState(context, 'console');
+                    showInfo(result.fromExisting
+                        ? msg('diagnoseConsoleRunning')
+                        : msg('diagnoseConsoleAvailable'));
+                } else {
+                    showConsoleUnavailableToast(result);
+                    // Only transition to external if not already console
+                    if (capability.getCapabilityState() !== 'console') {
+                        await capability.setCapabilityState(context, 'external');
+                    }
+                }
+            } catch (err) {
+                console.error('Stata All in One: Diagnose console error:', err.message);
+                showError(`Diagnose failed: ${err.message}`);
+            }
+        }
+    );
+    context.subscriptions.push(diagnoseConsoleCommand);
+
+    // Register reset capability state command (debug)
+    const resetCapabilityStateCommand = vscode.commands.registerCommand(
+        'stata-all-in-one.resetCapabilityState',
+        async () => {
+            console.log('Stata All in One: Reset capability state command triggered');
+            await capability.setCapabilityState(context, 'unverified');
+            showInfo('Capability state has been reset to UNVERIFIED. AI button, data viewer, and AI Skill are now locked until you run Stata code again.');
+        }
+    );
+    context.subscriptions.push(resetCapabilityStateCommand);
+
     // ========== AI Skill ==========
 
     // Register AI Skill dialog command (editor title button)
@@ -657,6 +711,10 @@ async function activate(context) {
     const startAIServerCommand = vscode.commands.registerCommand(
         'stata-all-in-one.startAIServer',
         async () => {
+            if (capability.getCapabilityState() !== 'console') {
+                showWarn(msg('capabilityUnverifiedAI'));
+                return;
+            }
             const ok = await ensureSessionAndStartServer();
             if (ok) {
                 const port = vscode.workspace.getConfiguration('stata-all-in-one').get('aiSkillPort', 19521);
@@ -682,9 +740,9 @@ async function activate(context) {
     );
     context.subscriptions.push(stopAIServerCommand);
 
-    // Auto-start AI server if enabled
+    // Auto-start AI server if enabled and console is capable
     const aiSkillEnabled = vscode.workspace.getConfiguration('stata-all-in-one').get('aiSkillEnabled', true);
-    if (aiSkillEnabled) {
+    if (aiSkillEnabled && capability.getCapabilityState() === 'console') {
         let autoStartNotified = false;
         const tryAutoStart = async () => {
             try {

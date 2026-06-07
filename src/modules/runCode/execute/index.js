@@ -11,7 +11,8 @@ const path = require('path');
 const variableSuggestions = require('../../variableSuggestionService');
 
 // 工具函数导入
-const { isWindows, isMacOS, showInfo, showWarn, showError, stripSurroundingQuotes, msg } = require('../../../utils/common');
+const { isWindows, isMacOS, showInfo, showWarn, showError, showConsoleUnavailableToast, stripSurroundingQuotes, msg } = require('../../../utils/common');
+const capability = require('../../capability');
 const config = require('../../../utils/config');
 
 // External App 执行函数导入
@@ -209,8 +210,11 @@ async function runCurrentSection(context, editor = null) {
                 const consoleResult = await runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir, context, graphExportOptions);
                 if (consoleResult.success) {
                     vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
+                    capability.setCapabilityState(context, 'console');
                     await refreshMemoryVarsAfterRun(context, consoleResult);
                 } else if (consoleResult.shouldOfferGuiFallback) {
+                    showConsoleUnavailableToast(consoleResult);
+                    capability.setCapabilityState(context, 'external');
                     if (consoleResult.noLicense) {
                         const { showConsoleLicenseDialog } = require('../embeddedConsole/windows');
                         await showConsoleLicenseDialog(context);
@@ -232,8 +236,11 @@ async function runCurrentSection(context, editor = null) {
                 const consoleResult = await runOnMacWebview(codeToRun, tmpFilePath, docDir, context, graphExportOptions);
                 if (consoleResult.success) {
                     vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
+                    capability.setCapabilityState(context, 'console');
                     await refreshMemoryVarsAfterRun(context, consoleResult);
                 } else if (consoleResult.shouldOfferGuiFallback) {
+                    showConsoleUnavailableToast(consoleResult);
+                    capability.setCapabilityState(context, 'external');
                     if (consoleResult.noLicense) {
                         const { showConsoleLicenseDialog } = require('../embeddedConsole/mac');
                         await showConsoleLicenseDialog(context);
@@ -361,13 +368,14 @@ async function runArbitraryCode(context, code, options = {}) {
             const consoleResult = await runOnWindowsEmbeddedConsole(normalizedCode, tmpFilePath, docDir, context);
             if (consoleResult.success) {
                 await vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
+                capability.setCapabilityState(context, 'console');
                 await refreshMemoryVarsAfterRun(context, consoleResult);
                 return consoleResult;
             }
             if (consoleResult.shouldOfferGuiFallback) {
+                showConsoleUnavailableToast(consoleResult);
+                capability.setCapabilityState(context, 'external');
                 if (consoleResult.noLicense) {
-                    // License missing → show dedicated modal dialog, then
-                    // silently fall back to External App (no extra notification).
                     const { showConsoleLicenseDialog } = require('../embeddedConsole/windows');
                     await showConsoleLicenseDialog(context);
                     await runOnWindows(normalizedCode, tmpFilePath, stataPathOnWindows, docDir, context);
@@ -391,13 +399,14 @@ async function runArbitraryCode(context, code, options = {}) {
         const consoleResult = await runOnMacWebview(normalizedCode, tmpFilePath, docDir, context);
         if (consoleResult.success) {
             await vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
+            capability.setCapabilityState(context, 'console');
             await refreshMemoryVarsAfterRun(context, consoleResult);
             return consoleResult;
         }
         if (consoleResult.shouldOfferGuiFallback) {
+            showConsoleUnavailableToast(consoleResult);
+            capability.setCapabilityState(context, 'external');
             if (consoleResult.noLicense) {
-                // License missing → show dedicated modal dialog, then
-                // silently fall back to External App (no extra notification).
                 const { showConsoleLicenseDialog } = require('../embeddedConsole/mac');
                 await showConsoleLicenseDialog(context);
                 runOnMac(normalizedCode, tmpFilePath, false, docDir, context);

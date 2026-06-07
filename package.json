@@ -361,6 +361,14 @@
         "title": "%command.stopAIServer.title%"
       },
       {
+        "command": "stata-all-in-one.diagnoseConsole",
+        "title": "%command.diagnoseConsole.title%"
+      },
+      {
+        "command": "stata-all-in-one.resetCapabilityState",
+        "title": "%command.resetCapabilityState.title%"
+      },
+      {
         "command": "stata-all-in-one.showAISkillDialog",
         "title": "%command.showAISkillDialog.title%"
       }
@@ -484,7 +492,7 @@
         },
         {
           "command": "stata-all-in-one.showAISkillDialog",
-          "when": "editorLangId == stata && config.stata-all-in-one.showActionButtons",
+          "when": "editorLangId == stata && config.stata-all-in-one.showActionButtons && stata-all-in-one.consoleCapable",
           "group": "navigation@1.8"
         },
         {
