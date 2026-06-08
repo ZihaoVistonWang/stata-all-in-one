@@ -122,7 +122,7 @@ function stripGraphExport(code) {
     const kept = [];
     const removed = [];
     for (const line of lines) {
-        if (/^\s*(quietly\s+)?graph\s+export\b/i.test(line)) {
+        if (/^\s*(\.\s?)?(quietly\s+)?graph\s+export\b/i.test(line)) {
             removed.push(line.trim());
         } else {
             kept.push(line);
@@ -177,7 +177,7 @@ async function runCurrentSection(context, editor = null) {
         const originalLines = originalCode.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
         const indices = new Set();
         originalLines.forEach((line, i) => {
-            if (/^\s*(quietly\s+)?graph\s+export\b/i.test(line)) {
+            if (/^\s*(\.\s?)?(quietly\s+)?graph\s+export\b/i.test(line)) {
                 indices.add(i);
             }
         });
@@ -355,6 +355,28 @@ async function runArbitraryCode(context, code, options = {}) {
     const docDir = options.docDir || resolveExecutionDirectory();
     const tmpFilePath = path.join(docDir, 'stata_all_in_one_temp.do');
 
+    // 剔除 graph export 命令：图形已由控制台自动捕获，手动 export 不必要
+    // 控制台显示保留原始代码（graph export 行以删除线标注），执行使用剥离后代码
+    const stripped = stripGraphExport(normalizedCode);
+    let graphExportOptions;
+    if (stripped.removed.length && runMode === config.RUN_MODES.embeddedConsole) {
+        const originalLines = normalizedCode.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+        const indices = new Set();
+        originalLines.forEach((line, i) => {
+            if (/^\s*(\.\s?)?(quietly\s+)?graph\s+export\b/i.test(line)) {
+                indices.add(i);
+            }
+        });
+        graphExportOptions = {
+            execCode: stripped.code,
+            graphExportLineIndices: indices
+        };
+        const msgText = stripped.removed.length === 1
+            ? `⚠️ 已跳过 graph export 命令。图形已自动捕获，请点击图片右上角的保存按钮进行保存。`
+            : `⚠️ 已跳过 ${stripped.removed.length} 条 graph export 命令。图形已自动捕获，请点击图片右上角的保存按钮进行保存。`;
+        vscode.window.showInformationMessage(msgText);
+    }
+
     try {
         let result = null;
         if (onWindows) {
@@ -367,7 +389,7 @@ async function runArbitraryCode(context, code, options = {}) {
             }
 
             await vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
-            const consoleResult = await runOnWindowsEmbeddedConsole(normalizedCode, tmpFilePath, docDir, context);
+            const consoleResult = await runOnWindowsEmbeddedConsole(normalizedCode, tmpFilePath, docDir, context, graphExportOptions);
             if (consoleResult.success) {
                 await vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
                 capability.setCapabilityState(context, 'console');
@@ -398,7 +420,7 @@ async function runArbitraryCode(context, code, options = {}) {
         }
 
         await vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
-        const consoleResult = await runOnMacWebview(normalizedCode, tmpFilePath, docDir, context);
+        const consoleResult = await runOnMacWebview(normalizedCode, tmpFilePath, docDir, context, graphExportOptions);
         if (consoleResult.success) {
             await vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
             capability.setCapabilityState(context, 'console');

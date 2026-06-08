@@ -122,7 +122,7 @@ function stripGraphExport(code) {
     const kept = [];
     const removed = [];
     for (const line of lines) {
-        if (/^\s*(quietly\s+)?graph\s+export\b/i.test(line)) {
+        if (/^\s*(\.\s?)?(quietly\s+)?graph\s+export\b/i.test(line)) {
             removed.push(line.trim());
         } else {
             kept.push(line);

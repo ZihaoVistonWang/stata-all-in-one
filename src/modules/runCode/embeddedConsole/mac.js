@@ -489,7 +489,9 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
 
         const normalizedCode = normalizeCodeToRun(codeToRun);
         // 执行用剥离 graph export 后的代码（options.execCode），显示用原始代码
-        const execCode = (options && options.execCode)
+        // 注意：execCode 可能为 ''（全部行都是 graph export），所以用 !== undefined 而非 truthy 判断
+        const hasStrippedCode = options && options.execCode !== undefined;
+        const execCode = hasStrippedCode
             ? normalizeCodeToRun(options.execCode)
             : normalizedCode;
         const graphExportLineIndices = (options && options.graphExportLineIndices instanceof Set)
@@ -561,7 +563,11 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
         }
 
         let result = null;
-        if (Array.isArray(executionPlan.commands) && executionPlan.commands.length) {
+        if (!execCode.trim()) {
+            // 全部行都是 graph export，无实际代码需要执行
+            console.log(`[mac.js] All lines were graph export — skipping execution`);
+            result = { success: true, returnCode: 0, output: '' };
+        } else if (Array.isArray(executionPlan.commands) && executionPlan.commands.length) {
             for (const command of executionPlan.commands) {
                 result = await consoleSession.execute(command, false, onExecutionChunk);
                 if (!result.success) {
