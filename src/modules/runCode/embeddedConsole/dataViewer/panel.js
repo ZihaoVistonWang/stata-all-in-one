@@ -15,11 +15,6 @@ const _pendingFilter = { console: '', file: '' };
 // File-mode state: loaded entirely in memory so it doesn't touch the Stata session after initial export
 const _fileState = {
     filePath: null,
-    allRows: null,       // all data rows exported from the .dta file
-    allVars: null,        // variable metadata
-    info: null,           // dataset info
-    dataColumns: null,    // variable names for data tab
-    allVarNames: null,    // all variable names (for autocomplete)
     preserved: false,     // whether console session was preserved
 };
 const _renderer = new StataTerminalRenderer();
@@ -1506,11 +1501,6 @@ function attachPanel(panel, mode) {
                 // File panel closed: restore console session and clear file state
                 restorePreservedSession();
                 _fileState.filePath = null;
-                _fileState.allRows = null;
-                _fileState.allVars = null;
-                _fileState.info = null;
-                _fileState.dataColumns = null;
-                _fileState.allVarNames = null;
             }
         }
     });
@@ -1632,51 +1622,30 @@ async function refreshDataViewer(mode, filterText) {
 
 // ── file-mode refresh: briefly use Stata session to export all rows, then restore ──
 async function refreshFileData(filterText) {
-    // If filter unchanged and we have cached data, skip the Stata round-trip
-    const ft = filterText || '';
-    if (_fileState.allRows && ft === (_pendingFilter['file'] || '')) {
-        return {
-            info: _fileState.info,
-            vars: _fileState.allVars,
-            dataColumns: _fileState.dataColumns,
-            dataRows: _fileState.allRows,
-            allVarNames: _fileState.allVarNames,
-            hasMore: false
-        };
-    }
-
     const session = require('../session').getActiveSession();
     if (!session) return { error: 'Stata session not initialized' };
     if (!_fileState.filePath) return { error: 'No file loaded' };
 
-    // preserve current state → load file → export → restore
+    // preserve → load file → export → restore
     const hadData = await preserveIfNeeded(session);
     try {
         await session.execute('cd "' + escapeStataPath(path.dirname(_fileState.filePath)) + '"', false);
         await session.execute('use "' + escapeStataPath(_fileState.filePath) + '", clear', false);
 
-        // Export ALL rows (up to safe limit); the webview handles virtual scrolling client-side
         const MAX_FILE_ROWS = 200000;
         const data = await fetchDataSnapshot(MAX_FILE_ROWS, filterText || '');
 
-        // Cache in memory so subsequent operations don't need Stata
         if (!data.error) {
-            _fileState.allRows = data.dataRows || [];
-            _fileState.allVars = data.vars || [];
-            _fileState.info = data.info || {};
-            _fileState.dataColumns = data.dataColumns || [];
-            _fileState.allVarNames = data.allVarNames || [];
-            data.dataRows = _fileState.allRows; // send all rows at once
-            data.hasMore = false;               // signal webview: no lazy loading needed
+            data.hasMore = false;
         }
         return data;
     } finally {
-        // Always restore the console's original dataset
         if (_fileState.preserved) {
             await session.execute('restore', false);
         }
     }
 }
+
 
 // ── preserve console session if it has data ────────────────────────────────────
 async function preserveIfNeeded(session) {
@@ -1808,11 +1777,6 @@ async function openDtaFile(context, uri, panel) {
         const MAX_FILE_ROWS = 200000;
         const data = await fetchDataSnapshot(MAX_FILE_ROWS, '');
         if (data && !data.error) {
-            _fileState.allRows = data.dataRows || [];
-            _fileState.allVars = data.vars || [];
-            _fileState.info = data.info || {};
-            _fileState.dataColumns = data.dataColumns || [];
-            _fileState.allVarNames = data.allVarNames || [];
             data.hasMore = false; // signal webview: no lazy loading
             data.variableSuggestions = variableSuggestions.getActiveVariables();
             // Send initial data immediately — webview processes setData before ready message
