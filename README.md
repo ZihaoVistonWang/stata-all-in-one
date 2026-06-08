@@ -71,9 +71,9 @@ Special thanks to RedNote user **Rich\*\*d**, WeChat user **早起\*\*阳光**, 
    <a href="https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/img/example-marked-en.jpg"><img src="img/example-marked-en.jpg" alt="Feature Showcase"/> Click to view full image </a>
 </p>
 
-> ⚠️ Features marked with $^*$ require a `STATA.LIC` license file. Please support genuine software to enjoy the full experience.
+> ⚠️ Features marked with 🔑 require a `STATA.LIC` license file. Please support genuine software to enjoy the full experience.
 
-### 1. AI Skill (Experimental)$^*$
+### 1. AI Skill (Experimental) 🔑
 
 - **Let AI Agents Run Stata Code**: <mark>Start a local HTTP server (default port `19521`) inside VS Code, allowing AI coding tools (Claude Code, Cursor, Codex CLI, Open Code, OpenClaw, etc.) to execute Stata code and read results using only the built-in `curl` command.</mark>
 - **Zero External Dependencies**: <mark>No need to install Python, Node.js, or any third-party tools — just VS Code and the system `curl` (or PowerShell).</mark>
@@ -85,7 +85,7 @@ Special thanks to RedNote user **Rich\*\*d**, WeChat user **早起\*\*阳光**, 
 
 - **Platform Support**: Seamlessly integrates with Stata on both **macOS** and **Windows** without requiring additional extensions.
 - **Two Run Modes**:
-  - **Embedded Console** (default)$^*$: <mark>Run and display Stata output directly within VS Code! Including *command results*, *error messages*, *command window output*, and *graph output* — a true all-in-one IDE experience.</mark>
+  - **Embedded Console** (default) 🔑: <mark>Run and display Stata output directly within VS Code! Including *command results*, *error messages*, *command window output*, and *graph output* — a true all-in-one IDE experience.</mark>
   - **External App**: Continue using the traditional approach of sending code to the Stata GUI, for users who prefer Stata's native interface. <mark>Windows now uses [Stata COM Automation](https://www.stata.com/automation/), delivering significantly better performance than the previous PowerShell-based implementation.</mark>
 - **Multi-Scenario Execution Strategies**:
   - **Section Execution**: When the cursor is on a header line (e.g., `** # Title`), click the ▶️ button or press `Ctrl/Cmd + D` to execute all code from that header to the next same-level or higher-level header (i.e., the entire section).
@@ -114,7 +114,7 @@ Special thanks to RedNote user **Rich\*\*d**, WeChat user **早起\*\*阳光**, 
 
 <a id="code_execution"></a>
 
-### 5. Data Viewer$^*$
+### 5. Data Viewer 🔑
 
 - **Click to View**: <mark>Click a `.dta` file in the VS Code Explorer to open it in the new `Data Viewer` panel.</mark>
   - **Variable Info**: Variable table displays metadata such as name, label, and type.
@@ -138,7 +138,7 @@ Special thanks to RedNote user **Rich\*\*d**, WeChat user **早起\*\*阳光**, 
 
 ### 7. More Features
 
-1. Enhanced Embedded Console$^*$
+1. Enhanced Embedded Console 🔑
    - **Graph Output**
      - **Direct Display**: <mark>Render Stata graph output directly in the embedded console.</mark>
      - **Export Options**: <mark>Save graphs as SVG, PNG (configurable DPI), or copy to clipboard.</mark>
