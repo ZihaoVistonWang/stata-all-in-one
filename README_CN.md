@@ -71,7 +71,7 @@ Stata All in One
    <a href="https://pan.zihaowang.cn/share/example-marked-cn.jpg"><img src="img/example-marked-cn.jpg" alt="功能展示图"/> 点击查看大图 </a>
 </p>
 
-> ⚠️ 以下标注 🔑 的功能需要`STATA.LIC`证书文件，请支持正版软件以获得完整功能体验。
+> ⚠️ 以下标注 🔑 的功能需要`STATA.LIC`证书文件，请支持正版Stata软件以获得完整功能体验。
 
 ### 1. AI Skill 功能（实验性）🔑
 
