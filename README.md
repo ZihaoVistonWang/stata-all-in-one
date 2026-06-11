@@ -71,7 +71,7 @@ Special thanks to RedNote user **Rich\*\*d**, WeChat user **早起\*\*阳光**, 
    <a href="https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/img/example-marked-en.jpg"><img src="img/example-marked-en.jpg" alt="Feature Showcase"/> Click to view full image </a>
 </p>
 
-> ⚠️ Features marked with 🔑 require a `STATA.LIC` license file. Please support genuine software to enjoy the full experience.
+> ⚠️ Features marked with 🔑 require a `STATA.LIC` license file. Please support genuine Stata software to enjoy the full experience.
 
 ### 1. AI Skill (Experimental) 🔑
 
