@@ -2,7 +2,7 @@
   "name": "stata-all-in-one",
   "displayName": "Stata All in One",
   "description": "Supercharge your Stata workflow in VS Code. An enhanced version of `Stata Outline` with advanced Syntax Highlighting + Code Hints + Smart Outline + Code Execution + Data Viewing + AI Skill. All your Stata needs in one place.",
-  "version": "0.2.18",
+  "version": "0.2.19",
   "publisher": "ZihaoVistonWang",
   "icon": "img/icon.png",
   "keywords": [
@@ -46,11 +46,6 @@
           "type": "boolean",
           "default": false,
           "markdownDescription": "%config.numberingAdd.description%"
-        },
-        "stata-all-in-one.showRunButton": {
-          "type": "boolean",
-          "default": true,
-          "markdownDescription": "%config.showRunButton.description%"
         },
         "stata-all-in-one.stataVersionOnMacOS": {
           "type": "string",
@@ -503,19 +498,19 @@
         },
         {
           "command": "stata-all-in-one.runSection",
-          "when": "editorLangId == stata && config.stata-all-in-one.showRunButton",
+          "when": "editorLangId == stata",
           "group": "navigation@2"
         },
         {
           "command": "stata-all-in-one.openSettings",
-          "when": "editorLangId == stata && config.stata-all-in-one.showRunButton",
+          "when": "editorLangId == stata",
           "group": "navigation@3"
         }
       ],
       "view/title": [
         {
           "command": "stata-all-in-one.runSection",
-          "when": "view == outline && config.stata-all-in-one.showRunButton",
+          "when": "view == outline",
           "group": "navigation"
         }
       ]

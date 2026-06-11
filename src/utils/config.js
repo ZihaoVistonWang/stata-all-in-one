@@ -39,11 +39,6 @@ const getnumberingShow = () => getConfigValue('numberingShow', true);
 const getnumberingAdd = () => getConfigValue('numberingAdd', false);
 
 /**
- * Get showRunButton setting
- */
-const getShowRunButton = () => getConfigValue('showRunButton', false);
-
-/**
  * Get stataVersion setting
  */
 const getStataVersion = () => getConfigValue('stataVersionOnMacOS', 'StataMP');
@@ -160,7 +155,6 @@ module.exports = {
     getConfigValue,
     getnumberingShow,
     getnumberingAdd,
-    getShowRunButton,
     getStataVersion,
     getCommentStyle,
     getSeparatorLength,

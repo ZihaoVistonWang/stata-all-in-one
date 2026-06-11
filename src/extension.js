@@ -57,11 +57,14 @@ const MIGRATION_STATE_KEYS = {
 const CONFIG_MAPPING = [
     { old: 'stata-outline.numberingShow', fresh: 'stata-all-in-one.numberingShow' },
     { old: 'stata-outline.numberingAdd', fresh: 'stata-all-in-one.numberingAdd' },
-    { old: 'stata-outline.showRunButton', fresh: 'stata-all-in-one.showRunButton' },
     { old: 'stata-outline.stataVersion', fresh: 'stata-all-in-one.stataVersionOnMacOS' },
     { old: 'stata-outline.stataPathOnWindows', fresh: 'stata-all-in-one.stataPathOnWindows' },
     { old: 'stata-outline.commentStyle', fresh: 'stata-all-in-one.commentStyle' },
     { old: 'stata-outline.separatorLength', fresh: 'stata-all-in-one.separatorLength' }
+];
+
+const DEPRECATED_CONFIG_KEYS = [
+    'stata-all-in-one.showRunButton'
 ];
 
 const MAC_AUTO_DETECT_KEY = 'stata-all-in-one.macAutoDetectDone';
@@ -166,6 +169,24 @@ async function migrateSettingsFromOutline() {
     return migrated;
 }
 
+async function clearDeprecatedSettings() {
+    const config = vscode.workspace.getConfiguration();
+
+    for (const key of DEPRECATED_CONFIG_KEYS) {
+        const inspected = config.inspect(key);
+        if (!inspected) {
+            continue;
+        }
+
+        if (inspected.globalValue !== undefined) {
+            await config.update(key, undefined, vscode.ConfigurationTarget.Global);
+        }
+        if (inspected.workspaceValue !== undefined) {
+            await config.update(key, undefined, vscode.ConfigurationTarget.Workspace);
+        }
+    }
+}
+
 /**
  * Show migration notification to uninstall Stata Outline
  * Only delays notification if user clicks "Remind me later"
@@ -268,6 +289,10 @@ async function activate(context) {
 
     // Initialize capability state (UNVERIFIED → CONSOLE | EXTERNAL)
     capability.initCapabilityState(context);
+
+    clearDeprecatedSettings().catch(err => {
+        console.error('Stata All in One: Failed to clear deprecated settings:', err);
+    });
     
     // Check if Stata Outline is installed
     if (isStataOutlineInstalled()) {

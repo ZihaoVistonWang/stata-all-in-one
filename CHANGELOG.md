@@ -5,9 +5,9 @@ All notable changes to the Stata All in One extension will be documented in this
 
 ## 0.2.18-0.2.14 (2026-06-01)
 
-> This is a major pre-release update with significant new features and improvements, currently in testing phase. Expected to be officially released in mid-June.
+> This is a major pre-release update with significant new features and improvements, currently in testing phase. Expected to be officially released in July.
 >
-> 这是一个包含重大新功能和改进的预发布版本，目前处于测试阶段，预计将在6月中旬正式发布。
+> 这是一个包含重大新功能和改进的预发布版本，目前处于测试阶段，预计将在7月正式发布。
 
 - **Feat (Experimental)**: AI Skill — let AI coding tools (Claude Code, Cursor, Codex CLI, Open Code, OpenClaw, etc.) run Stata code via a localhost HTTP server. Zero external dependencies (just VS Code + system `curl`). Features one-click prompt copy, auto-start on VS Code launch, and toggle control via the `AI` toolbar button. Includes cross-platform skill definition (`SKILL.md`) with macOS and Windows instructions.
 - **Feat**: Major refactor to support embedded console feature, with native code execution on both macOS and Windows
