@@ -5,7 +5,7 @@
  */
 
 const vscode = require('vscode');
-const { showInfo, showWarn, hasNonAsciiCodePoint, buildSeparatorSegment, isSeparatorLine, msg } = require('../utils/common');
+const { showInfo, showWarn, hasNonAsciiCodePoint, buildSeparatorSegment, isSeparatorLine, removeSeparators, msg } = require('../utils/common');
 const config = require('../utils/config');
 
 /**
@@ -215,12 +215,7 @@ function insertSeparator(char) {
         const headingMatch = /^\*\*\s*(#+)\s*(.*)$/.exec(text.trim());
         if (headingMatch) {
             const level = headingMatch[1];
-            let titleText = headingMatch[2].trim();
-            
-            const existingSepMatch = /^([=\-*#%]+)\s+(.+?)\s+[=\-*#%]+$/.exec(titleText);
-            if (existingSepMatch) {
-                titleText = existingSepMatch[2].trim();
-            }
+            const titleText = removeSeparators(headingMatch[2].trim());
             
             const prefixLength = 2 + level.length + 1;
             const titleLength = Array.from(titleText).length;

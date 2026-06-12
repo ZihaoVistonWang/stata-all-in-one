@@ -510,7 +510,7 @@
       "view/title": [
         {
           "command": "stata-all-in-one.runSection",
-          "when": "view == outline",
+          "when": "view == outline && resourceLangId == stata",
           "group": "navigation"
         }
       ]

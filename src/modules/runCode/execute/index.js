@@ -148,6 +148,9 @@ async function runCurrentSection(context, editor = null) {
     }
 
     const document = activeEditor.document;
+    if (document.languageId !== 'stata') {
+        return;
+    }
 
     // 平台检查
     const onWindows = isWindows();
