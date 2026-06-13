@@ -24,7 +24,7 @@ const { prewarmConsoleTextmateTokenizer } = require('./modules/runCode/embeddedC
 const { registerDtaDataViewer } = require('./modules/runCode/embeddedConsole/dataViewer/dtaEditor');
 const { registerHoverProvider, buildHelpIndex, createHoverProvider, DocumentCache } = require('./modules/hoverProvider');
 const { isWindows, isMacOS, showInfo, showWarn, showConsoleUnavailableToast, msg } = require('./utils/common');
-const { startServer: startAIServer, stopServer: stopAIServer, isServerRunning: isAIServerRunning, getServerPort: getAIServerPort } = require('./modules/aiSkill/httpServer');
+const { startServer: startAIServer, stopServer: stopAIServer, isServerRunning: isAIServerRunning, getServerPort: getAIServerPort, isExistingAISkillServer } = require('./modules/aiSkill/httpServer');
 const { getActiveSession, getConsoleSession, initConsoleSession } = require('./modules/runCode/embeddedConsole/session');
 const { findStataDylib } = require('./modules/runCode/embeddedConsole/mac');
 const { findStataDll } = require('./modules/runCode/embeddedConsole/windows');
@@ -686,6 +686,12 @@ async function activate(context) {
     const ensureSessionAndStartServer = async () => {
         if (isAIServerRunning()) return true;
 
+        const port = vscode.workspace.getConfiguration('stata-all-in-one').get('aiSkillPort', 19521);
+        if (await isExistingAISkillServer(port)) {
+            console.log(`Stata All in One: [AI Skill] Reusing existing AI Skill server on port ${port}`);
+            return true;
+        }
+
         let session = getActiveSession();
         if (!session || !session.isInitialized()) {
             const cfg = vscode.workspace.getConfiguration('stata-all-in-one');
@@ -727,7 +733,6 @@ async function activate(context) {
         // 确保图形捕获已启用（每次启动服务器都执行，防止画图命令弹出 GUI 窗口阻塞会话）
         try { await session.execute('quietly _gr_list on', false); } catch (_) { /* ignore */ }
 
-        const port = vscode.workspace.getConfiguration('stata-all-in-one').get('aiSkillPort', 19521);
         const wsRoot = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath || null;
         return await startAIServer(session, port, wsRoot);
     };

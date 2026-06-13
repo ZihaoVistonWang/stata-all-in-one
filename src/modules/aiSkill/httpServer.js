@@ -25,6 +25,7 @@ let isExecuting = false;
 const TEMP_DO_FILENAME = 'stata_ai_skill_temp.do';
 const STATA_TEMP_DIR = '.stata-all-in-one';
 const MAX_TEMP_FILES = 10;
+const AI_SKILL_SERVICE = 'stata-all-in-one-ai-skill';
 
 // Timeout defaults (seconds): normal commands vs long-running jobs
 const DEFAULT_TIMEOUT_SEC = 30;        // 30s for normal commands
@@ -270,6 +271,77 @@ function readBody(req) {
 }
 
 /**
+ * Check whether an occupied port is already serving this AI Skill.
+ * This lets multiple VS Code windows reuse the first server instead of
+ * stealing the port from each other.
+ * @param {number} port
+ * @returns {Promise<boolean>}
+ */
+function isExistingAISkillServer(port) {
+    return new Promise((resolve) => {
+        let done = false;
+        const finish = (value) => {
+            if (done) return;
+            done = true;
+            resolve(value);
+        };
+
+        const req = http.get({
+            hostname: '127.0.0.1',
+            port,
+            path: '/status',
+            timeout: 1000
+        }, (res) => {
+            let body = '';
+            res.setEncoding('utf8');
+            res.on('data', chunk => { body += chunk; });
+            res.on('end', () => {
+                try {
+                    const data = JSON.parse(body);
+                    const explicitMatch = data && data.service === AI_SKILL_SERVICE && data.status === 'running';
+                    // Compatibility with older extension versions before the
+                    // service marker existed.
+                    const legacyMatch = data && data.status === 'running'
+                        && typeof data.message === 'string'
+                        && data.message.includes('Stata');
+                    finish(Boolean(explicitMatch || legacyMatch));
+                } catch (_) {
+                    finish(false);
+                }
+            });
+        });
+
+        req.on('timeout', () => {
+            req.destroy();
+            finish(false);
+        });
+        req.on('error', () => finish(false));
+    });
+}
+
+/**
+ * Free a port only when it is not already owned by this AI Skill server.
+ * @param {number} port
+ * @returns {boolean}
+ */
+function killProcessOnPort(port) {
+    try {
+        const { execSync } = require('child_process');
+        if (process.platform === 'win32') {
+            const out = execSync(`netstat -ano | findstr :${port}`, { encoding: 'utf8' });
+            const pid = (out.match(/LISTENING\s+(\d+)/) || [])[1];
+            if (pid) execSync(`taskkill /PID ${pid} /F`, { stdio: 'ignore' });
+        } else {
+            execSync(`lsof -ti :${port} | xargs kill -9 2>/dev/null; true`, { stdio: 'ignore' });
+        }
+        return true;
+    } catch (e) {
+        console.error(`Stata All in One: [AI Skill] ❌ Failed to free port ${port}:`, e.message);
+        return false;
+    }
+}
+
+/**
  * 处理 HTTP 请求
  * @param {http.IncomingMessage} req
  * @param {http.ServerResponse} res
@@ -292,6 +364,7 @@ async function handleRequest(req, res) {
         const sessionActive = consoleSession && consoleSession.isInitialized();
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({
+            service: AI_SKILL_SERVICE,
             status: 'running',
             sessionActive: sessionActive,
             busy: isExecuting,
@@ -471,47 +544,50 @@ function startServer(session, port, wsRoot) {
         serverPort = port || 19521;
         workspaceRoot = wsRoot || null;
 
-        try {
+        const listen = (reclaimed = false, reclaimAttempted = false) => {
             server = http.createServer(handleRequest);
-            server.on('error', (err) => {
+            server.on('error', async (err) => {
+                server = null;
+
                 if (err.code === 'EADDRINUSE') {
-                    console.log(`Stata All in One: [AI Skill] Port ${serverPort} in use, killing old process...`);
-                    try {
-                        const { execSync } = require('child_process');
-                        if (process.platform === 'win32') {
-                            const out = execSync(`netstat -ano | findstr :${serverPort}`, { encoding: 'utf8' });
-                            const pid = (out.match(/LISTENING\s+(\d+)/) || [])[1];
-                            if (pid) execSync(`taskkill /PID ${pid} /F`, { stdio: 'ignore' });
-                        } else {
-                            execSync(`lsof -ti :${serverPort} | xargs kill -9 2>/dev/null; true`, { stdio: 'ignore' });
-                        }
-                        // 短暂等待端口释放后重试
+                    const existingAISkill = await isExistingAISkillServer(serverPort);
+                    if (existingAISkill) {
+                        console.log(`Stata All in One: [AI Skill] Reusing existing AI Skill server on http://127.0.0.1:${serverPort}`);
+                        resolve(true);
+                        return;
+                    }
+
+                    console.log(`Stata All in One: [AI Skill] Port ${serverPort} is occupied by another process; reclaiming it...`);
+                    if (reclaimAttempted) {
+                        console.error(`Stata All in One: [AI Skill] Port ${serverPort} is still occupied after reclaim attempt.`);
+                        resolve(false);
+                        return;
+                    }
+
+                    if (killProcessOnPort(serverPort)) {
                         setTimeout(() => {
-                            const retryServer = http.createServer(handleRequest);
-                            retryServer.listen(serverPort, '127.0.0.1', () => {
-                                server = retryServer;  // 更新外层引用
-                                console.log(`Stata All in One: [AI Skill] ✅ HTTP server started on http://127.0.0.1:${serverPort} (reclaimed port)`);
-                                resolve(true);
-                            });
-                            retryServer.on('error', () => resolve(false));
+                            listen(true, true);
                         }, 800);
-                    } catch (e) {
-                        console.error(`Stata All in One: [AI Skill] ❌ Failed to free port ${serverPort}:`, e.message);
+                    } else {
                         resolve(false);
                     }
                 } else {
                     console.error('Stata All in One: [AI Skill] Server error:', err.message);
                     resolve(false);
                 }
-                server = null;
             });
 
             server.listen(serverPort, '127.0.0.1', () => {
-                console.log(`Stata All in One: [AI Skill] ✅ HTTP server started on http://127.0.0.1:${serverPort}`);
+                const suffix = reclaimed ? ' (reclaimed port)' : '';
+                console.log(`Stata All in One: [AI Skill] ✅ HTTP server started on http://127.0.0.1:${serverPort}${suffix}`);
                 console.log(`Stata All in One: [AI Skill]    Status:  curl http://127.0.0.1:${serverPort}/status`);
                 console.log(`Stata All in One: [AI Skill]    Execute: curl -X POST http://127.0.0.1:${serverPort}/execute -H "Content-Type: application/json" -d '{"code":"display 2+2"}'`);
                 resolve(true);
             });
+        };
+
+        try {
+            listen();
         } catch (err) {
             console.error('Stata All in One: [AI Skill] Failed to start server:', err.message);
             server = null;
@@ -555,5 +631,6 @@ module.exports = {
     startServer,
     stopServer,
     isServerRunning,
-    getServerPort
+    getServerPort,
+    isExistingAISkillServer
 };
