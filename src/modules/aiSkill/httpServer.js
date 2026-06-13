@@ -26,6 +26,7 @@ const TEMP_DO_FILENAME = 'stata_ai_skill_temp.do';
 const STATA_TEMP_DIR = '.stata-all-in-one';
 const MAX_TEMP_FILES = 10;
 const AI_SKILL_SERVICE = 'stata-all-in-one-ai-skill';
+const AI_SKILL_VERSION = '202606131204';
 
 // Timeout defaults (seconds): normal commands vs long-running jobs
 const DEFAULT_TIMEOUT_SEC = 30;        // 30s for normal commands
@@ -365,6 +366,7 @@ async function handleRequest(req, res) {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({
             service: AI_SKILL_SERVICE,
+            skillVersion: AI_SKILL_VERSION,
             status: 'running',
             sessionActive: sessionActive,
             busy: isExecuting,
