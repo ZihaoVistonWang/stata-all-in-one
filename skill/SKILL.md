@@ -1,12 +1,26 @@
 ---
 name: stata-all-in-one-skill
-description: 在 VS Code 中运行 Stata 代码并读取结果。当用户需要执行 Stata 命令、做回归分析、数据分析、生成统计量，或处理 .do 文件和 .dta 数据集时使用此 skill。触发词包括"运行 Stata 代码"、"做回归"、"汇总数据"、"用 Stata 分析"、"t 检验"、"regress"、"summarize"等。需要 VS Code 和 Stata All in One 扩展。零外部依赖。
-compatibility: 需要 macOS/Windows，VS Code + Stata All in One 扩展。零外部依赖——只需系统自带的 curl。
+description: 在 VS Code 中运行 Stata 代码并读取结果。当用户需要执行 Stata 命令、做回归分析、数据分析、生成统计量，或处理 .do 文件和 .dta 数据集时使用此 skill。触发词包括"运行 Stata 代码"、"做回归"、"汇总数据"、"用 Stata 分析"、"t 检验"、"regress"、"summarize"等。需要 VS Code 和 Stata All in One 扩展。通过宿主机/VS Code 外部环境的 localhost HTTP API 调用 Stata，零额外依赖。
+compatibility: 需要 macOS/Windows，VS Code + Stata All in One 扩展。零额外依赖——只需宿主机系统自带的 curl；如果 AI 工具运行在沙箱/容器中，必须通过可访问宿主机 localhost 的外部 shell、授权命令或用户协助来调用 API。
 ---
 
 # Stata All in One Skill
 
 通过 HTTP 接口与 VS Code 中的 Stata 会话通信，运行代码并获取结果。
+
+## 运行环境关键规则（必须先读）
+
+Stata 会话和 HTTP API 运行在用户宿主机上的 VS Code 扩展进程中，地址通常是 `http://127.0.0.1:19521`。许多 AI 编程工具（例如 Codex、Claude Code 的某些运行模式、远程容器、Dev Container、CI shell）会把命令放在沙箱或容器里执行；此时沙箱内的 `127.0.0.1` 可能是沙箱自己，不是用户宿主机，也可能不能启动 GUI 应用。
+
+因此 agent 必须按以下顺序处理：
+
+1. 先在当前 shell 中用 `/status` 做 2 秒健康检查。
+2. 如果成功，直接使用当前 shell 的 `curl` 调用 API。
+3. 如果连接失败、超时、返回 `OFFLINE`，或 `open` / `code` / GUI 启动命令因为沙箱权限失败，不要假设 Stata 不可用。应判断为“当前执行环境无法访问宿主机 VS Code 的 localhost API”。
+4. 在有权限审批机制的工具中，请求在宿主机/非沙箱环境执行 `curl http://127.0.0.1:19521/status`、启动 VS Code，或运行后续 `/execute` 命令。例如 Codex 中应请求 escalated/unsandboxed shell，而不是继续在沙箱内反复重试。
+5. 如果工具没有外部命令能力，请明确告诉用户：需要在宿主机打开 VS Code、启用 AI Skill、打开一个 `.do` 文件，并在宿主机终端执行文档中的 `curl` 命令。
+
+不要直接导入或调用 VS Code 扩展内部的 JavaScript/N-API 模块。AI Skill 的稳定接口是 localhost HTTP API；扩展内部 API 只能由 VS Code 扩展进程访问。
 
 ## 前置条件
 
@@ -60,9 +74,15 @@ try { $r = Invoke-WebRequest -Uri "http://127.0.0.1:19521/status" -TimeoutSec 2 
 如果返回 `{"status":"running","sessionActive":true,"busy":false}` → 可以执行代码了。
 `busy: true` 表示 Stata 正在执行命令，agent 应等待或发送 `/break` 中断。
 
-如果返回 `OFFLINE` 或连接失败 → 需要启动 VS Code。
+如果返回 `OFFLINE` 或连接失败：
+
+- 如果当前工具确认运行在宿主机 shell 中，可以继续执行下面的“启动 VS Code”流程。
+- 如果当前工具运行在沙箱、容器、远程环境，或无法确认 `127.0.0.1` 是否指向宿主机，应先请求宿主机/非沙箱命令权限来执行 `/status` 和后续 `/execute`，不要在沙箱内反复重试。
+- 如果无法获得宿主机命令权限，请让用户手动打开 VS Code、启用 AI Skill、打开一个 `.do` 文件，并在宿主机终端运行下面的 `curl` 命令验证。
 
 ### 第二步：启动 VS Code
+
+仅在能够访问用户宿主机 GUI 的环境中执行以下命令。Codex 等工具如果默认 shell 是沙箱，应先申请外部/非沙箱执行权限；沙箱内执行 `open` 或 `code` 通常不会启动用户正在使用的 VS Code。
 
 **macOS（依次尝试）：**
 ```bash
@@ -118,7 +138,7 @@ for ($i=1; $i -le 15; $i++) {
 }
 ```
 
-最多等 30 秒。如果超时仍未就绪 → 告知用户手动打开 VS Code，打开一个 `.do` 文件，并确认设置中 `AI Skill Enabled` 已开启。
+最多等 30 秒。如果超时仍未就绪 → 先判断是否仍在沙箱/容器里访问了错误的 `127.0.0.1`。如果是，改用宿主机/非沙箱命令重试；如果已经在宿主机仍失败，再告知用户手动打开 VS Code，打开一个 `.do` 文件，并确认设置中 `AI Skill Enabled` 已开启。
 
 ## 执行 Stata 代码
 
@@ -395,8 +415,12 @@ for ($i=1; $i -le 30; $i++) {
 ```
 → 检查 Stata 语法是否正确（注意逗号、引号等），修正后重试。
 
-### 连接失败（Connection refused）
-→ 按上述「启动 VS Code」流程尝试自动启动 VS Code。如果多次尝试均失败，引导用户手动打开 VS Code，确认 `AI Skill Enabled` 已开启，并打开一个 `.do` 文件。
+### 连接失败（Connection refused / Timeout / OFFLINE）
+→ 先判断当前 shell 是否为沙箱、容器或远程环境：
+
+- 如果是沙箱/容器：请求宿主机/非沙箱命令权限调用 `http://127.0.0.1:19521`。在 Codex 中应使用需要用户批准的外部命令执行方式；不要继续在沙箱内重试。
+- 如果是宿主机 shell：按上述「启动 VS Code」流程尝试自动启动 VS Code。
+- 如果多次尝试均失败：引导用户手动打开 VS Code，确认 `AI Skill Enabled` 已开启，并打开一个 `.do` 文件。
 
 ### 会话未初始化（sessionActive: false）
 → 引导用户在 VS Code 中打开任意 `.do` 文件以激活 Stata 会话。等待几秒后重试。
