@@ -7,6 +7,7 @@
  */
 
 const native = require('./native/stata_session');
+const fs = require('fs');
 const nodePath = require('path');
 
 // Module-level singleton
@@ -104,6 +105,40 @@ class StataConsoleSession {
         return '/Applications';
     }
 
+    _deriveStataExecutablePath(libraryPath) {
+        if (process.platform === 'win32') {
+            return '';
+        }
+
+        const macosDir = nodePath.dirname(libraryPath);
+        const dylibName = nodePath.basename(libraryPath);
+        const editionMatch = dylibName.match(/^libstata-(mp|se|be|ic)\.dylib$/i);
+        const editionToExecutable = {
+            mp: 'StataMP',
+            se: 'StataSE',
+            be: 'StataBE',
+            ic: 'StataIC'
+        };
+
+        const candidates = [];
+        if (editionMatch) {
+            candidates.push(nodePath.join(macosDir, editionToExecutable[editionMatch[1].toLowerCase()]));
+        }
+        candidates.push(
+            nodePath.join(macosDir, 'StataMP'),
+            nodePath.join(macosDir, 'StataSE'),
+            nodePath.join(macosDir, 'StataBE'),
+            nodePath.join(macosDir, 'StataIC')
+        );
+
+        for (const candidate of candidates) {
+            if (candidate && fs.existsSync(candidate)) {
+                return candidate;
+            }
+        }
+        return '';
+    }
+
     /**
      * Initialize Stata session
      * Async initialization; does not block extension activation.
@@ -134,7 +169,7 @@ class StataConsoleSession {
         }
 
         try {
-            const execPath = process.execPath;
+            const execPath = this._deriveStataExecutablePath(libraryPath);
             const stHome = this._deriveStHome(libraryPath);
             const splash = false;
 

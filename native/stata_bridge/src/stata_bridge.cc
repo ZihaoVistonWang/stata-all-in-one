@@ -438,10 +438,13 @@ Napi::Value InitSession(const Napi::CallbackInfo& info) {
         args = {"stata", "-q"};
     }
     #else
+    // macOS: argv[0] must identify the Stata executable. Passing Node/Electron
+    // here confuses StataSO's Python setup and prevents changing python_exec.
+    std::string argv0 = exec_path.empty() ? "stata" : exec_path;
     if (splash) {
-        args = {"-pyexec", exec_path.empty() ? "" : exec_path};
+        args = {argv0};
     } else {
-        args = {"", "-q", "-pyexec", exec_path.empty() ? "" : exec_path};
+        args = {argv0, "-q"};
     }
     #endif
 

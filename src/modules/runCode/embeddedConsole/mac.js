@@ -6,6 +6,7 @@
 const vscode = require('vscode');
 const fs = require('fs');
 const path = require('path');
+const childProcess = require('child_process');
 
 const session = require('./session');
 const { getTempFilePath, cleanupTempFile } = require('../execute/tempfile');
@@ -363,6 +364,53 @@ function findStataDylib(preferredEdition = null, savedPath = null) {
     };
 }
 
+function escapeStataQuotedString(value) {
+    return String(value || '').replace(/"/g, '""');
+}
+
+function readMacDefaults(domain, key) {
+    try {
+        return childProcess.execFileSync('/usr/bin/defaults', ['read', domain, key], {
+            encoding: 'utf8',
+            stdio: ['ignore', 'pipe', 'ignore']
+        }).trim();
+    } catch (_) {
+        return '';
+    }
+}
+
+function getMacStataPythonExecPreference() {
+    const domains = [
+        'com.stata.stata19',
+        'com.stata.stata18',
+        'com.stata.stata17',
+        'com.stata.stata16'
+    ];
+
+    for (const domain of domains) {
+        const pythonExec = readMacDefaults(domain, 'python.pyexec_64');
+        if (pythonExec && fs.existsSync(pythonExec)) {
+            return pythonExec;
+        }
+    }
+    return '';
+}
+
+async function syncMacStataPythonPreference(consoleSession) {
+    const pythonExec = getMacStataPythonExecPreference();
+    if (!pythonExec) {
+        return;
+    }
+
+    const command = `python set exec "${escapeStataQuotedString(pythonExec)}"`;
+    const result = await consoleSession.execute(command, false);
+    if (!result.success) {
+        console.warn('Stata All in One: Failed to sync Stata Python preference:', result.error || result.output || result.returnCode);
+    } else {
+        console.log('Stata All in One: Synced Stata Python executable:', pythonExec);
+    }
+}
+
 async function ensureConsoleSession(context) {
     // If session was marked stale (console panel closed), shut it down first.
     // This deferred shutdown is safe because no execution is running right now.
@@ -419,6 +467,11 @@ async function ensureConsoleSession(context) {
             failCode: initResult.failCode || 'SESSION_INIT_FAILED',
             reason: `Stata 会话初始化失败${detail}。请检查 Stata ${dylibInfo.edition ? dylibInfo.edition.toUpperCase() : ''} 是否正确安装。`
         };
+    }
+
+    const consoleSession = session.getConsoleSession(context);
+    if (consoleSession) {
+        await syncMacStataPythonPreference(consoleSession);
     }
 
     // License was found and session initialized — clear any suppression preference
