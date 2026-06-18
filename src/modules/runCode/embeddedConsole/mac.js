@@ -368,18 +368,7 @@ function escapeStataQuotedString(value) {
     return String(value || '').replace(/"/g, '""');
 }
 
-function readMacDefaults(domain, key) {
-    try {
-        return childProcess.execFileSync('/usr/bin/defaults', ['read', domain, key], {
-            encoding: 'utf8',
-            stdio: ['ignore', 'pipe', 'ignore']
-        }).trim();
-    } catch (_) {
-        return '';
-    }
-}
-
-function getMacStataPythonExecPreference() {
+function readMacStataPythonExec() {
     const domains = [
         'com.stata.stata19',
         'com.stata.stata18',
@@ -388,16 +377,28 @@ function getMacStataPythonExecPreference() {
     ];
 
     for (const domain of domains) {
-        const pythonExec = readMacDefaults(domain, 'python.pyexec_64');
-        if (pythonExec && fs.existsSync(pythonExec)) {
-            return pythonExec;
+        try {
+            const pythonExec = childProcess.execFileSync(
+                '/usr/bin/defaults',
+                ['read', domain, 'python.pyexec_64'],
+                {
+                    encoding: 'utf8',
+                    stdio: ['ignore', 'pipe', 'ignore']
+                }
+            ).trim();
+            if (pythonExec) {
+                return pythonExec;
+            }
+        } catch (_) {
+            // Try the next installed Stata version.
         }
     }
+
     return '';
 }
 
-async function syncMacStataPythonPreference(consoleSession) {
-    const pythonExec = getMacStataPythonExecPreference();
+async function syncMacStataPythonConfig(consoleSession) {
+    const pythonExec = readMacStataPythonExec();
     if (!pythonExec) {
         return;
     }
@@ -405,9 +406,10 @@ async function syncMacStataPythonPreference(consoleSession) {
     const command = `python set exec "${escapeStataQuotedString(pythonExec)}"`;
     const result = await consoleSession.execute(command, false);
     if (!result.success) {
-        console.warn('Stata All in One: Failed to sync Stata Python preference:', result.error || result.output || result.returnCode);
-    } else {
-        console.log('Stata All in One: Synced Stata Python executable:', pythonExec);
+        console.warn(
+            'Stata All in One: Failed to apply Stata Python configuration:',
+            result.error || result.output || result.returnCode
+        );
     }
 }
 
@@ -471,7 +473,7 @@ async function ensureConsoleSession(context) {
 
     const consoleSession = session.getConsoleSession(context);
     if (consoleSession) {
-        await syncMacStataPythonPreference(consoleSession);
+        await syncMacStataPythonConfig(consoleSession);
     }
 
     // License was found and session initialized — clear any suppression preference
@@ -1050,6 +1052,7 @@ function forceShutdownConsoleSession() {
 
 module.exports = {
     findStataDylib,
+    syncMacStataPythonConfig,
     ensureConsoleSession,
     showConsoleLicenseDialog,
     runOnMacWebview,

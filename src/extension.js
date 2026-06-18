@@ -24,9 +24,9 @@ const { prewarmConsoleTextmateTokenizer } = require('./modules/runCode/embeddedC
 const { registerDtaDataViewer } = require('./modules/runCode/embeddedConsole/dataViewer/dtaEditor');
 const { registerHoverProvider, buildHelpIndex, createHoverProvider, DocumentCache } = require('./modules/hoverProvider');
 const { isWindows, isMacOS, showInfo, showWarn, showConsoleUnavailableToast, msg } = require('./utils/common');
-const { startServer: startAIServer, stopServer: stopAIServer, isServerRunning: isAIServerRunning, getServerPort: getAIServerPort, isExistingAISkillServer } = require('./modules/aiSkill/httpServer');
+const { startServer: startAIServer, stopServer: stopAIServer, isServerRunning: isAIServerRunning, getServerPort: getAIServerPort, isExistingAISkillServer, getExistingAISkillServerStatus, releaseInactiveAISkillServer } = require('./modules/aiSkill/httpServer');
 const { getActiveSession, getConsoleSession, initConsoleSession } = require('./modules/runCode/embeddedConsole/session');
-const { findStataDylib } = require('./modules/runCode/embeddedConsole/mac');
+const { findStataDylib, syncMacStataPythonConfig } = require('./modules/runCode/embeddedConsole/mac');
 const { findStataDll } = require('./modules/runCode/embeddedConsole/windows');
 
 const { ensureConsoleFontCache, getConsoleFontWebviewOptions } = require('./utils/consoleFonts');
@@ -692,6 +692,16 @@ async function activate(context) {
             return true;
         }
 
+        const existingStatus = await getExistingAISkillServerStatus(port);
+        if (existingStatus) {
+            const released = await releaseInactiveAISkillServer(port);
+            if (!released) {
+                console.log(`Stata All in One: [AI Skill] Inactive AI Skill server on port ${port} could not release the port`);
+                return false;
+            }
+            await new Promise(resolve => setTimeout(resolve, 200));
+        }
+
         let session = getActiveSession();
         if (!session || !session.isInitialized()) {
             const cfg = vscode.workspace.getConfiguration('stata-all-in-one');
@@ -720,6 +730,10 @@ async function activate(context) {
             if (!initResult.success) {
                 console.log('Stata All in One: [AI Skill] Session init failed:', initResult.error);
                 return false;
+            }
+
+            if (isMacOS()) {
+                await syncMacStataPythonConfig(session);
             }
 
             await session.execute('quietly set more off', false);

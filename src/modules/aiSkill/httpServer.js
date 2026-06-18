@@ -276,9 +276,9 @@ function readBody(req) {
  * This lets multiple VS Code windows reuse the first server instead of
  * stealing the port from each other.
  * @param {number} port
- * @returns {Promise<boolean>}
+ * @returns {Promise<object|null>}
  */
-function isExistingAISkillServer(port) {
+function getExistingAISkillServerStatus(port) {
     return new Promise((resolve) => {
         let done = false;
         const finish = (value) => {
@@ -305,7 +305,7 @@ function isExistingAISkillServer(port) {
                     const legacyMatch = data && data.status === 'running'
                         && typeof data.message === 'string'
                         && data.message.includes('Stata');
-                    finish(Boolean(explicitMatch || legacyMatch));
+                    finish(explicitMatch || legacyMatch ? data : null);
                 } catch (_) {
                     finish(false);
                 }
@@ -317,6 +317,33 @@ function isExistingAISkillServer(port) {
             finish(false);
         });
         req.on('error', () => finish(false));
+    });
+}
+
+async function isExistingAISkillServer(port) {
+    const status = await getExistingAISkillServerStatus(port);
+    return Boolean(status && status.sessionActive === true);
+}
+
+function releaseInactiveAISkillServer(port) {
+    return new Promise((resolve) => {
+        const req = http.request({
+            hostname: '127.0.0.1',
+            port,
+            path: '/release-if-inactive',
+            method: 'POST',
+            timeout: 1000
+        }, (res) => {
+            res.resume();
+            res.on('end', () => resolve(res.statusCode === 200));
+        });
+
+        req.on('timeout', () => {
+            req.destroy();
+            resolve(false);
+        });
+        req.on('error', () => resolve(false));
+        req.end();
     });
 }
 
@@ -374,6 +401,22 @@ async function handleRequest(req, res) {
                 ? (isExecuting ? 'Stata is busy executing' : 'Stata session is active')
                 : 'Stata session not initialized. Open a .do file in VS Code first.'
         }));
+        return;
+    }
+
+    // Allow another VS Code window to take over the configured port only when
+    // this server no longer has a usable Stata session.
+    if (req.method === 'POST' && req.url === '/release-if-inactive') {
+        const sessionActive = consoleSession && consoleSession.isInitialized();
+        if (sessionActive) {
+            res.writeHead(409, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: 'Stata session is still active' }));
+            return;
+        }
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true }));
+        setImmediate(() => stopServer());
         return;
     }
 
@@ -552,10 +595,21 @@ function startServer(session, port, wsRoot) {
                 server = null;
 
                 if (err.code === 'EADDRINUSE') {
-                    const existingAISkill = await isExistingAISkillServer(serverPort);
-                    if (existingAISkill) {
+                    const existingStatus = await getExistingAISkillServerStatus(serverPort);
+                    if (existingStatus && existingStatus.sessionActive === true) {
                         console.log(`Stata All in One: [AI Skill] Reusing existing AI Skill server on http://127.0.0.1:${serverPort}`);
                         resolve(true);
+                        return;
+                    }
+
+                    if (existingStatus) {
+                        const released = await releaseInactiveAISkillServer(serverPort);
+                        if (released && !reclaimAttempted) {
+                            setTimeout(() => listen(true, true), 200);
+                        } else {
+                            console.error(`Stata All in One: [AI Skill] Existing inactive AI Skill server on port ${serverPort} could not release the port.`);
+                            resolve(false);
+                        }
                         return;
                     }
 
@@ -634,5 +688,7 @@ module.exports = {
     stopServer,
     isServerRunning,
     getServerPort,
-    isExistingAISkillServer
+    isExistingAISkillServer,
+    getExistingAISkillServerStatus,
+    releaseInactiveAISkillServer
 };
