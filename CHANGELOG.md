@@ -3,13 +3,14 @@
 All notable changes to the Stata All in One extension will be documented in this file.
 本文件记录 Stata All in One 扩展的所有重要更改。
 
-## 0.2.18-0.2.14 (2026-06-01)
+## 0.2.19-0.2.14 (2026-06-18)
 
 > This is a major pre-release update with significant new features and improvements, currently in testing phase. Expected to be officially released in July.
 >
 > 这是一个包含重大新功能和改进的预发布版本，目前处于测试阶段，预计将在7月正式发布。
 
 - **Feat (Experimental)**: AI Skill — let AI coding tools (Claude Code, Cursor, Codex CLI, Open Code, OpenClaw, etc.) run Stata code via a localhost HTTP server. Zero external dependencies (just VS Code + system `curl`). Features one-click prompt copy, auto-start on VS Code launch, and toggle control via the `AI` toolbar button. Includes cross-platform skill definition (`SKILL.md`) with macOS and Windows instructions.
+- **Feat**: AI Skill status now exposes service identity and a timestamped skill version so agents can detect outdated skill definitions.
 - **Feat**: Major refactor to support embedded console feature, with native code execution on both macOS and Windows
 - **Feat**: New Data Viewer panel for browsing .dta files directly and Console in VS Code
 - **Feat**: Graph Support in embedded console, with export and clipboard copy functionality
@@ -20,6 +21,7 @@ All notable changes to the Stata All in One extension will be documented in this
 - **Fixed**: Stata COM automation on Windows now impoves performance compared to previous PowerShell-based implementation
 - **Fixed**: Highlighting of options in code, e.g., `absorb(...) vce(...)` in `reghdfe` command
 - **新增**：AI Skill —— 让 AI 编程工具（Claude Code、Cursor、Codex CLI、Open Code、OpenClaw 等）通过 localhost HTTP 服务器运行 Stata 代码。零外部依赖（仅需 VS Code + 系统 `curl`）。功能包括一键复制提示词、随 VS Code 启动自动开启服务，以及通过编辑器工具栏的 `AI` 按钮控制开关。提供跨平台技能定义（`SKILL.md`），包含 macOS 和 Windows 使用说明。
+- **新增**：AI Skill 状态现可返回服务标识和时间戳版本，便于 agent 检测过期的 skill 定义。
 - **新增**：重大重构以支持嵌入式控制台功能，在 macOS 和 Windows 上实现原生代码执行
 - **新增**：全新的数据查看器面板，可直接在 VS Code 中浏览 .dta 文件，并在控制台中显示输出
 - **新增**：嵌入式控制台的作图显示支持，提供导出和复制到剪贴板功能
