@@ -63,7 +63,7 @@ Stata All in One
 
 ## Sponsors
 
-Special thanks to RedNote user **Rich\*\*d**, WeChat user **早起\*\*阳光**, and Buy Me a Coffee user **LB\*\*PG@gmail.com** for their generous donations and support for this project.
+Special thanks to RedNote user **Rich\*\*d**, WeChat user **M\*k\***, **柿\*\*橙**, an anonymous user who commented “功能强大且配置简单的插件，谢谢！”, and Buy Me a Coffee supporter **LB\*\*PG@gmail.com** for their generous contributions and continued support of this project.
 
 ## Features
 
