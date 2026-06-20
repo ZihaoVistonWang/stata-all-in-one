@@ -63,7 +63,7 @@ Stata All in One
 
 ## 致谢
 
-感谢小红书用户 **Rich\*\*d**、微信用户 **早起\*\*阳光** 、Buy me a coffee 用户 **LB\*\*PG@gmail.com** 对本项目的支持。
+感谢小红书用户 **Rich\*\*d**、微信用户 **M\*k\***、**柿\*\*橙**、评论 “功能强大且配置简单的插件，谢谢！” 的匿名用户，以及 Buy me a coffee 用户 **LB\*\*PG@gmail.com** 对本项目的支持。
 
 ## 功能概览
 
