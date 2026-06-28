@@ -90,6 +90,12 @@ const UI_TEXT = {
         webviewOverflowNotice: 'Output is wider than the current view. Scroll horizontally to inspect it, or widen the Console panel for a better fit.',
         webviewOverflowConfirm: 'OK',
         webviewOverflowDismissForever: 'Don\'t show again',
+        graphExportSkippedNotice: ({ count }) => {
+            const prefix = Number(count) === 1
+                ? 'Skipped the graph export command.'
+                : `Skipped ${count} graph export commands.`;
+            return `⚠️ ${prefix} Graphs are captured automatically; use the save button in the image corner to save them.`;
+        },
         graphCopyImage: 'Copy image',
         graphSaveImage: 'Save image',
         graphFullScreen: 'Full screen',
@@ -256,6 +262,12 @@ const UI_TEXT = {
         webviewOverflowNotice: '输出内容超出了当前宽度，请横向滑动查看。也可以拉宽 Console 面板以更好地适配输出。',
         webviewOverflowConfirm: '确认',
         webviewOverflowDismissForever: '不再提示',
+        graphExportSkippedNotice: ({ count }) => {
+            const prefix = Number(count) === 1
+                ? '已跳过 graph export 命令。'
+                : `已跳过 ${count} 条 graph export 命令。`;
+            return `⚠️ ${prefix}图形已自动捕获，请点击图片右上角的保存按钮进行保存。`;
+        },
         graphCopyImage: '复制图片',
         graphSaveImage: '保存图片',
         graphFullScreen: '全屏浏览',

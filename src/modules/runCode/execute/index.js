@@ -190,10 +190,7 @@ async function runCurrentSection(context, editor = null) {
         };
         // 仅在 embedded console 模式提示（external app 模式下 graph export 正常执行，无需跳过）
         if (runMode !== config.RUN_MODES.externalApp) {
-            const msgText = stripped.removed.length === 1
-                ? `⚠️ 已跳过 graph export 命令。图形已自动捕获，请点击图片右上角的保存按钮进行保存。`
-                : `⚠️ 已跳过 ${stripped.removed.length} 条 graph export 命令。图形已自动捕获，请点击图片右上角的保存按钮进行保存。`;
-            vscode.window.showInformationMessage(msgText);
+            vscode.window.showInformationMessage(msg('graphExportSkippedNotice', { count: stripped.removed.length }));
         }
     }
 
@@ -374,10 +371,7 @@ async function runArbitraryCode(context, code, options = {}) {
             execCode: stripped.code,
             graphExportLineIndices: indices
         };
-        const msgText = stripped.removed.length === 1
-            ? `⚠️ 已跳过 graph export 命令。图形已自动捕获，请点击图片右上角的保存按钮进行保存。`
-            : `⚠️ 已跳过 ${stripped.removed.length} 条 graph export 命令。图形已自动捕获，请点击图片右上角的保存按钮进行保存。`;
-        vscode.window.showInformationMessage(msgText);
+        vscode.window.showInformationMessage(msg('graphExportSkippedNotice', { count: stripped.removed.length }));
     }
 
     try {
