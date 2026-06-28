@@ -6,6 +6,7 @@ const RUN_MODES = Object.freeze({
     embeddedConsole: 'embeddedConsole'
 });
 const CONSOLE_FONT_MODES = Object.freeze({
+    online: 'online',
     editor: 'editor',
     system: 'system',
     custom: 'custom'
@@ -113,8 +114,8 @@ const getRunMode = () => {
  * Get embedded console font mode
  */
 const getConsoleFontMode = () => {
-    const mode = String(getConfigValue('consoleFontMode', CONSOLE_FONT_MODES.editor) || '').trim();
-    return Object.values(CONSOLE_FONT_MODES).includes(mode) ? mode : CONSOLE_FONT_MODES.editor;
+    const mode = String(getConfigValue('consoleFontMode', CONSOLE_FONT_MODES.online) || '').trim();
+    return Object.values(CONSOLE_FONT_MODES).includes(mode) ? mode : CONSOLE_FONT_MODES.online;
 };
 
 /**

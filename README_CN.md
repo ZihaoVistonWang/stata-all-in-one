@@ -250,7 +250,8 @@ Stata All in One
 ### 嵌入式控制台
 
 11. <mark>**控制台字体模式** (`stata-all-in-one.consoleFontMode`)</mark>
-   - `editor`（默认）：跟随编辑器字体，降级到系统等宽字体。
+   - `online`（默认）：为西文加载 Maple Mono，为 CJK 文本加载 Maple Mono NF CN。
+   - `editor`：跟随编辑器字体，降级到系统等宽字体。
    - `system`：直接使用系统等宽字体。
    - `custom`：使用下方自定义字体设置。
 

@@ -126,16 +126,18 @@
         "stata-all-in-one.consoleFontMode": {
           "type": "string",
           "enum": [
+            "online",
             "editor",
             "system",
             "custom"
           ],
           "enumItemLabels": [
+            "Online CJK Font",
             "Editor Font Family",
             "System Monospace",
             "Custom Font Family"
           ],
-          "default": "editor",
+          "default": "online",
           "markdownDescription": "%config.consoleFontMode.description%"
         },
         "stata-all-in-one.consoleCustomFontFamily": {

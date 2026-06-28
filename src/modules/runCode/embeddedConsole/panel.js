@@ -29,13 +29,16 @@ let _graphResourceRoot = null;
 let _graphSaveRequestSeq = 0;
 const _pendingGraphSaveRequests = new Map();
 let _consoleFontOptions = {
-    fontMode: 'editor',
+    fontMode: 'online',
     editorFontFamily: '',
     customFontFamily: '',
     systemFallbackFamily: 'monospace'
 };
 
 const CODICON_RESOURCE_ROOT = vscode.Uri.joinPath(vscode.Uri.file(vscode.env.appRoot), 'out', 'media');
+const ONLINE_CJK_FONT_CSS_URL = 'https://fontsapi.zeoseven.com/442/main/result.css';
+const ONLINE_LATIN_FONT_WOFF2_URL = 'https://cdn.jsdelivr.net/fontsource/fonts/maple-mono@latest/latin-400-normal.woff2';
+const ONLINE_LATIN_FONT_WOFF_URL = 'https://cdn.jsdelivr.net/fontsource/fonts/maple-mono@latest/latin-400-normal.woff';
 
 function getCodiconFontUri(webview) {
     return webview.asWebviewUri(vscode.Uri.joinPath(vscode.Uri.file(vscode.env.appRoot), 'out', 'media', 'codicon.ttf'));
@@ -666,7 +669,7 @@ function getWebviewHtml(webview) {
     const asciiLogoTop = escapeHtml(asciiLogo.up);
     const asciiLogoBottom = escapeHtml(asciiLogo.down);
     const fontOptions = {
-        fontMode: String(_consoleFontOptions.fontMode || 'editor'),
+        fontMode: String(_consoleFontOptions.fontMode || 'online'),
         editorFontFamily: String(_consoleFontOptions.editorFontFamily || ''),
         customFontFamily: String(_consoleFontOptions.customFontFamily || ''),
         systemFallbackFamily: String(_consoleFontOptions.systemFallbackFamily || 'monospace')
@@ -675,10 +678,20 @@ function getWebviewHtml(webview) {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} data:; font-src ${webview.cspSource}; style-src 'unsafe-inline'; script-src 'nonce-${nonce}';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} data:; font-src ${webview.cspSource} https: data:; style-src ${webview.cspSource} 'unsafe-inline' https://fontsapi.zeoseven.com; script-src 'nonce-${nonce}';">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="preload" href="${ONLINE_CJK_FONT_CSS_URL}" as="style" crossorigin>
+    <link rel="stylesheet" href="${ONLINE_CJK_FONT_CSS_URL}" crossorigin>
     <title>${escapeHtml(getPanelTitle())}</title>
     <style>
+        @font-face {
+            font-family: "Maple Mono";
+            font-style: normal;
+            font-display: swap;
+            font-weight: 400;
+            src: url("${ONLINE_LATIN_FONT_WOFF2_URL}") format("woff2"),
+                 url("${ONLINE_LATIN_FONT_WOFF_URL}") format("woff");
+        }
         @font-face {
             font-family: "codicon";
             font-display: block;
@@ -708,7 +721,8 @@ function getWebviewHtml(webview) {
             --console-editor-font-family: var(--vscode-editor-font-family, monospace);
             --console-custom-font-family: var(--console-editor-font-family);
             --console-system-fallback-family: ${escapeHtml(fontOptions.systemFallbackFamily)};
-            --console-active-font-family: var(--console-editor-font-family);
+            --console-online-font-family: "Maple Mono", "Maple Mono NF CN", var(--console-system-fallback-family);
+            --console-active-font-family: var(--console-online-font-family);
         }
         html, body {
             height: 100%;
@@ -858,6 +872,7 @@ function getWebviewHtml(webview) {
             overflow-x: hidden;
             padding: 16px 18px 22px 6px;
             font-family: var(--console-active-font-family);
+            font-synthesis: weight style;
             font-size: var(--vscode-editor-font-size, 13px);
             line-height: 1.5;
             white-space: normal;
@@ -1161,6 +1176,7 @@ function getWebviewHtml(webview) {
             padding: 10px 12px;
             margin: 0;
             font-family: var(--console-active-font-family);
+            font-synthesis: weight style;
             font-size: var(--vscode-editor-font-size, 13px);
             line-height: 1.5;
             tab-size: 4;
@@ -1185,6 +1201,7 @@ function getWebviewHtml(webview) {
             padding: 10px 12px;
             outline: none;
             font-family: var(--console-active-font-family);
+            font-synthesis: weight style;
             font-size: var(--vscode-editor-font-size, 13px);
             line-height: 1.5;
             tab-size: 4;
@@ -1780,7 +1797,7 @@ function getWebviewHtml(webview) {
                 ? FONT_BOOTSTRAP.customFontFamily.trim()
                 : getEditorFontFamilyCssValue());
             rootStyle.setProperty('--console-system-fallback-family', FONT_BOOTSTRAP.systemFallbackFamily || 'monospace');
-            rootStyle.setProperty('--console-active-font-family', getEditorFontFamilyCssValue());
+            rootStyle.setProperty('--console-active-font-family', 'var(--console-online-font-family)');
         }
 
         function getCanvasContext() {
@@ -1818,6 +1835,10 @@ function getWebviewHtml(webview) {
 
         function applyConsoleFont(source) {
             const rootStyle = document.documentElement.style;
+            if (source === 'online') {
+                rootStyle.setProperty('--console-active-font-family', 'var(--console-online-font-family)');
+                return;
+            }
             if (source === 'custom') {
                 rootStyle.setProperty('--console-active-font-family', 'var(--console-custom-font-family)');
                 return;
@@ -1834,6 +1855,11 @@ function getWebviewHtml(webview) {
 
             const editorFontFamily = getComputedStyle(document.documentElement).getPropertyValue('--console-editor-font-family');
             const customFontFamily = getComputedStyle(document.documentElement).getPropertyValue('--console-custom-font-family');
+
+            if (FONT_BOOTSTRAP.fontMode === 'online') {
+                applyConsoleFont('online');
+                return;
+            }
 
             if (FONT_BOOTSTRAP.fontMode === 'system') {
                 applyConsoleFont('system');

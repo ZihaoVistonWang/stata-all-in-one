@@ -250,7 +250,8 @@ Search for "Stata All in One" in VS Code settings and configure:
 ### Embedded Console
 
 11. <mark>**Console Font Mode** (`stata-all-in-one.consoleFontMode`)</mark>
-    - `editor` (default): Follow the editor font, falling back to the system monospace font.
+    - `online` (default): Load Maple Mono for Latin text and Maple Mono NF CN for CJK text.
+    - `editor`: Follow the editor font, falling back to the system monospace font.
     - `system`: Use the system monospace font directly.
     - `custom`: Use the custom font specified below.
 
