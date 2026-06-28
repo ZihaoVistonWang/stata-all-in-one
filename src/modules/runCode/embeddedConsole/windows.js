@@ -13,7 +13,7 @@ const { getTempFilePath, cleanupTempFile } = require('../execute/tempfile');
 const config = require('../../../utils/config');
 const { showInfo, showError } = require('../../../utils/common');
 const { getWebviewTerminalSink, setGraphResourceRoot } = require('./panel');
-const { beginGraphCapture, endGraphCapture, exportCapturedGraphs, getGraphCacheDir } = require('./graphs');
+const { beginGraphCapture, endGraphCapture, executeBitmapGraphExport, exportCapturedGraphs, getGraphCacheDir } = require('./graphs');
 
 let _activeOutputSink = null;
 
@@ -472,15 +472,10 @@ async function runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir = null
         await outputSink.prepareForExecution();
 
         const normalizedCode = normalizeCodeToRun(codeToRun);
-        // 执行用剥离 graph export 后的代码（options.execCode），显示用原始代码
-        // 注意：execCode 可能为 ''（全部行都是 graph export），所以用 !== undefined 而非 truthy 判断
-        const hasStrippedCode = options && options.execCode !== undefined;
-        const execCode = hasStrippedCode
+        const hasExecOverride = options && options.execCode !== undefined;
+        const execCode = hasExecOverride
             ? normalizeCodeToRun(options.execCode)
             : normalizedCode;
-        const graphExportLineIndices = (options && options.graphExportLineIndices instanceof Set)
-            ? options.graphExportLineIndices
-            : undefined;
         const progressTotal = extractProgressTotalFromCode(execCode);
         await ensureWebviewBootstrap(consoleSession);
         await ensureInitialWorkingDirectory(consoleSession, docDir);
@@ -542,18 +537,12 @@ async function runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir = null
         };
 
         if (typeof outputSink.writeCommand === 'function') {
-            // graph export 行被剥离不执行，但在控制台中保留原始位置并用删除线标注
-            // displayCode 来自剥离后代码 → 改用 normalizedCode（原始含 graph export 行）
-            const displayCode = graphExportLineIndices
-                ? normalizedCode
-                : (executionPlan.displayCode || normalizedCode);
-            outputSink.writeCommand(displayCode, graphExportLineIndices);
+            outputSink.writeCommand(executionPlan.displayCode || normalizedCode);
         }
 
         let result = null;
         if (!execCode.trim()) {
-            // 全部行都是 graph export，无实际代码需要执行
-            console.log(`Stata All in One: All lines were graph export — skipping execution`);
+            console.log('Stata All in One: No executable Stata code to run');
             result = { success: true, returnCode: 0, output: '' };
         } else if (Array.isArray(executionPlan.commands) && executionPlan.commands.length) {
             console.log(`Stata All in One: Executing ${executionPlan.commands.length} command(s) line-by-line`);
@@ -561,19 +550,23 @@ async function runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir = null
                 const command = executionPlan.commands[ci];
                 const cmdStart = Date.now();
                 console.log(`Stata All in One: [${ci + 1}/${executionPlan.commands.length}] Executing: ${command.substring(0, 100)}`);
-                result = await consoleSession.execute(command, false, onExecutionChunk);
+                result = await executeConsoleCommand(consoleSession, graphDir, command, onExecutionChunk);
                 const cmdElapsed = Date.now() - cmdStart;
                 console.log(`Stata All in One: [${ci + 1}/${executionPlan.commands.length}] Done in ${cmdElapsed}ms, success=${result.success}, rc=${result.returnCode}`);
                 if (!result.success) {
                     console.error(`Stata All in One: Command failed: ${result.error}`);
                     break;
                 }
+                updateWorkingDirectoryFromCode(consoleSession, command);
             }
         } else {
             const cmdStart = Date.now();
             console.log(`Stata All in One: Executing single command via do-file: ${executionPlan.command.substring(0, 100)}`);
             // writeCommand already shows the code; echo:false avoids duplicate
-            result = await consoleSession.execute(executionPlan.command, false, onExecutionChunk);
+            result = await executeConsoleCommand(consoleSession, graphDir, executionPlan.command, onExecutionChunk);
+            if (result.success && !executionPlan.tempFilePath) {
+                updateWorkingDirectoryFromCode(consoleSession, executionPlan.command);
+            }
             console.log(`Stata All in One: Do-file execution done in ${Date.now() - cmdStart}ms, success=${result.success}`);
         }
 
@@ -659,6 +652,24 @@ function normalizeCodeToRun(code) {
         .map(line => line.replace(/^\s*\.\s?/, ''))
         .join('\n')
         .trim();
+}
+
+async function executeConsoleCommand(consoleSession, graphDir, command, onExecutionChunk) {
+    const graphExportResult = await executeBitmapGraphExport(
+        consoleSession,
+        graphDir,
+        command,
+        consoleSession.getWorkingDirectory()
+    );
+
+    if (graphExportResult) {
+        if (graphExportResult.output && typeof onExecutionChunk === 'function') {
+            onExecutionChunk(graphExportResult.output);
+        }
+        return graphExportResult;
+    }
+
+    return await consoleSession.execute(command, false, onExecutionChunk);
 }
 
 async function ensureInitialWorkingDirectory(consoleSession, docDir) {

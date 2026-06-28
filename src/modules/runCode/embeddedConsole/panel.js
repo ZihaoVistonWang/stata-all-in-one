@@ -448,14 +448,8 @@ class WebviewTerminalSink {
         await revealPanel(false);
     }
 
-    writeCommand(command, strikethroughLines) {
-        appendEntries(this._renderer.renderCommandSegments(command, this._width, strikethroughLines));
-    }
-
-    writeStrikethroughCommand(lines) {
-        if (lines && lines.length) {
-            appendEntries(this._renderer.renderStrikethroughCommandSegments(lines));
-        }
+    writeCommand(command) {
+        appendEntries(this._renderer.renderCommandSegments(command, this._width));
     }
 
     writeOutputChunk(text) {
@@ -1000,9 +994,6 @@ function getWebviewHtml(webview) {
         }
         .is-italic {
             font-style: italic;
-        }
-        .is-strikethrough {
-            text-decoration: line-through;
         }
         .line-error,
         .line-break,

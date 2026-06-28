@@ -112,26 +112,6 @@ function getCodeToRun(editor) {
 }
 
 /**
- * 剔除代码中的 graph export 命令
- * 图形已由控制台自动捕获导出，手动执行 graph export 在嵌入式模式下会失败（无显示服务器）
- * @param {string} code
- * @returns {{ code: string, removed: string[] }}
- */
-function stripGraphExport(code) {
-    const lines = String(code || '').split('\n');
-    const kept = [];
-    const removed = [];
-    for (const line of lines) {
-        if (/^\s*(\.\s?)?(quietly\s+)?graph\s+export\b/i.test(line)) {
-            removed.push(line.trim());
-        } else {
-            kept.push(line);
-        }
-    }
-    return { code: kept.join('\n'), removed };
-}
-
-/**
  * 主调度函数：运行当前节/行/选区
  * 检查 Embedded Console 可用性，路由到 Embedded Console 或 External App 执行路径
  * 
@@ -169,30 +149,8 @@ async function runCurrentSection(context, editor = null) {
     // 获取要运行的代码
     const originalCode = getCodeToRun(activeEditor);
 
-    // 剔除 graph export 命令：图形已由控制台自动捕获，手动 export 不必要
-    // 控制台显示保留原始代码（graph export 行以删除线标注），执行使用剥离后代码
-    const stripped = stripGraphExport(originalCode);
-    const codeToRun = originalCode; // 用于显示
+    const codeToRun = originalCode;
     const runMode = config.getRunMode();
-    let graphExportOptions;
-    if (stripped.removed.length) {
-        // 计算 graph export 行在原始代码中的行号（0-based）
-        const originalLines = originalCode.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
-        const indices = new Set();
-        originalLines.forEach((line, i) => {
-            if (/^\s*(\.\s?)?(quietly\s+)?graph\s+export\b/i.test(line)) {
-                indices.add(i);
-            }
-        });
-        graphExportOptions = {
-            execCode: stripped.code,          // 剥离后代码，用于执行
-            graphExportLineIndices: indices   // 删除线行号，用于显示
-        };
-        // 仅在 embedded console 模式提示（external app 模式下 graph export 正常执行，无需跳过）
-        if (runMode !== config.RUN_MODES.externalApp) {
-            vscode.window.showInformationMessage(msg('graphExportSkippedNotice', { count: stripped.removed.length }));
-        }
-    }
 
     // 获取文档目录
     const docDir = path.dirname(document.fileName);
@@ -209,7 +167,7 @@ async function runCurrentSection(context, editor = null) {
                 vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', false);
             } else {
                 vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
-                const consoleResult = await runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir, context, graphExportOptions);
+                const consoleResult = await runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir, context);
                 if (consoleResult.success) {
                     vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
                     capability.setCapabilityState(context, 'console');
@@ -235,7 +193,7 @@ async function runCurrentSection(context, editor = null) {
                 vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', false);
             } else {
                 vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
-                const consoleResult = await runOnMacWebview(codeToRun, tmpFilePath, docDir, context, graphExportOptions);
+                const consoleResult = await runOnMacWebview(codeToRun, tmpFilePath, docDir, context);
                 if (consoleResult.success) {
                     vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
                     capability.setCapabilityState(context, 'console');
@@ -355,25 +313,6 @@ async function runArbitraryCode(context, code, options = {}) {
     const docDir = options.docDir || resolveExecutionDirectory();
     const tmpFilePath = path.join(docDir, 'stata_all_in_one_temp.do');
 
-    // 剔除 graph export 命令：图形已由控制台自动捕获，手动 export 不必要
-    // 控制台显示保留原始代码（graph export 行以删除线标注），执行使用剥离后代码
-    const stripped = stripGraphExport(normalizedCode);
-    let graphExportOptions;
-    if (stripped.removed.length && runMode === config.RUN_MODES.embeddedConsole) {
-        const originalLines = normalizedCode.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
-        const indices = new Set();
-        originalLines.forEach((line, i) => {
-            if (/^\s*(\.\s?)?(quietly\s+)?graph\s+export\b/i.test(line)) {
-                indices.add(i);
-            }
-        });
-        graphExportOptions = {
-            execCode: stripped.code,
-            graphExportLineIndices: indices
-        };
-        vscode.window.showInformationMessage(msg('graphExportSkippedNotice', { count: stripped.removed.length }));
-    }
-
     try {
         let result = null;
         if (onWindows) {
@@ -386,7 +325,7 @@ async function runArbitraryCode(context, code, options = {}) {
             }
 
             await vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
-            const consoleResult = await runOnWindowsEmbeddedConsole(normalizedCode, tmpFilePath, docDir, context, graphExportOptions);
+            const consoleResult = await runOnWindowsEmbeddedConsole(normalizedCode, tmpFilePath, docDir, context);
             if (consoleResult.success) {
                 await vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
                 capability.setCapabilityState(context, 'console');
@@ -417,7 +356,7 @@ async function runArbitraryCode(context, code, options = {}) {
         }
 
         await vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
-        const consoleResult = await runOnMacWebview(normalizedCode, tmpFilePath, docDir, context, graphExportOptions);
+        const consoleResult = await runOnMacWebview(normalizedCode, tmpFilePath, docDir, context);
         if (consoleResult.success) {
             await vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
             capability.setCapabilityState(context, 'console');

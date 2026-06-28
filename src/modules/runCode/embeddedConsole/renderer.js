@@ -520,22 +520,11 @@ class StataTerminalRenderer {
             .join('\n') + '\n';
     }
 
-    renderCommandSegments(command, width, strikethroughLines) {
+    renderCommandSegments(command, width) {
         const normalized = String(command || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
         const lines = normalized.split('\n');
-        const skipSet = strikethroughLines instanceof Set ? strikethroughLines : new Set();
-        return lines.map((line, index) => {
-            if (skipSet.has(index)) {
-                return this._segmentStrikethroughCommandLine(`${index === 0 ? '. ' : '> '}${line}`);
-            }
-            return this._segmentCommandLine(`${index === 0 ? '. ' : '> '}${line}`, width);
-        });
-    }
-
-    renderStrikethroughCommandSegments(lines) {
-        // 删除线行不带命令提示符，作为独立提示块展示
-        return lines.map((line) =>
-            this._segmentStrikethroughCommandLine(line)
+        return lines.map((line, index) =>
+            this._segmentCommandLine(`${index === 0 ? '. ' : '> '}${line}`, width)
         );
     }
 
@@ -1676,17 +1665,6 @@ class StataTerminalRenderer {
         };
     }
 
-    _segmentStrikethroughCommandLine(line) {
-        const prompt = (line.startsWith('. ') || line.startsWith('> ')) ? line.slice(0, 2) : '';
-        const body = prompt ? line.slice(2) : line;
-        const segments = [];
-        if (prompt) {
-            segments.push(this._segment(prompt, this._styleForTokenType('prompt', { bold: true })));
-        }
-        segments.push(this._segment(body, this._styleForTokenType('comment', { strikethrough: true })));
-        return { kind: 'command', segments };
-    }
-
     _foregroundForCommandToken(type, scopes, tokenForeground) {
         if (hasSpecificGrammarScope(scopes)) {
             if (tokenForeground) {
@@ -1952,9 +1930,6 @@ class StataTerminalRenderer {
         if (overrides.dim) {
             style.dim = true;
         }
-        if (overrides.strikethrough) {
-            style.strikethrough = true;
-        }
         return style;
     }
 
@@ -1968,9 +1943,6 @@ class StataTerminalRenderer {
         }
         if (style.dim) {
             classNames.push('is-dim');
-        }
-        if (style.strikethrough) {
-            classNames.push('is-strikethrough');
         }
         return classNames.join(' ');
     }

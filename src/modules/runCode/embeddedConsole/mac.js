@@ -13,7 +13,7 @@ const { getTempFilePath, cleanupTempFile } = require('../execute/tempfile');
 const config = require('../../../utils/config');
 const { showInfo, showError, msg } = require('../../../utils/common');
 const { getWebviewTerminalSink, setGraphResourceRoot } = require('./panel');
-const { beginGraphCapture, endGraphCapture, exportCapturedGraphs, getGraphCacheDir } = require('./graphs');
+const { beginGraphCapture, endGraphCapture, executeBitmapGraphExport, exportCapturedGraphs, getGraphCacheDir } = require('./graphs');
 
 let _activeOutputSink = null;
 
@@ -543,15 +543,10 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
         await outputSink.prepareForExecution();
 
         const normalizedCode = normalizeCodeToRun(codeToRun);
-        // 执行用剥离 graph export 后的代码（options.execCode），显示用原始代码
-        // 注意：execCode 可能为 ''（全部行都是 graph export），所以用 !== undefined 而非 truthy 判断
-        const hasStrippedCode = options && options.execCode !== undefined;
-        const execCode = hasStrippedCode
+        const hasExecOverride = options && options.execCode !== undefined;
+        const execCode = hasExecOverride
             ? normalizeCodeToRun(options.execCode)
             : normalizedCode;
-        const graphExportLineIndices = (options && options.graphExportLineIndices instanceof Set)
-            ? options.graphExportLineIndices
-            : undefined;
         const progressTotal = extractProgressTotalFromCode(execCode);
         await ensureWebviewBootstrap(consoleSession);
         await ensureInitialWorkingDirectory(consoleSession, docDir);
@@ -610,28 +605,27 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
         };
 
         if (typeof outputSink.writeCommand === 'function') {
-            // graph export 行被剥离不执行，但在控制台中保留原始位置并用删除线标注
-            const displayCode = graphExportLineIndices
-                ? normalizedCode
-                : (executionPlan.displayCode || normalizedCode);
-            outputSink.writeCommand(displayCode, graphExportLineIndices);
+            outputSink.writeCommand(executionPlan.displayCode || normalizedCode);
         }
 
         let result = null;
         if (!execCode.trim()) {
-            // 全部行都是 graph export，无实际代码需要执行
-            console.log(`[mac.js] All lines were graph export — skipping execution`);
+            console.log('[mac.js] No executable Stata code to run');
             result = { success: true, returnCode: 0, output: '' };
         } else if (Array.isArray(executionPlan.commands) && executionPlan.commands.length) {
             for (const command of executionPlan.commands) {
-                result = await consoleSession.execute(command, false, onExecutionChunk);
+                result = await executeConsoleCommand(consoleSession, graphDir, command, onExecutionChunk);
                 if (!result.success) {
                     break;
                 }
+                updateWorkingDirectoryFromCode(consoleSession, command);
             }
         } else {
             // writeCommand already shows the code; echo:false avoids duplicate
-            result = await consoleSession.execute(executionPlan.command, false, onExecutionChunk);
+            result = await executeConsoleCommand(consoleSession, graphDir, executionPlan.command, onExecutionChunk);
+            if (result.success && !executionPlan.tempFilePath) {
+                updateWorkingDirectoryFromCode(consoleSession, executionPlan.command);
+            }
         }
 
         if (!executionPlan.commands && result.output) {
@@ -712,6 +706,24 @@ function normalizeCodeToRun(code) {
         .map(line => line.replace(/^\s*\.\s?/, ''))
         .join('\n')
         .trim();
+}
+
+async function executeConsoleCommand(consoleSession, graphDir, command, onExecutionChunk) {
+    const graphExportResult = await executeBitmapGraphExport(
+        consoleSession,
+        graphDir,
+        command,
+        consoleSession.getWorkingDirectory()
+    );
+
+    if (graphExportResult) {
+        if (graphExportResult.output && typeof onExecutionChunk === 'function') {
+            onExecutionChunk(graphExportResult.output);
+        }
+        return graphExportResult;
+    }
+
+    return await consoleSession.execute(command, false, onExecutionChunk);
 }
 
 async function ensureInitialWorkingDirectory(consoleSession, docDir) {
