@@ -1043,16 +1043,12 @@ function getWebviewHtml(webview) {
             display: none;
             align-items: center;
             gap: 10px;
-            padding: 0 2ch;
+            padding: 0 2ch 0 calc(2ch + 4px);
             min-height: 1.5em;
             color: var(--vscode-descriptionForeground);
         }
         body[data-status="running"] #working-indicator {
             display: flex;
-        }
-        .working-bullet {
-            color: var(--stata-comment);
-            flex: 0 0 auto;
         }
         .working-text {
             font-weight: 700;
@@ -1406,7 +1402,6 @@ function getWebviewHtml(webview) {
             </div>
         </div>
         <div id="working-indicator" aria-hidden="true">
-            <span class="working-bullet">•</span>
             <span class="working-text">Working</span>
             <span class="working-meta">(<span id="working-seconds">0s</span><span id="working-detail-shell" hidden> • <span id="working-detail"></span></span> • esc to interrupt)</span>
         </div>
@@ -1893,8 +1888,17 @@ function getWebviewHtml(webview) {
             workingDetailShell.hidden = !workingDetail.textContent;
         }
 
+        function keepWorkingIndicatorAtOutputEnd() {
+            if (workingIndicator.parentElement !== output || workingIndicator.nextSibling) {
+                output.appendChild(workingIndicator);
+            }
+            workingIndicator.style.paddingLeft = '';
+            workingIndicator.style.paddingRight = '';
+        }
+
         function startWorkingIndicator() {
             runningStartedAt = Date.now();
+            keepWorkingIndicatorAtOutputEnd();
             workingIndicator.style.display = 'flex';
             refreshDisplayedRemainingSeconds();
             updateWorkingMeta();
@@ -1915,12 +1919,7 @@ function getWebviewHtml(webview) {
             }
             displayedRemainingSeconds = 0;
             updateWorkingMeta();
-            // Move indicator back to #output and reset inline padding
-            if (workingIndicator.parentElement !== output) {
-                output.appendChild(workingIndicator);
-                workingIndicator.style.paddingLeft = '';
-                workingIndicator.style.paddingRight = '';
-            }
+            keepWorkingIndicatorAtOutputEnd();
             workingIndicator.style.display = 'none';
         }
 
@@ -2598,14 +2597,8 @@ function getWebviewHtml(webview) {
             const message = event.data || {};
             if (message.type === 'append') {
                 appendEntries(message.entries || []);
-                // Re-position working indicator right after the last command line
                 if (workingIndicator.style.display === 'flex') {
-                    const cmds = outputShell.querySelectorAll('.line-command');
-                    if (cmds.length) {
-                        cmds[cmds.length - 1].insertAdjacentElement('afterend', workingIndicator);
-                        workingIndicator.style.paddingLeft = '0';
-                        workingIndicator.style.paddingRight = '0';
-                    }
+                    keepWorkingIndicatorAtOutputEnd();
                 }
             } else if (message.type === 'status') {
                 setStatus(message.status);
