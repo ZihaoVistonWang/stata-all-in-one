@@ -2,16 +2,8 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-let sharp = null;
-try {
-    sharp = require('sharp');
-} catch (_error) {
-    sharp = null;
-}
-
 const GRAPH_FORMATS = ['svg'];
 const BITMAP_EXPORT_FORMATS = new Set(['png', 'jpg', 'jpeg']);
-const BITMAP_EXPORT_MAX_DENSITY = 144;
 const GRAPH_CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 let _lastCacheCleanupAt = 0;
@@ -102,7 +94,7 @@ async function executeBitmapGraphExport(consoleSession, graphDir, command, worki
 
     const converter = typeof bitmapConverter === 'function'
         ? bitmapConverter
-        : (sharp ? convertSvgToBitmap : null);
+        : null;
     if (!converter) {
         return {
             success: false,
@@ -306,33 +298,6 @@ function resolveGraphExportPath(filePath, workingDirectory) {
     }
 
     return path.resolve(workingDirectory || process.cwd(), rawPath);
-}
-
-async function convertSvgToBitmap(svgPath, targetPath, request) {
-    let image = sharp(svgPath, { density: getGraphRasterDpi() });
-    if (request.width || request.height) {
-        image = image.resize({
-            width: request.width || undefined,
-            height: request.height || undefined,
-            fit: request.width && request.height ? 'fill' : 'inside'
-        });
-    }
-
-    if (request.format === 'png') {
-        await image.png().toFile(targetPath);
-        return;
-    }
-
-    await image.flatten({ background: '#ffffff' }).jpeg({ quality: 90 }).toFile(targetPath);
-}
-
-function getGraphRasterDpi() {
-    try {
-        const config = require('../../../utils/config');
-        return Math.min(config.getGraphPngDpi(), BITMAP_EXPORT_MAX_DENSITY);
-    } catch (_error) {
-        return BITMAP_EXPORT_MAX_DENSITY;
-    }
 }
 
 async function getCapturedGraphNames(consoleSession) {
