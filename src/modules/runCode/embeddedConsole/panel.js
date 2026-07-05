@@ -170,8 +170,8 @@ function attachPanel(panel) {
         } else if (message && message.type === 'copyGraphFailed') {
             const detail = String(message.message || '').trim();
             showWarn(msg('graphCopyPngFailed', { detail: detail ? ` ${detail}` : '' }));
-        } else if (message && (message.type === 'graphPngDataUrl' || message.type === 'graphPngDataUrlFailed')) {
-            resolveGraphPngDataUrlRequest(message);
+        } else if (message && (message.type === 'graphImageDataUrl' || message.type === 'graphImageDataUrlFailed')) {
+            resolveGraphImageDataUrlRequest(message);
         } else if (message && (message.type === 'stopExecution' || message.type === 'clearConsole' || message.type === 'showOverflowNotice') && typeof _actionHandler === 'function') {
             try {
                 await _actionHandler(message.type);
@@ -331,6 +331,11 @@ async function saveGraphAs(filePath, graphName, format) {
             label: msg('graphFormatPng'),
             description: msg('graphFormatPngDescription', { dpi: pngDpi }),
             value: 'png'
+        },
+        {
+            label: msg('graphFormatJpg'),
+            description: msg('graphFormatJpgDescription', { dpi: pngDpi }),
+            value: 'jpg'
         }
     ], {
         placeHolder: msg('graphSaveFormatPlaceholder')
@@ -354,9 +359,12 @@ async function saveGraphAs(filePath, graphName, format) {
 
     try {
         const targetExtension = String(path.extname(targetUri.fsPath).replace(/^\./, '') || selectedExtension || sourceExtension || 'svg').toLowerCase();
-        if (targetExtension === 'png') {
-            const dataUrl = await requestGraphPngDataUrl(sourcePath, pngDpi);
-            await fs.promises.writeFile(targetUri.fsPath, decodePngDataUrl(dataUrl));
+        if (targetExtension === 'png' || targetExtension === 'jpg' || targetExtension === 'jpeg') {
+            const dataUrl = await requestGraphImageDataUrl(sourcePath, {
+                dpi: pngDpi,
+                format: targetExtension
+            });
+            await fs.promises.writeFile(targetUri.fsPath, decodeGraphImageDataUrl(dataUrl, targetExtension));
         } else {
             await fs.promises.copyFile(sourcePath, targetUri.fsPath);
         }
@@ -372,29 +380,44 @@ function sanitizeGraphFileName(value) {
         || 'graph';
 }
 
-function requestGraphPngDataUrl(filePath, dpi) {
+function requestGraphImageDataUrl(filePath, options = {}) {
     if (!_panel) {
         return Promise.reject(new Error(msg('graphPanelUnavailable')));
+    }
+
+    const format = normalizeGraphBitmapFormat(options.format || 'png');
+    const dpi = Number(options.dpi) || config.getGraphPngDpi();
+    let svgText = '';
+    try {
+        if (String(path.extname(filePath || '')).toLowerCase() === '.svg') {
+            svgText = fs.readFileSync(filePath, 'utf8');
+        }
+    } catch (_error) {
+        svgText = '';
     }
 
     const requestId = `graph-save-${Date.now()}-${_graphSaveRequestSeq += 1}`;
     return new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
             _pendingGraphSaveRequests.delete(requestId);
-            reject(new Error(msg('graphPngRequestTimeout')));
+            reject(new Error(msg('graphImageRequestTimeout')));
         }, 15000);
 
         _pendingGraphSaveRequests.set(requestId, { resolve, reject, timeout });
         _panel.webview.postMessage({
-            type: 'requestGraphPngDataUrl',
+            type: 'requestGraphImageDataUrl',
             requestId,
             filePath,
-            dpi
+            dpi,
+            format,
+            width: options.width || 0,
+            height: options.height || 0,
+            svgText
         });
     });
 }
 
-function resolveGraphPngDataUrlRequest(message) {
+function resolveGraphImageDataUrlRequest(message) {
     const requestId = String(message.requestId || '');
     const pending = _pendingGraphSaveRequests.get(requestId);
     if (!pending) {
@@ -403,19 +426,41 @@ function resolveGraphPngDataUrlRequest(message) {
 
     clearTimeout(pending.timeout);
     _pendingGraphSaveRequests.delete(requestId);
-    if (message.type === 'graphPngDataUrl') {
+    if (message.type === 'graphImageDataUrl') {
         pending.resolve(String(message.dataUrl || ''));
     } else {
-        pending.reject(new Error(String(message.message || msg('graphPngConversionFailed'))));
+        pending.reject(new Error(String(message.message || msg('graphImageConversionFailed'))));
     }
 }
 
-function decodePngDataUrl(dataUrl) {
-    const match = String(dataUrl || '').match(/^data:image\/png;base64,([A-Za-z0-9+/=]+)$/);
+function decodeGraphImageDataUrl(dataUrl, format) {
+    const mimeType = getGraphBitmapMimeType(format);
+    const escapedMime = mimeType.replace('/', '\\/');
+    const match = String(dataUrl || '').match(new RegExp(`^data:${escapedMime};base64,([A-Za-z0-9+/=]+)$`));
     if (!match) {
-        throw new Error(msg('graphInvalidPngData'));
+        throw new Error(msg('graphInvalidImageData'));
     }
     return Buffer.from(match[1], 'base64');
+}
+
+async function convertGraphSvgToBitmap(sourcePath, targetPath, request = {}) {
+    const format = normalizeGraphBitmapFormat(request.format || path.extname(targetPath).replace(/^\./, ''));
+    const dataUrl = await requestGraphImageDataUrl(sourcePath, {
+        dpi: config.getGraphPngDpi(),
+        format,
+        width: request.width || 0,
+        height: request.height || 0
+    });
+    await fs.promises.writeFile(targetPath, decodeGraphImageDataUrl(dataUrl, format));
+}
+
+function normalizeGraphBitmapFormat(format) {
+    const normalized = String(format || '').trim().toLowerCase();
+    return normalized === 'jpg' || normalized === 'jpeg' ? 'jpeg' : 'png';
+}
+
+function getGraphBitmapMimeType(format) {
+    return normalizeGraphBitmapFormat(format) === 'jpeg' ? 'image/jpeg' : 'image/png';
 }
 
 function clearPanel() {
@@ -1500,7 +1545,7 @@ function getWebviewHtml(webview) {
         let highlightSuppressed = false;
         let pendingFocus = false;
         let wasRunning = false;
-        const graphPngCache = new Map();
+        const graphImageCache = new Map();
 
         const STATUS_LABELS = {
             idle: ${JSON.stringify(msg('webviewIdle'))},
@@ -1512,11 +1557,12 @@ function getWebviewHtml(webview) {
             copy: ${JSON.stringify(msg('graphCopyImage'))},
             save: ${JSON.stringify(msg('graphSaveImage'))},
             fullScreen: ${JSON.stringify(msg('graphFullScreen'))},
-            conversionFailed: ${JSON.stringify(msg('graphPngConversionFailed'))},
+            imageConversionFailed: ${JSON.stringify(msg('graphImageConversionFailed'))},
             onlySvgCanConvert: ${JSON.stringify(msg('graphOnlySvgCanConvert'))},
             svgEmpty: ${JSON.stringify(msg('graphSvgEmpty'))},
             canvasUnavailable: ${JSON.stringify(msg('graphCanvasUnavailable'))},
             canvasPngFailed: ${JSON.stringify(msg('graphCanvasPngFailed'))},
+            canvasImageFailed: ${JSON.stringify(msg('graphCanvasImageFailed'))},
             svgReadFailed: ${JSON.stringify(msg('graphSvgReadFailed'))},
             svgLoadFailed: ${JSON.stringify(msg('graphSvgLoadFailed'))},
             clipboardWriteUnavailable: ${JSON.stringify(msg('graphClipboardWriteUnavailable'))},
@@ -2187,27 +2233,40 @@ function getWebviewHtml(webview) {
         }
 
         async function getGraphPngBlob(entry, dpi) {
+            return getGraphImageBlob(entry, dpi, { format: 'png' });
+        }
+
+        async function getGraphImageBlob(entry, dpi, options) {
             const normalizedDpi = normalizeGraphDpi(dpi);
-            const cacheKey = String((entry && entry.filePath) || (entry && entry.src) || '') + '#' + normalizedDpi;
-            if (cacheKey && graphPngCache.has(cacheKey)) {
-                return graphPngCache.get(cacheKey);
+            const format = normalizeGraphBitmapFormat(options && options.format);
+            const width = normalizePositivePixelSize(options && options.width);
+            const height = normalizePositivePixelSize(options && options.height);
+            const cacheKey = [
+                String((entry && entry.filePath) || (entry && entry.src) || ''),
+                normalizedDpi,
+                format,
+                width || '',
+                height || ''
+            ].join('#');
+            if (cacheKey && graphImageCache.has(cacheKey)) {
+                return graphImageCache.get(cacheKey);
             }
 
-            const promise = renderGraphEntryToPngBlob(entry, normalizedDpi);
+            const promise = renderGraphEntryToImageBlob(entry, normalizedDpi, { format, width, height });
             if (cacheKey) {
-                graphPngCache.set(cacheKey, promise);
+                graphImageCache.set(cacheKey, promise);
             }
             try {
                 return await promise;
             } catch (error) {
                 if (cacheKey) {
-                    graphPngCache.delete(cacheKey);
+                    graphImageCache.delete(cacheKey);
                 }
                 throw error;
             }
         }
 
-        async function renderGraphEntryToPngBlob(entry, dpi) {
+        async function renderGraphEntryToImageBlob(entry, dpi, options) {
             const format = String(entry && entry.format || '').toLowerCase();
             if (format !== 'svg') {
                 throw new Error(GRAPH_LABELS.onlySvgCanConvert);
@@ -2219,7 +2278,10 @@ function getWebviewHtml(webview) {
             }
 
             const image = await loadImage(svgTextToDataUrl(svgText));
-            const size = getSvgRasterSize(svgText, image, dpi);
+            const sourceSize = getSvgRasterSize(svgText, image, dpi);
+            const size = getRequestedRasterSize(sourceSize, options && options.width, options && options.height);
+            const bitmapFormat = normalizeGraphBitmapFormat(options && options.format);
+            const mimeType = bitmapFormat === 'jpeg' ? 'image/jpeg' : 'image/png';
             const canvas = document.createElement('canvas');
             canvas.width = size.width;
             canvas.height = size.height;
@@ -2236,9 +2298,9 @@ function getWebviewHtml(webview) {
                     if (blob) {
                         resolve(blob);
                     } else {
-                        reject(new Error(GRAPH_LABELS.canvasPngFailed));
+                        reject(new Error(bitmapFormat === 'png' ? GRAPH_LABELS.canvasPngFailed : GRAPH_LABELS.canvasImageFailed));
                     }
-                }, 'image/png');
+                }, mimeType, bitmapFormat === 'jpeg' ? 0.9 : undefined);
             });
         }
 
@@ -2280,6 +2342,19 @@ function getWebviewHtml(webview) {
             return Math.min(1200, Math.round(value));
         }
 
+        function normalizeGraphBitmapFormat(format) {
+            const normalized = String(format || '').trim().toLowerCase();
+            return normalized === 'jpg' || normalized === 'jpeg' ? 'jpeg' : 'png';
+        }
+
+        function normalizePositivePixelSize(value) {
+            const number = Number(value);
+            if (!Number.isFinite(number) || number <= 0) {
+                return 0;
+            }
+            return Math.max(1, Math.round(number));
+        }
+
         function getSvgRasterSize(svgText, image, dpi) {
             const parser = new DOMParser();
             const documentSvg = parser.parseFromString(svgText, 'image/svg+xml');
@@ -2298,6 +2373,25 @@ function getWebviewHtml(webview) {
 
             const scale = dpi / 96;
             return clampRasterSize((image.naturalWidth || 960) * scale, (image.naturalHeight || 640) * scale, dpi);
+        }
+
+        function getRequestedRasterSize(sourceSize, width, height) {
+            const requestedWidth = normalizePositivePixelSize(width);
+            const requestedHeight = normalizePositivePixelSize(height);
+            if (!requestedWidth && !requestedHeight) {
+                return sourceSize;
+            }
+
+            const sourceWidth = Math.max(1, Number(sourceSize && sourceSize.width) || 1);
+            const sourceHeight = Math.max(1, Number(sourceSize && sourceSize.height) || 1);
+            const aspectRatio = sourceWidth / sourceHeight;
+            if (requestedWidth && requestedHeight) {
+                return clampRasterSize(requestedWidth, requestedHeight, 1200);
+            }
+            if (requestedWidth) {
+                return clampRasterSize(requestedWidth, requestedWidth / aspectRatio, 1200);
+            }
+            return clampRasterSize(requestedHeight * aspectRatio, requestedHeight, 1200);
         }
 
         function parseSvgLength(value, dpi) {
@@ -2652,31 +2746,32 @@ function getWebviewHtml(webview) {
                     overflowNoticeDismissedForCurrentView = true;
                 }
                 updateOverflowNotice();
-            } else if (message.type === 'requestGraphPngDataUrl') {
+            } else if (message.type === 'requestGraphImageDataUrl') {
                 const requestId = String(message.requestId || '');
-                const entry = findGraphEntryByFilePath(message.filePath);
-                if (!entry) {
-                    vscode.postMessage({
-                        type: 'graphPngDataUrlFailed',
-                        requestId,
-                        message: GRAPH_LABELS.conversionFailed
-                    });
-                    return;
-                }
-                getGraphPngBlob(entry, Number(message.dpi) || 600)
+                const entry = findGraphEntryByFilePath(message.filePath) || {
+                    kind: 'graph',
+                    format: 'svg',
+                    filePath: String(message.filePath || ''),
+                    svgText: String(message.svgText || '')
+                };
+                getGraphImageBlob(entry, Number(message.dpi) || 600, {
+                    format: message.format,
+                    width: message.width,
+                    height: message.height
+                })
                     .then(blobToDataUrl)
                     .then(dataUrl => {
                         vscode.postMessage({
-                            type: 'graphPngDataUrl',
+                            type: 'graphImageDataUrl',
                             requestId,
                             dataUrl
                         });
                     })
                     .catch(error => {
                         vscode.postMessage({
-                            type: 'graphPngDataUrlFailed',
+                            type: 'graphImageDataUrlFailed',
                             requestId,
-                            message: String(error && error.message || error || GRAPH_LABELS.conversionFailed)
+                            message: String(error && error.message || error || GRAPH_LABELS.imageConversionFailed)
                         });
                     });
             }
@@ -2709,6 +2804,7 @@ module.exports = {
     setWorkingDetail,
     setConsoleFontOptions,
     setGraphResourceRoot,
+    convertGraphSvgToBitmap,
     registerWebviewPanelSerializer,
     clearWebviewTerminalPanel: clearPanel,
     setWebviewTerminalStatus: setStatus,

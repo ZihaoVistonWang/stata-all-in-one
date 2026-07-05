@@ -94,18 +94,21 @@ async function exportCapturedGraphs(consoleSession, graphDir) {
     return exported;
 }
 
-async function executeBitmapGraphExport(consoleSession, graphDir, command, workingDirectory = null) {
+async function executeBitmapGraphExport(consoleSession, graphDir, command, workingDirectory = null, bitmapConverter = null) {
     const request = parseBitmapGraphExportCommand(command);
     if (!request) {
         return null;
     }
 
-    if (!sharp) {
+    const converter = typeof bitmapConverter === 'function'
+        ? bitmapConverter
+        : (sharp ? convertSvgToBitmap : null);
+    if (!converter) {
         return {
             success: false,
             returnCode: 198,
             output: '',
-            error: 'PNG/JPG graph export requires sharp, but sharp is not available.'
+            error: 'PNG/JPG graph export requires an image renderer, but none is available.'
         };
     }
 
@@ -155,7 +158,7 @@ async function executeBitmapGraphExport(consoleSession, graphDir, command, worki
             };
         }
 
-        await convertSvgToBitmap(tempSvgPath, targetPath, request);
+        await converter(tempSvgPath, targetPath, request);
         if (!fileExistsWithContent(targetPath)) {
             return {
                 success: false,

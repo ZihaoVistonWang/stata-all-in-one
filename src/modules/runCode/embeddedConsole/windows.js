@@ -12,7 +12,7 @@ const session = require('./session');
 const { getTempFilePath, cleanupTempFile } = require('../execute/tempfile');
 const config = require('../../../utils/config');
 const { showInfo, showError } = require('../../../utils/common');
-const { getWebviewTerminalSink, setGraphResourceRoot } = require('./panel');
+const { getWebviewTerminalSink, setGraphResourceRoot, convertGraphSvgToBitmap } = require('./panel');
 const { beginGraphCapture, endGraphCapture, executeBitmapGraphExport, exportCapturedGraphs, getGraphCacheDir } = require('./graphs');
 
 let _activeOutputSink = null;
@@ -659,7 +659,8 @@ async function executeConsoleCommand(consoleSession, graphDir, command, onExecut
         consoleSession,
         graphDir,
         command,
-        consoleSession.getWorkingDirectory()
+        consoleSession.getWorkingDirectory(),
+        convertGraphSvgToBitmap
     );
 
     if (graphExportResult) {
