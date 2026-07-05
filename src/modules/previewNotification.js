@@ -37,9 +37,9 @@ function compareVersions(a, b) {
 
 function getMessage(lang, version) {
     if (lang === 'zh') {
-        return 'Stata All in One 预览版本 v' + version + '：\n\n这是一个预览版本，如果有Bug影响使用，请及时反馈并回退安装发布版本（≤v0.2.13）！\n\n预览版引入了嵌入式控制台、数据查看器、AI Skill 功能和悬停帮助等，同时在 Windows 端带来了显著的性能提升。';
+        return 'Stata All in One 预览版本 v' + version + '：\n\n这是一个预览版本，如果有Bug影响使用，请及时反馈并回退安装发布版本（≤v0.2.13）！\n\n预览版引入了嵌入式控制台、数据查看器、内置原生 AI Skill 和悬停帮助等，同时在 Windows 端带来了显著的性能提升。';
     }
-    return 'Stata All in One Preview Version v' + version + ':\n\nThis is a preview version. If you encounter bugs that affect your workflow, please report them and rollback to the release version (≤v0.2.13)!\n\nThe preview introduces the Embedded Console, Data Viewer, AI Skill and Hover Help, along with significant performance improvements on Windows.';
+    return 'Stata All in One Preview Version v' + version + ':\n\nThis is a preview version. If you encounter bugs that affect your workflow, please report them and rollback to the release version (≤v0.2.13)!\n\nThe preview introduces the Embedded Console, Data Viewer, bundled native AI Skill and Hover Help, along with significant performance improvements on Windows.';
 }
 
 const MESSAGES = {

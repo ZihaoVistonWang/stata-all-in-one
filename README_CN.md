@@ -75,11 +75,10 @@ Stata All in One
 
 ### 1. AI Skill 功能（实验性）🔑
 
-- **让 AI Agent 运行 Stata 代码**：<mark>在 VS Code 内部启动 localhost HTTP 服务器（默认端口 `19521`），让 AI 编程工具（Claude Code、Cursor、Codex CLI、Open Code、OpenClaw 等）通过系统自带的 `curl` 命令直接运行 Stata 代码并读取结果。</mark>
-- **零外部依赖**：<mark>无需安装 Python、Node.js 或任何第三方工具 —— 只需 VS Code 和系统自带的 `curl`（或 PowerShell）。</mark>
-- **安装交给AI就行**：<mark>点击编辑器工具栏的 `AI` 按钮，复制提示词粘贴到 AI 工具即可，AI 将自行完成配置。</mark>
-- **自动启动**：<mark>启用后，HTTP 服务器随 VS Code 开启自动启动，AI Agent 可以随时运行 Stata 代码。</mark>
-- **开关控制**：<mark>点击编辑器工具栏的 `AI` 按钮（位于运行按钮旁），或在设置中管理 `Stata All in One > AI Skill Enabled`。关闭后不启动服务。</mark>
+- **让 AI Agent 运行 Stata 代码**：<mark>扩展内置独立版原生 `stata-ai-skill`，让 Claude Code、Cursor、Codex CLI、Open Code、OpenClaw 等 AI 编程工具通过 Rust 后台服务运行 Stata。</mark>
+- **原生本地服务**：<mark>AI Skill 服务由打包好的原生二进制运行，默认使用 `http://127.0.0.1:19522`。</mark>
+- **安装交给 AI 就行**：<mark>点击编辑器工具栏的 `AI` 按钮，复制提示词粘贴到 AI 工具即可，AI 将从本扩展中安装或注册内置的 `stata-ai-skill`。</mark>
+- **内置原生二进制**：<mark>随扩展提供 macOS Apple Silicon、Windows x64/ARM64 可执行文件，以及完整的 `SKILL.md` 运行指南。</mark>
 
 ### 2. 代码运行 (Stata 交互)
 
@@ -208,16 +207,11 @@ Stata All in One
 
 ### AI Skill
 
-1. <mark>**AI Skill 启用** (`stata-all-in-one.aiSkillEnabled`)</mark>
-   - `true`（默认）：VS Code 打开时自动启动 localhost HTTP 服务器，允许 AI 编程工具执行 Stata 代码。
-   - `false`：仅在打开 `.do`/`.dta` 文件时激活扩展，不启动 HTTP 服务器。
-
-2. <mark>**AI Skill 端口** (`stata-all-in-one.aiSkillPort`)</mark>
-   - AI Skill HTTP 服务器的端口号。默认 `19521`。如果端口被占用可在此更改。
+点击 Stata 编辑器工具栏中的 `AI` 按钮，可复制一段提示词，指导你的 AI 编程工具安装或注册扩展内置的原生 `stata-ai-skill`。独立服务默认使用 `http://127.0.0.1:19522`，并通过内置的 `skill/SKILL.md` 配置。
 
 ### 代码运行
 
-3. <mark>**运行模式** (`stata-all-in-one.runMode`)</mark>
+1. <mark>**运行模式** (`stata-all-in-one.runMode`)</mark>
    - `embeddedConsole`（默认）：在 VS Code 内置的 **控制台 | Stata All in One** 面板中运行代码，直接查看输出并交互。
    - `externalApp`：将代码发送到系统安装的外部 Stata 应用执行。
 
@@ -321,7 +315,7 @@ Stata All in One
 
 | 版本   | 更新内容                                                                           | 发布日期   |
 | ------ | ---------------------------------------------------------------------------------- | ---------- |
-| 0.2.19 | 改进 AI Skill 多窗口复用与版本识别；修复 macOS Console 继承 Stata Python 配置；优化 Stata 编辑器操作按钮 | 2026-06-18 |
+| 0.2.19 | 内置独立原生 `stata-ai-skill`；修复 macOS Console 继承 Stata Python 配置；优化 Stata 编辑器操作按钮 | 2026-06-18 |
 | 0.2.18 | 预览版：修复 Windows 嵌入式控制台初始化失败；新增 STATA.LIC 证书检测与弹窗提示；修复 webview Service Worker 注册错误；优化命令行输入框样式；修复 AI Skill 多行代码执行问题 | 2026-06-07 |
 | 0.2.17-0.2.14 | 预览版：引入 AI Skill、嵌入式控制台、数据查看器和图形支持等核心功能；优化 Hover 帮助显示；修复已知问题 | 2026-05-31 |
 | 0.2.13 | Windows 下运行代码时，不再把已贴靠或最大化 的 Stata 窗口还原成更小的普通窗口，现会保持 Stata 当前窗口大小不变 | 2026-03-12 |

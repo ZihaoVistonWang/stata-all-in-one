@@ -1,518 +1,503 @@
 ---
-name: stata-all-in-one-skill
-version: 202606131204
-description: 在 VS Code 中运行 Stata 代码并读取结果。当用户需要执行 Stata 命令、做回归分析、数据分析、生成统计量，或处理 .do 文件和 .dta 数据集时使用此 skill。触发词包括"运行 Stata 代码"、"做回归"、"汇总数据"、"用 Stata 分析"、"t 检验"、"regress"、"summarize"等。需要 VS Code 和 Stata All in One 扩展。通过宿主机/VS Code 外部环境的 localhost HTTP API 调用 Stata，零额外依赖。
-compatibility: 需要 macOS/Windows，VS Code + Stata All in One 扩展。零额外依赖——只需宿主机系统自带的 curl；如果 AI 工具运行在沙箱/容器中，必须通过可访问宿主机 localhost 的外部 shell、授权命令或用户协助来调用 API。
+name: stata-ai-skill
+description: Run Stata code and statistical analysis through the native Stata AI Skill background service at http://127.0.0.1:19522. Use when the user asks to run Stata commands, regressions, summarize data, t tests, hypothesis tests, do-files, .do scripts, .dta datasets, econometrics workflows, or search Stata articles and cookbook-style resources with lianxh. Uses the packaged native executable and localhost HTTP API.
 ---
 
-# Stata All in One Skill
+# Stata AI Skill
 
-通过 HTTP 接口与 VS Code 中的 Stata 会话通信，运行代码并获取结果。
+Requires Apple Silicon macOS or Windows, the native `stata-ai-skill`
+executable, and a locally installed/licensed Stata. Intel Mac is not
+supported. If automatic Stata discovery fails, ask the user where the Stata
+app/program is installed and configure it with the executable CLI.
 
-## 运行环境关键规则（必须先读）
+This native service provides the Stata AI Skill HTTP workflow through the
+packaged executable and localhost API.
 
-Stata 会话和 HTTP API 运行在用户宿主机上的 VS Code 扩展进程中，地址通常是 `http://127.0.0.1:19521`。许多 AI 编程工具（例如 Codex、Claude Code 的某些运行模式、远程容器、Dev Container、CI shell）会把命令放在沙箱或容器里执行；此时沙箱内的 `127.0.0.1` 可能是沙箱自己，不是用户宿主机，也可能不能启动 GUI 应用。
+Use the native localhost service at `http://127.0.0.1:19522` to run Stata.
+Do not import internal modules. The stable interface is HTTP.
 
-因此 agent 必须按以下顺序处理：
+## Locate The Executable
 
-1. 先在当前 shell 中用 `/status` 做 2 秒健康检查。
-2. 如果成功，检查返回的 `skillVersion` 是否与当前已安装/已加载的 `stata-all-in-one-skill` frontmatter `version` 一致。版本号格式为 `YYYYMMDDHHmm`；不一致时，必须从 VS Code 扩展目录重新读取 `skill/SKILL.md` 并替换/重新注册 skill，保持名称仍为 `stata-all-in-one-skill`。
-3. 如果版本一致，直接使用当前 shell 的 `curl` 调用 API。
-4. 如果连接失败、超时、返回 `OFFLINE`，或 `open` / `code` / GUI 启动命令因为沙箱权限失败，不要假设 Stata 不可用。应判断为“当前执行环境无法访问宿主机 VS Code 的 localhost API”。
-5. 在有权限审批机制的工具中，请求在宿主机/非沙箱环境执行 `curl http://127.0.0.1:19521/status`、启动 VS Code，或运行后续 `/execute` 命令。例如 Codex 中应请求 escalated/unsandboxed shell，而不是继续在沙箱内反复重试。
-6. 如果工具没有外部命令能力，请明确告诉用户：需要在宿主机打开 VS Code、启用 AI Skill、打开一个 `.do` 文件，并在宿主机终端执行文档中的 `curl` 命令。
+Agents must resolve the executable from this skill directory before using PATH
+or build outputs. Do not require the user to know Cargo's `target/release`
+directory.
 
-不要直接导入或调用 VS Code 扩展内部的 JavaScript/N-API 模块。AI Skill 的稳定接口是 localhost HTTP API；扩展内部 API 只能由 VS Code 扩展进程访问。
+Expected packaged layout:
 
-## 前置条件
+```text
+stata-ai-skill/
+  SKILL.md
+  bin/
+    macos/
+      stata-ai-skill            (legacy fallback)
+    macos-arm64/
+      stata-ai-skill            (Apple Silicon)
+    windows/
+      stata-ai-skill.exe          (x64)
+    windows-arm64/
+      stata-ai-skill.exe          (ARM64)
+```
 
-1. VS Code 已安装 Stata All in One 扩展
-2. 已在 VS Code 中运行过 `Stata All in One: Install AI Coding Skill`（首次使用）
-3. 在扩展设置中 `AI Skill Enabled` 已开启（默认开启）
+Resolution order:
 
-## 工作目录与临时文件
+1. If `STATA_AI_SKILL_BIN` is set, use that exact executable path.
+2. macOS Apple Silicon: use `<this-skill-directory>/bin/macos-arm64/stata-ai-skill`.
+3. macOS Intel (`x86_64`): stop and tell the user this skill does not support Intel Mac.
+4. macOS Apple Silicon fallback: use `<this-skill-directory>/bin/macos/stata-ai-skill`.
+5. Windows x64: use `<this-skill-directory>\bin\windows\stata-ai-skill.exe`.
+6. Windows ARM64: use `<this-skill-directory>\bin\windows-arm64\stata-ai-skill.exe`.
+7. Fallback only if packaged binary is missing on a supported platform: use `stata-ai-skill` from PATH.
 
-所有临时 .do 文件、.log 文件和导出的图表都存放在项目工作目录的 `./.stata-all-in-one/` 下。
+To detect macOS architecture:
 
-### 创建目录（首次使用）
-
-**macOS:**
 ```bash
-mkdir -p ./.stata-all-in-one
+case "$(uname -m)" in
+  arm64) exe="./bin/macos-arm64/stata-ai-skill" ;;
+  x86_64)
+    echo "Stata AI Skill does not support Intel Mac."
+    exit 1
+    ;;
+  *) exe="./bin/macos/stata-ai-skill" ;;
+esac
 ```
 
-**Windows (PowerShell):**
+To detect Windows architecture from PowerShell:
+
 ```powershell
-New-Item -ItemType Directory -Force -Path ".\.stata-all-in-one"
-```
-
-### 文件命名规范
-
-- 所有临时文件以时间戳结尾，格式：`名称_YYYYMMDD_HHMMSS.扩展名`
-- 示例：`script_20260607_143021.do`、`output_20260607_143021.log`、`scatter_20260607_143021.png`
-
-### 自动清理
-
-**清理由服务器自动完成** —— 每次 `/execute` 被调用后，服务器自动扫描 `.stata-all-in-one/` 目录，**每种格式（.log、.do、.svg、.png 等）各保留最新 10 个**，删除更旧的。你**无需**手动运行任何清理命令。
-
----
-
-## 启动 VS Code（如果未运行）
-
-执行 Stata 代码前，先确保 VS Code 已打开且 HTTP 服务在线。
-
-### 第一步：检查服务
-
-**macOS / Linux:**
-```bash
-curl -s --connect-timeout 2 http://127.0.0.1:19521/status 2>/dev/null || echo "OFFLINE"
-```
-
-**Windows (PowerShell):**
-```powershell
-try { $r = Invoke-WebRequest -Uri "http://127.0.0.1:19521/status" -TimeoutSec 2 -UseBasicParsing; $r.Content } catch { "OFFLINE" }
-```
-
-如果返回 `{"service":"stata-all-in-one-ai-skill","skillVersion":"202606131204","status":"running","sessionActive":true,"busy":false}` → 可以执行代码了。
-`busy: true` 表示 Stata 正在执行命令，agent 应等待或发送 `/break` 中断。
-
-如果返回的 `skillVersion` 与当前 agent 已安装/已加载的 `stata-all-in-one-skill` 版本不同，说明 VS Code 扩展中的 skill 已更新。agent 必须从扩展目录重新读取 `skill/SKILL.md` 并替换/重新注册本地 skill，保持 skill 名称为 `stata-all-in-one-skill`，然后再继续调用 API。
-
-如果返回 `OFFLINE` 或连接失败：
-
-- 如果当前工具确认运行在宿主机 shell 中，可以继续执行下面的“启动 VS Code”流程。
-- 如果当前工具运行在沙箱、容器、远程环境，或无法确认 `127.0.0.1` 是否指向宿主机，应先请求宿主机/非沙箱命令权限来执行 `/status` 和后续 `/execute`，不要在沙箱内反复重试。
-- 如果无法获得宿主机命令权限，请让用户手动打开 VS Code、启用 AI Skill、打开一个 `.do` 文件，并在宿主机终端运行下面的 `curl` 命令验证。
-
-### 第二步：启动 VS Code
-
-仅在能够访问用户宿主机 GUI 的环境中执行以下命令。Codex 等工具如果默认 shell 是沙箱，应先申请外部/非沙箱执行权限；沙箱内执行 `open` 或 `code` 通常不会启动用户正在使用的 VS Code。
-
-**macOS（依次尝试）：**
-```bash
-# A: code 命令（如果安装时勾选了"添加到 PATH"）
-code --new-window 2>/dev/null &
-
-# B: open 命令（macOS 系统自带，100% 可用）
-open -a "Visual Studio Code" 2>/dev/null &
-
-# C: 直接启动应用
-open /Applications/Visual\ Studio\ Code.app 2>/dev/null &
-```
-
-**Windows（依次尝试）：**
-```powershell
-# A: code 命令（如果安装时勾选了"添加到 PATH"）
-code --new-window
-
-# B: 通过快捷方式启动
-start "" "C:\Users\$env:USERNAME\AppData\Local\Programs\Microsoft VS Code\Code.exe"
-
-# C: 通过 Program Files 启动
-start "" "C:\Program Files\Microsoft VS Code\Code.exe"
-```
-
-上述路径是 VS Code 的默认安装路径，如果用户自定义安装位置，请相应的寻找并修改上述命令。
-依次尝试以上任一方案，成功启动 VS Code 即可。
-
-### 第三步：等待 VS Code 就绪
-
-VS Code 启动和扩展激活需要几秒钟。启动后轮询等待 HTTP 服务：
-
-**macOS:**
-```bash
-for i in $(seq 1 15); do
-  result=$(curl -s --connect-timeout 2 http://127.0.0.1:19521/status 2>/dev/null)
-  if echo "$result" | grep -q '"status":"running"'; then
-    echo "✅ Stata ready"
-    break
-  fi
-  sleep 2
-done
-```
-
-**Windows (PowerShell):**
-```powershell
-for ($i=1; $i -le 15; $i++) {
-  try {
-    $r = Invoke-WebRequest -Uri "http://127.0.0.1:19521/status" -TimeoutSec 2 -UseBasicParsing
-    if ($r.Content -match '"status":"running"') { Write-Host "✅ Stata ready"; break }
-  } catch {}
-  Start-Sleep -Seconds 2
+if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") {
+    $exe = ".\bin\windows-arm64\stata-ai-skill.exe"
+} else {
+    $exe = ".\bin\windows\stata-ai-skill.exe"
 }
 ```
 
-最多等 30 秒。如果超时仍未就绪 → 先判断是否仍在沙箱/容器里访问了错误的 `127.0.0.1`。如果是，改用宿主机/非沙箱命令重试；如果已经在宿主机仍失败，再告知用户手动打开 VS Code，打开一个 `.do` 文件，并确认设置中 `AI Skill Enabled` 已开启。
+For development builds, refresh the packaged executable with:
 
-## 执行 Stata 代码
-
-### 基本用法
-
-**macOS / Linux (bash):**
 ```bash
-curl -s -X POST http://127.0.0.1:19521/execute \
-  -H "Content-Type: application/json" \
-  -d '{"code":"<Stata 代码>"}'
+cargo run -p xtask -- dist
 ```
 
-**Windows (PowerShell):**
+When writing commands below, replace `stata-ai-skill` with the resolved
+executable path. Examples:
+
+```bash
+# macOS, from the skill directory
+./bin/macos-arm64/stata-ai-skill serve
+```
+
 ```powershell
-$body = '{"code":"<Stata 代码>"}'
-Invoke-WebRequest -Uri "http://127.0.0.1:19521/execute" -Method POST -ContentType "application/json" -Body $body -UseBasicParsing | Select-Object -ExpandProperty Content
+# Windows, from the skill directory
+.\bin\windows\stata-ai-skill.exe serve
 ```
 
-**Windows (CMD / curl.exe):**
+## Agent Workflow
+
+1. Check whether the service is running:
+
+```bash
+curl -s --connect-timeout 2 http://127.0.0.1:19522/status 2>/dev/null || echo "OFFLINE"
+```
+
+2. If offline, start the native executable:
+
+```bash
+stata-ai-skill serve
+```
+
+Use the resolved executable path from "Locate The Executable"; the bare command
+above is only shorthand. Run the service as a long-lived background process so
+the agent can continue issuing HTTP requests. On macOS/zsh:
+
+```bash
+nohup ./bin/macos-arm64/stata-ai-skill serve > /tmp/stata-ai-skill.log 2>&1 &
+```
+
+If startup fails because the port is already in use, first recheck `/status`.
+If another Stata AI Skill service is already responding, reuse it. Otherwise
+choose another port and persist it:
+
+```bash
+./bin/macos-arm64/stata-ai-skill config set --port 19523
+nohup ./bin/macos-arm64/stata-ai-skill serve > /tmp/stata-ai-skill.log 2>&1 &
+curl -s http://127.0.0.1:19523/status
+```
+
+3. If `/status` returns `needsConfiguration: true`, ask the user where the Stata
+app/program is installed. Avoid saying only "Stata path" because some users do
+not know what a path is. Then configure it:
+
+```bash
+stata-ai-skill config set --stata-path "<USER_PROVIDED_STATA_PATH>"
+```
+
+Again, use the resolved executable path. For example:
+
+```bash
+./bin/macos/stata-ai-skill config set --stata-path "/Applications/StataNow/StataMP.app"
+```
+
+```powershell
+.\bin\windows\stata-ai-skill.exe config set --stata-path "C:\Program Files\Stata18"
+```
+
+**Important:** After running `config set`, the running service does NOT pick up
+the new configuration. You must shut down and restart the service:
+
+```bash
+curl -s -X POST http://127.0.0.1:19522/shutdown
+# then start again:
+./bin/macos/stata-ai-skill serve
+```
+
+User-facing wording:
+
+- macOS: "Open Finder > Applications, find the Stata app icon, and tell me its
+  name/location. You can also drag the Stata app into Terminal to reveal a path
+  like `/Applications/StataNow/StataMP.app`."
+- Windows: "Find Stata in the Start menu or under `C:\Program Files\Stata...`.
+  The program may be named `StataMP-64.exe`, `StataSE-64.exe`, or similar."
+
+Accepted paths include the Stata app/exe, install directory, or shared library:
+
+- macOS: `/Applications/StataMP.app`
+- macOS: `/Applications/StataNow/StataMP.app`
+- macOS: `/Applications/StataMP.app/Contents/MacOS/libstata-mp.dylib`
+- Windows: `C:\Program Files\Stata18`
+- Windows: `C:\Program Files\Stata18\StataMP-64.exe`
+- Windows: `C:\Program Files\Stata18\mp-64.dll`
+
+4. Recheck `/status`. If `sessionActive: true`, call `/execute`.
+
+`/status` includes diagnostic fields agents should use for troubleshooting:
+
+- `config.port`
+- `config.stataPath`
+- `config.configFile`
+- `config.logDir`
+- `config.tempDir`
+- `config.graphDir`
+- `capabilities.cwd`
+- `capabilities.timeoutMaxSeconds`
+
+If `/status` returns `needsLicense: true` or `missing: "stata_license"`, Stata
+was found but the license file was not found. Tell the user:
+
+"Stata is installed, but the service cannot find the Stata license file
+`stata.lic` / `STATA.lic`. Please open Stata once to confirm it is licensed, or
+check that the license file exists in the Stata installation folder."
+
+Common license locations:
+
+- macOS: `/Applications/StataNow/stata.lic`
+- Windows: `C:\Program Files\Stata18\STATA.lic`
+
+## Execute
+
+### Read Command Help First
+
+Before using a specific Stata command, first run `help <command>` through
+`/execute` and read its documentation. Confirm the command syntax, options, and
+version-specific behavior before composing the final analysis command. For
+example, run `help regress` before using `regress`.
+
+If Stata reports that the help file or command is unavailable, do not guess its
+syntax. Report the missing command and request approval before installing any
+community-contributed package.
+
+### Run Existing Do-Files Directly
+
+When the user provides an existing `.do` file, pass its path in the `file`
+field. Prefer this over copying the file, reading it with Python or shell
+commands, or sending its contents through `code`.
+
+- Use `file` for an existing `.do` file and `code` for inline Stata commands.
+- Use an absolute `file` path whenever possible. Paths containing spaces are
+  supported; JSON-encode the path normally and do not copy it to `/tmp`.
+- Set `cwd` to the do-file's project directory when it uses relative paths for
+  datasets, included do-files, logs, or generated output.
+- The file must be accessible to the local Stata AI Skill service process.
+- Do not send both `file` and `code`; if both are present, `file` takes
+  precedence.
+
+#### macOS And Linux
+
+Use `curl` from bash or zsh:
+
+```bash
+curl -s -X POST http://127.0.0.1:19522/execute \
+  -H "Content-Type: application/json" \
+  -d '{"file":"/Users/me/project/analysis.do","cwd":"/Users/me/project","timeout":120}'
+```
+
+#### Windows Command Prompt
+
+Windows supports both Command Prompt (`cmd.exe`) and PowerShell; PowerShell is
+not required. From Command Prompt, escape the JSON double quotes:
+
 ```cmd
-curl -s -X POST http://127.0.0.1:19521/execute -H "Content-Type: application/json" -d "{\"code\":\"<Stata 代码>\"}"
+curl.exe -s -X POST http://127.0.0.1:19522/execute -H "Content-Type: application/json" -d "{\"file\":\"C:\\Users\\me\\project\\analysis.do\",\"cwd\":\"C:\\Users\\me\\project\",\"timeout\":120}"
 ```
 
-返回 JSON：
+#### Windows PowerShell
+
+Write the request JSON, not the do-file, to a temporary UTF-8 file without a
+BOM, then send it with `curl.exe`:
+
+```powershell
+$body = '{"file":"C:\\Users\\me\\project\\analysis.do","cwd":"C:\\Users\\me\\project","timeout":120}'
+[System.IO.File]::WriteAllText("$env:TEMP\stata_body.json", $body, [System.Text.UTF8Encoding]::new($false))
+curl.exe -s -X POST http://127.0.0.1:19522/execute `
+  -H "Content-Type: application/json" `
+  --data-binary "@$env:TEMP\stata_body.json"
+```
+
+In all three cases, the service executes the do-file directly and applies `cwd`
+before the `do` command.
+
+### PowerShell Curl Notes
+
+In PowerShell, `curl.exe -d` with a JSON body containing double quotes is
+often mangled because PowerShell intercepts the quotes before they reach curl.
+The double quotes inside `-d '{"code":"..."}'` get stripped or misinterpreted.
+
+**Do NOT use inline JSON with curl.exe in PowerShell.** Instead, always write
+the JSON body to a temporary file and use `--data-binary @file`.
+
+**Critical:** PowerShell 5.1's `Out-File -Encoding utf8` writes a UTF-8 BOM
+(byte-order mark) that breaks JSON parsers (serde_json returns "expected value
+at line 1 column 1"). Use `[System.IO.File]::WriteAllText` with
+`[System.Text.UTF8Encoding]::new($false)` to write clean UTF-8 without BOM:
+
+```powershell
+# Correct — UTF-8 without BOM
+$body = '{"code":"display 2+2"}'
+[System.IO.File]::WriteAllText("$env:TEMP\stata_body.json", $body, [System.Text.UTF8Encoding]::new($false))
+curl.exe -s -X POST http://127.0.0.1:19522/execute `
+  -H "Content-Type: application/json" `
+  --data-binary "@$env:TEMP\stata_body.json"
+```
+
+`Invoke-RestMethod` in PowerShell 5.1 has similar encoding issues; prefer the
+file approach above.
+
+For multi-line Stata code, use a literal `\n` (backslash + n) inside the JSON
+string — the JSON parser will convert it to an actual newline:
+
+```powershell
+$body = '{"code":"sysuse auto, clear\nsummarize price mpg"}'
+[System.IO.File]::WriteAllText("$env:TEMP\stata_body.json", $body, [System.Text.UTF8Encoding]::new($false))
+curl.exe -s -X POST http://127.0.0.1:19522/execute `
+  -H "Content-Type: application/json" `
+  --data-binary "@$env:TEMP\stata_body.json"
+```
+
+On macOS/Linux (bash/zsh), inline JSON works as expected:
+
+```bash
+curl -s -X POST http://127.0.0.1:19522/execute \
+  -H "Content-Type: application/json" \
+  -d '{"code":"display 2+2"}'
+```
+
+Response:
+
 ```json
 {
   "success": true,
   "returnCode": 0,
-  "output": "<Stata 输出>",
+  "output": "4",
   "error": "",
   "graphs": []
 }
 ```
-`graphs` 数组包含服务器自动导出的图形文件路径（SVG + PNG），通常为空；当代码包含画图命令（`scatter`、`histogram` 等）时自动填充。
 
-### 超时设置
-
-默认超时 **30 秒**。长时间运行的命令（bootstrap、大型回归等）需要显式设置 `timeout`（秒）：
+For long commands, set `timeout` in seconds:
 
 ```bash
-# 设置 5 分钟超时
-curl -s -X POST http://127.0.0.1:19521/execute \
+curl -s -X POST http://127.0.0.1:19522/execute \
   -H "Content-Type: application/json" \
-  -d '{"code":"bootstrap r(p50), reps(1000): summarize price", "timeout": 300}'
+  -d '{"code":"bootstrap r(mean), reps(1000): summarize price", "timeout": 300}'
 ```
 
-| 场景 | 建议 timeout（秒） |
-|------|-------------------|
-| 普通命令（`summarize`、`regress` 等） | 默认 30，无需设置 |
-| bootstrap、permute 等重复抽样 | 300（5 分钟） |
-| 超大循环、大型数据合并 | 600（10 分钟，上限） |
+For workflows that use relative paths, set `cwd`. The service prepends a Stata
+`cd` command before running inline code or a do-file:
 
-超时后服务器会中断 Stata 执行并返回 408 状态码，已生成的图形仍会导出。
-
-### 单行命令
-
-**macOS:**
 ```bash
-curl -s -X POST http://127.0.0.1:19521/execute \
+curl -s -X POST http://127.0.0.1:19522/execute \
   -H "Content-Type: application/json" \
-  -d '{"code":"summarize price mpg"}'
+  -d '{"cwd":"/Users/me/project","code":"use data/auto.dta, clear\nsummarize"}'
 ```
 
-**Windows (PowerShell):**
-```powershell
-Invoke-WebRequest -Uri "http://127.0.0.1:19521/execute" -Method POST -ContentType "application/json" -Body '{"code":"summarize price mpg"}' -UseBasicParsing | Select-Object -ExpandProperty Content
-```
+### Graph Export
 
-### 多行代码（用 \n 分隔）
+The standalone service enables Stata graph capture with `quietly _gr_list on`
+after session initialization. If user code contains `graph export`,
+`. graph export`, or `quietly graph export`, the service parses the requested
+path and common options such as `replace` and `name(...)`.
 
-**macOS:**
-```bash
-curl -s -X POST http://127.0.0.1:19521/execute \
-  -H "Content-Type: application/json" \
-  -d '{"code":"sysuse auto, clear\nregress price mpg, vce(robust)"}'
-```
+Explicit SVG exports are executed safely and returned in the response
+`graphs` array:
 
-**Windows (PowerShell):**
-```powershell
-Invoke-WebRequest -Uri "http://127.0.0.1:19521/execute" -Method POST -ContentType "application/json" -Body '{"code":"sysuse auto, clear\nregress price mpg, vce(robust)"}' -UseBasicParsing | Select-Object -ExpandProperty Content
-```
-
-### 运行 .do 文件并读取日志（推荐复杂代码使用）
-
-对于较长的 Stata 代码（超过 5 行、含循环/宏/局部变量、或输出量很大），**务必**写入临时 .do 文件运行并生成 .log 日志文件，由 agent 读取 .log 获取完整输出。这避免了 JSON 转义问题，且能确保捕获全部结果。
-
-**长时间运行的 .do 文件（bootstrap、大型循环等）必须设置 `timeout`：**
-
-**macOS:**
-```bash
-TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-mkdir -p ./.stata-all-in-one
-
-# 1. 写入 .do 文件（分两步：先用双引号 heredoc 让 bash 展开 $TIMESTAMP，再用单引号 heredoc 保护 Stata 的 $ 宏）
-cat > ./.stata-all-in-one/script_${TIMESTAMP}.do << STATAEOF
-log using "./.stata-all-in-one/output_${TIMESTAMP}.log", text replace
-STATAEOF
-
-cat >> ./.stata-all-in-one/script_${TIMESTAMP}.do << 'STATAEOF'
-sysuse auto, clear
-regress price mpg, vce(robust)
-estimates store m1
-log close
-STATAEOF
-
-# 2. 通过 API 运行 .do 文件（普通命令 30s 默认超时，bootstrap 等需加 "timeout"）
-curl -s -X POST http://127.0.0.1:19521/execute \
-  -H "Content-Type: application/json" \
-  -d "{\"file\":\"./.stata-all-in-one/script_${TIMESTAMP}.do\"}"
-
-# 长时间运行需设置 timeout（单位秒）：
-# curl -s -X POST ... -d "{\"file\":\"...\", \"timeout\": 300}"
-
-# 3. 读取日志文件查看完整输出
-cat ./.stata-all-in-one/output_${TIMESTAMP}.log
-```
-
-**Windows (PowerShell):**
-```powershell
-$timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
-New-Item -ItemType Directory -Force -Path ".\.stata-all-in-one"
-
-# 1. 写入 .do 文件（含 log 开关）
-@"
-log using "./.stata-all-in-one/output_${timestamp}.log", text replace
-sysuse auto, clear
-regress price mpg, vce(robust)
-estimates store m1
-log close
-"@ | Out-File -FilePath ".\.stata-all-in-one\script_${timestamp}.do" -Encoding UTF8
-
-# 2. 通过 API 运行（长时间运行需加 "timeout": 300）
-$filePath = ".\.stata-all-in-one\script_${timestamp}.do"
-Invoke-WebRequest -Uri "http://127.0.0.1:19521/execute" -Method POST -ContentType "application/json" -Body "{`"file`":`"$filePath`"}" -UseBasicParsing | Select-Object -ExpandProperty Content
-
-# 3. 读取日志文件
-Get-Content ".\.stata-all-in-one\output_${timestamp}.log" -Raw
-```
-
-### 何时使用哪种执行方式
-
-| 场景 | 推荐方式 | 原因 |
-|------|---------|------|
-| 单行简单命令（如 `summarize`、`describe`） | 直接 `curl` 传 `code` | 输出简短，JSON 转义简单 |
-| 2-5 行简单代码 | `\n` 分隔传 `code` | 代码量小，转义可控 |
-| 5 行以上或含复杂语法（引号、`$` 宏） | .do 文件 + .log | 避免 JSON 转义出错 |
-| 含循环（`foreach`/`forvalues`）、宏定义 | .do 文件 + .log | 多行结构在 JSON 中极易出错 |
-| 预计输出很长（大型回归表、多步骤结果） | .do 文件 + .log | agent 可直接读 .log，避免输出截断 |
-| 需要生成图表 | .do 文件（服务器自动导出图形） | 画图命令即可，服务器自动导出 SVG+PNG |
-| 多步骤分析（加载数据→处理→回归→检验） | .do 文件 + .log | 一次执行保证上下文连续，避免模型分批丢失状态 |
-| bootstrap / permute / 大型循环 | .do 文件 + .log + `"timeout": 300` | 默认 30s 不够，需 5 分钟超时 |
-
-### 处理图表输出
-
-**图表由服务器自动导出，无需在代码中写 `graph export`。** 服务器已启用图形捕获（`_gr_list on`），每次执行后自动将生成的图形导出为 SVG 和 PNG，路径在响应 JSON 的 `graphs` 字段中。
-
-**macOS / Linux:**
-```bash
-# 只需写画图命令，不需要 graph export
-curl -s -X POST http://127.0.0.1:19521/execute \
-  -H "Content-Type: application/json" \
-  -d '{"code":"sysuse auto, clear\nscatter price mpg"}'
-```
-
-返回 JSON：
 ```json
-{
-  "success": true,
-  "returnCode": 0,
-  "output": "...",
-  "error": "",
-  "graphs": [
-    {
-      "name": "Graph",
-      "svg": "./.stata-all-in-one/Graph_1718123456789_0.svg",
-      "png": "./.stata-all-in-one/Graph_1718123456789_0.png"
-    }
-  ]
-}
+[{ "name": "Graph", "svg": "/absolute/path/to/foo.svg", "png": null }]
 ```
 
-然后 agent 使用 Read 工具读取 PNG 文件展示给用户。
+PNG/JPG/JPEG exports are supported without asking Stata to write those formats
+directly. The standalone service exports SVG first, converts it with bundled
+Rust libraries, keeps the SVG path, and writes the requested bitmap path. For
+PNG requests, the `png` field contains the generated PNG path. For JPG/JPEG
+requests, `png` remains `null` and the graph object includes `file` and
+`format` fields for the generated bitmap. Other unsafe bitmap formats such as
+TIF and TIFF are still rewritten to SVG and reported in `output`.
 
-**命名图形也会自动导出：**
-```bash
-# 创建命名图形，服务器自动导出为 Graph_xxx_0.svg / .png 和 mygraph_xxx_1.svg / .png
-curl -s -X POST http://127.0.0.1:19521/execute \
-  -H "Content-Type: application/json" \
-  -d '{"code":"sysuse auto, clear\nscatter price mpg, name(mygraph, replace)"}'
+If user code does not contain an explicit `graph export`, successful executions
+keep the automatic `_gr_list` SVG export behavior and return generated SVG
+paths under `graphs`.
+
+## Lianxh Search
+
+When the user needs Stata cookbook-style examples, command tutorials, or
+high-quality Stata articles, use the `lianxh` Stata command to search
+**Lianxh** (连享会, https://www.lianxh.cn/), a third-party website that
+publishes Stata tutorials, econometrics articles, and resource lists.
+
+### Limits
+
+Limit each user task to at most three `lianxh <keywords>, md` search queries to
+avoid excessive output and token use. `help lianxh_cn`, `help lianxh`, and an
+explicitly approved `ssc install lianxh` do not count toward this three-query
+search limit.
+
+### Installation
+
+Before the first `lianxh` search in a conversation, check whether the command
+is installed:
+
+```stata
+which lianxh
 ```
 
-**⚠️ 严禁在代码中使用 `graph export`：** 服务器会自动剥离所有 `graph export` 行并追加提示到 output 中。原因是 Stata 的 PNG 导出需要显示服务器，在 AI Skill 环境中会卡死会话。图形由服务器通过 `_gr_list` + sharp 自动导出为 SVG 和 PNG。**唯一例外：** 在 `.do` 文件中可以使用 `quietly graph export ... .svg`（仅 SVG），但通常不需要。
+If Stata reports "command lianxh not found", stop before installing anything.
+Use the host agent's best available interactive confirmation mechanism to
+present a yes/no choice to the user. Prefer a structured approval or binary
+choice UI when available. If the host does not expose such a tool in the current
+mode, ask in ordinary chat and wait for an explicit user reply. Do not treat a
+general request to "test lianxh" as permission to install it.
 
-### JSON 转义规则
+The prompt must explain what Lianxh is, why installing the command helps (it
+enables help files and structured search directly from Stata), and where it
+installs (SSC writes into the local Stata ado directory). The table below maps
+agent platforms to equivalent mechanisms:
 
-**macOS bash `-d '...'`（单引号包裹）：**
-- 双引号加 `\`：`\"`
-- 换行用 `\n`
-- 反斜杠用 `\\`
+| Agent / Platform | Interactive prompt mechanism |
+|---|---|
+| **Claude Code** | `AskUserQuestion` tool — set `"header"` to `"Install lianxh?"`, provide two options: **安装 (Recommended)** and **跳过** |
+| **Codex (OpenAI)** | Use a structured approval/question tool if the current surface exposes one; otherwise ask in chat and wait |
+| **OpenCode** | Use CLI interactive input (`read` / prompt) or stop and ask in chat |
+| **Cline / Roo Code** | `ask_followup_question` tool with two options |
+| **Aider** | Architecture-level prompt via `/ask` or inline confirmation |
+| **GitHub Copilot Chat** | `followup` prompt with option array |
+| **Hermes** | Custom dialog tool — format as a structured binary choice |
 
-**Windows PowerShell（单引号字符串）：**
-- 双引号不需要转义（外层用单引号）
-- 换行用 `\n`
+Use this fallback wording when no structured prompt tool is available:
 
-**Windows CMD（双引号包裹，所有内部双引号都要转义）：**
-- 每个 `"` 变成 `\"`、每个 `\` 变成 `\\`、换行用 `\n`
+```text
+检测到 lianxh 未安装。
 
-**建议：复杂代码优先用 .do 文件方式，彻底避免转义问题。**
+lianxh 是连享会提供的第三方 Stata 命令。安装后会写入本机 Stata ado 目录，
+用于通过 Stata 检索连享会文章、教程和资源列表。
 
-## 会话状态
-
-Stata 会话是**持久化**的。数据集、全局宏、估计结果在多次调用之间保留：
-
-```bash
-# 第一步：加载数据
-curl -s -X POST ... -d '{"code":"sysuse auto, clear"}'
-
-# 第二步：运行回归（数据集仍在内存中）
-curl -s -X POST ... -d '{"code":"regress price mpg, vce(robust)"}'
-
-# 第三步：使用上一步的估计结果
-curl -s -X POST ... -d '{"code":"estimates store model1"}'
-
-# 第四步：查看已存储的估计
-curl -s -X POST ... -d '{"code":"estimates list"}'
+是否允许安装 lianxh？
+- 安装：运行 ssc install lianxh，然后继续测试/检索
+- 跳过：不修改 Stata ado 环境，并跳过 lianxh 检索
 ```
 
-## 中断执行
+Only if the user explicitly agrees, run:
 
-当 agent 发现代码执行时间过长或需要取消当前命令时，发送中断信号（不关闭服务器，只停止当前 Stata 命令）。
-
-### 工作流：检查 busy → 等待或中断
-
-```bash
-# 1. 检查状态
-curl -s http://127.0.0.1:19521/status
-# → {"busy":true}  Stata 正在忙
-# → {"busy":false} Stata 空闲，可以发下一个命令
-
-# 2. 如果 busy=true，可以选择：
-#    A. 等待（轮询直到 busy=false）
-#    B. 发送中断
-curl -s -X POST http://127.0.0.1:19521/break
+```stata
+ssc install lianxh
 ```
 
-**macOS 轮询等待：**
-```bash
-for i in $(seq 1 30); do
-  result=$(curl -s http://127.0.0.1:19521/status)
-  if echo "$result" | grep -q '"busy":false'; then
-    echo "✅ Stata idle"
-    break
-  fi
-  sleep 2
-done
+Then proceed with the help and search steps below. If the user declines, skip
+`lianxh`-based search and continue with available local context.
+
+### Help
+
+After confirming `lianxh` is installed, inspect the help file to confirm
+command syntax and available filters:
+
+```stata
+help lianxh_cn
 ```
 
-**Windows (PowerShell) 轮询等待：**
-```powershell
-for ($i=1; $i -le 30; $i++) {
-  $r = Invoke-WebRequest -Uri "http://127.0.0.1:19521/status" -UseBasicParsing
-  if ($r.Content -match '"busy":false') { Write-Host "✅ Stata idle"; break }
-  Start-Sleep -Seconds 2
-}
+If Chinese help is not suitable for the conversation, or if it is unavailable,
+use:
+
+```stata
+help lianxh
 ```
 
-返回 `{"success":true,"message":"Break signal sent"}`。中断后 Stata 会话仍然可用，可以继续执行新命令。
+### Search
 
-## 错误处理
+Use the `lianxh` command with Markdown output so article titles and links are
+easy to inspect:
 
-### Stata 命令错误（returnCode ≠ 0）
+```stata
+lianxh 关键词1 关键词2 关键词3, md
+```
+
+- Prefer Chinese search keywords when they fit the user's topic.
+- Run no more than three search commands for the task.
+- Treat the Markdown list returned by `lianxh ..., md` as candidate references.
+- Use the article titles and `https://www.lianxh.cn/` links to decide which
+  resources are relevant before summarizing or citing them.
+
+If installation or search fails because Stata cannot reach the network, report
+the error to the user and continue with available local context.
+
+### Timeout
+
+A timed-out `lianxh` execution returns HTTP 408 with:
+
 ```json
-{"success":false,"returnCode":198,"output":"invalid syntax\nr(198);","error":"..."}
+{"success":false,"returnCode":-1,"output":"Execution timed out after 3s","error":"Execution timed out after 3s","graphs":[]}
 ```
-→ 检查 Stata 语法是否正确（注意逗号、引号等），修正后重试。
 
-### 连接失败（Connection refused / Timeout / OFFLINE）
-→ 先判断当前 shell 是否为沙箱、容器或远程环境：
+### Session Recovery After Timeout
 
-- 如果是沙箱/容器：请求宿主机/非沙箱命令权限调用 `http://127.0.0.1:19521`。在 Codex 中应使用需要用户批准的外部命令执行方式；不要继续在沙箱内重试。
-- 如果是宿主机 shell：按上述「启动 VS Code」流程尝试自动启动 VS Code。
-- 如果多次尝试均失败：引导用户手动打开 VS Code，确认 `AI Skill Enabled` 已开启，并打开一个 `.do` 文件。
+After a timeout kills execution, the Stata session may briefly be in a
+recovering state. The **first** execution immediately after a timeout may
+return a stale timeout error even though Stata completed. Always verify by
+running a trivial command after timeout:
 
-### 会话未初始化（sessionActive: false）
-→ 引导用户在 VS Code 中打开任意 `.do` 文件以激活 Stata 会话。等待几秒后重试。
-
-## 常见使用模式
-
-### 数据探索
 ```bash
-# 加载数据
--d '{"code":"sysuse auto, clear"}'
-# 查看结构
--d '{"code":"describe"}'
-# 汇总统计
--d '{"code":"summarize"}'
-# 频数统计
--d '{"code":"tabulate foreign"}'
+curl -s -X POST http://127.0.0.1:19522/execute \
+  -H "Content-Type: application/json" \
+  -d '{"code":"display 123"}'
 ```
 
-### 回归分析
+If it returns `success: true`, the session is healthy. If it returns another
+timeout error, check `/status` and retry once more. The service itself does
+not crash on timeout.
+
+## Break And Shutdown
+
+Interrupt the current Stata execution:
+
 ```bash
-# OLS 回归
--d '{"code":"regress price mpg weight, vce(robust)"}'
-# Logit 回归
--d '{"code":"logit foreign mpg price"}'
-# 边际效应
--d '{"code":"margins, dydx(*)"}'
+curl -s -X POST http://127.0.0.1:19522/break
 ```
 
-### 双重差分 (DID)
+Close the background service:
+
 ```bash
-# 经典 2×2 DID（需要 treat 和 post 变量）
--d '{"code":"regress y treat##post, vce(cluster id)"}'
-
-# 带协变量的 DID
--d '{"code":"regress y treat##post x1 x2, vce(cluster id)"}'
-
-# 事件研究 (Event Study)
--d '{"code":"eventdd y x1 x2, timevar(rel_time) method(fe, cluster(id))"}'
-
-# 多期 DID (CSDID)
--d '{"code":"csdid y, time(time) gvar(first_treat) method(dripw)"}'
+curl -s -X POST http://127.0.0.1:19522/shutdown
 ```
 
-### 高维固定效应 (reghdfe)
-```bash
-# 双向固定效应
--d '{"code":"reghdfe y x, absorb(id year) vce(cluster id)"}'
+## Files
 
-# 多维固定效应
--d '{"code":"reghdfe y x1 x2, absorb(id year industry) vce(cluster id)"}'
-
-# 保存固定效应
--d '{"code":"reghdfe y x, absorb(id year, savefe)"}'
-
-# 分组回归
--d '{"code":"reghdfe y x, absorb(id year) vce(cluster id) groupvar(region)"}'
-```
-
-### 工具变量 + 高维固定效应 (ivreghdfe)
-```bash
-# IV + 固定效应（内生变量 x2，工具变量 z）
--d '{"code":"ivreghdfe y x1 (x2 = z), absorb(id year) cluster(id)"}'
-
-# 多个内生变量和工具变量
--d '{"code":"ivreghdfe y x1 (x2 x3 = z1 z2), absorb(id year) cluster(id)"}'
-
-# 汇报第一阶段结果
--d '{"code":"ivreghdfe y x1 (x2 = z), absorb(id year) cluster(id) first"}'
-
-# 弱工具变量检验
--d '{"code":"ivreghdfe y x1 (x2 = z), absorb(id year) cluster(id) weaktest"}'
-```
-
-### 数据处理
-```bash
-# 生成新变量
--d '{"code":"generate price_log = log(price)"}'
-# 条件筛选
--d '{"code":"keep if foreign == 1"}'
-# 合并数据
--d '{"code":"merge 1:1 id using other_data.dta"}'
-```
-
-## 注意事项
-
-- **默认超时 30 秒**：普通命令（`summarize`、`regress` 等）在 30s 内完成。bootstrap、大型循环等需显式设置 `"timeout": 300`（5 分钟），上限 600（10 分钟）
-- **严禁 `graph export`**：服务器会自动剥离代码中的 `graph export` 行（因 PNG 导出需要显示服务器会卡死）。图形由服务器自动导出为 SVG + PNG，出现在响应 JSON 的 `graphs` 字段中。唯一的例外：在 `.do` 文件中可使用 `quietly graph export ... .svg`
-- **复杂代码（5 行以上、含循环/宏、输出量大）务必使用 .do 文件 + .log 方式**，不要通过 JSON `code` 字段发送。原因：① 避免 JSON 转义错误（引号、`$` 宏等）；② .log 文件捕获完整输出，agent 直接读取更可靠；③ 一次执行保证上下文连续，避免模型在多轮对话中丢失状态
-- 所有临时文件写入 `./.stata-all-in-one/`，每次 `/execute` 后服务器按格式分类清理，**每种格式各保留最新 10 个**——agent 无需手动清理
-- 不要关闭 VS Code 中的 Stata 会话，以免丢失数据状态
-- 图形保存在响应的 `graphs` 数组和 output 末尾的 `[Stata All in One]` 提示中，agent 应用 Read 工具读取 PNG 文件展示给用户
+The service uses system directories only. It does not create `.stata-all-in-one/`
+in the current repository or working directory. Temporary `.do` files are unique
+and deleted after execution. Graphs are first exported as SVG and returned as
+absolute paths in `graphs`; explicit PNG/JPG/JPEG requests are converted from
+that SVG without requiring a system image converter.

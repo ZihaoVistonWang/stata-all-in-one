@@ -24,10 +24,6 @@ const { prewarmConsoleTextmateTokenizer } = require('./modules/runCode/embeddedC
 const { registerDtaDataViewer } = require('./modules/runCode/embeddedConsole/dataViewer/dtaEditor');
 const { registerHoverProvider, buildHelpIndex, createHoverProvider, DocumentCache } = require('./modules/hoverProvider');
 const { isWindows, isMacOS, showInfo, showWarn, showConsoleUnavailableToast, msg } = require('./utils/common');
-const { startServer: startAIServer, stopServer: stopAIServer, isServerRunning: isAIServerRunning, getServerPort: getAIServerPort, isExistingAISkillServer, getExistingAISkillServerStatus, releaseInactiveAISkillServer } = require('./modules/aiSkill/httpServer');
-const { getActiveSession, getConsoleSession, initConsoleSession } = require('./modules/runCode/embeddedConsole/session');
-const { findStataDylib, syncMacStataPythonConfig } = require('./modules/runCode/embeddedConsole/mac');
-const { findStataDll } = require('./modules/runCode/embeddedConsole/windows');
 
 const { ensureConsoleFontCache, getConsoleFontWebviewOptions } = require('./utils/consoleFonts');
 const capability = require('./modules/capability');
@@ -228,17 +224,11 @@ async function resetMigrationPrompt(context) {
 /**
  * Show AI Skill welcome dialog
  * 显示 AI Skill 欢迎弹窗
- * 内容：标题 + 功能介绍 + 提示词预览 + 操作提示
- * 按钮：打开/关闭（醒目）、复制提示词、关闭
+ * 内容：标题 + 功能介绍 + 安装提示
+ * 按钮：复制提示词、关闭
  * 复制后弹出中心弹窗告知用户粘贴到 AI 工具
  */
 async function showAISkillDialog() {
-    const config = vscode.workspace.getConfiguration('stata-all-in-one');
-    const aiSkillEnabled = config.get('aiSkillEnabled', true);
-
-    const toggleLabel = aiSkillEnabled
-        ? msg('aiSkillToggleDisable')
-        : msg('aiSkillToggleEnable');
     const copyLabel = msg('aiSkillCopyBtn');
 
     // 弹窗内容：欢迎标题 + 介绍 + 操作提示（提示词不显示，只进剪贴板）
@@ -250,15 +240,10 @@ async function showAISkillDialog() {
     const choice = await vscode.window.showInformationMessage(
         body,
         { modal: true },
-        toggleLabel,
         copyLabel
     );
 
-    if (choice === toggleLabel) {
-        const newValue = !aiSkillEnabled;
-        await config.update('aiSkillEnabled', newValue, vscode.ConfigurationTarget.Global);
-        // 启动/停止由下面的配置监听器统一处理，避免重复弹窗
-    } else if (choice === copyLabel) {
+    if (choice === copyLabel) {
         await vscode.env.clipboard.writeText(msg('aiSkillWelcomePrompt'));
         // 中心弹窗，不是右下角 toast
         await vscode.window.showInformationMessage(
@@ -668,7 +653,7 @@ async function activate(context) {
         async () => {
             console.log('Stata All in One: Reset capability state command triggered');
             await capability.setCapabilityState(context, 'unverified');
-            showInfo('Capability state has been reset to UNVERIFIED. AI button, data viewer, and AI Skill are now locked until you run Stata code again.');
+            showInfo('Capability state has been reset to UNVERIFIED. Run Stata code again before using Data Viewer; the AI button remains available for skill installation.');
         }
     );
     context.subscriptions.push(resetCapabilityStateCommand);
@@ -682,145 +667,6 @@ async function activate(context) {
     );
     context.subscriptions.push(showAISkillDialogCommand);
 
-    // Shared helper: ensure Stata session is initialized and start HTTP server
-    const ensureSessionAndStartServer = async () => {
-        if (isAIServerRunning()) return true;
-
-        const port = vscode.workspace.getConfiguration('stata-all-in-one').get('aiSkillPort', 19521);
-        if (await isExistingAISkillServer(port)) {
-            console.log(`Stata All in One: [AI Skill] Reusing existing AI Skill server on port ${port}`);
-            return true;
-        }
-
-        const existingStatus = await getExistingAISkillServerStatus(port);
-        if (existingStatus) {
-            const released = await releaseInactiveAISkillServer(port);
-            if (!released) {
-                console.log(`Stata All in One: [AI Skill] Inactive AI Skill server on port ${port} could not release the port`);
-                return false;
-            }
-            await new Promise(resolve => setTimeout(resolve, 200));
-        }
-
-        let session = getActiveSession();
-        if (!session || !session.isInitialized()) {
-            const cfg = vscode.workspace.getConfiguration('stata-all-in-one');
-            let libPath = null;
-
-            if (isWindows()) {
-                const dllInfo = findStataDll();
-                if (!dllInfo || !dllInfo.path) {
-                    console.log('Stata All in One: [AI Skill] Stata DLL not found');
-                    return false;
-                }
-                libPath = dllInfo.path;
-            } else {
-                const savedPath = context.globalState.get('stataConsoleDylibPath');
-                const preferredEdition = (cfg.get('stataVersionOnMacOS') || '').replace('Stata', '').toLowerCase();
-                const dylibInfo = findStataDylib(preferredEdition, savedPath);
-                if (!dylibInfo || !dylibInfo.path) {
-                    console.log('Stata All in One: [AI Skill] Stata dylib not found');
-                    return false;
-                }
-                libPath = dylibInfo.path;
-            }
-
-            session = getConsoleSession(context);
-            const initResult = await session.init(libPath);
-            if (!initResult.success) {
-                console.log('Stata All in One: [AI Skill] Session init failed:', initResult.error);
-                return false;
-            }
-
-            if (isMacOS()) {
-                await syncMacStataPythonConfig(session);
-            }
-
-            await session.execute('quietly set more off', false);
-            await session.execute('quietly set linesize 255', false);
-            // 启用图形捕获，防止画图命令弹出 GUI 窗口阻塞会话
-            await session.execute('quietly _gr_list on', false);
-            session.setBootstrapped(true);
-            console.log('Stata All in One: [AI Skill] Stata session initialized');
-        }
-
-        // 确保图形捕获已启用（每次启动服务器都执行，防止画图命令弹出 GUI 窗口阻塞会话）
-        try { await session.execute('quietly _gr_list on', false); } catch (_) { /* ignore */ }
-
-        const wsRoot = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath || null;
-        return await startAIServer(session, port, wsRoot);
-    };
-
-    // Register start AI server command
-    const startAIServerCommand = vscode.commands.registerCommand(
-        'stata-all-in-one.startAIServer',
-        async () => {
-            if (capability.getCapabilityState() !== 'console') {
-                showWarn(msg('capabilityUnverifiedAI'));
-                return;
-            }
-            const ok = await ensureSessionAndStartServer();
-            if (ok) {
-                const port = vscode.workspace.getConfiguration('stata-all-in-one').get('aiSkillPort', 19521);
-                showInfo(`AI Skill server started on http://127.0.0.1:${port}`);
-            } else {
-                showWarn(msg('aiSkillServerFailed') || 'Failed to start AI Skill server. Check console for details.');
-            }
-        }
-    );
-    context.subscriptions.push(startAIServerCommand);
-
-    // Register stop AI server command
-    const stopAIServerCommand = vscode.commands.registerCommand(
-        'stata-all-in-one.stopAIServer',
-        () => {
-            if (isAIServerRunning()) {
-                stopAIServer();
-                showInfo('AI Skill server stopped.');
-            } else {
-                showInfo('AI Skill server is not running.');
-            }
-        }
-    );
-    context.subscriptions.push(stopAIServerCommand);
-
-    // Auto-start AI server if enabled and console is capable
-    const aiSkillEnabled = vscode.workspace.getConfiguration('stata-all-in-one').get('aiSkillEnabled', true);
-    if (aiSkillEnabled && capability.getCapabilityState() === 'console') {
-        let autoStartNotified = false;
-        const tryAutoStart = async () => {
-            try {
-                const ok = await ensureSessionAndStartServer();
-                if (ok && !autoStartNotified) {
-                    autoStartNotified = true;
-                    const port = vscode.workspace.getConfiguration('stata-all-in-one').get('aiSkillPort', 19521);
-                    console.log(`Stata All in One: [AI Skill] Server auto-started on port ${port}`);
-                    showInfo(msg('aiSkillServerStarted', { port }));
-                }
-            } catch (err) {
-                console.error('Stata All in One: [AI Skill] Auto-start failed:', err.message);
-            }
-        };
-
-        // Try immediately and defer for delayed session availability
-        tryAutoStart();
-        setTimeout(tryAutoStart, 5000);
-
-    }
-
-    // Listen for AI Skill config changes (always registered)
-    context.subscriptions.push(vscode.workspace.onDidChangeConfiguration((event) => {
-        if (event.affectsConfiguration('stata-all-in-one.aiSkillEnabled')) {
-            const enabled = vscode.workspace.getConfiguration('stata-all-in-one').get('aiSkillEnabled', true);
-            if (enabled && !isAIServerRunning()) {
-                vscode.commands.executeCommand('stata-all-in-one.startAIServer');
-            } else if (!enabled && isAIServerRunning()) {
-                stopAIServer();
-                showInfo('AI Skill server stopped (disabled in settings).');
-            }
-        }
-    }));
-
     console.log('Stata All in One: AI Skill commands registered');
     console.log('Stata All in One: All commands registered');
 }
@@ -829,8 +675,6 @@ async function activate(context) {
  * Deactivate the extension
  */
 function deactivate() {
-    // Shutdown AI Skill HTTP server
-    stopAIServer();
     forceShutdownConsoleSession();
     // Shutdown COM automation service if initialized
     try {

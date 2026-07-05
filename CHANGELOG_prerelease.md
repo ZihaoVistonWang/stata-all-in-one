@@ -52,7 +52,16 @@
 - 图形复制到剪贴板
 - 图形全屏查看
 
-### 4. Hover 悬停帮助
+### 4. AI Skill 独立原生服务
+
+AI Skill 随扩展分发独立版原生 `stata-ai-skill`，供 AI Agent 安装后运行 Stata。
+
+- 扩展内置 `skill/SKILL.md` 和预编译二进制
+- 默认通过 `http://127.0.0.1:19522` 的 Rust 后台服务运行 Stata
+- 编辑器标题栏 `AI` 按钮保留，用于复制 AI Agent 安装/注册提示词
+- AI Agent 根据提示词读取扩展内的 skill 目录，并按自身平台机制安装为 `stata-ai-skill`
+
+### 5. Hover 悬停帮助
 
 - 鼠标悬停在 Stata 命令上即可显示帮助信息
 - SMCL 标记语言的渲染效果优化

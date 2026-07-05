@@ -75,11 +75,10 @@ Special thanks to RedNote user **Rich\*\*d**, WeChat user **M\*k\***, **柿\*\*�
 
 ### 1. AI Skill (Experimental) 🔑
 
-- **Let AI Agents Run Stata Code**: <mark>Start a local HTTP server (default port `19521`) inside VS Code, allowing AI coding tools (Claude Code, Cursor, Codex CLI, Open Code, OpenClaw, etc.) to execute Stata code and read results using only the built-in `curl` command.</mark>
-- **Zero External Dependencies**: <mark>No need to install Python, Node.js, or any third-party tools — just VS Code and the system `curl` (or PowerShell).</mark>
-- **Leave the setup to AI**: <mark>Click the `AI` button in the editor toolbar, copy the prompt, and paste it to your AI tool. The AI will configure itself automatically.</mark>
-- **Auto-Start**: <mark>When enabled, the HTTP server starts automatically when VS Code opens. AI agents can run Stata code anytime.</mark>
-- **Toggle Control**: <mark>Find the `AI` button in the editor toolbar (next to `Run`), or manage via `Stata All in One > AI Skill Enabled` in settings. When disabled, the server is not started.</mark>
+- **Let AI Agents Run Stata Code**: <mark>Bundle the standalone native `stata-ai-skill` with this extension so AI coding tools (Claude Code, Cursor, Codex CLI, Open Code, OpenClaw, etc.) can run Stata through a Rust background service.</mark>
+- **Native Local Service**: <mark>The AI Skill runs from the packaged native executable and uses `http://127.0.0.1:19522` by default.</mark>
+- **Leave the setup to AI**: <mark>Click the `AI` button in the editor toolbar, copy the prompt, and paste it to your AI tool. The AI will install or register the bundled `stata-ai-skill` from this extension.</mark>
+- **Packaged Native Binaries**: <mark>The bundled skill includes macOS Apple Silicon and Windows x64/ARM64 executables, plus the full `SKILL.md` runtime guide.</mark>
 
 ### 2. Code Execution (Stata Interaction)
 
@@ -208,16 +207,11 @@ Search for "Stata All in One" in VS Code settings and configure:
 
 ### AI Skill
 
-1. <mark>**AI Skill Enabled** (`stata-all-in-one.aiSkillEnabled`)</mark>
-   - `true` (default): Start a localhost HTTP server when VS Code opens, allowing AI coding tools to execute Stata code.
-   - `false`: The extension only activates when `.do`/`.dta` files are opened, and no HTTP server is started.
-
-2. <mark>**AI Skill Port** (`stata-all-in-one.aiSkillPort`)</mark>
-   - Port number for the AI Skill HTTP server. Default `19521`. Change if the port is in use.
+Click the `AI` button in the Stata editor toolbar to copy a prompt that installs or registers the bundled native `stata-ai-skill` in your AI coding tool. The standalone service uses `http://127.0.0.1:19522` by default and is configured through the bundled `skill/SKILL.md`.
 
 ### Code Execution
 
-3. <mark>**Run Mode** (`stata-all-in-one.runMode`)</mark>
+1. <mark>**Run Mode** (`stata-all-in-one.runMode`)</mark>
    - `embeddedConsole` (default): Run code in the built-in **Console | Stata All in One** panel within VS Code, with direct output viewing and interaction.
    - `externalApp`: Send code to the system-installed Stata application for execution.
 
@@ -321,7 +315,7 @@ If this extension has been helpful to you, feel free to scan the **Alipay** (lef
 
 | Version | Changes                                                                                                              | Release Date |
 | ------- | -------------------------------------------------------------------------------------------------------------------- | ------------ |
-| 0.2.19  | Improved AI Skill multi-window reliability and version reporting; fixed macOS Console inheritance of Stata Python settings; refined Stata editor actions | 2026-06-18   |
+| 0.2.19  | Bundled the standalone native `stata-ai-skill`; fixed macOS Console inheritance of Stata Python settings; refined Stata editor actions | 2026-06-18   |
 | 0.2.18  | Preview release: Fixed Windows Embedded Console init failure; Added STATA.LIC license detection with dialog prompt; Fixed webview Service Worker registration error; Improved console input styling; Fixed AI Skill multi-line code execution | 2026-06-07   |
 | 0.2.17-0.2.14  | Preview release: Introduced AI Skill, Embedded Console, Data Viewer, and Graph Support; improved Hover help display; bug fixes | 2026-05-31   |
 | 0.2.13  | On Windows, running code no longer restores a snapped or maximized Stata window to a smaller size — preserves current window state | 2026-03-12   |

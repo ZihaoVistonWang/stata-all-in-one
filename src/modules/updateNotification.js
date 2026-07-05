@@ -11,7 +11,7 @@ const { getUserLanguage, showInfo } = require('../utils/common');
 const CHANGELOG = {
     en: {
         '0.2.19': {
-            ver_info: '✨ Stata All in One (0.2.19): Improved AI Skill multi-window reliability and version reporting; fixed macOS Console inheritance of Stata Python settings; refined Stata editor actions.',
+            ver_info: '✨ Stata All in One (0.2.19): Bundled the standalone native Stata AI Skill with an AI-agent install prompt; fixed macOS Console inheritance of Stata Python settings; refined Stata editor actions.',
             more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0219-0214-2026-06-18'
         },
         '0.2.18': {
@@ -19,11 +19,11 @@ const CHANGELOG = {
             more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0219-0214-2026-06-18'
         },
         '0.2.17': {
-            ver_info: '✨ Stata All in One (0.2.17): A major pre-release version. If there are any bugs, please give feedback and re-install v0.2.13! The embedded console, data viewer, AI skill function and hover help have been introduced, while bringing significant performance improvements on the Windows side.',
+            ver_info: '✨ Stata All in One (0.2.17): A major pre-release version. If there are any bugs, please give feedback and re-install v0.2.13! The embedded console, data viewer, bundled native AI Skill and hover help have been introduced, while bringing significant performance improvements on the Windows side.',
             more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0219-0214-2026-06-18'
         },
         '0.2.16': {
-            ver_info: '✨ Stata All in One (0.2.16): A major pre-release version. If there are any bugs, please give feedback and re-install v0.2.13! The embedded console, data viewer, AI skill function and hover help have been introduced, while bringing significant performance improvements on the Windows side.',
+            ver_info: '✨ Stata All in One (0.2.16): A major pre-release version. If there are any bugs, please give feedback and re-install v0.2.13! The embedded console, data viewer, bundled native AI Skill and hover help have been introduced, while bringing significant performance improvements on the Windows side.',
             more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0219-0214-2026-06-18'
         },
         '0.2.15': {
@@ -77,7 +77,7 @@ const CHANGELOG = {
     },
     zh: {
         '0.2.19': {
-            ver_info: '✨ Stata All in One (0.2.19)：改进 AI Skill 多窗口复用与版本识别；修复 macOS Console 继承 Stata Python 配置；优化 Stata 编辑器操作按钮。',
+            ver_info: '✨ Stata All in One (0.2.19)：内置独立原生 Stata AI Skill 并提供 AI Agent 安装提示词；修复 macOS Console 继承 Stata Python 配置；优化 Stata 编辑器操作按钮。',
             more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0219-0214-2026-06-18'
         },
         '0.2.18': {
@@ -85,11 +85,11 @@ const CHANGELOG = {
             more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0219-0214-2026-06-18'
         },
         '0.2.17': {
-            ver_info: '✨ Stata All in One (0.2.17)：这是一个预览版本，如果有Bug影响使用，请及时反馈并安装0.2.13版本！引入了嵌入式控制台、数据查看器、AI Skill功能和悬停帮助等，同时在 Windows 端带来了显著的性能提升。',
+            ver_info: '✨ Stata All in One (0.2.17)：这是一个预览版本，如果有Bug影响使用，请及时反馈并安装0.2.13版本！引入了嵌入式控制台、数据查看器、内置原生 AI Skill 和悬停帮助等，同时在 Windows 端带来了显著的性能提升。',
             more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0219-0214-2026-06-18'
         },
         '0.2.16': {
-            ver_info: '✨ Stata All in One (0.2.16)：这是一个预览版本，如果有Bug影响使用，请及时反馈并安装0.2.13版本！引入了嵌入式控制台、数据查看器、AI Skill功能和悬停帮助等，同时在 Windows 端带来了显著的性能提升。',
+            ver_info: '✨ Stata All in One (0.2.16)：这是一个预览版本，如果有Bug影响使用，请及时反馈并安装0.2.13版本！引入了嵌入式控制台、数据查看器、内置原生 AI Skill 和悬停帮助等，同时在 Windows 端带来了显著的性能提升。',
             more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0219-0214-2026-06-18'
         },
         '0.2.15': {
