@@ -11,7 +11,7 @@ const { getUserLanguage, showInfo } = require('../utils/common');
 const CHANGELOG = {
     en: {
         '0.2.19': {
-            ver_info: '✨ Stata All in One (0.2.19): Bundled the standalone native Stata AI Skill with an AI-agent install prompt; fixed macOS Console inheritance of Stata Python settings; refined Stata editor actions.',
+            ver_info: '✨ Stata All in One (0.2.19): Restored actual graph export execution in the Embedded Console, including PDF and PNG/JPG/JPEG output without sharp native binaries; added online CJK monospace font defaults for aligned mixed-language tables; bundled the standalone native Stata AI Skill and refined console/editor behavior.',
             more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0219-0214-2026-06-18'
         },
         '0.2.18': {
@@ -77,7 +77,7 @@ const CHANGELOG = {
     },
     zh: {
         '0.2.19': {
-            ver_info: '✨ Stata All in One (0.2.19)：内置独立原生 Stata AI Skill 并提供 AI Agent 安装提示词；修复 macOS Console 继承 Stata Python 配置；优化 Stata 编辑器操作按钮。',
+            ver_info: '✨ Stata All in One (0.2.19)：恢复 Embedded Console 中 graph export 的实际执行，支持 PDF 与 PNG/JPG/JPEG 导出且不再依赖 sharp 原生二进制；默认启用在线 CJK 等宽字体以改善中英混排表格对齐；内置独立原生 Stata AI Skill 并优化控制台/编辑器体验。',
             more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0219-0214-2026-06-18'
         },
         '0.2.18': {
