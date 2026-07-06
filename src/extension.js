@@ -31,7 +31,6 @@ const config = require('./utils/config');
 
 // Execution session state context key for "stop" button visibility
 const CONSOLE_SESSION_ACTIVE_KEY = 'stata-all-in-one.consoleSessionActive';
-const { showPreviewNotification, resetPreviewNotification, executeRollback } = require('./modules/previewNotification');
 
 const MIGRATION_MESSAGES = {
     en: {
@@ -296,9 +295,6 @@ async function activate(context) {
     // Check for updates and show notification
     registerUpdateCheck(context);
 
-    // Show preview version notification (≥ v0.2.14, < v0.3.0)
-    showPreviewNotification(context);
-
     try {
         await ensureConsoleFontCache(context);
     } catch (error) {
@@ -492,15 +488,6 @@ async function activate(context) {
     );
     context.subscriptions.push(sponsorCommand);
 
-    // Register rollback version command
-    const rollbackCommand = vscode.commands.registerCommand(
-        'stata-all-in-one.rollbackVersion',
-        () => {
-            executeRollback();
-        }
-    );
-    context.subscriptions.push(rollbackCommand);
-
     // Register data viewer command
     const { revealDataViewer } = require('./modules/runCode/embeddedConsole/dataViewer/panel');
     const dataViewerCommand = vscode.commands.registerCommand(
@@ -594,20 +581,6 @@ async function activate(context) {
     );
     context.subscriptions.push(resetEmbeddedConsoleOverflowNoticeCommand);
 
-    // Register debug command: Reset preview notification
-    const resetPreviewNotificationCommand = vscode.commands.registerCommand(
-        'stata-all-in-one.debugResetPreviewNotification',
-        async () => {
-            console.log('Stata All in One: Debug reset preview notification command executed');
-            await resetPreviewNotification(context);
-            const { MESSAGES } = require('./modules/previewNotification');
-            const lang = getUserLanguage();
-            const t = MESSAGES[lang] || MESSAGES.en;
-            showInfo(t.resetDone);
-        }
-    );
-    context.subscriptions.push(resetPreviewNotificationCommand);
-
     // ========== Diagnose Console ==========
 
     // Register diagnose console command
@@ -646,17 +619,6 @@ async function activate(context) {
         }
     );
     context.subscriptions.push(diagnoseConsoleCommand);
-
-    // Register reset capability state command (debug)
-    const resetCapabilityStateCommand = vscode.commands.registerCommand(
-        'stata-all-in-one.resetCapabilityState',
-        async () => {
-            console.log('Stata All in One: Reset capability state command triggered');
-            await capability.setCapabilityState(context, 'unverified');
-            showInfo('Capability state has been reset to UNVERIFIED. Run Stata code again before using Data Viewer; the AI button remains available for skill installation.');
-        }
-    );
-    context.subscriptions.push(resetCapabilityStateCommand);
 
     // ========== AI Skill ==========
 

@@ -2,7 +2,7 @@
   "name": "stata-all-in-one",
   "displayName": "Stata All in One",
   "description": "Supercharge your Stata workflow in VS Code. An enhanced version of `Stata Outline` with advanced Syntax Highlighting + Code Hints + Smart Outline + Code Execution + Data Viewing + AI Skill. All your Stata needs in one place.",
-  "version": "0.2.19",
+  "version": "0.3.0",
   "publisher": "ZihaoVistonWang",
   "icon": "img/icon.png",
   "keywords": [
@@ -330,20 +330,8 @@
         "icon": "$(stop-circle)"
       },
       {
-        "command": "stata-all-in-one.rollbackVersion",
-        "title": "%command.rollbackVersion.title%"
-      },
-      {
-        "command": "stata-all-in-one.debugResetPreviewNotification",
-        "title": "%command.debugResetPreviewNotification.title%"
-      },
-      {
         "command": "stata-all-in-one.diagnoseConsole",
         "title": "%command.diagnoseConsole.title%"
-      },
-      {
-        "command": "stata-all-in-one.resetCapabilityState",
-        "title": "%command.resetCapabilityState.title%"
       },
       {
         "command": "stata-all-in-one.showAISkillDialog",
@@ -460,12 +448,6 @@
           "title": "%command.showSponsor.short%",
           "when": "editorLangId == stata && config.stata-all-in-one.showActionButtons",
           "group": "navigation@1"
-        },
-        {
-          "command": "stata-all-in-one.rollbackVersion",
-          "title": "%command.rollbackVersion.short%",
-          "when": "editorLangId == stata && config.stata-all-in-one.showActionButtons",
-          "group": "navigation@1.5"
         },
         {
           "command": "stata-all-in-one.showAISkillDialog",

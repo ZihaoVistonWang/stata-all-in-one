@@ -13,7 +13,7 @@ Stata All in One
 </p>
 
 <p align="center">
-   | <b>版本:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.2.19</a> | <b>作者:</b> <a href="https://zihaowang.cn">王梓豪</a> | <b>Translate:</b>
+   | <b>版本:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.3.0</a> | <b>作者:</b> <a href="https://zihaowang.cn">王梓豪</a> | <b>Translate:</b>
   <a href="https://github.com/ZihaoVistonWang/stata-all-in-one">English Version</a> |
 </p>
 
@@ -43,19 +43,16 @@ Stata All in One
   padding: 18px 22px;
 ">
 <p style="margin:0 0 12px 0; font-size:1.25em; text-align:center;">
-  🚨 <strong>预览版提醒</strong> 🚨
+  ✅ <strong>正式版发布提醒</strong> ✅
 </p>
 <p style="margin:0 0 8px 0; padding-left: 1.6em; text-indent: -1.6em;">
-  ⚠️ <strong>v0.2.19-0.2.14 为预览版本（pre-release）</strong>，可能存在较多 bug，不建议在生产环境中使用。感谢每一位愿意尝鲜并反馈问题的用户！
+  🎉 <strong>v0.3.0 是预览版系列后的首个正式版本。</strong> 本版本修复预览版中的已知问题，并保留 Embedded Console、数据查看器、图形支持和 AI Skill 等新工作流。
 </p>
 <p style="margin:0 0 8px 0; padding-left: 1.6em; text-indent: -1.6em;">
   📧 如遇到任何问题，请将 bug 描述、复现步骤和截图发送至 <a href="mailto:hi@zihaowang.cn"><strong>hi@zihaowang.cn</strong></a>。
 </p>
 <p style="margin:0 0 8px 0; padding-left: 1.6em; text-indent: -1.6em;">
-  🎯 <strong>正式版 v0.3.0 预计于 2026 年 7 月初发布</strong>，届时将修复已知问题并提供更稳定的体验。
-</p>
-<p style="margin:0 0 8px 0; padding-left: 1.6em; text-indent: -1.6em;">
-  📌 本文档内的<mark>高亮部分</mark>代表预览版中的新增内容。
+  📌 完整 v0.3.0 更新记录见 <a href="CHANGELOG.md#030-2026-07-06"><strong>CHANGELOG.md</strong></a>。
 </p>
 </td>
 </tr>
@@ -63,7 +60,7 @@ Stata All in One
 
 ## 致谢
 
-感谢小红书用户 **Rich\*\*d**、微信用户 **M\*k\***、**柿\*\*橙**、评论 “功能强大且配置简单的插件，谢谢！” 的匿名用户，以及 Buy me a coffee 用户 **LB\*\*PG@gmail.com** 对本项目的支持。
+感谢小红书用户 **Rich\*\*d**、微信用户 **M\*k\***、**柿\*\*橙**、评论 “功能强大且配置简单的插件，谢谢！” 的匿名用户，以及 Buy me a coffee 用户 **LB\*\*PG@gmail.com**、**ol\*\*\*ba@gmail.com** 对本项目的支持。
 
 ## 功能概览
 
@@ -229,57 +226,54 @@ Stata All in One
    - `true`（默认）：Stata 首次启动时自动将工作目录切换到当前 do 文件所在位置。
    - `false`：Stata 启动后不更改工作目录。
 
-8. **显示运行按钮** (`stata-all-in-one.showRunButton`)
-   - `true`（默认）：在编辑器标题栏显示运行按钮。
-   - `false`：隐藏按钮。
-
-9. **显示操作按钮** (`stata-all-in-one.showActionButtons`)
-   - `true`（默认）：在编辑器标题栏显示"Bug 反馈"和"打赏支持"按钮。
+8. **显示操作按钮** (`stata-all-in-one.showActionButtons`)
+   - `true`（默认）：在编辑器标题栏显示"Bug 反馈"、"打赏支持"和"AI"按钮。
    - `false`：隐藏这两个按钮。
 
-10. **启用 Ctrl+Shift+D 作为运行快捷键** (`stata-all-in-one.enableCtrlShiftD`)
+9. **启用 Ctrl+Shift+D 作为运行快捷键** (`stata-all-in-one.enableCtrlShiftD`)
    - `true`：使用 `Ctrl/Cmd+Shift+D` 作为运行代码的快捷键。
    - `false`（默认）：使用默认的 `Ctrl/Cmd+D` 快捷键。
 
 ### 嵌入式控制台
 
-11. <mark>**控制台字体模式** (`stata-all-in-one.consoleFontMode`)</mark>
+10. <mark>**控制台字体模式** (`stata-all-in-one.consoleFontMode`)</mark>
    - `online`（默认）：为西文加载 Maple Mono，为 CJK 文本加载 Maple Mono NF CN。
    - `editor`：跟随编辑器字体，降级到系统等宽字体。
    - `system`：直接使用系统等宽字体。
    - `custom`：使用下方自定义字体设置。
+   - 字体致谢：[subframe7536/maple-font](https://github.com/subframe7536/maple-font)、[fontsource](https://fontsource.org/fonts/maple-mono) 和 ZeoSeven Fonts（[443](https://fonts.zeoseven.com/items/443/)、[442](https://fonts.zeoseven.com/items/442/)）。
 
-12. <mark>**控制台自定义字体** (`stata-all-in-one.consoleCustomFontFamily`)</mark>
+11. <mark>**控制台自定义字体** (`stata-all-in-one.consoleCustomFontFamily`)</mark>
     - 当字体模式设为 `custom` 时，控制台使用的 CSS `font-family` 列表。
     - 示例：`"Maple Mono NF CN", Menlo, Monaco, monospace`
 
-13. <mark>**图形导出 DPI** (`stata-all-in-one.graphPngDpi`)</mark>
+12. <mark>**图形导出 DPI** (`stata-all-in-one.graphPngDpi`)</mark>
     - 嵌入式控制台图形保存为 PNG 时的 DPI 值。默认 `600`，范围 72–1200。
 
 ### 语法高亮和代码提示
 
-14. **自定义命令高亮** (`stata-all-in-one.customCommands`)
+13. **自定义命令高亮** (`stata-all-in-one.customCommands`)
     - 自定义需要高亮的 Stata 命令（字符串数组），默认包含 `reghdfe`。
     - 示例：`["reghdfe", "ivreghdfe", "gtools", "winsor2", "outreg2"]`
     - **配置后需要重载窗口生效**。
 
 ### Hover 悬停帮助
 
-15. <mark>**启用悬停文档** (`stata-all-in-one.enableHoverDocs`)</mark>
+14. <mark>**启用悬停文档** (`stata-all-in-one.enableHoverDocs`)</mark>
     - `true`（默认）：鼠标悬停在 Stata 命令上时显示官方帮助信息。
     - `false`：关闭悬停帮助。
 
-16. <mark>**额外 ADO 路径** (`stata-all-in-one.additionalAdoPaths`)</mark>
+15. <mark>**额外 ADO 路径** (`stata-all-in-one.additionalAdoPaths`)</mark>
     - 用于扫描社区贡献命令帮助文件的额外 Stata ADO 路径。
     - 示例：`["/Users/username/ado/personal", "C:\\Users\\username\\ado\\personal"]`
 
 ### 大纲与导航
 
-17. **显示多级序号** (`stata-all-in-one.numberingShow`)
+16. **显示多级序号** (`stata-all-in-one.numberingShow`)
     - `true`：大纲显示 `1.1`、`1.2.1` 等序号。
     - `false`（默认）：显示原始标题。
 
-18. **自动添加标题序号** (`stata-all-in-one.numberingAdd`)
+17. **自动添加标题序号** (`stata-all-in-one.numberingAdd`)
     - `true`：**当启用序号时**，自动更新 `.do` 文件中的 section 标题以包含序号。
     - `false`（默认）：仅大纲显示序号，不修改文件。
 
@@ -287,15 +281,15 @@ Stata All in One
 
 ### 代码风格
 
-19. **注释样式** (`stata-all-in-one.commentStyle`)
+18. **注释样式** (`stata-all-in-one.commentStyle`)
     - `// `（默认）：用于切换注释的样式。选项包括 `//`、`*` 或 `/* ... */`
 
-20. **分隔线长度** (`stata-all-in-one.separatorLength`)
+19. **分隔线长度** (`stata-all-in-one.separatorLength`)
     - 分割线所在行的字符总长度（包括前缀 `** #` 和分隔符）。默认值：`60`
 
 <a id="separatorSymmetric"></a>
 
-21. **分隔线对称性** (`stata-all-in-one.separatorSymmetric`)
+20. **分隔线对称性** (`stata-all-in-one.separatorSymmetric`)
     - `true`：在分割线末尾添加 ` **` 以保证视觉对称（例如 `** === 标题 === **`）。
     - `false`（默认）：分割线不添加末尾后缀。
 
@@ -315,6 +309,7 @@ Stata All in One
 
 | 版本   | 更新内容                                                                           | 发布日期   |
 | ------ | ---------------------------------------------------------------------------------- | ---------- |
+| 0.3.0 | 正式版：修复预览版中的已知问题 | 2026-07-06 |
 | 0.2.19 | 内置独立原生 `stata-ai-skill`；修复 macOS Console 继承 Stata Python 配置；优化 Stata 编辑器操作按钮 | 2026-06-18 |
 | 0.2.18 | 预览版：修复 Windows 嵌入式控制台初始化失败；新增 STATA.LIC 证书检测与弹窗提示；修复 webview Service Worker 注册错误；优化命令行输入框样式；修复 AI Skill 多行代码执行问题 | 2026-06-07 |
 | 0.2.17-0.2.14 | 预览版：引入 AI Skill、嵌入式控制台、数据查看器和图形支持等核心功能；优化 Hover 帮助显示；修复已知问题 | 2026-05-31 |

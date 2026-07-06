@@ -13,7 +13,7 @@ Stata All in One
 </p>
 
 <p align="center">
-   | <b>Version:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.2.19</a> | <b>Author:</b> <a href="https://zihaowang.cn">Zihao Viston Wang</a> | <b>Translate:</b>
+   | <b>Version:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.3.0</a> | <b>Author:</b> <a href="https://zihaowang.cn">Zihao Viston Wang</a> | <b>Translate:</b>
   <a href="https://gitee.com/ZihaoVistonWang/stata-all-in-one">中文版本</a> |
 </p>
 
@@ -43,19 +43,16 @@ Stata All in One
   padding: 18px 22px;
 ">
 <p style="margin:0 0 12px 0; font-size:1.25em; text-align:center;">
-  🚨 <strong>Preview Release Notice</strong> 🚨
+  ✅ <strong>Stable Release Notice</strong> ✅
 </p>
 <p style="margin:0 0 8px 0; padding-left: 1.6em; text-indent: -1.6em;">
-  ⚠️ <strong>v0.2.19-0.2.14 are preview releases (pre-release)</strong> and may contain many bugs. It is not recommended for production use. Thank you to everyone willing to try it out and provide feedback!
+  🎉 <strong>v0.3.0 is the first stable release after the preview series.</strong> It fixes known issues from the preview releases and keeps the new Embedded Console, Data Viewer, Graph Support, and AI Skill workflows.
 </p>
 <p style="margin:0 0 8px 0; padding-left: 1.6em; text-indent: -1.6em;">
   📧 If you encounter any issues, please send bug descriptions, reproduction steps, and screenshots to <a href="mailto:hi@zihaowang.cn"><strong>hi@zihaowang.cn</strong></a>.
 </p>
 <p style="margin:0 0 8px 0; padding-left: 1.6em; text-indent: -1.6em;">
-  🎯 <strong>The stable v0.3.0 is expected in early July 2026</strong>, with bug fixes and a more stable experience.
-</p>
-<p style="margin:0 0 8px 0; padding-left: 1.6em; text-indent: -1.6em;">
-  📌 <mark>Highlighted text</mark> denotes new additions in the preview version.
+  📌 See <a href="CHANGELOG.md#030-2026-07-06"><strong>CHANGELOG.md</strong></a> for the full v0.3.0 release notes.
 </p>
 </td>
 </tr>
@@ -63,7 +60,7 @@ Stata All in One
 
 ## Sponsors
 
-Special thanks to RedNote user **Rich\*\*d**, WeChat user **M\*k\***, **柿\*\*橙**, an anonymous user who commented “功能强大且配置简单的插件，谢谢！”, and Buy Me a Coffee supporter **LB\*\*PG@gmail.com** for their generous contributions and continued support of this project.
+Special thanks to RedNote user **Rich\*\*d**, WeChat users **M\*k\*** and **柿\*\*橙**, an anonymous user who commented “功能强大且配置简单的插件，谢谢！”, and Buy Me a Coffee supporters **LB\*\*PG@gmail.com** and **ol\*\*\*ba@gmail.com** for their generous contributions and continued support of this project.
 
 ## Features
 
@@ -229,57 +226,54 @@ Click the `AI` button in the Stata editor toolbar to copy a prompt that installs
    - `true` (default): Automatically set Stata's working directory to the do file's location on first launch.
    - `false`: Stata's working directory is not changed on startup.
 
-8. **Show Run Button** (`stata-all-in-one.showRunButton`)
-   - `true` (default): Show the run button in the editor title bar.
-   - `false`: Hide the button.
-
-9. **Show Action Buttons** (`stata-all-in-one.showActionButtons`)
-   - `true` (default): Show the "Bug Report" and "Sponsor" buttons in the editor title bar.
+8. **Show Action Buttons** (`stata-all-in-one.showActionButtons`)
+   - `true` (default): Show the "Bug Report", "Sponsor", and "AI" buttons in the editor title bar.
    - `false`: Hide these buttons.
 
-10. **Enable Ctrl+Shift+D for Run Shortcut** (`stata-all-in-one.enableCtrlShiftD`)
+9. **Enable Ctrl+Shift+D for Run Shortcut** (`stata-all-in-one.enableCtrlShiftD`)
     - `true`: Use `Ctrl/Cmd+Shift+D` as the run code shortcut.
     - `false` (default): Use the default `Ctrl/Cmd+D` shortcut.
 
 ### Embedded Console
 
-11. <mark>**Console Font Mode** (`stata-all-in-one.consoleFontMode`)</mark>
+10. <mark>**Console Font Mode** (`stata-all-in-one.consoleFontMode`)</mark>
     - `online` (default): Load Maple Mono for Latin text and Maple Mono NF CN for CJK text.
     - `editor`: Follow the editor font, falling back to the system monospace font.
     - `system`: Use the system monospace font directly.
     - `custom`: Use the custom font specified below.
+    - Font credits: [subframe7536/maple-font](https://github.com/subframe7536/maple-font), [fontsource](https://fontsource.org/fonts/maple-mono), and ZeoSeven Fonts ([443](https://fonts.zeoseven.com/items/443/), [442](https://fonts.zeoseven.com/items/442/)).
 
-12. <mark>**Console Custom Font Family** (`stata-all-in-one.consoleCustomFontFamily`)</mark>
+11. <mark>**Console Custom Font Family** (`stata-all-in-one.consoleCustomFontFamily`)</mark>
     - When font mode is set to `custom`, the CSS `font-family` list used by the console.
     - Example: `"Maple Mono NF CN", Menlo, Monaco, monospace`
 
-13. <mark>**Graph Export DPI** (`stata-all-in-one.graphPngDpi`)</mark>
+12. <mark>**Graph Export DPI** (`stata-all-in-one.graphPngDpi`)</mark>
     - DPI value for saving embedded console graphs as PNG. Default `600`, range 72–1200.
 
 ### Syntax Highlighting and Code Completion
 
-14. **Custom Command Highlighting** (`stata-all-in-one.customCommands`)
+13. **Custom Command Highlighting** (`stata-all-in-one.customCommands`)
     - User-defined Stata commands to highlight as keywords (array of strings). Default: `reghdfe`.
     - Example: `["reghdfe", "ivreghdfe", "gtools", "winsor2", "outreg2"]`
     - **Requires reloading window** after configuration.
 
 ### Hover Help
 
-15. <mark>**Enable Hover Docs** (`stata-all-in-one.enableHoverDocs`)</mark>
+14. <mark>**Enable Hover Docs** (`stata-all-in-one.enableHoverDocs`)</mark>
     - `true` (default): Show official Stata help information when hovering over Stata commands.
     - `false`: Disable hover help.
 
-16. <mark>**Additional ADO Paths** (`stata-all-in-one.additionalAdoPaths`)</mark>
+15. <mark>**Additional ADO Paths** (`stata-all-in-one.additionalAdoPaths`)</mark>
     - Extra Stata ADO paths for scanning help files of community-contributed commands.
     - Example: `["/Users/username/ado/personal", "C:\\Users\\username\\ado\\personal"]`
 
 ### Outline & Navigation
 
-17. **Display Multi-level Numbering** (`stata-all-in-one.numberingShow`)
+16. **Display Multi-level Numbering** (`stata-all-in-one.numberingShow`)
     - `true`: Outline displays `1.1`, `1.2.1` style numbering.
     - `false` (default): Displays original headings.
 
-18. **Auto-update Heading Numbering** (`stata-all-in-one.numberingAdd`)
+17. **Auto-update Heading Numbering** (`stata-all-in-one.numberingAdd`)
     - `true`: **When numbering is enabled**, automatically update section titles in `.do` files to include numbers.
     - `false` (default): Only displays numbering in outline, doesn't modify file.
 
@@ -287,15 +281,15 @@ Click the `AI` button in the Stata editor toolbar to copy a prompt that installs
 
 ### Code Style
 
-19. **Comment Style** (`stata-all-in-one.commentStyle`)
+18. **Comment Style** (`stata-all-in-one.commentStyle`)
     - `// ` (default): Comment style used for toggling comments. Options include `//`, `*`, or `/* ... */`
 
-20. **Separator Length** (`stata-all-in-one.separatorLength`)
+19. **Separator Length** (`stata-all-in-one.separatorLength`)
     - Total character length of the separator line (including the `** #` prefix and separators). Default: `60`
 
 <a id="separatorSymmetric"></a>
 
-21. **Separator Symmetric** (`stata-all-in-one.separatorSymmetric`)
+20. **Separator Symmetric** (`stata-all-in-one.separatorSymmetric`)
     - `true`: Add ` **` at the end of separator lines to ensure visual symmetry (e.g., `** === Title === **`).
     - `false` (default): Separator lines without the suffix.
 
@@ -315,6 +309,7 @@ If this extension has been helpful to you, feel free to scan the **Alipay** (lef
 
 | Version | Changes                                                                                                              | Release Date |
 | ------- | -------------------------------------------------------------------------------------------------------------------- | ------------ |
+| 0.3.0  | Stable release: Fixed known issues from the preview releases | 2026-07-06   |
 | 0.2.19  | Bundled the standalone native `stata-ai-skill`; fixed macOS Console inheritance of Stata Python settings; refined Stata editor actions | 2026-06-18   |
 | 0.2.18  | Preview release: Fixed Windows Embedded Console init failure; Added STATA.LIC license detection with dialog prompt; Fixed webview Service Worker registration error; Improved console input styling; Fixed AI Skill multi-line code execution | 2026-06-07   |
 | 0.2.17-0.2.14  | Preview release: Introduced AI Skill, Embedded Console, Data Viewer, and Graph Support; improved Hover help display; bug fixes | 2026-05-31   |

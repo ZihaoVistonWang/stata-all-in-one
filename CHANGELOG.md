@@ -3,11 +3,20 @@
 All notable changes to the Stata All in One extension will be documented in this file.
 本文件记录 Stata All in One 扩展的所有重要更改。
 
+## 0.3.0 (2026-07-06)
+
+> Stable release after the 0.2.14-0.2.19 preview series.
+>
+> 这是 0.2.14-0.2.19 预览版系列后的正式版本。
+
+- **Fixed**: Fixed known issues from the preview releases.
+- **修复**：修复预览版中的已知问题。
+
 ## 0.2.19-0.2.14 (2026-06-18)
 
-> This is a major pre-release update with significant new features and improvements, currently in testing phase. Expected to be officially released in July.
+> Historical preview series with significant new features and improvements.
 >
-> 这是一个包含重大新功能和改进的预发布版本，目前处于测试阶段，预计将在7月正式发布。
+> 历史预览版系列，包含重要新功能和改进。
 
 - **Feat (Experimental)**: AI Skill — bundle the standalone native `stata-ai-skill` so AI coding tools (Claude Code, Cursor, Codex CLI, Open Code, OpenClaw, etc.) can run Stata through a Rust background service at `http://127.0.0.1:19522`. The `AI` toolbar button copies an installation prompt for AI agents.
 - **Feat**: Packaged native AI Skill binaries and `SKILL.md` runtime guide are included under the extension `skill/` directory for agent installation.
