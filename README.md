@@ -34,33 +34,13 @@ Stata All in One
 
 ---
 
-<table style="border-collapse: separate; border-spacing: 0; border-radius: 10px; overflow: hidden; display: block;">
-<tr>
-<td style="
-  background: linear-gradient(135deg, #ff6b6b10, #ffd93d10);
-  border: 3px solid #ff6b6b;
-  border-radius: 10px;
-  padding: 18px 22px;
-">
-<p style="margin:0 0 12px 0; font-size:1.25em; text-align:center;">
-  ✅ <strong>Stable Release Notice</strong> ✅
-</p>
-<p style="margin:0 0 8px 0; padding-left: 1.6em; text-indent: -1.6em;">
-  🎉 <strong>v0.3.0 is the first stable release after the preview series.</strong> It fixes known issues from the preview releases and keeps the new Embedded Console, Data Viewer, Graph Support, and AI Skill workflows.
-</p>
-<p style="margin:0 0 8px 0; padding-left: 1.6em; text-indent: -1.6em;">
-  📧 If you encounter any issues, please send bug descriptions, reproduction steps, and screenshots to <a href="mailto:hi@zihaowang.cn"><strong>hi@zihaowang.cn</strong></a>.
-</p>
-<p style="margin:0 0 8px 0; padding-left: 1.6em; text-indent: -1.6em;">
-  📌 See <a href="CHANGELOG.md#030-2026-07-06"><strong>CHANGELOG.md</strong></a> for the full v0.3.0 release notes.
-</p>
-</td>
-</tr>
-</table>
-
 ## Sponsors
 
 Special thanks to RedNote user **Rich\*\*d**, WeChat users **M\*k\*** and **柿\*\*橙**, an anonymous user who commented “功能强大且配置简单的插件，谢谢！”, and Buy Me a Coffee supporters **LB\*\*PG@gmail.com** and **ol\*\*\*ba@gmail.com** for their generous contributions and continued support of this project.
+
+I am grateful to the **Agricultural Economics and Management Innovation Team** at Northwest A&F University for supporting my research, providing funding, and helping [promote and publicize](https://mp.weixin.qq.com/s/kxSfIF2nu1LuUzC2NvKWog) this project.
+
+My thanks also go to Stata's officially authorized distributor [**Beijing Uone Info&Tech Co.,Ltd (Uone-Tech)**](http://www.uone-tech.cn/) for its support in [promoting and publicizing](https://mp.weixin.qq.com/s/UhLmoGK4VhYULACagjbcTg) this project.
 
 ## Features
 
@@ -68,7 +48,7 @@ Special thanks to RedNote user **Rich\*\*d**, WeChat users **M\*k\*** and **柿\
    <a href="https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/img/example-marked-en.jpg"><img src="img/example-marked-en.jpg" alt="Feature Showcase"/> Click to view full image </a>
 </p>
 
-> ⚠️ Features marked with 🔑 require a `STATA.LIC` license file. Please support genuine Stata software to enjoy the full experience.
+> ⚠️ Features marked with 🔑 require a `STATA.LIC` license file. Please support genuine Stata software to enjoy the full experience. You can contact Stata Corp, LLC's officially authorized partner [Beijing Uone Info&Tech Co.,Ltd (Uone-Tech)](http://xhslink.com/o/QYWdYfrEhy) to purchase genuine Stata software or request a trial.
 
 ### 1. AI Skill (Experimental) 🔑
 

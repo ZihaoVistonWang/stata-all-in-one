@@ -34,33 +34,14 @@ Stata All in One
 
 ---
 
-<table style="border-collapse: separate; border-spacing: 0; border-radius: 10px; overflow: hidden; display: block;">
-<tr>
-<td style="
-  background: linear-gradient(135deg, #ff6b6b10, #ffd93d10);
-  border: 3px solid #ff6b6b;
-  border-radius: 10px;
-  padding: 18px 22px;
-">
-<p style="margin:0 0 12px 0; font-size:1.25em; text-align:center;">
-  ✅ <strong>正式版发布提醒</strong> ✅
-</p>
-<p style="margin:0 0 8px 0; padding-left: 1.6em; text-indent: -1.6em;">
-  🎉 <strong>v0.3.0 是预览版系列后的首个正式版本。</strong> 本版本修复预览版中的已知问题，并保留 Embedded Console、数据查看器、图形支持和 AI Skill 等新工作流。
-</p>
-<p style="margin:0 0 8px 0; padding-left: 1.6em; text-indent: -1.6em;">
-  📧 如遇到任何问题，请将 bug 描述、复现步骤和截图发送至 <a href="mailto:hi@zihaowang.cn"><strong>hi@zihaowang.cn</strong></a>。
-</p>
-<p style="margin:0 0 8px 0; padding-left: 1.6em; text-indent: -1.6em;">
-  📌 完整 v0.3.0 更新记录见 <a href="CHANGELOG.md#030-2026-07-06"><strong>CHANGELOG.md</strong></a>。
-</p>
-</td>
-</tr>
-</table>
-
 ## 致谢
 
 感谢小红书用户 **Rich\*\*d**、微信用户 **M\*k\***、**柿\*\*橙**、评论 “功能强大且配置简单的插件，谢谢！” 的匿名用户，以及 Buy me a coffee 用户 **LB\*\*PG@gmail.com**、**ol\*\*\*ba@gmail.com** 对本项目的支持。
+
+感谢西北农林科技大学农林经济与管理创新团队为本人提供的科研支持、经费支持和对本项目的[宣传推广支持](https://mp.weixin.qq.com/s/kxSfIF2nu1LuUzC2NvKWog)。
+
+感谢Stata官方授权经销商[北京友万信息科技有限公司（友万科技）](http://www.uone-tech.cn/)对本项目的[宣发支持](https://mp.weixin.qq.com/s/UhLmoGK4VhYULACagjbcTg)。
+
 
 ## 功能概览
 
@@ -68,7 +49,7 @@ Stata All in One
    <a href="https://pan.zihaowang.cn/share/example-marked-cn.jpg"><img src="img/example-marked-cn.jpg" alt="功能展示图"/> 点击查看大图 </a>
 </p>
 
-> ⚠️ 以下标注 🔑 的功能需要`STATA.LIC`证书文件，请支持正版Stata软件以获得完整功能体验。
+> ⚠️ 以下标注 🔑 的功能需要`STATA.LIC`证书文件，请支持正版Stata软件以获得完整功能体验。您可以联系Stata Corp, LLC官方授权合作伙伴[北京友万信息科技有限公司(友万科技)](http://xhslink.com/o/QYWdYfrEhy)采购正版软件或申请试用。
 
 ### 1. AI Skill 功能（实验性）🔑
 
