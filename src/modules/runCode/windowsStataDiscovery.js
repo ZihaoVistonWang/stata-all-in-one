@@ -42,11 +42,13 @@ function runReg(args, timeoutMs) {
             timeout: Math.max(1, timeoutMs),
             maxBuffer: 4 * 1024 * 1024
         }, (error, stdout, stderr) => {
+            const noMatches = Boolean(error && error.code === 1 && !String(stdout || '').trim());
             resolve({
-                ok: !error,
+                ok: !error || noMatches,
                 stdout: stdout || '',
                 stderr: stderr || '',
-                error: error ? error.message : null,
+                error: error && !noMatches ? error.message : null,
+                noMatches,
                 timedOut: Boolean(error && (error.killed || error.code === 'ETIMEDOUT')),
                 elapsedMs: Date.now() - startedAt
             });
