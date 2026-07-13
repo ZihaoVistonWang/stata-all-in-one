@@ -202,11 +202,15 @@ function createMacInstallation(options = {}) {
 
 test('startup setup shares one promise and shows Windows success once', async () => {
     const installation = createWindowsInstallation();
+    let resolverCall = 0;
     const { calls, manager, setupOptions } = loadSetupManager({
-        resolvedInstallation: {
-            platform: 'win32',
-            executablePath: installation.executablePath,
-            source: 'detected'
+        getResolvedInstallation() {
+            resolverCall++;
+            return {
+                platform: 'win32',
+                executablePath: installation.executablePath,
+                source: resolverCall === 1 ? 'detected' : 'configured'
+            };
         }
     });
     const context = createContext();
@@ -234,6 +238,34 @@ test('startup setup shares one promise and shows Windows success once', async ()
 
         await manager.ensureStataSetup(context, setupOptions);
         assert.equal(calls.info.length, 1);
+    } finally {
+        fs.rmSync(installation.directory, { recursive: true, force: true });
+    }
+});
+
+test('fresh auto-discovery reports setup again despite an unchanged acknowledgement', async () => {
+    const installation = createWindowsInstallation();
+    const resolvedInstallation = {
+        platform: 'win32',
+        executablePath: installation.executablePath,
+        source: 'detected'
+    };
+    const { calls, manager, setupOptions } = loadSetupManager({ resolvedInstallation });
+    const context = createContext();
+    try {
+        const report = await manager.inspectInstallation(context, resolvedInstallation);
+        const signature = manager.buildSetupSignature(report, []);
+        await context.globalState.update(manager.SETUP_NOTICE_STATE_KEY, {
+            signature,
+            outcome: 'success',
+            acknowledgedAt: Date.now()
+        });
+
+        const result = await manager.ensureStataSetup(context, setupOptions);
+
+        assert.equal(result.consoleAvailable, true);
+        assert.equal(calls.info.length, 1);
+        assert.equal(calls.info[0].message, 'Stata All in One');
     } finally {
         fs.rmSync(installation.directory, { recursive: true, force: true });
     }
@@ -360,14 +392,18 @@ test('closing a failure modal keeps initialization pending until explicit confir
     }
 });
 
-test('a changed license state produces a new one-time success modal', async () => {
+test('a configured installation is revalidated silently after its license state recovers', async () => {
     const installation = createWindowsInstallation();
     let licenseAvailable = false;
-    const { calls, manager, setupOptions } = loadSetupManager({
-        resolvedInstallation: {
-            platform: 'win32',
-            executablePath: installation.executablePath,
-            source: 'detected'
+    let resolverCall = 0;
+    const { calls, manager, settings, setupOptions } = loadSetupManager({
+        getResolvedInstallation() {
+            resolverCall++;
+            return {
+                platform: 'win32',
+                executablePath: installation.executablePath,
+                source: resolverCall === 1 ? 'detected' : 'configured'
+            };
         },
         getWindowsSignals() {
             return {
@@ -385,12 +421,65 @@ test('a changed license state produces a new one-time success modal', async () =
         assert.equal(calls.warning.length, 1);
 
         licenseAvailable = true;
+        settings.runMode = 'embeddedConsole';
         const result = await manager.ensureStataSetup(context, setupOptions);
         assert.equal(result.consoleAvailable, true);
-        assert.equal(calls.info.length, 1);
-        assert.equal(calls.info[0].message, 'Stata All in One');
-        assert.match(calls.info[0].modalOptions.detail, /StataMP-64\.exe/);
+        assert.equal(calls.info.length, 0);
         assert.equal(calls.console, 1);
+        assert.equal(context.values.get(manager.SETUP_NOTICE_STATE_KEY).outcome, 'success');
+    } finally {
+        fs.rmSync(installation.directory, { recursive: true, force: true });
+    }
+});
+
+test('a changed configured installation validates Console silently when successful', async () => {
+    const installation = createWindowsInstallation();
+    const { calls, manager, setupOptions } = loadSetupManager({
+        resolvedInstallation: {
+            platform: 'win32',
+            executablePath: installation.executablePath,
+            source: 'configured'
+        }
+    });
+    const context = createContext();
+    await context.globalState.update(manager.SETUP_NOTICE_STATE_KEY, {
+        signature: 'previous-installation',
+        outcome: 'success',
+        acknowledgedAt: Date.now()
+    });
+    try {
+        const result = await manager.ensureStataSetup(context, setupOptions);
+        assert.equal(result.consoleAvailable, true);
+        assert.equal(result.action, 'silent');
+        assert.equal(calls.console, 1);
+        assert.equal(calls.info.length, 0);
+        assert.equal(calls.warning.length, 0);
+        assert.notEqual(
+            context.values.get(manager.SETUP_NOTICE_STATE_KEY).signature,
+            'previous-installation'
+        );
+    } finally {
+        fs.rmSync(installation.directory, { recursive: true, force: true });
+    }
+});
+
+test('external run mode skips Console validation for a configured installation', async () => {
+    const installation = createWindowsInstallation();
+    const { calls, manager } = loadSetupManager({
+        runMode: 'externalApp',
+        resolvedInstallation: {
+            platform: 'win32',
+            executablePath: installation.executablePath,
+            source: 'configured'
+        }
+    });
+    try {
+        const result = await manager.ensureStataSetup(createContext());
+        assert.equal(result.action, 'external');
+        assert.equal(result.consoleCheckSkipped, true);
+        assert.equal(calls.console, 0);
+        assert.equal(calls.info.length, 0);
+        assert.equal(calls.warning.length, 0);
     } finally {
         fs.rmSync(installation.directory, { recursive: true, force: true });
     }
@@ -413,7 +502,29 @@ test('missing installation modal never offers external Stata', async () => {
     assert.equal(calls.warning[0].items.includes(BUTTONS.stataSetupConfirmSwitchExternal), false);
 });
 
-test('an invalid saved Windows path is cleared and automatically repaired', async () => {
+test('an invalid saved Windows path is kept until the user requests reconfiguration', async () => {
+    const configuredPath = path.join(os.tmpdir(), 'Missing', 'StataMP-64.exe');
+    const { calls, manager, settings } = loadSetupManager({
+        windowsPath: configuredPath,
+        resolvedInstallation: {
+            platform: 'win32',
+            executablePath: configuredPath,
+            source: 'configured'
+        },
+        warningChoices: [BUTTONS.stataSetupConfirm]
+    });
+
+    const result = await manager.ensureStataSetup(createContext());
+
+    assert.equal(result.installationAvailable, false);
+    assert.equal(calls.resolver, 1);
+    assert.equal(calls.warning.length, 1);
+    assert.equal(calls.info.length, 0);
+    assert.equal(settings.stataPathOnWindows, configuredPath);
+    assert.equal(calls.updates.some(update => update.key === 'stataPathOnWindows'), false);
+});
+
+test('an invalid saved Windows path is repaired only after explicit reconfiguration', async () => {
     const installation = createWindowsInstallation();
     let resolverCall = 0;
     const { calls, manager, setupOptions } = loadSetupManager({
@@ -431,14 +542,15 @@ test('an invalid saved Windows path is cleared and automatically repaired', asyn
                 executablePath: installation.executablePath,
                 source: 'detected'
             };
-        }
+        },
+        warningChoices: [BUTTONS.stataSetupReconfigure]
     });
     try {
         const result = await manager.ensureStataSetup(createContext(), setupOptions);
         assert.equal(result.installationAvailable, true);
         assert.equal(result.consoleAvailable, true);
         assert.equal(calls.resolver, 2);
-        assert.equal(calls.warning.length, 0);
+        assert.equal(calls.warning.length, 1);
         assert.equal(calls.info.length, 1);
         assert.ok(calls.updates.some(update => update.key === 'stataPathOnWindows' && update.value === ''));
     } finally {
@@ -446,7 +558,7 @@ test('an invalid saved Windows path is cleared and automatically repaired', asyn
     }
 });
 
-test('a macOS edition selection without a matching app is not kept as valid configuration', async () => {
+test('a macOS edition selection without a matching app is kept until reconfiguration is requested', async () => {
     const { calls, manager, settings } = loadSetupManager({
         platform: 'darwin',
         macVersion: 'StataMP',
@@ -463,7 +575,7 @@ test('a macOS edition selection without a matching app is not kept as valid conf
     });
     const result = await manager.ensureStataSetup(createContext());
     assert.equal(result.installationAvailable, false);
-    assert.equal(settings.stataVersionOnMacOS, '');
+    assert.equal(settings.stataVersionOnMacOS, 'StataMP');
     assert.equal(calls.resolver, 1);
     assert.equal(calls.warning.length, 1);
 });

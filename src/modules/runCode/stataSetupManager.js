@@ -222,6 +222,11 @@ function wasAcknowledged(context, signature) {
     return Boolean(state && state.signature === signature && state.acknowledgedAt);
 }
 
+function shouldForceSetupNotice(resolvedInstallation, forceNotice) {
+    if (forceNotice) return true;
+    return Boolean(resolvedInstallation && resolvedInstallation.source === 'detected');
+}
+
 function failureIssueMessages(report, issueCodes, consoleResult) {
     const messages = [];
     if (issueCodes.includes('LIBRARY_NOT_FOUND')) {
@@ -393,9 +398,29 @@ async function initializeConsole(context, report, consoleInitializer = null) {
 
 async function performSetup(context, options = {}) {
     let resolvedInstallation = await ensureStataConfigured(context, { promptOnFailure: true });
-    let repairedInvalidConfiguration = false;
 
     while (true) {
+        const isAutomaticConfiguration = Boolean(
+            resolvedInstallation && resolvedInstallation.source === 'detected'
+        );
+        if (
+            resolvedInstallation
+            && !isAutomaticConfiguration
+            && config.getRunMode() === config.RUN_MODES.externalApp
+            && options.forceNotice !== true
+        ) {
+            await capability.setCapabilityState(context, 'external');
+            return {
+                ...resolvedInstallation,
+                consoleAvailable: false,
+                installationAvailable: true,
+                acknowledged: true,
+                action: 'external',
+                canProceed: true,
+                consoleCheckSkipped: true
+            };
+        }
+
         const report = await inspectInstallation(context, resolvedInstallation);
         if (report.installationAvailable) {
             const consoleResult = options.consoleResult || await initializeConsole(
@@ -405,9 +430,18 @@ async function performSetup(context, options = {}) {
             );
             const issueCodes = collectIssueCodes(report, consoleResult);
             const signature = buildSetupSignature(report, issueCodes);
+            const forceNotice = shouldForceSetupNotice(
+                resolvedInstallation,
+                options.forceNotice === true
+            );
 
             if (!issueCodes.length && consoleResult.success) {
-                const notice = await showSuccessDialog(context, report, signature, options.forceNotice === true);
+                const notice = forceNotice
+                    ? await showSuccessDialog(context, report, signature, true)
+                    : { acknowledged: true, action: 'silent' };
+                if (!forceNotice) {
+                    await saveAcknowledgement(context, signature, 'success');
+                }
                 await capability.setCapabilityState(context, 'console');
                 return {
                     ...report.resolvedInstallation,
@@ -427,7 +461,7 @@ async function performSetup(context, options = {}) {
                 issueCodes,
                 consoleResult,
                 signature,
-                options.forceNotice === true
+                forceNotice
             );
             await capability.setCapabilityState(context, 'external');
             return {
@@ -443,23 +477,6 @@ async function performSetup(context, options = {}) {
             };
         }
 
-        if (
-            resolvedInstallation
-            && resolvedInstallation.source === 'configured'
-            && !repairedInvalidConfiguration
-        ) {
-            repairedInvalidConfiguration = true;
-            await clearConfiguredInstallation(context);
-            resetStataDiscoveryState(isWindows() ? 'win32' : 'darwin');
-            resolvedInstallation = await ensureStataConfigured(context, { promptOnFailure: true });
-            continue;
-        }
-
-        if (resolvedInstallation) {
-            await clearConfiguredInstallation(context);
-            resolvedInstallation = null;
-        }
-
         const missingChoice = await showMissingInstallationDialog();
         if (!missingChoice.reconfigure) {
             await capability.setCapabilityState(context, 'external');
@@ -473,6 +490,11 @@ async function performSetup(context, options = {}) {
             };
         }
 
+        if (resolvedInstallation) {
+            await clearConfiguredInstallation(context);
+            resolvedInstallation = null;
+        }
+        resetStataDiscoveryState(isWindows() ? 'win32' : 'darwin');
         resolvedInstallation = await ensureStataConfigured(context, { promptOnFailure: true });
     }
 }
