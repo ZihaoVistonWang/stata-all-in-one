@@ -1,8 +1,8 @@
 {
   "config.numberingShow.description": "Whether to display multi-level title numbers in the outline view (e.g., 1.1, 1.2.1). **Requires reopening .do files**",
   "config.numberingAdd.description": "When numbering is enabled, automatically update section titles in .do files to include numbers. **Requires reopening .do files**",
-  "config.stataVersionOnMacOS.description": "**[macOS]** Stata runtime version. When empty, the extension detects installed Stata versions at startup and asks you to choose if none is found within 3 seconds.",
-  "config.stataPathOnWindows.description": "**[Windows]** Path to Stata executable file (e.g., `C:\\Program Files\\Stata17\\StataMP-64.exe`). When empty, the extension detects Stata from the registry at startup and asks for the path if none is found within 3 seconds.",
+  "config.stataVersionOnMacOS.description": "**[macOS]** Stata runtime version. When empty, the extension detects installed Stata versions at startup and asks you to choose if none is found within 3 seconds. It then verifies the App, Console dylib, and license before reporting the setup result once.",
+  "config.stataPathOnWindows.description": "**[Windows]** Path to Stata executable file (e.g., `C:\\Program Files\\Stata17\\StataMP-64.exe`). When empty, the extension detects Stata from the registry at startup and asks for the path if none is found within 3 seconds. It then verifies the EXE, Console DLL, and license before reporting the setup result once.",
   "config.commentStyle.description": "Comment style used for toggling comments. Options include `//`, `*`, or `/* ... */`",
   "config.separatorLength.description": "Total character length of the separator line (including the '** #' prefix and separators).",
   "config.customCommands.description": "User-defined Stata commands to highlight as keywords (array of strings). These commands will use the **same color** as built-in commands (like regress, summarize). Case-insensitive matching supported. Example: [\"reghdfe\", \"ivreg2\", \"outreg2\"]. **Requires reloading window** (Ctrl+Shift+P → Developer: Reload Window)",
@@ -42,6 +42,7 @@
   "command.debugResetEmbeddedConsoleOverflowNotice.title": "Stata All in One: Debug Reset Console Overflow Notice",
   "command.debugDiscoverStataOnWindows.title": "Stata All in One: Debug Discover Stata on Windows",
   "command.debugInitializeStataAutoDiscovery.title": "Stata All in One: Debug Initialize Stata Auto Discovery",
+  "command.debugResetStataSetupState.title": "Stata All in One: Debug Reset Stata Setup State",
   "command.rename.title": "Stata All in One: Rename Variable",
   "command.reportBug.title": "Stata All in One: Report Bug",
   "command.reportBug.short": "Bug",

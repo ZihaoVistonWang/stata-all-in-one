@@ -31,9 +31,12 @@ const { discoverStataInstallationsFromRegistry } = require('./modules/runCode/wi
 const {
     DISCOVERY_TIMEOUT_MS,
     ensureStataConfigured,
-    startStartupStataDetection,
     resetStataDiscoveryState
 } = require('./modules/runCode/stataInstallationResolver');
+const {
+    resetStataSetupState,
+    startStartupStataSetup
+} = require('./modules/runCode/stataSetupManager');
 
 // Execution session state context key for "stop" button visibility
 const CONSOLE_SESSION_ACTIVE_KEY = 'stata-all-in-one.consoleSessionActive';
@@ -75,7 +78,7 @@ function getUserLanguage() {
     return lang.startsWith('zh') ? 'zh' : 'en';
 }
 
-async function clearSettingForAutoDiscovery(extensionConfig, key) {
+async function replaceConfigurationAtGlobalScope(extensionConfig, key, value) {
     const inspected = extensionConfig.inspect(key);
     if (inspected && inspected.workspaceFolderValue !== undefined) {
         await extensionConfig.update(key, undefined, vscode.ConfigurationTarget.WorkspaceFolder);
@@ -83,7 +86,19 @@ async function clearSettingForAutoDiscovery(extensionConfig, key) {
     if (inspected && inspected.workspaceValue !== undefined) {
         await extensionConfig.update(key, undefined, vscode.ConfigurationTarget.Workspace);
     }
-    await extensionConfig.update(key, '', vscode.ConfigurationTarget.Global);
+    await extensionConfig.update(key, value, vscode.ConfigurationTarget.Global);
+}
+
+async function resetStataSetupForDebug(context, extensionConfig) {
+    await resetStataSetupState(context);
+    await capability.setCapabilityState(context, 'unverified');
+    await replaceConfigurationAtGlobalScope(
+        extensionConfig,
+        'runMode',
+        config.RUN_MODES.embeddedConsole
+    );
+    await context.globalState.update('stata-all-in-one.consoleLicenseDialogSuppressed', undefined);
+    await context.globalState.update('stata-all-in-one.consoleLicenseDialogNextReminder', undefined);
 }
 
 /**
@@ -312,8 +327,10 @@ async function activate(context) {
         console.log('Stata All in One: Stata Outline not installed, skipping migration');
     }
 
-    // Start platform discovery immediately, without delaying command/provider registration.
-    startStartupStataDetection(context, settingsReadyPromise);
+    // Begin setup as soon as migration is settled. Registration continues in
+    // parallel, while activation itself remains pending until the user has
+    // explicitly acknowledged the central setup result.
+    const startupStataSetupPromise = startStartupStataSetup(context, settingsReadyPromise);
 
     // Check for updates and show notification
     registerUpdateCheck(context);
@@ -515,6 +532,7 @@ async function activate(context) {
             await context.globalState.update('stataGuiAppPath', undefined);
             await context.globalState.update('stataConsoleDylibPath', undefined);
             resetStataDiscoveryState('darwin');
+            await resetStataSetupState(context);
             showInfo(msg('macVersionReset'));
         }
     );
@@ -637,10 +655,10 @@ async function activate(context) {
         async () => {
             const extensionConfig = vscode.workspace.getConfiguration('stata-all-in-one');
             if (isWindows()) {
-                await clearSettingForAutoDiscovery(extensionConfig, 'stataPathOnWindows');
+                await replaceConfigurationAtGlobalScope(extensionConfig, 'stataPathOnWindows', '');
                 resetStataDiscoveryState('win32');
             } else if (isMacOS()) {
-                await clearSettingForAutoDiscovery(extensionConfig, 'stataVersionOnMacOS');
+                await replaceConfigurationAtGlobalScope(extensionConfig, 'stataVersionOnMacOS', '');
                 await context.globalState.update('stataGuiAppPath', undefined);
                 await context.globalState.update('stataConsoleDylibPath', undefined);
                 resetStataDiscoveryState('darwin');
@@ -651,10 +669,21 @@ async function activate(context) {
                 return;
             }
 
+            await resetStataSetupForDebug(context, extensionConfig);
             await vscode.commands.executeCommand('workbench.action.reloadWindow');
         }
     );
     context.subscriptions.push(debugInitializeStataAutoDiscoveryCommand);
+
+    const debugResetStataSetupStateCommand = vscode.commands.registerCommand(
+        'stata-all-in-one.debugResetStataSetupState',
+        async () => {
+            const extensionConfig = vscode.workspace.getConfiguration('stata-all-in-one');
+            await resetStataSetupForDebug(context, extensionConfig);
+            await vscode.commands.executeCommand('workbench.action.reloadWindow');
+        }
+    );
+    context.subscriptions.push(debugResetStataSetupStateCommand);
 
     // ========== Diagnose Console ==========
 
@@ -707,6 +736,11 @@ async function activate(context) {
         () => showAISkillDialog()
     );
     context.subscriptions.push(showAISkillDialogCommand);
+
+    // Do not complete activation while the initialization modal is awaiting an
+    // explicit choice. This keeps the startup setup state machine authoritative
+    // without changing the execution, Help, Data Viewer, or Diagnose flows.
+    await startupStataSetupPromise;
 
     console.log('Stata All in One: AI Skill commands registered');
     console.log('Stata All in One: All commands registered');

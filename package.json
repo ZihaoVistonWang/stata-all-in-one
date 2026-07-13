@@ -329,6 +329,10 @@
         "title": "%command.debugInitializeStataAutoDiscovery.title%"
       },
       {
+        "command": "stata-all-in-one.debugResetStataSetupState",
+        "title": "%command.debugResetStataSetupState.title%"
+      },
+      {
         "command": "stata-all-in-one.rename",
         "title": "%command.rename.title%"
       },

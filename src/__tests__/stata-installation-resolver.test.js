@@ -1,6 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const Module = require('module');
+const fs = require('fs');
+const os = require('os');
 const path = require('path');
 
 function loadResolver(options = {}) {
@@ -11,13 +13,16 @@ function loadResolver(options = {}) {
     const updates = [];
     const calls = { windowsDiscovery: 0, macDiscovery: 0, input: 0, quickPick: 0 };
     const vscodeMock = {
-        ConfigurationTarget: { Global: 1 },
+        ConfigurationTarget: { Global: 1, Workspace: 2, WorkspaceFolder: 3 },
         workspace: {
             getConfiguration() {
                 return {
-                    async update(key, value) {
-                        settings[key] = value;
-                        updates.push({ key, value });
+                    inspect() {
+                        return options.inspectedConfiguration || {};
+                    },
+                    async update(key, value, target) {
+                        if (target === vscodeMock.ConfigurationTarget.Global) settings[key] = value;
+                        updates.push({ key, value, target });
                     }
                 };
             }
@@ -91,43 +96,88 @@ function createContext() {
     };
 }
 
-test('startup and command callers share one Windows discovery promise', async () => {
+test('concurrent configuration callers share one Windows discovery promise', async () => {
     const candidate = { displayName: 'Stata18', executablePath: 'D:\\Stata18\\StataMP-64.exe' };
     const { resolver, settings, calls } = loadResolver({
         discoveryDelay: 10,
         windowsDiscovery: { candidates: [candidate] }
     });
     const context = createContext();
-    const startup = resolver.startStartupStataDetection(context, Promise.resolve());
-    const command = resolver.ensureStataConfigured(context, { promptOnFailure: true });
-    const [startupResult, commandResult] = await Promise.all([startup, command]);
+    const firstCaller = resolver.ensureStataConfigured(context, { promptOnFailure: true });
+    const secondCaller = resolver.ensureStataConfigured(context, { promptOnFailure: true });
+    const [firstResult, secondResult] = await Promise.all([firstCaller, secondCaller]);
 
     assert.equal(calls.windowsDiscovery, 1);
     assert.equal(calls.input, 0);
     assert.equal(settings.stataPathOnWindows, candidate.executablePath);
-    assert.equal(startupResult.executablePath, candidate.executablePath);
-    assert.equal(commandResult.executablePath, candidate.executablePath);
+    assert.equal(firstResult.executablePath, candidate.executablePath);
+    assert.equal(secondResult.executablePath, candidate.executablePath);
 });
 
 test('Windows discovery failure falls back to the existing path input', async () => {
+    const tempDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'stata-resolver-'));
+    const executablePath = path.join(tempDirectory, 'StataSE-64.exe');
+    fs.writeFileSync(executablePath, 'test');
     const { resolver, settings, calls } = loadResolver({
         windowsDiscovery: { candidates: [] },
-        inputValue: 'D:\\Stata17\\StataSE-64.exe'
+        inputValue: executablePath
     });
-    const result = await resolver.ensureStataConfigured(createContext(), { promptOnFailure: true });
-    assert.equal(calls.windowsDiscovery, 1);
-    assert.equal(calls.input, 1);
-    assert.equal(settings.stataPathOnWindows, 'D:\\Stata17\\StataSE-64.exe');
-    assert.equal(result.executablePath, settings.stataPathOnWindows);
+    try {
+        const result = await resolver.ensureStataConfigured(createContext(), { promptOnFailure: true });
+        assert.equal(calls.windowsDiscovery, 1);
+        assert.equal(calls.input, 1);
+        assert.equal(settings.stataPathOnWindows, executablePath);
+        assert.equal(result.executablePath, settings.stataPathOnWindows);
+    } finally {
+        fs.rmSync(tempDirectory, { recursive: true, force: true });
+    }
 });
 
-test('non-empty Windows configuration skips startup discovery', async () => {
+test('Windows manual path validation rejects missing and non-EXE files', () => {
+    const tempDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'stata-resolver-'));
+    const textPath = path.join(tempDirectory, 'StataMP.txt');
+    const otherExePath = path.join(tempDirectory, 'Notepad.exe');
+    fs.writeFileSync(textPath, 'test');
+    fs.writeFileSync(otherExePath, 'test');
+    const { resolver } = loadResolver();
+    try {
+        assert.equal(resolver.validateWindowsExecutablePath(''), undefined);
+        assert.equal(resolver.validateWindowsExecutablePath(textPath), 'stataSetupWindowsExeRequired');
+        assert.equal(resolver.validateWindowsExecutablePath(otherExePath), 'stataSetupWindowsExeInvalid');
+        assert.equal(
+            resolver.validateWindowsExecutablePath(path.join(tempDirectory, 'StataMP-64.exe')),
+            'stataSetupWindowsExeNotFound'
+        );
+    } finally {
+        fs.rmSync(tempDirectory, { recursive: true, force: true });
+    }
+});
+
+test('non-empty Windows configuration skips discovery', async () => {
     const configuredPath = 'E:\\Stata19\\StataMP-64.exe';
     const { resolver, calls } = loadResolver({ windowsPath: configuredPath });
-    const result = await resolver.startStartupStataDetection(createContext(), Promise.resolve());
+    const result = await resolver.ensureStataConfigured(createContext(), { promptOnFailure: true });
     assert.equal(calls.windowsDiscovery, 0);
     assert.equal(calls.input, 0);
     assert.equal(result.executablePath, configuredPath);
+});
+
+test('auto-configuration clears explicit empty workspace overrides', async () => {
+    const candidate = { displayName: 'Stata18', executablePath: 'D:\\Stata18\\StataMP-64.exe' };
+    const { resolver, settings, updates } = loadResolver({
+        windowsDiscovery: { candidates: [candidate] },
+        inspectedConfiguration: {
+            workspaceFolderValue: '',
+            workspaceValue: ''
+        }
+    });
+    await resolver.ensureStataConfigured(createContext(), { promptOnFailure: true });
+    assert.equal(settings.stataPathOnWindows, candidate.executablePath);
+    assert.deepEqual(updates, [
+        { key: 'stataPathOnWindows', value: undefined, target: 3 },
+        { key: 'stataPathOnWindows', value: undefined, target: 2 },
+        { key: 'stataPathOnWindows', value: candidate.executablePath, target: 1 }
+    ]);
 });
 
 test('macOS discovery failure immediately falls back to the existing edition picker', async () => {
