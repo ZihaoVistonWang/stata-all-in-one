@@ -3,6 +3,19 @@
 All notable changes to the Stata All in One extension will be documented in this file.
 本文件记录 Stata All in One 扩展的所有重要更改。
 
+## 0.3.1 (2026-07-13)
+
+- **Feat**: Added automatic Stata installation discovery at startup when the platform configuration is empty. Windows queries the HKLM/HKCU 32-bit and 64-bit uninstall registries, while macOS scans Stata apps under `/Applications`, with a three-second timeout and no full-disk scan.
+- **Feat**: When multiple installations are found, the extension selects the highest numeric Stata version first, then prefers MP, SE, BE, IC, and unknown editions within the same version.
+- **Feat**: Added a guided startup initializer that validates the Windows EXE or exact macOS app, Console DLL/dylib, `stata.lic`, and native Console session before reporting the result in a branded central modal dialog.
+- **Improved**: Successful initialization enables the Embedded Console and Data Viewer immediately, with an option to use the external Stata application. Failed Console initialization clearly reports all detected issues and switches to external Stata after explicit confirmation.
+- **Improved**: Added validated manual fallback for undiscovered installations, shared concurrent initialization, state-aware one-time notices, and Debug commands for repeating automatic discovery and setup validation tests.
+- **新增**：当对应平台配置为空时，扩展会在启动时自动探测 Stata 安装。Windows 查询 HKLM/HKCU 的 32 位和 64 位卸载注册表，macOS 扫描 `/Applications` 下的 Stata App，最长等待 3 秒且不扫描全盘。
+- **新增**：发现多个安装时，优先选择数字版本最高的 Stata；同版本内按 MP、SE、BE、IC 和未知 Edition 排序。
+- **新增**：新增引导式启动初始化，验证 Windows EXE 或准确的 macOS App、Console DLL/dylib、`stata.lic` 和原生 Console 会话，并通过带有 Stata All in One 标题的中心模态弹窗汇报结果。
+- **优化**：初始化成功后可立即使用内置 Console 和数据查看器，并可选择改用外部 Stata；Console 初始化失败时会集中说明所有问题，并在用户明确确认后切换至外部 Stata。
+- **优化**：新增经验证的手动配置回退、并发初始化复用、按安装状态只提示一次，并保留可重复测试自动探测和配置验证的 Debug 命令。
+
 ## 0.3.0 (2026-07-06)
 
 > Stable release after the 0.2.14-0.2.19 preview series.
