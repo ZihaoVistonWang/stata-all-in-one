@@ -40,6 +40,7 @@
   "command.debugResetMigrationPrompt.title": "Stata All in One：调试重置迁移提示",
   "command.debugTestUpdateNotification.title": "Stata All in One：调试测试更新通知",
   "command.debugResetEmbeddedConsoleOverflowNotice.title": "Stata All in One：调试重置 Console 过宽提示",
+  "command.debugDiscoverStataOnWindows.title": "Stata All in One：调试探测 Windows Stata 安装位置",
   "command.rename.title": "Stata All in One：重命名变量",
   "command.reportBug.title": "Stata All in One：反馈 Bug",
   "command.reportBug.short": "Bug",

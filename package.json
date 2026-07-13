@@ -321,6 +321,10 @@
         "title": "%command.debugResetEmbeddedConsoleOverflowNotice.title%"
       },
       {
+        "command": "stata-all-in-one.debugDiscoverStataOnWindows",
+        "title": "%command.debugDiscoverStataOnWindows.title%"
+      },
+      {
         "command": "stata-all-in-one.rename",
         "title": "%command.rename.title%"
       },

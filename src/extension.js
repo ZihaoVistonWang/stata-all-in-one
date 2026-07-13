@@ -28,6 +28,7 @@ const { isWindows, isMacOS, showInfo, showWarn, showConsoleUnavailableToast, msg
 const { ensureConsoleFontCache, getConsoleFontWebviewOptions } = require('./utils/consoleFonts');
 const capability = require('./modules/capability');
 const config = require('./utils/config');
+const { discoverStataInstallationsFromRegistry } = require('./modules/runCode/windowsStataDiscovery');
 
 // Execution session state context key for "stop" button visibility
 const CONSOLE_SESSION_ACTIVE_KEY = 'stata-all-in-one.consoleSessionActive';
@@ -580,6 +581,62 @@ async function activate(context) {
         }
     );
     context.subscriptions.push(resetEmbeddedConsoleOverflowNoticeCommand);
+
+    const stataDiscoveryOutput = vscode.window.createOutputChannel('Stata Installation Discovery');
+    context.subscriptions.push(stataDiscoveryOutput);
+
+    const debugDiscoverStataOnWindowsCommand = vscode.commands.registerCommand(
+        'stata-all-in-one.debugDiscoverStataOnWindows',
+        async () => {
+            if (!isWindows()) {
+                showWarn(getUserLanguage() === 'zh'
+                    ? '此调试命令仅支持 Windows。'
+                    : 'This debug command is available on Windows only.');
+                return;
+            }
+
+            stataDiscoveryOutput.clear();
+            stataDiscoveryOutput.appendLine('Stata All in One - Windows registry discovery');
+            stataDiscoveryOutput.appendLine(`Started: ${new Date().toISOString()}`);
+            stataDiscoveryOutput.appendLine('Timeout: 2000 ms');
+            stataDiscoveryOutput.appendLine('');
+            stataDiscoveryOutput.show(true);
+
+            const result = await discoverStataInstallationsFromRegistry({ timeoutMs: 2000 });
+            stataDiscoveryOutput.appendLine(`Elapsed: ${result.elapsedMs} ms`);
+            stataDiscoveryOutput.appendLine(`Timed out: ${result.timedOut ? 'yes' : 'no'}`);
+            stataDiscoveryOutput.appendLine(`Matched registry keys: ${result.searchedKeys}`);
+            stataDiscoveryOutput.appendLine(`Valid Stata executables: ${result.candidates.length}`);
+
+            result.candidates.forEach((candidate, index) => {
+                stataDiscoveryOutput.appendLine('');
+                stataDiscoveryOutput.appendLine(`[${index + 1}] ${candidate.displayName}`);
+                stataDiscoveryOutput.appendLine(`EXE: ${candidate.executablePath}`);
+                stataDiscoveryOutput.appendLine(`Edition: ${candidate.edition || 'unknown'}`);
+                stataDiscoveryOutput.appendLine(`Version: ${candidate.version || 'unknown'}`);
+                stataDiscoveryOutput.appendLine(`Matching DLL: ${candidate.hasMatchingDll ? 'yes' : 'no'}`);
+                stataDiscoveryOutput.appendLine(`stata.lic: ${candidate.hasLicense ? 'yes' : 'no'}`);
+                stataDiscoveryOutput.appendLine(`Registry (${candidate.registryView}-bit view): ${candidate.registryKey}`);
+            });
+
+            if (result.errors.length) {
+                stataDiscoveryOutput.appendLine('');
+                stataDiscoveryOutput.appendLine('Non-timeout registry errors:');
+                result.errors.forEach(error => stataDiscoveryOutput.appendLine(`- ${error}`));
+            }
+
+            const language = getUserLanguage();
+            const summary = result.candidates.length
+                ? (language === 'zh'
+                    ? `Windows Stata 探测完成：${result.elapsedMs} ms，找到 ${result.candidates.length} 个可执行文件。`
+                    : `Windows Stata discovery completed in ${result.elapsedMs} ms with ${result.candidates.length} executable(s).`)
+                : (language === 'zh'
+                    ? `Windows Stata 探测完成：${result.elapsedMs} ms，未找到可用路径${result.timedOut ? '（已超时）' : ''}。`
+                    : `Windows Stata discovery completed in ${result.elapsedMs} ms with no valid path${result.timedOut ? ' (timed out)' : ''}.`);
+            showInfo(summary);
+        }
+    );
+    context.subscriptions.push(debugDiscoverStataOnWindowsCommand);
 
     // ========== Diagnose Console ==========
 

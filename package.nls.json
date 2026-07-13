@@ -40,6 +40,7 @@
   "command.debugResetMigrationPrompt.title": "Stata All in One: Debug Reset Migration Prompt",
   "command.debugTestUpdateNotification.title": "Stata All in One: Debug Test Update Notification",
   "command.debugResetEmbeddedConsoleOverflowNotice.title": "Stata All in One: Debug Reset Console Overflow Notice",
+  "command.debugDiscoverStataOnWindows.title": "Stata All in One: Debug Discover Stata on Windows",
   "command.rename.title": "Stata All in One: Rename Variable",
   "command.reportBug.title": "Stata All in One: Report Bug",
   "command.reportBug.short": "Bug",
