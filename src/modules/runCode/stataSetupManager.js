@@ -14,6 +14,7 @@ const {
 } = require('./stataInstallationResolver');
 
 const SETUP_NOTICE_STATE_KEY = 'stata-all-in-one.stataSetupNoticeState';
+const SETUP_DIALOG_TITLE = 'Stata All in One';
 
 let startupPromise = null;
 let startupCompleted = false;
@@ -252,8 +253,8 @@ async function showMissingInstallationDialog() {
     const confirm = msg('stataSetupConfirm');
     while (true) {
         const choice = await vscode.window.showWarningMessage(
-            msg('stataSetupInstallationMissing'),
-            { modal: true },
+            SETUP_DIALOG_TITLE,
+            { modal: true, detail: msg('stataSetupInstallationMissing') },
             reconfigure,
             confirm
         );
@@ -275,8 +276,13 @@ async function showSuccessDialog(context, report, signature, forceNotice) {
         const keepExternal = msg('stataSetupKeepExternal');
         while (true) {
             const choice = await vscode.window.showInformationMessage(
-                msg('stataSetupSuccessExternalMode', { stataPath: report.installationPath }),
-                { modal: true },
+                SETUP_DIALOG_TITLE,
+                {
+                    modal: true,
+                    detail: msg('stataSetupSuccessExternalMode', {
+                        stataPath: report.installationPath
+                    })
+                },
                 useEmbedded,
                 keepExternal
             );
@@ -296,8 +302,11 @@ async function showSuccessDialog(context, report, signature, forceNotice) {
     const switchExternal = msg('stataSetupSwitchExternal');
     while (true) {
         const choice = await vscode.window.showInformationMessage(
-            msg('stataSetupSuccess', { stataPath: report.installationPath }),
-            { modal: true },
+            SETUP_DIALOG_TITLE,
+            {
+                modal: true,
+                detail: msg('stataSetupSuccess', { stataPath: report.installationPath })
+            },
             confirm,
             switchExternal
         );
@@ -329,8 +338,8 @@ async function showFailureDialog(context, report, issueCodes, consoleResult, sig
     const confirmSwitch = msg('stataSetupConfirmSwitchExternal');
     while (true) {
         const choice = await vscode.window.showWarningMessage(
-            message,
-            { modal: true },
+            SETUP_DIALOG_TITLE,
+            { modal: true, detail: message },
             confirmSwitch
         );
         if (choice === confirmSwitch) break;
