@@ -14,6 +14,7 @@ const variableSuggestions = require('../../variableSuggestionService');
 const { isWindows, isMacOS, showInfo, showWarn, showError, showConsoleUnavailableToast, stripSurroundingQuotes, msg } = require('../../../utils/common');
 const capability = require('../../capability');
 const config = require('../../../utils/config');
+const { ensureStataConfigured } = require('../stataInstallationResolver');
 
 // External App 执行函数导入
 const { runOnMac } = require('../externalApp/mac');
@@ -141,7 +142,7 @@ async function runCurrentSection(context, editor = null) {
         return;
     }
 
-    const stataPathOnWindows = await ensurePlatformExecutionReady({ onWindows, onMac });
+    const stataPathOnWindows = await ensurePlatformExecutionReady(context, { onWindows, onMac });
     if (onWindows && !stataPathOnWindows) {
         return;
     }
@@ -222,59 +223,12 @@ async function runCurrentSection(context, editor = null) {
     }
 }
 
-async function ensurePlatformExecutionReady({ onWindows, onMac }) {
-    if (onWindows) {
-        const rawPath = config.getStataPathOnWindows();
-        let stataPathOnWindows = stripSurroundingQuotes(rawPath.trim());
-        if (!stataPathOnWindows) {
-            const userPath = await vscode.window.showInputBox({
-                prompt: msg('promptWinPath'),
-                placeHolder: msg('promptWinPathPlaceholder'),
-                ignoreFocusOut: true
-            });
-
-            if (!userPath) {
-                return null;
-            }
-
-            await vscode.workspace.getConfiguration('stata-all-in-one').update(
-                'stataPathOnWindows',
-                userPath.trim(),
-                vscode.ConfigurationTarget.Global
-            );
-
-            stataPathOnWindows = stripSurroundingQuotes(userPath.trim());
-            showInfo(msg('configSaved'));
-        }
-        return stataPathOnWindows;
-    }
-
-    if (onMac) {
-        const stataVersion = config.getStataVersion();
-        if (!stataVersion || stataVersion.trim() === '') {
-            const selectedVersion = await vscode.window.showQuickPick(
-                ['StataMP', 'StataIC', 'StataSE'],
-                {
-                    placeHolder: msg('promptMacVersion'),
-                    ignoreFocusOut: true
-                }
-            );
-
-            if (!selectedVersion) {
-                return null;
-            }
-
-            await vscode.workspace.getConfiguration('stata-all-in-one').update(
-                'stataVersionOnMacOS',
-                selectedVersion,
-                vscode.ConfigurationTarget.Global
-            );
-
-            showInfo(msg('configSaved'));
-        }
-    }
-
-    return '';
+async function ensurePlatformExecutionReady(context, { onWindows, onMac }) {
+    const resolved = await ensureStataConfigured(context, { promptOnFailure: true });
+    if (!resolved) return null;
+    if (onWindows) return resolved.executablePath || null;
+    if (onMac) return '';
+    return null;
 }
 
 function resolveExecutionDirectory() {
@@ -304,7 +258,7 @@ async function runArbitraryCode(context, code, options = {}) {
         return { success: false };
     }
 
-    const stataPathOnWindows = await ensurePlatformExecutionReady({ onWindows, onMac });
+    const stataPathOnWindows = await ensurePlatformExecutionReady(context, { onWindows, onMac });
     if (onWindows && !stataPathOnWindows) {
         return { success: false };
     }

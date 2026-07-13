@@ -5,6 +5,7 @@ const config = require('../../../../utils/config');
 const { isWindows, isMacOS, msg, showInfo, showError } = require('../../../../utils/common');
 const { StataTerminalRenderer, getWebviewThemeVariables } = require('../renderer');
 const variableSuggestions = require('../../../variableSuggestionService');
+const { ensureStataConfigured } = require('../../stataInstallationResolver');
 
 const PANEL_VIEW_TYPE = 'stata-all-in-one.dataViewer';
 
@@ -1696,37 +1697,28 @@ async function ensureSilentSession(context) {
         return { success: true, session: session.getConsoleSession(context) };
     }
 
-    let libraryPath;
-    let libraryKey;
+    const resolvedInstallation = await ensureStataConfigured(context, { promptOnFailure: true });
+    if (!resolvedInstallation) {
+        return {
+            success: false,
+            reason: isWindows()
+                ? msg('missingWinPath')
+                : msg('noStataInstalled', { installedList: 'none detected' })
+        };
+    }
 
+    let ensurePlatformSession;
     if (isMacOS()) {
-        const { findStataDylib } = require('../mac');
-        const savedPath = context ? context.globalState.get('stataConsoleDylibPath') : null;
-        const dylibInfo = findStataDylib(null, savedPath);
-        if (!dylibInfo.path) {
-            return { success: false, reason: 'Unable to find Stata. Please make sure Stata is installed in /Applications.' };
-        }
-        libraryPath = dylibInfo.path;
-        libraryKey = 'stataConsoleDylibPath';
+        ensurePlatformSession = require('../mac').ensureConsoleSession;
     } else if (isWindows()) {
-        const { findStataDll } = require('../windows');
-        const dllInfo = findStataDll();
-        if (!dllInfo.path) {
-            return { success: false, reason: 'Unable to find Stata DLL. Please set stata-all-in-one.stataPathOnWindows in settings.' };
-        }
-        libraryPath = dllInfo.path;
-        libraryKey = 'stataConsoleDllPath';
+        ensurePlatformSession = require('../windows').ensureConsoleSession;
     } else {
         return { success: false, reason: 'Data Viewer is not supported on this platform.' };
     }
 
-    if (context) {
-        await context.globalState.update(libraryKey, libraryPath);
-    }
-
-    const initResult = await session.initConsoleSession(context, libraryPath);
+    const initResult = await ensurePlatformSession(context);
     if (!initResult.success) {
-        return { success: false, reason: `Failed to initialize Stata session: ${initResult.error}` };
+        return { success: false, reason: initResult.reason || initResult.error || 'Failed to initialize Stata session.' };
     }
 
     return { success: true, session: session.getConsoleSession(context) };

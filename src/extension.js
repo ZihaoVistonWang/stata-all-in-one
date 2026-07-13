@@ -18,7 +18,6 @@ const { registerHelpCommand } = require('./modules/helpCommand');
 const { registerLineBreakCommand } = require('./modules/lineBreak');
 const { registerRenameProvider } = require('./modules/renameProvider');
 const { registerUpdateCheck } = require('./modules/updateNotification');
-const { findStataApp } = require('./modules/runCode/externalApp/mac');
 const { syncConsoleTerminalTheme } = require('./modules/runCode/embeddedConsole/renderer');
 const { prewarmConsoleTextmateTokenizer } = require('./modules/runCode/embeddedConsole/textmateTokenizer');
 const { registerDtaDataViewer } = require('./modules/runCode/embeddedConsole/dataViewer/dtaEditor');
@@ -29,6 +28,12 @@ const { ensureConsoleFontCache, getConsoleFontWebviewOptions } = require('./util
 const capability = require('./modules/capability');
 const config = require('./utils/config');
 const { discoverStataInstallationsFromRegistry } = require('./modules/runCode/windowsStataDiscovery');
+const {
+    DISCOVERY_TIMEOUT_MS,
+    ensureStataConfigured,
+    startStartupStataDetection,
+    resetStataDiscoveryState
+} = require('./modules/runCode/stataInstallationResolver');
 
 // Execution session state context key for "stop" button visibility
 const CONSOLE_SESSION_ACTIVE_KEY = 'stata-all-in-one.consoleSessionActive';
@@ -63,12 +68,22 @@ const DEPRECATED_CONFIG_KEYS = [
     'stata-all-in-one.showRunButton'
 ];
 
-const MAC_AUTO_DETECT_KEY = 'stata-all-in-one.macAutoDetectDone';
 const EMBEDDED_CONSOLE_OVERFLOW_NOTICE_SUPPRESSED_KEY = 'stata-all-in-one.embeddedConsoleOverflowNoticeSuppressed';
 
 function getUserLanguage() {
     const lang = (vscode.env.language || '').toLowerCase();
     return lang.startsWith('zh') ? 'zh' : 'en';
+}
+
+async function clearSettingForAutoDiscovery(extensionConfig, key) {
+    const inspected = extensionConfig.inspect(key);
+    if (inspected && inspected.workspaceFolderValue !== undefined) {
+        await extensionConfig.update(key, undefined, vscode.ConfigurationTarget.WorkspaceFolder);
+    }
+    if (inspected && inspected.workspaceValue !== undefined) {
+        await extensionConfig.update(key, undefined, vscode.ConfigurationTarget.Workspace);
+    }
+    await extensionConfig.update(key, '', vscode.ConfigurationTarget.Global);
 }
 
 /**
@@ -279,19 +294,26 @@ async function activate(context) {
         console.error('Stata All in One: Failed to clear deprecated settings:', err);
     });
     
-    // Check if Stata Outline is installed
+    // Check if Stata Outline is installed. Startup discovery waits for this
+    // promise so an imported path/version always wins over auto-detection.
+    let settingsReadyPromise = Promise.resolve(false);
     if (isStataOutlineInstalled()) {
         console.log('Stata All in One: Stata Outline detected, checking for migration');
-        migrateSettingsFromOutline().then(migrated => {
+        settingsReadyPromise = migrateSettingsFromOutline().then(migrated => {
             console.log('Stata All in One: Settings migrated:', migrated);
             // Always show notification if Stata Outline is installed
             showMigrationNotification(context);
+            return migrated;
         }).catch(err => {
             console.error('Stata All in One: Migration error:', err);
+            return false;
         });
     } else {
         console.log('Stata All in One: Stata Outline not installed, skipping migration');
     }
+
+    // Start platform discovery immediately, without delaying command/provider registration.
+    startStartupStataDetection(context, settingsReadyPromise);
 
     // Check for updates and show notification
     registerUpdateCheck(context);
@@ -300,39 +322,6 @@ async function activate(context) {
         await ensureConsoleFontCache(context);
     } catch (error) {
         console.error('Stata All in One: Failed to initialize console font cache:', error.message);
-    }
-
-    // Auto-detect Stata on macOS (one-time reset, then only when empty)
-    if (isMacOS()) {
-        const config = vscode.workspace.getConfiguration('stata-all-in-one');
-        const currentVersion = config.get('stataVersionOnMacOS');
-        const autoDetectDone = context.globalState.get(MAC_AUTO_DETECT_KEY, false);
-        const shouldAutoDetect = !autoDetectDone || !currentVersion || currentVersion.trim() === '';
-
-        if (shouldAutoDetect) {
-            console.log('Stata All in One: Attempting auto-detection of Stata on macOS');
-            const autoFound = findStataApp('');
-
-            if (autoFound.path && autoFound.name) {
-                config.update('stataVersionOnMacOS', autoFound.name, vscode.ConfigurationTarget.Global)
-                    .then(() => {
-                        console.log(`Stata All in One: Auto-detected and saved ${autoFound.name}`);
-                        showInfo(msg('autoDetectedStata', { appName: autoFound.name, appPath: autoFound.path }));
-                    }, (err) => {
-                        console.error('Stata All in One: Failed to save auto-detected config:', err);
-                    })
-                    .then(() => context.globalState.update(MAC_AUTO_DETECT_KEY, true));
-            } else {
-                const installedList = (autoFound.installed && autoFound.installed.length > 0)
-                    ? autoFound.installed.join(', ')
-                    : 'none detected';
-                console.log('Stata All in One: No Stata installation detected on macOS');
-                showWarn(msg('noStataInstalled', { installedList }));
-                context.globalState.update(MAC_AUTO_DETECT_KEY, true);
-            }
-        } else {
-            console.log(`Stata All in One: Stata version already configured: ${currentVersion}`);
-        }
     }
 
     // Register heading level commands
@@ -523,7 +512,9 @@ async function activate(context) {
                 '',
                 vscode.ConfigurationTarget.Global
             );
-            await context.globalState.update(MAC_AUTO_DETECT_KEY, false);
+            await context.globalState.update('stataGuiAppPath', undefined);
+            await context.globalState.update('stataConsoleDylibPath', undefined);
+            resetStataDiscoveryState('darwin');
             showInfo(msg('macVersionReset'));
         }
     );
@@ -598,11 +589,11 @@ async function activate(context) {
             stataDiscoveryOutput.clear();
             stataDiscoveryOutput.appendLine('Stata All in One - Windows registry discovery');
             stataDiscoveryOutput.appendLine(`Started: ${new Date().toISOString()}`);
-            stataDiscoveryOutput.appendLine('Timeout: 2000 ms');
+            stataDiscoveryOutput.appendLine(`Timeout: ${DISCOVERY_TIMEOUT_MS} ms`);
             stataDiscoveryOutput.appendLine('');
             stataDiscoveryOutput.show(true);
 
-            const result = await discoverStataInstallationsFromRegistry({ timeoutMs: 2000 });
+            const result = await discoverStataInstallationsFromRegistry({ timeoutMs: DISCOVERY_TIMEOUT_MS });
             stataDiscoveryOutput.appendLine(`Elapsed: ${result.elapsedMs} ms`);
             stataDiscoveryOutput.appendLine(`Timed out: ${result.timedOut ? 'yes' : 'no'}`);
             stataDiscoveryOutput.appendLine(`Matched registry keys: ${result.searchedKeys}`);
@@ -615,6 +606,9 @@ async function activate(context) {
                 stataDiscoveryOutput.appendLine(`Edition: ${candidate.edition || 'unknown'}`);
                 stataDiscoveryOutput.appendLine(`Version: ${candidate.version || 'unknown'}`);
                 stataDiscoveryOutput.appendLine(`Matching DLL: ${candidate.hasMatchingDll ? 'yes' : 'no'}`);
+                if (candidate.dllPath) {
+                    stataDiscoveryOutput.appendLine(`DLL: ${candidate.dllPath}`);
+                }
                 stataDiscoveryOutput.appendLine(`stata.lic: ${candidate.hasLicense ? 'yes' : 'no'}`);
                 stataDiscoveryOutput.appendLine(`Registry (${candidate.registryView}-bit view): ${candidate.registryKey}`);
             });
@@ -638,6 +632,30 @@ async function activate(context) {
     );
     context.subscriptions.push(debugDiscoverStataOnWindowsCommand);
 
+    const debugInitializeStataAutoDiscoveryCommand = vscode.commands.registerCommand(
+        'stata-all-in-one.debugInitializeStataAutoDiscovery',
+        async () => {
+            const extensionConfig = vscode.workspace.getConfiguration('stata-all-in-one');
+            if (isWindows()) {
+                await clearSettingForAutoDiscovery(extensionConfig, 'stataPathOnWindows');
+                resetStataDiscoveryState('win32');
+            } else if (isMacOS()) {
+                await clearSettingForAutoDiscovery(extensionConfig, 'stataVersionOnMacOS');
+                await context.globalState.update('stataGuiAppPath', undefined);
+                await context.globalState.update('stataConsoleDylibPath', undefined);
+                resetStataDiscoveryState('darwin');
+            } else {
+                showWarn(getUserLanguage() === 'zh'
+                    ? 'Stata 自动探测仅支持 Windows 和 macOS。'
+                    : 'Stata auto-discovery is available on Windows and macOS only.');
+                return;
+            }
+
+            await vscode.commands.executeCommand('workbench.action.reloadWindow');
+        }
+    );
+    context.subscriptions.push(debugInitializeStataAutoDiscoveryCommand);
+
     // ========== Diagnose Console ==========
 
     // Register diagnose console command
@@ -648,8 +666,12 @@ async function activate(context) {
             try {
                 let ensureConsoleSessionFn;
                 if (isWindows()) {
+                    const resolved = await ensureStataConfigured(context, { promptOnFailure: true });
+                    if (!resolved) return;
                     ensureConsoleSessionFn = require('./modules/runCode/embeddedConsole/windows').ensureConsoleSession;
                 } else if (isMacOS()) {
+                    const resolved = await ensureStataConfigured(context, { promptOnFailure: true });
+                    if (!resolved) return;
                     ensureConsoleSessionFn = require('./modules/runCode/embeddedConsole/mac').ensureConsoleSession;
                 } else {
                     showInfo(msg('unsupportedPlatform'));

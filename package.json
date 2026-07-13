@@ -325,6 +325,10 @@
         "title": "%command.debugDiscoverStataOnWindows.title%"
       },
       {
+        "command": "stata-all-in-one.debugInitializeStataAutoDiscovery",
+        "title": "%command.debugInitializeStataAutoDiscovery.title%"
+      },
+      {
         "command": "stata-all-in-one.rename",
         "title": "%command.rename.title%"
       },

@@ -1,15 +1,15 @@
 /**
  * Fast Windows Stata discovery through the uninstall registry.
  *
- * This module is intentionally not connected to the normal execution path yet.
- * Call discoverStataInstallationsFromRegistry() from diagnostics or experiments.
+ * Used by startup auto-configuration and the Windows discovery debug command.
  */
 
 const { execFile } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const { parseNumericVersion, sortStataCandidates } = require('./stataDiscovery');
 
-const DEFAULT_TIMEOUT_MS = 2000;
+const DEFAULT_TIMEOUT_MS = 3000;
 const UNINSTALL_ROOTS = [
     'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall',
     'HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall'
@@ -66,7 +66,7 @@ function registryKeysFromSearchOutput(output) {
 function registryValuesFromQueryOutput(output) {
     const values = {};
     for (const line of String(output || '').split(/\r?\n/)) {
-        const match = line.match(/^\s*(DisplayName|InstallLocation|DisplayIcon)\s+REG_\w+\s+(.*?)\s*$/i);
+        const match = line.match(/^\s*(DisplayName|DisplayVersion|InstallLocation|DisplayIcon)\s+REG_\w+\s+(.*?)\s*$/i);
         if (match) {
             values[match[1].toLowerCase()] = match[2];
         }
@@ -97,8 +97,7 @@ function editionFromExecutable(executablePath) {
 }
 
 function versionFromDisplayName(displayName) {
-    const match = String(displayName || '').match(/Stata(?:Now)?\s*(\d{1,2})/i);
-    return match ? Number(match[1]) : null;
+    return parseNumericVersion(displayName);
 }
 
 function findExecutables(values) {
@@ -121,20 +120,29 @@ function findExecutables(values) {
 
 function getInstallationSignals(executablePath, edition) {
     const installDirectory = path.dirname(executablePath);
-    const dllNames = DLL_NAMES_BY_EDITION[edition] || [];
+    const editionsToTry = edition && DLL_NAMES_BY_EDITION[edition]
+        ? [edition, ...Object.keys(DLL_NAMES_BY_EDITION).filter(item => item !== edition)]
+        : Object.keys(DLL_NAMES_BY_EDITION);
+    const checkedDllPaths = [];
+    let dllPath = null;
+    let dllEdition = null;
+    for (const editionToTry of editionsToTry) {
+        for (const dllName of DLL_NAMES_BY_EDITION[editionToTry]) {
+            const candidatePath = path.join(installDirectory, dllName);
+            checkedDllPaths.push(candidatePath);
+            if (!dllPath && isFile(candidatePath)) {
+                dllPath = candidatePath;
+                dllEdition = editionToTry;
+            }
+        }
+    }
     return {
         hasLicense: isFile(path.join(installDirectory, 'stata.lic')),
-        hasMatchingDll: dllNames.some(name => isFile(path.join(installDirectory, name)))
+        hasMatchingDll: Boolean(dllPath),
+        dllPath,
+        dllEdition,
+        checkedDllPaths
     };
-}
-
-function sortCandidates(candidates) {
-    const editionOrder = { mp: 0, se: 1, be: 2, ic: 3 };
-    return candidates.sort((left, right) => {
-        const versionDifference = (right.version || 0) - (left.version || 0);
-        if (versionDifference) return versionDifference;
-        return (editionOrder[left.edition] ?? 99) - (editionOrder[right.edition] ?? 99);
-    });
 }
 
 /**
@@ -221,7 +229,7 @@ async function discoverStataInstallationsFromRegistry(options = {}) {
                 installDirectory: path.dirname(executablePath),
                 displayName: values.displayname || 'Stata',
                 edition,
-                version: versionFromDisplayName(values.displayname),
+                version: parseNumericVersion(values.displayname, values.displayversion),
                 registryKey: item.registryKey,
                 registryView: item.registryView,
                 ...getInstallationSignals(executablePath, edition)
@@ -235,7 +243,7 @@ async function discoverStataInstallationsFromRegistry(options = {}) {
 
     return {
         supported: true,
-        candidates: sortCandidates(uniqueCandidates),
+        candidates: sortStataCandidates(uniqueCandidates),
         elapsedMs: Date.now() - startedAt,
         timedOut,
         searchedKeys: registryKeys.length,
@@ -249,5 +257,6 @@ module.exports = {
     normalizeDisplayIcon,
     registryKeysFromSearchOutput,
     registryValuesFromQueryOutput,
-    versionFromDisplayName
+    versionFromDisplayName,
+    getInstallationSignals
 };

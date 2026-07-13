@@ -194,10 +194,10 @@ Stata All in One
    - `externalApp`：将代码发送到系统安装的外部 Stata 应用执行。
 
 4. **Stata 版本（macOS）** (`stata-all-in-one.stataVersionOnMacOS`)
-   - Stata 运行版本。可选择 `StataMP`、`StataSE`、`StataIC`、`StataBE`。
+   - Stata 运行版本。配置为空时，扩展会在启动时自动探测，最长等待 3 秒；优先数字版本最高的安装，同版本按 `StataMP`、`StataSE`、`StataBE`、`StataIC` 排序。未找到时会弹出版本选择框。
 
 5. **Stata 路径（Windows）** (`stata-all-in-one.stataPathOnWindows`)
-   - Stata 执行文件路径（例如 `C:\Program Files\Stata17\StataMP-64.exe`）。
+   - Stata 执行文件路径（例如 `C:\Program Files\Stata17\StataMP-64.exe`）。配置为空时，扩展会在启动时通过 Windows 注册表自动探测，最长等待 3 秒；未找到时会弹出 EXE 路径输入框。
 
 6. **发送代码前关闭 Stata 其他窗口（Windows）** (`stata-all-in-one.closeStataOtherWindowsBeforeSendingCode`)
    - `true`：发送运行命令前先关闭 Stata 辅助窗口（如 Viewer、Data Editor）。

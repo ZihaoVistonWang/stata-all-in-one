@@ -193,10 +193,10 @@ Click the `AI` button in the Stata editor toolbar to copy a prompt that installs
    - `externalApp`: Send code to the system-installed Stata application for execution.
 
 4. **Stata Version on macOS** (`stata-all-in-one.stataVersionOnMacOS`)
-   - Stata runtime version. Choose from `StataMP`, `StataSE`, `StataIC`, or `StataBE`.
+   - Stata runtime version. When empty, the extension detects installed versions at startup for up to 3 seconds, preferring the highest numeric version and then `StataMP`, `StataSE`, `StataBE`, and `StataIC`. If detection fails, select a version from the prompt.
 
 5. **Stata Path on Windows** (`stata-all-in-one.stataPathOnWindows`)
-   - Path to Stata executable file (e.g., `C:\Program Files\Stata17\StataMP-64.exe`).
+   - Path to Stata executable file (e.g., `C:\Program Files\Stata17\StataMP-64.exe`). When empty, the extension detects Stata from the Windows registry at startup for up to 3 seconds. If detection fails, enter the EXE path in the prompt.
 
 6. **Close Stata Other Windows Before Sending Code (Windows)** (`stata-all-in-one.closeStataOtherWindowsBeforeSendingCode`)
    - `true`: Close Stata helper windows (such as Viewer/Data Editor) before sending run commands.

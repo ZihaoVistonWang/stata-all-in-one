@@ -12,6 +12,7 @@ const session = require('./session');
 const { getTempFilePath, cleanupTempFile } = require('../execute/tempfile');
 const config = require('../../../utils/config');
 const { showInfo, showError, msg } = require('../../../utils/common');
+const { ensureStataConfigured } = require('../stataInstallationResolver');
 const { getWebviewTerminalSink, setGraphResourceRoot, convertGraphSvgToBitmap } = require('./panel');
 const { beginGraphCapture, endGraphCapture, executeBitmapGraphExport, exportCapturedGraphs, getGraphCacheDir } = require('./graphs');
 
@@ -427,7 +428,40 @@ async function ensureConsoleSession(context) {
         };
     }
 
-    const savedPath = context ? context.globalState.get('stataConsoleDylibPath') : null;
+    const resolvedInstallation = await ensureStataConfigured(context, { promptOnFailure: true });
+    if (!resolvedInstallation) {
+        return {
+            success: false,
+            failCode: 'INSTALLATION_NOT_CONFIGURED',
+            reason: msg('noStataInstalled', { installedList: 'none detected' })
+        };
+    }
+
+    let savedPath = context ? context.globalState.get('stataConsoleDylibPath') : null;
+    const detectedAppPath = context ? context.globalState.get('stataGuiAppPath') : null;
+    if (!savedPath && detectedAppPath && fs.existsSync(detectedAppPath)) {
+        const configuredEditionMatch = String(config.getStataVersion() || '').match(/^Stata(MP|SE|BE|IC)$/i);
+        if (configuredEditionMatch) {
+            const edition = configuredEditionMatch[1].toLowerCase();
+            const detectedDylibPath = path.join(
+                detectedAppPath,
+                'Contents',
+                'MacOS',
+                `libstata-${edition}.dylib`
+            );
+            if (fs.existsSync(detectedDylibPath)) {
+                savedPath = detectedDylibPath;
+            } else {
+                return {
+                    success: false,
+                    failCode: 'LIBRARY_NOT_FOUND',
+                    reason: msg('consoleLibraryMissingInSelected', {
+                        libraryName: path.basename(detectedDylibPath)
+                    })
+                };
+            }
+        }
+    }
     const dylibInfo = findStataDylib(null, savedPath);
 
     if (!dylibInfo.path) {

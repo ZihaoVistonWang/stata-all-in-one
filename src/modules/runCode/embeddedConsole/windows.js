@@ -11,7 +11,9 @@ const path = require('path');
 const session = require('./session');
 const { getTempFilePath, cleanupTempFile } = require('../execute/tempfile');
 const config = require('../../../utils/config');
-const { showInfo, showError } = require('../../../utils/common');
+const { showInfo, showError, msg } = require('../../../utils/common');
+const { getInstallationSignals } = require('../windowsStataDiscovery');
+const { ensureStataConfigured } = require('../stataInstallationResolver');
 const { getWebviewTerminalSink, setGraphResourceRoot, convertGraphSvgToBitmap } = require('./panel');
 const { beginGraphCapture, endGraphCapture, executeBitmapGraphExport, exportCapturedGraphs, getGraphCacheDir } = require('./graphs');
 
@@ -293,16 +295,12 @@ function getOutputSink() {
  * Find Stata DLL on Windows.
  *
  * Resolution order:
- *   1. Saved/cached path from globalState (instant)
- *   2. Derive from `stataPathOnWindows` config — the EXE path set by user.
+ *   1. Derive from `stataPathOnWindows` config — detected or set by the user.
  *      e.g. D:\Stata18\StataMP-64.exe → D:\Stata18\mp-64.dll
- *   3. Scan common installation directories as a fallback
  *
  * DLL naming convention: <edition>-64.dll
  *   MP: mp-64.dll   SE: se-64.dll   BE: be-64.dll   IC: ic-64.dll
  *
- * @param {string|null} preferredEdition - Preferred edition: 'mp', 'se', 'be', 'ic', or null for auto
- * @param {string|null} savedPath - Previously saved DLL path from globalState
  * @returns {{
  *   path: string|null,
  *   edition: string|null,
@@ -311,13 +309,6 @@ function getOutputSink() {
  * }}
  */
 function findStataDll() {
-    const editionPatterns = {
-        mp: ['mp-64.dll', 'StataMP-64.dll'],
-        se: ['se-64.dll', 'StataSE-64.dll'],
-        be: ['be-64.dll', 'StataBE-64.dll'],
-        ic: ['ic-64.dll', 'StataIC-64.dll']
-    };
-
     const exePath = config.getStataPathOnWindows ? config.getStataPathOnWindows() : '';
     const cleanExePath = String(exePath).replace(/^["']|["']$/g, '').trim();
 
@@ -325,23 +316,12 @@ function findStataDll() {
         return { path: null, edition: null, installed: [] };
     }
 
-    const exeDir = path.dirname(cleanExePath);
     const exeName = path.basename(cleanExePath).toLowerCase();
     const exeEditionMatch = exeName.match(/stata(mp|se|be|ic)-?\d*\.exe$/);
     const exeEdition = exeEditionMatch ? exeEditionMatch[1] : null;
-
-    // Try the matching edition first, then all patterns
-    const editionsToTry = exeEdition
-        ? [exeEdition, ...Object.keys(editionPatterns).filter(e => e !== exeEdition)]
-        : Object.keys(editionPatterns);
-
-    for (const edition of editionsToTry) {
-        for (const dllName of editionPatterns[edition]) {
-            const dllPath = path.join(exeDir, dllName);
-            if (fs.existsSync(dllPath)) {
-                return { path: dllPath, edition, installed: [edition] };
-            }
-        }
+    const signals = getInstallationSignals(cleanExePath, exeEdition);
+    if (signals.dllPath) {
+        return { path: signals.dllPath, edition: signals.dllEdition, installed: [signals.dllEdition] };
     }
 
     return { path: null, edition: null, installed: [] };
@@ -361,6 +341,15 @@ async function ensureConsoleSession(context) {
         return {
             success: true,
             fromExisting: true
+        };
+    }
+
+    const resolvedInstallation = await ensureStataConfigured(context, { promptOnFailure: true });
+    if (!resolvedInstallation) {
+        return {
+            success: false,
+            failCode: 'INSTALLATION_NOT_CONFIGURED',
+            reason: msg('missingWinPath')
         };
     }
 

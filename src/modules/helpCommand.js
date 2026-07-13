@@ -7,10 +7,11 @@
 const vscode = require('vscode');
 const fs = require('fs');
 const path = require('path');
-const { isWindows, isMacOS, showError, stripSurroundingQuotes, msg } = require('../utils/common');
+const { isWindows, isMacOS, showError, msg } = require('../utils/common');
 const config = require('../utils/config');
 const { runOnMac } = require('./runCode/externalApp/mac');
 const { runOnWindows } = require('./runCode/externalApp/windows');
+const { ensureStataConfigured } = require('./runCode/stataInstallationResolver');
 
 /**
  * Get selected text from editor
@@ -82,6 +83,9 @@ async function runHelpCommand(context) {
         return;
     }
 
+    const resolvedInstallation = await ensureStataConfigured(context, { promptOnFailure: true });
+    if (!resolvedInstallation) return;
+
     // Generate help code
     const helpCode = generateHelpCode(selectedText);
 
@@ -98,12 +102,7 @@ async function runHelpCommand(context) {
     // Windows platform specific validation
     let stataPathOnWindows = null;
     if (onWindows) {
-        const rawPath = config.getStataPathOnWindows();
-        stataPathOnWindows = stripSurroundingQuotes(rawPath.trim());
-        if (!stataPathOnWindows) {
-            showError(msg('missingWinPath'));
-            return;
-        }
+        stataPathOnWindows = resolvedInstallation.executablePath;
     }
 
     // Create temporary file
@@ -117,7 +116,7 @@ async function runHelpCommand(context) {
         if (onWindows) {
             await runOnWindows(helpCode, tmpFilePath, stataPathOnWindows, null, null);
         } else if (onMac) {
-            runOnMac(helpCode, tmpFilePath, true); // Pass true to indicate this is a help command
+            runOnMac(helpCode, tmpFilePath, true, null, context); // Pass true to indicate this is a help command
         }
         // Silent success: no popup notification
     } catch (error) {

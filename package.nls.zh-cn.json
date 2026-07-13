@@ -1,8 +1,8 @@
 {
   "config.numberingShow.description": "是否在大纲视图中显示多级标题序号（如 1.1, 1.2.1）。**需要重新打开 .do 文件**",
   "config.numberingAdd.description": "当启用序号时，自动更新.do文件中的section标题以包含序号。**需要重新打开 .do 文件**",
-  "config.stataVersionOnMacOS.description": "**[macOS]** Stata 运行版本。",
-  "config.stataPathOnWindows.description": "**[Windows]** Stata 执行文件路径（例如 `C:\\Program Files\\Stata17\\StataMP-64.exe`）。",
+  "config.stataVersionOnMacOS.description": "**[macOS]** Stata 运行版本。配置为空时，扩展会在启动时自动探测；3 秒内未找到则请用户选择版本。",
+  "config.stataPathOnWindows.description": "**[Windows]** Stata 执行文件路径（例如 `C:\\Program Files\\Stata17\\StataMP-64.exe`）。配置为空时，扩展会在启动时从注册表自动探测；3 秒内未找到则请用户填写路径。",
   "config.commentStyle.description": "用于切换注释的样式。选项包括 `//`、`*` 或 `/* ... */`",
   "config.separatorLength.description": "分割线所在行的字符总长度（包括前缀 '** #' 和分隔符）。",
   "config.customCommands.description": "自定义需要高亮的 Stata 命令（字符串数组）。这些命令会使用与内置命令（如 regress、summarize）**相同的颜色**。支持大小写不敏感。示例：[\"reghdfe\", \"ivreg2\", \"outreg2\"]。**需要重载窗口**（Ctrl+Shift+P → Developer: Reload Window）",
@@ -41,6 +41,7 @@
   "command.debugTestUpdateNotification.title": "Stata All in One：调试测试更新通知",
   "command.debugResetEmbeddedConsoleOverflowNotice.title": "Stata All in One：调试重置 Console 过宽提示",
   "command.debugDiscoverStataOnWindows.title": "Stata All in One：调试探测 Windows Stata 安装位置",
+  "command.debugInitializeStataAutoDiscovery.title": "Stata All in One：调试初始化 Stata 自动探测",
   "command.rename.title": "Stata All in One：重命名变量",
   "command.reportBug.title": "Stata All in One：反馈 Bug",
   "command.reportBug.short": "Bug",
