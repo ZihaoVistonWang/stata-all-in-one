@@ -10,6 +10,7 @@ const {
     discoverStataInstallations,
     getDiscoveryScriptPath,
     getInstallationSignals,
+    getWindowsDiscoveryCommandArgs,
     parseDiscoveryReport
 } = require('../modules/runCode/stataDiscovery');
 
@@ -26,6 +27,19 @@ test('bundled discovery BAT uses the standalone JSON payload contract', () => {
     assert.match(script, /ConvertTo-Json/);
     assert.match(script, /schemaVersion = 1/);
     assert.match(script, /stata-discovery-report\.json/);
+});
+
+test('Windows discovery passes the BAT and its flags as separate cmd arguments', () => {
+    const scriptPath = 'C:\\Program Files\\Stata All in One\\scripts\\discover_stata_windows.bat';
+    assert.deepEqual(getWindowsDiscoveryCommandArgs(scriptPath), [
+        '/d',
+        '/s',
+        '/c',
+        'call',
+        scriptPath,
+        '--stdout-only',
+        '--no-pause'
+    ]);
 });
 
 test('JSON report parser accepts schema version one and rejects invalid output', () => {

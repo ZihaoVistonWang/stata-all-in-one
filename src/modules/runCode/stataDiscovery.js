@@ -185,8 +185,8 @@ function parseDiscoveryReport(stdout) {
 
 function runWindowsDiscoveryBatch(scriptPath, timeoutMs) {
     return new Promise(resolve => {
-        const commandLine = `""${scriptPath}" --stdout-only --no-pause"`;
-        execFile('cmd.exe', ['/d', '/s', '/c', commandLine], {
+        const commandArgs = getWindowsDiscoveryCommandArgs(scriptPath);
+        execFile('cmd.exe', commandArgs, {
             encoding: 'utf8',
             windowsHide: true,
             timeout: Math.max(1, timeoutMs),
@@ -200,6 +200,10 @@ function runWindowsDiscoveryBatch(scriptPath, timeoutMs) {
             });
         });
     });
+}
+
+function getWindowsDiscoveryCommandArgs(scriptPath) {
+    return ['/d', '/s', '/c', 'call', scriptPath, '--stdout-only', '--no-pause'];
 }
 
 function normalizeWindowsCandidate(candidate) {
@@ -318,6 +322,7 @@ module.exports = {
     editionFromAppName,
     getDiscoveryScriptPath,
     getDiscoveryTimeout,
+    getWindowsDiscoveryCommandArgs,
     getInstallationSignals,
     normalizeEdition,
     parseDiscoveryReport,
