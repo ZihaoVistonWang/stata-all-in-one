@@ -17,7 +17,10 @@ function loadResolver(options = {}) {
         macDiscovery: 0,
         macTimeoutMs: null,
         input: 0,
-        quickPick: 0
+        openDialog: 0,
+        quickPick: 0,
+        quickPickItems: null,
+        quickPickOptions: null
     };
     const vscodeMock = {
         ConfigurationTarget: { Global: 1, Workspace: 2, WorkspaceFolder: 3 },
@@ -39,11 +42,23 @@ function loadResolver(options = {}) {
                 calls.input++;
                 return options.inputValue;
             },
-            async showQuickPick() {
+            async showQuickPick(items, quickPickOptions) {
                 calls.quickPick++;
-                return options.quickPickValue;
+                calls.quickPickItems = items;
+                calls.quickPickOptions = quickPickOptions;
+                return typeof options.quickPickValue === 'function'
+                    ? options.quickPickValue(items)
+                    : options.quickPickValue;
+            },
+            async showOpenDialog() {
+                calls.openDialog++;
+                return options.openDialogValue;
+            },
+            async showErrorMessage() {
+                return undefined;
             }
-        }
+        },
+        Uri: { file: fsPath => ({ fsPath }) }
     };
     const configMock = {
         getStataPathOnWindows: () => settings.stataPathOnWindows,
@@ -58,6 +73,10 @@ function loadResolver(options = {}) {
     };
     const stataDiscoveryMock = {
         DISCOVERY_TIMEOUT_MS: { darwin: 3000, win32: 5000 },
+        editionFromAppName(appName) {
+            const match = String(appName || '').match(/^Stata(MP|SE|BE|IC)$/i);
+            return match ? match[1].toLowerCase() : null;
+        },
         async discoverStataInstallations(discoveryOptions = {}) {
             if (discoveryOptions.platform === 'darwin') {
                 calls.macDiscovery++;
@@ -107,7 +126,8 @@ test('concurrent configuration callers share one Windows discovery promise', asy
     const candidate = { displayName: 'Stata18', executablePath: 'D:\\Stata18\\StataMP-64.exe' };
     const { resolver, settings, calls } = loadResolver({
         discoveryDelay: 10,
-        windowsDiscovery: { candidates: [candidate] }
+        windowsDiscovery: { candidates: [candidate] },
+        quickPickValue: items => items[0]
     });
     const context = createContext();
     const firstCaller = resolver.ensureStataConfigured(context, { promptOnFailure: true });
@@ -136,6 +156,73 @@ test('Windows discovery failure falls back to the existing path input', async ()
         assert.equal(calls.input, 1);
         assert.equal(settings.stataPathOnWindows, executablePath);
         assert.equal(result.executablePath, settings.stataPathOnWindows);
+    } finally {
+        fs.rmSync(tempDirectory, { recursive: true, force: true });
+    }
+});
+
+test('one detected Windows installation still shows the selection list', async () => {
+    const candidate = {
+        displayName: 'Stata18',
+        edition: 'mp',
+        executablePath: 'D:\\Stata18\\StataMP-64.exe'
+    };
+    const { resolver, calls } = loadResolver({
+        windowsDiscovery: { candidates: [candidate] },
+        quickPickValue: items => items[0]
+    });
+
+    const result = await resolver.ensureStataConfigured(createContext(), { promptOnFailure: true });
+
+    assert.equal(calls.quickPick, 1);
+    assert.equal(calls.quickPickItems.length, 2);
+    assert.equal(calls.quickPickItems[1].label, 'stataDiscoveryManualExePath');
+    assert.equal(result.executablePath, candidate.executablePath);
+});
+
+test('multiple Windows installations require an explicit selection', async () => {
+    const candidates = [
+        { displayName: 'Stata18', edition: 'mp', executablePath: 'D:\\Stata18\\StataMP-64.exe' },
+        { displayName: 'Stata17', edition: 'se', executablePath: 'D:\\Stata17\\StataSE-64.exe' }
+    ];
+    const { resolver, settings, calls } = loadResolver({
+        windowsDiscovery: { candidates },
+        quickPickValue: items => items[1]
+    });
+
+    const result = await resolver.ensureStataConfigured(createContext(), { promptOnFailure: true });
+
+    assert.equal(calls.quickPick, 1);
+    assert.equal(calls.quickPickOptions.title, '✨ Stata All in One (0.3.1)');
+    assert.equal(calls.quickPickItems[0].label, 'Stata 18 MP');
+    assert.equal(calls.quickPickItems[0].description, 'stataDiscoveryRecommended');
+    assert.equal(calls.quickPickItems[0].detail, candidates[0].executablePath);
+    assert.equal(calls.quickPickItems.at(-1).label, 'stataDiscoveryManualExePath');
+    assert.equal(settings.stataPathOnWindows, candidates[1].executablePath);
+    assert.equal(result.executablePath, candidates[1].executablePath);
+});
+
+test('manual item in the Windows installation picker opens the existing EXE input', async () => {
+    const tempDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'stata-resolver-manual-'));
+    const executablePath = path.join(tempDirectory, 'StataMP-64.exe');
+    fs.writeFileSync(executablePath, 'test');
+    const { resolver, settings, calls } = loadResolver({
+        windowsDiscovery: {
+            candidates: [
+                { displayName: 'Stata18', edition: 'mp', executablePath: 'D:\\Stata18\\StataMP-64.exe' },
+                { displayName: 'Stata17', edition: 'mp', executablePath: 'D:\\Stata17\\StataMP-64.exe' }
+            ]
+        },
+        quickPickValue: items => items.at(-1),
+        inputValue: executablePath
+    });
+
+    try {
+        const result = await resolver.ensureStataConfigured(createContext(), { promptOnFailure: true });
+        assert.equal(calls.quickPick, 1);
+        assert.equal(calls.input, 1);
+        assert.equal(settings.stataPathOnWindows, executablePath);
+        assert.equal(result.executablePath, executablePath);
     } finally {
         fs.rmSync(tempDirectory, { recursive: true, force: true });
     }
@@ -174,6 +261,7 @@ test('auto-configuration clears explicit empty workspace overrides', async () =>
     const candidate = { displayName: 'Stata18', executablePath: 'D:\\Stata18\\StataMP-64.exe' };
     const { resolver, settings, updates } = loadResolver({
         windowsDiscovery: { candidates: [candidate] },
+        quickPickValue: items => items[0],
         inspectedConfiguration: {
             workspaceFolderValue: '',
             workspaceValue: ''
@@ -188,17 +276,21 @@ test('auto-configuration clears explicit empty workspace overrides', async () =>
     ]);
 });
 
-test('macOS discovery failure immediately falls back to the existing edition picker', async () => {
+test('macOS discovery failure falls back to selecting an application path', async () => {
+    const appPath = '/Applications/Custom/StataBE.app';
     const { resolver, settings, calls } = loadResolver({
         platform: 'darwin',
         macDiscovery: { candidates: [] },
-        quickPickValue: 'StataBE'
+        openDialogValue: [{ fsPath: appPath }]
     });
-    const result = await resolver.ensureStataConfigured(createContext(), { promptOnFailure: true });
+    const context = createContext();
+    const result = await resolver.ensureStataConfigured(context, { promptOnFailure: true });
     assert.equal(calls.macDiscovery, 1);
-    assert.equal(calls.quickPick, 1);
+    assert.equal(calls.quickPick, 0);
+    assert.equal(calls.openDialog, 1);
     assert.equal(settings.stataVersionOnMacOS, 'StataBE');
     assert.equal(result.version, 'StataBE');
+    assert.equal(context.values.get('stataGuiAppPath'), appPath);
 });
 
 test('macOS discovery success caches the selected app and dylib paths', async () => {
@@ -206,18 +298,22 @@ test('macOS discovery success caches the selected app and dylib paths', async ()
         appName: 'StataMP',
         appPath: '/Applications/Stata19/StataMP.app',
         edition: 'mp',
+        version: 19,
         dylibPath: '/Applications/Stata19/StataMP.app/Contents/MacOS/libstata-mp.dylib',
         hasDylib: true
     };
     const { resolver, settings, calls } = loadResolver({
         platform: 'darwin',
-        macDiscovery: { candidates: [candidate] }
+        macDiscovery: { candidates: [candidate] },
+        quickPickValue: items => items[0]
     });
     const context = createContext();
     const result = await resolver.ensureStataConfigured(context, { promptOnFailure: true });
     assert.equal(calls.macTimeoutMs, 3000);
     assert.equal(calls.macDiscovery, 1);
-    assert.equal(calls.quickPick, 0);
+    assert.equal(calls.quickPick, 1);
+    assert.equal(calls.quickPickItems[0].label, 'Stata 19 MP');
+    assert.equal(calls.quickPickItems.at(-1).label, 'stataDiscoveryManualMacApp');
     assert.equal(settings.stataVersionOnMacOS, 'StataMP');
     assert.equal(context.values.get('stataGuiAppPath'), candidate.appPath);
     assert.equal(context.values.get('stataConsoleDylibPath'), candidate.dylibPath);

@@ -10,12 +10,14 @@ const {
 } = require('../../utils/common');
 const {
     DISCOVERY_TIMEOUT_MS,
-    discoverStataInstallations
+    discoverStataInstallations,
+    editionFromAppName
 } = require('./stataDiscovery');
+const { version: extensionVersion } = require('../../../package.json');
 
 const WINDOWS_DISCOVERY_TIMEOUT_MS = DISCOVERY_TIMEOUT_MS.win32;
 const MAC_DISCOVERY_TIMEOUT_MS = DISCOVERY_TIMEOUT_MS.darwin;
-const MAC_VERSION_CHOICES = ['StataMP', 'StataSE', 'StataBE', 'StataIC'];
+const SETUP_DIALOG_TITLE = `✨ Stata All in One (${extensionVersion})`;
 
 let resolutionPromise = null;
 const discoveryAttempted = { win32: false, darwin: false };
@@ -91,28 +93,32 @@ async function promptForWindowsPath() {
     };
 }
 
-async function promptForMacVersion(context) {
-    const selectedVersion = await vscode.window.showQuickPick(MAC_VERSION_CHOICES, {
-        placeHolder: msg('promptMacVersion'),
-        ignoreFocusOut: true
-    });
-    if (!selectedVersion) return null;
-
-    await saveGlobalConfiguration('stataVersionOnMacOS', selectedVersion);
-    if (context) {
-        await context.globalState.update('stataGuiAppPath', undefined);
-        await context.globalState.update('stataConsoleDylibPath', undefined);
-    }
-    return { platform: 'darwin', version: selectedVersion, autoDetected: false, source: 'manual' };
-}
-
 async function discoverAndConfigureWindows() {
     const result = await discoverStataInstallations({
         platform: 'win32',
         timeoutMs: WINDOWS_DISCOVERY_TIMEOUT_MS
     });
-    const candidate = result.candidates[0];
-    if (!candidate) return null;
+    if (!result.candidates.length) return undefined;
+
+    const items = result.candidates.map((item, index) => ({
+        label: getWindowsCandidateLabel(item),
+        description: index === 0 ? msg('stataDiscoveryRecommended') : undefined,
+        detail: item.executablePath,
+        candidate: item
+    }));
+    items.push({
+        label: msg('stataDiscoveryManualExePath'),
+        manualPath: true
+    });
+    const selected = await vscode.window.showQuickPick(items, {
+        title: SETUP_DIALOG_TITLE,
+        placeHolder: msg('stataDiscoverySelectWindows'),
+        ignoreFocusOut: true,
+        matchOnDetail: true
+    });
+    if (!selected) return null;
+    if (selected.manualPath) return promptForWindowsPath();
+    const candidate = selected.candidate;
 
     await saveGlobalConfiguration('stataPathOnWindows', candidate.executablePath);
     return {
@@ -125,13 +131,43 @@ async function discoverAndConfigureWindows() {
     };
 }
 
+function getWindowsCandidateLabel(candidate) {
+    const displayName = String(candidate.displayName || 'Stata')
+        .replace(/Stata(?:Now)?\s*(\d{1,2})/i, 'Stata $1')
+        .trim();
+    const edition = String(candidate.edition || '').toUpperCase();
+    return edition && !new RegExp(`\\b${edition}\\b`, 'i').test(displayName)
+        ? `${displayName} ${edition}`
+        : displayName;
+}
+
 async function discoverAndConfigureMac(context) {
     const result = await discoverStataInstallations({
         platform: 'darwin',
         timeoutMs: MAC_DISCOVERY_TIMEOUT_MS
     });
-    const candidate = result.candidates.find(item => item.edition);
-    if (!candidate) return null;
+    const candidates = result.candidates.filter(item => item.edition);
+    if (!candidates.length) return undefined;
+
+    const items = candidates.map((item, index) => ({
+        label: getMacCandidateLabel(item),
+        description: index === 0 ? msg('stataDiscoveryRecommended') : undefined,
+        detail: item.appPath,
+        candidate: item
+    }));
+    items.push({
+        label: msg('stataDiscoveryManualMacApp'),
+        manualApp: true
+    });
+    const selected = await vscode.window.showQuickPick(items, {
+        title: SETUP_DIALOG_TITLE,
+        placeHolder: msg('stataDiscoverySelectMac'),
+        ignoreFocusOut: true,
+        matchOnDetail: true
+    });
+    if (!selected) return null;
+    if (selected.manualApp) return promptForMacApp(context);
+    const candidate = selected.candidate;
 
     const version = `Stata${candidate.edition.toUpperCase()}`;
     await saveGlobalConfiguration('stataVersionOnMacOS', version);
@@ -152,6 +188,62 @@ async function discoverAndConfigureMac(context) {
     };
 }
 
+function getMacCandidateLabel(candidate) {
+    const edition = String(candidate.edition || '').toUpperCase();
+    const version = Number(candidate.version) || null;
+    return ['Stata', version, edition].filter(Boolean).join(' ');
+}
+
+async function promptForMacApp(context) {
+    const selectedUris = await vscode.window.showOpenDialog({
+        title: SETUP_DIALOG_TITLE,
+        defaultUri: vscode.Uri.file('/Applications'),
+        canSelectFiles: true,
+        canSelectFolders: true,
+        canSelectMany: false,
+        openLabel: msg('stataDiscoveryManualMacApp')
+    });
+    if (!selectedUris || !selectedUris.length) return null;
+
+    const appPath = selectedUris[0].fsPath;
+    const appName = path.basename(appPath, '.app');
+    const edition = editionFromAppName(appName);
+    if (!edition) {
+        await vscode.window.showErrorMessage(msg('stataDiscoveryMacAppInvalid'), {
+            modal: true,
+            title: SETUP_DIALOG_TITLE
+        });
+        return null;
+    }
+
+    const dylibPath = path.join(appPath, 'Contents', 'MacOS', `libstata-${edition}.dylib`);
+    const candidate = {
+        appName,
+        appPath,
+        edition,
+        dylibPath,
+        hasDylib: fs.existsSync(dylibPath),
+        licensePath: path.join(path.dirname(appPath), 'stata.lic'),
+        hasLicense: fs.existsSync(path.join(path.dirname(appPath), 'stata.lic'))
+    };
+    const version = `Stata${edition.toUpperCase()}`;
+    await saveGlobalConfiguration('stataVersionOnMacOS', version);
+    if (context) {
+        await context.globalState.update('stataGuiAppPath', appPath);
+        await context.globalState.update(
+            'stataConsoleDylibPath',
+            candidate.hasDylib ? dylibPath : undefined
+        );
+    }
+    return {
+        platform: 'darwin',
+        version,
+        candidate,
+        autoDetected: false,
+        source: 'manual'
+    };
+}
+
 async function resolveEmptyConfiguration(context, promptOnFailure) {
     const platform = isWindows() ? 'win32' : (isMacOS() ? 'darwin' : null);
     if (!platform) return null;
@@ -163,8 +255,8 @@ async function resolveEmptyConfiguration(context, promptOnFailure) {
             ? await discoverAndConfigureWindows()
             : await discoverAndConfigureMac(context);
     }
-    if (detected || !promptOnFailure) return detected;
-    return platform === 'win32' ? promptForWindowsPath() : promptForMacVersion(context);
+    if (detected === null || detected || !promptOnFailure) return detected;
+    return platform === 'win32' ? promptForWindowsPath() : promptForMacApp(context);
 }
 
 async function ensureStataConfigured(context, options = {}) {
@@ -189,7 +281,6 @@ function resetStataDiscoveryState(platform = process.platform) {
 
 module.exports = {
     MAC_DISCOVERY_TIMEOUT_MS,
-    MAC_VERSION_CHOICES,
     WINDOWS_DISCOVERY_TIMEOUT_MS,
     ensureStataConfigured,
     resetStataDiscoveryState,
