@@ -6,7 +6,8 @@ const { msg, showInfo, showWarn, showError } = require('../../../utils/common');
 
 let _context = null;
 const CONSOLE_OPEN_STATE_KEY = 'embeddedConsolePanelOpen';
-const { StataBuiltinCommands, StataKeywords, StataFunctions } = require('../../completionProvider');
+const { StataBuiltinCommands, StataKeywords, StataFunctions, StataOptions } = require('../../completionProvider');
+const { analyzeCompletionContext, selectCompletionCandidates } = require('../../completionContext');
 const variableSuggestions = require('../../variableSuggestionService');
 const config = require('../../../utils/config');
 const capability = require('../../capability');
@@ -96,6 +97,19 @@ function highlightInputText(text) {
     return result;
 }
 
+function getConsoleAutocomplete(text, cursor) {
+    const completionContext = analyzeCompletionContext(text, cursor);
+    return {
+        context: completionContext,
+        matches: selectCompletionCandidates(completionContext, {
+            commands: [...new Set([...StataBuiltinCommands, ...StataKeywords, ...config.getCustomCommands()])],
+            variables: variableSuggestions.getActiveVariables(),
+            functions: StataFunctions,
+            options: StataOptions
+        })
+    };
+}
+
 function attachPanel(panel) {
     // Prevent duplicate console panels on VS Code restore:
     // if a panel already exists (e.g. from ensurePanel during activation),
@@ -156,6 +170,19 @@ function attachPanel(panel) {
             if (_panel) {
                 const segments = highlightInputText(String(message.text || ''));
                 _panel.webview.postMessage({ type: 'highlightResult', segments });
+            }
+        } else if (message && message.type === 'autocompleteInput') {
+            if (_panel) {
+                const result = getConsoleAutocomplete(
+                    String(message.text || ''),
+                    Number(message.cursor)
+                );
+                _panel.webview.postMessage({
+                    type: 'autocompleteResult',
+                    requestId: message.requestId,
+                    matches: result.matches,
+                    wordStart: result.context.wordStart
+                });
             }
         } else if (message && message.type === 'showDataViewer') {
             const config = require('../../../utils/config');
@@ -1571,13 +1598,9 @@ function getWebviewHtml(webview) {
             pngReadFailed: ${JSON.stringify(msg('graphPngReadFailed'))}
         };
         const FONT_BOOTSTRAP = ${JSON.stringify(fontOptions)};
-        const StataCommands = ${JSON.stringify([...new Set([...StataBuiltinCommands, ...StataKeywords, ...StataFunctions, ...config.getCustomCommands()])])};
-        const StataFunctionSet = new Set(${JSON.stringify(StataFunctions)});
-        const AutocompleteKinds = { var: 'var', cmd: 'cmd', fn: 'fn' };
-        var AutocompleteVariables = [];
-
         var autocompleteActiveIndex = -1;
         var autocompleteVisible = false;
+        var autocompleteRequestId = 0;
 
         function getCurrentWord() {
             var text = input.value || '';
@@ -1652,34 +1675,17 @@ function getWebviewHtml(webview) {
             if (input.disabled) return;
             var current = getCurrentWord();
             if (!current.word || current.word.length < 1) {
+                autocompleteRequestId += 1;
                 hideAutocomplete();
                 return;
             }
-            var prefix = current.word.toLowerCase();
-            var matches = [];
-            var seen = {};
-            for (var i = 0; i < AutocompleteVariables.length && matches.length < 8; i++) {
-                var v = AutocompleteVariables[i];
-                var key = v.toLowerCase();
-                if (key.indexOf(prefix) === 0 && !seen[key]) {
-                    seen[key] = true;
-                    matches.push({ label: v, kind: 'var' });
-                }
-            }
-            for (var i = 0; i < StataCommands.length && matches.length < 8; i++) {
-                var c = StataCommands[i];
-                var ck = c.toLowerCase();
-                if (ck.indexOf(prefix) === 0 && !seen[ck]) {
-                    seen[ck] = true;
-                    var kind = StataFunctionSet.has(c) ? 'fn' : 'cmd';
-                    matches.push({ label: c, kind: kind });
-                }
-            }
-            if (matches.length === 1 && matches[0].label.toLowerCase() === prefix) {
-                hideAutocomplete();
-                return;
-            }
-            showAutocomplete(matches, current.start);
+            autocompleteRequestId += 1;
+            vscode.postMessage({
+                type: 'autocompleteInput',
+                requestId: autocompleteRequestId,
+                text: input.value || '',
+                cursor: input.selectionStart || 0
+            });
         }
 
         function navigateAutocomplete(direction) {
@@ -2617,7 +2623,10 @@ function getWebviewHtml(webview) {
         });
 
         input.addEventListener('blur', () => {
-            setTimeout(function () { hideAutocomplete(); }, 150);
+            setTimeout(function () {
+                autocompleteRequestId += 1;
+                hideAutocomplete();
+            }, 150);
         });
 
         input.addEventListener('scroll', () => {
@@ -2730,8 +2739,17 @@ function getWebviewHtml(webview) {
                 updateWorkingMeta();
             } else if (message.type === 'highlightResult') {
                 renderHighlightSegments(message.segments || []);
+            } else if (message.type === 'autocompleteResult') {
+                if (message.requestId !== autocompleteRequestId) return;
+                var matches = message.matches || [];
+                var current = getCurrentWord();
+                if (matches.length === 1 && matches[0].label.toLowerCase() === current.word.toLowerCase()) {
+                    hideAutocomplete();
+                } else {
+                    showAutocomplete(matches, Number.isFinite(message.wordStart) ? message.wordStart : current.start);
+                }
             } else if (message.type === 'variablesUpdate') {
-                AutocompleteVariables = message.variables || [];
+                // Variables are read by the extension host when each completion is requested.
             } else if (message.type === 'overflowNoticePreference') {
                 overflowNoticeSuppressed = Boolean(message.suppressed);
                 if (overflowNoticeSuppressed) {

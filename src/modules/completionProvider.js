@@ -5,6 +5,12 @@
 
 const vscode = require('vscode');
 const config = require('../utils/config');
+const variableSuggestions = require('./variableSuggestionService');
+const {
+    analyzeCompletionContext,
+    selectCompletionCandidates,
+    getCompletionSortText
+} = require('./completionContext');
 
 // Extract Stata built-in commands from the grammar
 // This list is derived from grammars/stata.json
@@ -114,6 +120,22 @@ const StataFunctions = [
     'year', 'dow', 'doy', 'chi2', 'chi2tail', 'invchi2tail', 'F',
     'Ftail', 'invFtail', 'normal', 'normalden', 'invnormal', 'ttail',
     'invttail', 'binomial', 'binomialtail', 'poisson'
+];
+
+// Common Stata options. Context filtering keeps these out of command and
+// variable positions; command-specific option metadata can be added later.
+const StataOptions = [
+    'absorb', 'allbaselevels', 'append', 'assert', 'baselevels', 'beta', 'cell',
+    'clear', 'cluster', 'coeflegend', 'column', 'constant', 'detail', 'dots',
+    'eform', 'emptycells', 'force', 'format', 'frequency', 'generate',
+    'graphregion', 'group', 'height', 'individual', 'irr', 'keep',
+    'keepsingletons', 'label', 'legend', 'level',
+    'meanonly', 'missing', 'name', 'nobaselevels', 'nocoeflegend',
+    'noconstant', 'nodots', 'noemptycells', 'nogenerate', 'noheader',
+    'nolabel', 'nolog', 'notable', 'note', 'nowarn', 'omitted', 'or',
+    'percent', 'plotregion', 'replace', 'reps', 'residuals', 'robust', 'row', 'saving',
+    'scheme', 'seed', 'sort', 'stable', 'subtitle', 'title', 'tolerance',
+    'trace', 'update', 'vce', 'width'
 ];
 
 /**
@@ -226,54 +248,36 @@ function createCompletionProvider() {
                 return [];
             }
 
-            // Get the word before cursor
-            const wordMatch = linePrefix.match(/\S+$/);
-            if (!wordMatch) {
-                return [];
-            }
-
-            const items = [];
-
-            // Add built-in commands
-            items.push(...createCompletionItems(StataBuiltinCommands, vscode.CompletionItemKind.Keyword));
-
-            // Add keywords
-            items.push(...createCompletionItems(StataKeywords, vscode.CompletionItemKind.Keyword));
-
-            // Add functions
-            items.push(...createCompletionItems(StataFunctions, vscode.CompletionItemKind.Function));
-
-            // Add custom/third-party commands from user configuration
             const customCommands = config.getCustomCommands();
-            const customItems = customCommands.map(cmd => {
-                const item = new vscode.CompletionItem(cmd, vscode.CompletionItemKind.Keyword);
-                item.insertText = cmd;
-                item.sortText = cmd;
-                item.detail = 'Custom/third-party command';
-                item.documentation = `Custom Stata command: ${cmd}`;
+            const completionContext = analyzeCompletionContext(linePrefix, linePrefix.length);
+            const candidates = selectCompletionCandidates(completionContext, {
+                commands: [...new Set([...StataBuiltinCommands, ...StataKeywords, ...customCommands])],
+                variables: variableSuggestions.getVariablesForCompletion(document),
+                functions: StataFunctions,
+                options: StataOptions
+            });
+            const kindMap = {
+                cmd: vscode.CompletionItemKind.Keyword,
+                var: vscode.CompletionItemKind.Variable,
+                fn: vscode.CompletionItemKind.Function,
+                opt: vscode.CompletionItemKind.Property
+            };
+            const range = new vscode.Range(
+                new vscode.Position(position.line, completionContext.wordStart),
+                position
+            );
+
+            return candidates.map(candidate => {
+                const item = new vscode.CompletionItem(candidate.label, kindMap[candidate.kind]);
+                item.insertText = candidate.label;
+                // VS Code applies its own sorting after the provider returns.
+                // Keep variables ahead of every other candidate category.
+                item.sortText = getCompletionSortText(candidate);
+                item.range = range;
+                if (candidate.kind === 'var') item.detail = 'Variable';
+                if (candidate.kind === 'opt') item.detail = 'Stata option';
                 return item;
             });
-            items.push(...customItems);
-
-            // Add variable names extracted from the document
-            const variables = extractVariableNames(document);
-            // Merge Stata memory variables from shared pool (lazy require to avoid
-            // module-load ordering issues that would break the whole provider)
-            try {
-                const vs = require('./variableSuggestionService');
-                vs.getMemoryVars().forEach(v => variables.add(v));
-            } catch (_e) {}
-            const variableItems = Array.from(variables).map(varName => {
-                const item = new vscode.CompletionItem(varName, vscode.CompletionItemKind.Variable);
-                item.insertText = varName;
-                item.sortText = varName;
-                item.detail = 'Variable';
-                item.documentation = `Variable: ${varName}`;
-                return item;
-            });
-            items.push(...variableItems);
-
-            return items;
         },
 
         /**
@@ -326,4 +330,11 @@ function registerCompletionProvider(context) {
     context.subscriptions.push(disposable);
 }
 
-module.exports = { registerCompletionProvider, StataBuiltinCommands, StataKeywords, StataFunctions, extractVariableNames };
+module.exports = {
+    registerCompletionProvider,
+    StataBuiltinCommands,
+    StataKeywords,
+    StataFunctions,
+    StataOptions,
+    extractVariableNames
+};
