@@ -20,7 +20,7 @@ const { registerRenameProvider } = require('./modules/renameProvider');
 const { registerUpdateCheck } = require('./modules/updateNotification');
 const { syncConsoleTerminalTheme } = require('./modules/runCode/embeddedConsole/renderer');
 const { prewarmConsoleTextmateTokenizer } = require('./modules/runCode/embeddedConsole/textmateTokenizer');
-const { registerDtaDataViewer } = require('./modules/runCode/embeddedConsole/dataViewer/dtaEditor');
+const { closeRestoredDataViewerTabs, registerDtaDataViewer } = require('./modules/runCode/embeddedConsole/dataViewer/dtaEditor');
 const { registerHoverProvider, buildHelpIndex, createHoverProvider, DocumentCache } = require('./modules/hoverProvider');
 const { isWindows, isMacOS, showInfo, showWarn, showConsoleUnavailableToast, msg } = require('./utils/common');
 
@@ -501,6 +501,7 @@ async function activate(context) {
     );
     context.subscriptions.push(dataViewerCommand);
     registerDtaDataViewer(context);
+    await closeRestoredDataViewerTabs();
 
     // Register document symbol provider for outline view
     const provider = createDocumentSymbolProvider();

@@ -11,6 +11,7 @@ const { analyzeCompletionContext, selectCompletionCandidates } = require('../../
 const variableSuggestions = require('../../variableSuggestionService');
 const config = require('../../../utils/config');
 const capability = require('../../capability');
+const { hasOpenStataSourceTab } = require('./editorRestorePolicy');
 
 const _renderer = new StataTerminalRenderer();
 
@@ -680,15 +681,23 @@ function registerWebviewPanelSerializer(context) {
     context.subscriptions.push(
         vscode.window.registerWebviewPanelSerializer(PANEL_VIEW_TYPE, {
             async deserializeWebviewPanel(panel) {
+                if (!hasOpenStataSourceTab(vscode.window.tabGroups.all)) {
+                    await context.globalState.update(CONSOLE_OPEN_STATE_KEY, false);
+                    panel.dispose();
+                    return;
+                }
                 clearPanel();
                 attachPanel(panel);
             }
         })
     );
-    // Restore console panel on activation if it was open when VS Code last closed
+    // Restore only when the previous console was open and the restored editor
+    // layout still contains at least one .do, .ado, or .mata source tab.
     const wasOpen = context.globalState.get(CONSOLE_OPEN_STATE_KEY, false);
-    if (wasOpen) {
+    if (wasOpen && hasOpenStataSourceTab(vscode.window.tabGroups.all)) {
         ensurePanel();
+    } else if (wasOpen) {
+        context.globalState.update(CONSOLE_OPEN_STATE_KEY, false);
     }
 }
 

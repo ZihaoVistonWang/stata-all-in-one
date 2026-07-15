@@ -2,6 +2,7 @@ const vscode = require('vscode');
 const { openDtaFileInDataViewer } = require('./panel');
 const capability = require('../../../capability');
 const { showInfo, showError, msg } = require('../../../../utils/common');
+const { getOpenDataViewerTabs } = require('../editorRestorePolicy');
 
 const DTA_EDITOR_VIEW_TYPE = 'stata-all-in-one.dtaViewer';
 
@@ -53,7 +54,18 @@ function registerDtaDataViewer(context) {
     );
 }
 
+async function closeRestoredDataViewerTabs() {
+    // Data Viewer is intentionally session-only. VS Code restores custom
+    // editors automatically, so remove both custom-editor and webview forms
+    // once during extension activation. Tabs opened later are unaffected.
+    const tabs = getOpenDataViewerTabs(vscode.window.tabGroups.all);
+    if (tabs.length > 0) {
+        await vscode.window.tabGroups.close(tabs, true);
+    }
+}
+
 module.exports = {
+    closeRestoredDataViewerTabs,
     registerDtaDataViewer,
     DTA_EDITOR_VIEW_TYPE
 };
