@@ -3,6 +3,13 @@
 All notable changes to the Stata All in One extension will be documented in this file.
 本文件记录 Stata All in One 扩展的所有重要更改。
 
+## Unreleased
+
+- **Feat**: Routed `br` and `browse` from the editor and Embedded Console command input to the built-in Data Viewer, including `varlist`, `if`, `in`, and `nolabel` filters, while retaining the command and a localized confirmation in Console. External App mode remains unchanged.
+- **Fixed**: Data Viewer filtering now preserves commas inside functions and ignores `if` / `in` tokens inside quoted strings or nested expressions.
+- **新增**：将代码编辑器和嵌入式 Console 命令输入框中的 `br` 与 `browse` 路由到内置数据查看器，支持 `varlist`、`if`、`in` 和 `nolabel` 筛选，同时在 Console 保留命令与本地化打开提示；外部 Stata 模式保持原有行为。
+- **修复**：数据查看器筛选不再误拆函数内部的逗号，也不再将引号或嵌套表达式中的 `if` / `in` 误认为限定词。
+
 ## 0.3.1 (2026-07-13)
 
 - **Feat**: Added automatic Stata installation discovery at startup when the platform configuration is empty. Windows queries the HKLM/HKCU 32-bit and 64-bit uninstall registries, while macOS scans Stata apps under `/Applications`, with a three-second timeout and no full-disk scan.

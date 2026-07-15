@@ -2550,14 +2550,6 @@ function getWebviewHtml(webview) {
             if (!code.trim() || input.disabled) {
                 return;
             }
-            var browseMatch = code.match(/^\\s*(browse|br)\\b\\s*(.*)$/i);
-            if (browseMatch) {
-                pushHistory(code);
-                vscode.postMessage({ type: 'showDataViewer', filterText: browseMatch[2] || '' });
-                input.value = '';
-                updateInputHighlight();
-                return;
-            }
             pushHistory(code);
             scrollOutputToBottom();
             vscode.postMessage({

@@ -16,6 +16,60 @@ function parseInteger(s) {
     return m ? parseInt(m[1].replace(/,/g, ''), 10) : 0;
 }
 
+function scanTopLevel(text, onCharacter) {
+    let inString = false;
+    let depth = 0;
+
+    for (let i = 0; i < text.length; i++) {
+        const char = text[i];
+        if (char === '"') {
+            if (inString && text[i + 1] === '"') {
+                i += 1;
+                continue;
+            }
+            inString = !inString;
+            continue;
+        }
+        if (inString) continue;
+
+        if (char === '(' || char === '[' || char === '{') {
+            depth += 1;
+            continue;
+        }
+        if (char === ')' || char === ']' || char === '}') {
+            depth = Math.max(0, depth - 1);
+            continue;
+        }
+        if (depth === 0 && onCharacter(char, i) === false) {
+            return i;
+        }
+    }
+
+    return -1;
+}
+
+function findTopLevelComma(text) {
+    return scanTopLevel(text, function (char) {
+        return char !== ',';
+    });
+}
+
+function findTopLevelQualifiers(text) {
+    const matches = [];
+    scanTopLevel(text, function (_char, index) {
+        const tail = text.slice(index);
+        const match = tail.match(/^(if|in)\b/i);
+        if (!match) return true;
+
+        const previous = index > 0 ? text[index - 1] : '';
+        if (previous && /[A-Za-z0-9_]/.test(previous)) return true;
+
+        matches.push({ keyword: match[1].toLowerCase(), index, end: index + match[1].length });
+        return true;
+    });
+    return matches;
+}
+
 async function execMata(session, mataCode) {
     const r = await session.execute('mata: ' + mataCode, false);
     return r.success ? r.output : '';
@@ -28,18 +82,13 @@ async function execStata(session, code) {
 
 function splitFilterSpec(text) {
     const raw = trim(text);
-    const comma = raw.indexOf(',');
+    const comma = findTopLevelComma(raw);
     const main = comma >= 0 ? trim(raw.slice(0, comma)) : raw;
     const optionText = comma >= 0 ? raw.slice(comma + 1) : '';
     const options = optionText.split(/\s+/).map(function (s) { return trim(s).toLowerCase(); }).filter(Boolean);
     const nolabel = options.indexOf('nolabel') >= 0;
 
-    const matches = [];
-    const re = /\b(if|in)\b/gi;
-    let m;
-    while ((m = re.exec(main)) !== null) {
-        matches.push({ keyword: m[1].toLowerCase(), index: m.index, end: re.lastIndex });
-    }
+    const matches = findTopLevelQualifiers(main);
     const first = matches.length ? matches[0] : null;
     const varList = trim(first ? main.slice(0, first.index) : main);
     let ifClause = '';
@@ -236,4 +285,4 @@ async function fetchMoreRows(startObs, count, filterText) {
     }
 }
 
-module.exports = { fetchDataSnapshot, fetchMoreRows };
+module.exports = { fetchDataSnapshot, fetchMoreRows, splitFilterSpec };

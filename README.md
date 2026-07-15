@@ -97,6 +97,7 @@ My thanks also go to Stata's officially authorized distributor [**Beijing Uone I
   - **Data Browsing**: Supports lazy loading of rows and columns — easily browse large datasets right in VS Code without opening Stata.
 - **View After Run**: <mark>After running code, instantly view results in the `Data Viewer` within the `Console` panel. Works in both run modes — no need to switch back and forth.</mark>
 - **Data Filtering**: <mark>Provides Stata-style filtering for quickly locating subsets of data.</mark>
+- **Built-in `br` / `browse`**: <mark>In Embedded Console mode, run `br` or `browse` from either the editor or Console command input to open the built-in Data Viewer. The command and a localized confirmation remain visible in Console, while any following `varlist`, `if`, `in`, and `nolabel` clauses are applied directly as viewer filters. External App mode keeps Stata's original `br` / `browse` behavior unchanged.</mark>
 
 ### 6. Efficient Separator Lines & Styling
 

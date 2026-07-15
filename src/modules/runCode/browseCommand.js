@@ -1,0 +1,58 @@
+function parseBrowseCommand(code) {
+    const normalized = String(code || '').replace(/\r\n?/g, '\n').trim();
+    if (!normalized || normalized.includes('\n')) {
+        return null;
+    }
+
+    const match = normalized.match(/^(browse|br)\b\s*(.*)$/i);
+    if (!match) {
+        return null;
+    }
+
+    return {
+        command: match[1].toLowerCase(),
+        filterText: match[2].trim()
+    };
+}
+
+function shouldRouteBrowseCommand(runMode) {
+    return runMode === 'embeddedConsole';
+}
+
+async function routeBrowseCommand(code, dependencies = {}) {
+    const parsed = parseBrowseCommand(code);
+    if (!parsed) {
+        return null;
+    }
+
+    const revealDataViewer = dependencies.revealDataViewer
+        || require('./embeddedConsole/dataViewer/panel').revealDataViewer;
+    const getTerminalSink = dependencies.getTerminalSink
+        || require('./embeddedConsole/panel').getWebviewTerminalSink;
+    const openedMessage = dependencies.openedMessage
+        || (() => {
+            const { msg } = require('../../utils/common');
+            return msg('dataViewerOpenedNotice', { title: msg('dataViewerPanelTitle') });
+        })();
+
+    const sink = getTerminalSink();
+    await sink.prepareForExecution();
+    sink.writeCommand(String(code || '').trim());
+    await revealDataViewer(parsed.filterText);
+    sink.writeRawChunk(openedMessage);
+    sink.flushOutput();
+    sink.setStatus('success');
+
+    return {
+        success: true,
+        shouldOfferGuiFallback: false,
+        routedToDataViewer: true,
+        filterText: parsed.filterText
+    };
+}
+
+module.exports = {
+    parseBrowseCommand,
+    shouldRouteBrowseCommand,
+    routeBrowseCommand
+};

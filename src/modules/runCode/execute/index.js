@@ -23,6 +23,7 @@ const { runOnWindows } = require('../externalApp/windows');
 // Embedded Console 执行函数导入
 const { runOnMacWebview } = require('../embeddedConsole/mac');
 const { runOnWindowsEmbeddedConsole } = require('../embeddedConsole/windows');
+const { routeBrowseCommand, shouldRouteBrowseCommand } = require('../browseCommand');
 
 // 临时文件处理
 const { cleanupTempFile } = require('./tempfile');
@@ -142,16 +143,23 @@ async function runCurrentSection(context, editor = null) {
         return;
     }
 
-    const stataPathOnWindows = await ensurePlatformExecutionReady(context, { onWindows, onMac });
-    if (onWindows && !stataPathOnWindows) {
-        return;
-    }
-
     // 获取要运行的代码
     const originalCode = getCodeToRun(activeEditor);
 
     const codeToRun = originalCode;
     const runMode = config.getRunMode();
+
+    if (shouldRouteBrowseCommand(runMode)) {
+        const browseResult = await routeBrowseCommand(codeToRun);
+        if (browseResult) {
+            return;
+        }
+    }
+
+    const stataPathOnWindows = await ensurePlatformExecutionReady(context, { onWindows, onMac });
+    if (onWindows && !stataPathOnWindows) {
+        return;
+    }
 
     // 获取文档目录
     const docDir = path.dirname(document.fileName);
@@ -258,12 +266,19 @@ async function runArbitraryCode(context, code, options = {}) {
         return { success: false };
     }
 
+    const runMode = options.outputMode || config.getRunMode();
+    if (shouldRouteBrowseCommand(runMode)) {
+        const browseResult = await routeBrowseCommand(normalizedCode);
+        if (browseResult) {
+            return browseResult;
+        }
+    }
+
     const stataPathOnWindows = await ensurePlatformExecutionReady(context, { onWindows, onMac });
     if (onWindows && !stataPathOnWindows) {
         return { success: false };
     }
 
-    const runMode = options.outputMode || config.getRunMode();
     const docDir = options.docDir || resolveExecutionDirectory();
     const tmpFilePath = path.join(docDir, 'stata_all_in_one_temp.do');
 
