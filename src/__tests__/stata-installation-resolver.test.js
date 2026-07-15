@@ -11,7 +11,14 @@ function loadResolver(options = {}) {
         stataVersionOnMacOS: options.macVersion || ''
     };
     const updates = [];
-    const calls = { windowsDiscovery: 0, macDiscovery: 0, input: 0, quickPick: 0 };
+    const calls = {
+        windowsDiscovery: 0,
+        windowsTimeoutMs: null,
+        macDiscovery: 0,
+        macTimeoutMs: null,
+        input: 0,
+        quickPick: 0
+    };
     const vscodeMock = {
         ConfigurationTarget: { Global: 1, Workspace: 2, WorkspaceFolder: 3 },
         workspace: {
@@ -49,17 +56,18 @@ function loadResolver(options = {}) {
         showInfo: () => {},
         stripSurroundingQuotes: value => String(value || '').replace(/^["']|["']$/g, '')
     };
-    const windowsDiscoveryMock = {
-        async discoverStataInstallationsFromRegistry() {
+    const stataDiscoveryMock = {
+        DISCOVERY_TIMEOUT_MS: { darwin: 3000, win32: 5000 },
+        async discoverStataInstallations(discoveryOptions = {}) {
+            if (discoveryOptions.platform === 'darwin') {
+                calls.macDiscovery++;
+                calls.macTimeoutMs = discoveryOptions.timeoutMs;
+                return options.macDiscovery || { candidates: [] };
+            }
             calls.windowsDiscovery++;
+            calls.windowsTimeoutMs = discoveryOptions.timeoutMs;
             if (options.discoveryDelay) await new Promise(resolve => setTimeout(resolve, options.discoveryDelay));
             return options.windowsDiscovery || { candidates: [] };
-        }
-    };
-    const macDiscoveryMock = {
-        async discoverMacStataInstallations() {
-            calls.macDiscovery++;
-            return options.macDiscovery || { candidates: [] };
         }
     };
 
@@ -71,8 +79,7 @@ function loadResolver(options = {}) {
             if (request === 'vscode') return vscodeMock;
             if (request === '../../utils/config') return configMock;
             if (request === '../../utils/common') return commonMock;
-            if (request === './windowsStataDiscovery') return windowsDiscoveryMock;
-            if (request === './macStataDiscovery') return macDiscoveryMock;
+            if (request === './stataDiscovery') return stataDiscoveryMock;
         }
         return originalLoad.call(this, request, parent, isMain);
     };
@@ -108,6 +115,7 @@ test('concurrent configuration callers share one Windows discovery promise', asy
     const [firstResult, secondResult] = await Promise.all([firstCaller, secondCaller]);
 
     assert.equal(calls.windowsDiscovery, 1);
+    assert.equal(calls.windowsTimeoutMs, 5000);
     assert.equal(calls.input, 0);
     assert.equal(settings.stataPathOnWindows, candidate.executablePath);
     assert.equal(firstResult.executablePath, candidate.executablePath);
@@ -207,6 +215,7 @@ test('macOS discovery success caches the selected app and dylib paths', async ()
     });
     const context = createContext();
     const result = await resolver.ensureStataConfigured(context, { promptOnFailure: true });
+    assert.equal(calls.macTimeoutMs, 3000);
     assert.equal(calls.macDiscovery, 1);
     assert.equal(calls.quickPick, 0);
     assert.equal(settings.stataVersionOnMacOS, 'StataMP');

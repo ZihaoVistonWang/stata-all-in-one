@@ -8,10 +8,13 @@ const {
     msg,
     stripSurroundingQuotes
 } = require('../../utils/common');
-const { discoverStataInstallationsFromRegistry } = require('./windowsStataDiscovery');
-const { discoverMacStataInstallations } = require('./macStataDiscovery');
+const {
+    DISCOVERY_TIMEOUT_MS,
+    discoverStataInstallations
+} = require('./stataDiscovery');
 
-const DISCOVERY_TIMEOUT_MS = 3000;
+const WINDOWS_DISCOVERY_TIMEOUT_MS = DISCOVERY_TIMEOUT_MS.win32;
+const MAC_DISCOVERY_TIMEOUT_MS = DISCOVERY_TIMEOUT_MS.darwin;
 const MAC_VERSION_CHOICES = ['StataMP', 'StataSE', 'StataBE', 'StataIC'];
 
 let resolutionPromise = null;
@@ -104,7 +107,10 @@ async function promptForMacVersion(context) {
 }
 
 async function discoverAndConfigureWindows() {
-    const result = await discoverStataInstallationsFromRegistry({ timeoutMs: DISCOVERY_TIMEOUT_MS });
+    const result = await discoverStataInstallations({
+        platform: 'win32',
+        timeoutMs: WINDOWS_DISCOVERY_TIMEOUT_MS
+    });
     const candidate = result.candidates[0];
     if (!candidate) return null;
 
@@ -120,7 +126,10 @@ async function discoverAndConfigureWindows() {
 }
 
 async function discoverAndConfigureMac(context) {
-    const result = await discoverMacStataInstallations({ timeoutMs: DISCOVERY_TIMEOUT_MS });
+    const result = await discoverStataInstallations({
+        platform: 'darwin',
+        timeoutMs: MAC_DISCOVERY_TIMEOUT_MS
+    });
     const candidate = result.candidates.find(item => item.edition);
     if (!candidate) return null;
 
@@ -179,8 +188,9 @@ function resetStataDiscoveryState(platform = process.platform) {
 }
 
 module.exports = {
-    DISCOVERY_TIMEOUT_MS,
+    MAC_DISCOVERY_TIMEOUT_MS,
     MAC_VERSION_CHOICES,
+    WINDOWS_DISCOVERY_TIMEOUT_MS,
     ensureStataConfigured,
     resetStataDiscoveryState,
     validateWindowsExecutablePath

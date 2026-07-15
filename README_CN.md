@@ -197,7 +197,7 @@ Stata All in One
    - Stata 运行版本。配置为空时，扩展会在启动时自动探测，最长等待 3 秒；优先数字版本最高的安装，同版本按 `StataMP`、`StataSE`、`StataBE`、`StataIC` 排序。未找到时会弹出版本选择框。启动初始化随后检查准确的 `.app` 路径、Console dylib 和 `stata.lic`，尽可能初始化内置控制台，并通过中心弹窗只汇报一次结果。
 
 5. **Stata 路径（Windows）** (`stata-all-in-one.stataPathOnWindows`)
-   - Stata 执行文件路径（例如 `C:\Program Files\Stata17\StataMP-64.exe`）。配置为空时，扩展会在启动时通过 Windows 注册表自动探测，最长等待 3 秒；未找到时会弹出 EXE 路径输入框并验证所选文件。启动初始化随后检查 EXE、Console DLL 和 `stata.lic`，尽可能初始化内置控制台，并通过中心弹窗只汇报一次结果。
+   - Stata 执行文件路径（例如 `C:\Program Files\Stata17\StataMP-64.exe`）。配置为空时，扩展会在启动时运行内置的 `scripts/discover_stata_windows.bat` 注册表探测脚本，最长等待 5 秒。该 BAT 也可独立运行并生成 `stata-discovery-report.json`，用于问题排查。未找到时会弹出 EXE 路径输入框并验证所选文件。启动初始化随后检查 EXE、Console DLL 和 `stata.lic`，尽可能初始化内置控制台，并通过中心弹窗只汇报一次结果。
 
 6. **发送代码前关闭 Stata 其他窗口（Windows）** (`stata-all-in-one.closeStataOtherWindowsBeforeSendingCode`)
    - `true`：发送运行命令前先关闭 Stata 辅助窗口（如 Viewer、Data Editor）。

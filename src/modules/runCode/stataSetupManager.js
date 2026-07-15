@@ -5,16 +5,17 @@ const vscode = require('vscode');
 const capability = require('../capability');
 const config = require('../../utils/config');
 const { isWindows, isMacOS, msg, stripSurroundingQuotes } = require('../../utils/common');
-const { discoverMacStataInstallations } = require('./macStataDiscovery');
-const { getInstallationSignals } = require('./windowsStataDiscovery');
+const { discoverStataInstallations, getInstallationSignals } = require('./stataDiscovery');
+const { version: extensionVersion } = require('../../../package.json');
 const {
-    DISCOVERY_TIMEOUT_MS,
+    MAC_DISCOVERY_TIMEOUT_MS,
     ensureStataConfigured,
     resetStataDiscoveryState
 } = require('./stataInstallationResolver');
 
 const SETUP_NOTICE_STATE_KEY = 'stata-all-in-one.stataSetupNoticeState';
-const SETUP_DIALOG_TITLE = 'Stata All in One';
+const SETUP_DIALOG_TITLE = `✨ Stata All in One (${extensionVersion})`;
+const STATA_DEALER_URL = 'http://xhslink.com/o/QYWdYfrEhy';
 
 let startupPromise = null;
 let startupCompleted = false;
@@ -85,7 +86,10 @@ async function findConfiguredMacCandidate(context, resolvedInstallation) {
         return buildMacCandidate(cachedAppPath, edition);
     }
 
-    const discovery = await discoverMacStataInstallations({ timeoutMs: DISCOVERY_TIMEOUT_MS });
+    const discovery = await discoverStataInstallations({
+        platform: 'darwin',
+        timeoutMs: MAC_DISCOVERY_TIMEOUT_MS
+    });
     const candidate = discovery.candidates.find(item => item.edition === edition);
     return candidate ? buildMacCandidate(candidate.appPath, edition) : null;
 }
@@ -327,12 +331,21 @@ async function showSuccessDialog(context, report, signature, forceNotice) {
     }
 }
 
-async function showFailureDialog(context, report, issueCodes, consoleResult, signature, forceNotice) {
-    if (!forceNotice && wasAcknowledged(context, signature)) {
-        await updateRunMode(config.RUN_MODES.externalApp);
-        return { acknowledged: true, action: 'external' };
+async function showGenuineStataDialog() {
+    const visitDealer = msg('stataSetupVisitDealer');
+    const confirm = msg('stataSetupConfirm');
+    const choice = await vscode.window.showInformationMessage(
+        SETUP_DIALOG_TITLE,
+        { modal: true, detail: msg('stataSetupGenuineInfo') },
+        visitDealer,
+        confirm
+    );
+    if (choice === visitDealer) {
+        await vscode.env.openExternal(vscode.Uri.parse(STATA_DEALER_URL));
     }
+}
 
+async function promptFailureDialog(report, issueCodes, consoleResult) {
     const issueMessages = failureIssueMessages(report, issueCodes, consoleResult);
     const bulletList = issueMessages.map(message => `• ${message}`).join('\n');
     const message = [
@@ -341,18 +354,46 @@ async function showFailureDialog(context, report, issueCodes, consoleResult, sig
         msg('stataSetupExternalAvailable')
     ].filter(Boolean).join('\n\n');
     const confirmSwitch = msg('stataSetupConfirmSwitchExternal');
+    const purchaseGenuine = msg('stataSetupPurchaseGenuine');
+    const actions = issueCodes.includes('LICENSE_NOT_FOUND')
+        ? [confirmSwitch, purchaseGenuine]
+        : [confirmSwitch];
     while (true) {
-        const choice = await vscode.window.showWarningMessage(
+        const choice = await vscode.window.showInformationMessage(
             SETUP_DIALOG_TITLE,
             { modal: true, detail: message },
-            confirmSwitch
+            ...actions
         );
+        if (choice === purchaseGenuine && issueCodes.includes('LICENSE_NOT_FOUND')) {
+            await showGenuineStataDialog();
+            continue;
+        }
         if (choice === confirmSwitch) break;
     }
+}
+
+async function showFailureDialog(context, report, issueCodes, consoleResult, signature, forceNotice) {
+    if (!forceNotice && wasAcknowledged(context, signature)) {
+        await updateRunMode(config.RUN_MODES.externalApp);
+        return { acknowledged: true, action: 'external' };
+    }
+
+    await promptFailureDialog(report, issueCodes, consoleResult);
 
     await updateRunMode(config.RUN_MODES.externalApp);
     await saveAcknowledgement(context, signature, 'failure');
     return { acknowledged: true, action: 'external' };
+}
+
+async function showDebugLicenseFailureDialog() {
+    const installationPath = isWindows()
+        ? 'C:\\Program Files\\Stata19\\StataMP-64.exe'
+        : '/Applications/StataMP.app';
+    await promptFailureDialog({
+        platform: isWindows() ? 'win32' : 'darwin',
+        installationPath
+    }, ['LICENSE_NOT_FOUND'], { success: false, failCode: 'STATIC_REQUIREMENTS_MISSING' });
+    await updateRunMode(config.RUN_MODES.externalApp);
 }
 
 async function clearConfiguredInstallation(context) {
@@ -400,29 +441,25 @@ async function performSetup(context, options = {}) {
     let resolvedInstallation = await ensureStataConfigured(context, { promptOnFailure: true });
 
     while (true) {
-        const isAutomaticConfiguration = Boolean(
-            resolvedInstallation && resolvedInstallation.source === 'detected'
-        );
-        if (
-            resolvedInstallation
-            && !isAutomaticConfiguration
-            && config.getRunMode() === config.RUN_MODES.externalApp
-            && options.forceNotice !== true
-        ) {
-            await capability.setCapabilityState(context, 'external');
-            return {
-                ...resolvedInstallation,
-                consoleAvailable: false,
-                installationAvailable: true,
-                acknowledged: true,
-                action: 'external',
-                canProceed: true,
-                consoleCheckSkipped: true
-            };
-        }
-
         const report = await inspectInstallation(context, resolvedInstallation);
         if (report.installationAvailable) {
+            // External App is an explicit execution preference. Keep locating
+            // and validating the Stata application, but do not initialize or
+            // promote the Embedded Console when the user selected this mode.
+            if (config.getRunMode() === config.RUN_MODES.externalApp) {
+                await capability.setCapabilityState(context, 'external');
+                return {
+                    ...report.resolvedInstallation,
+                    report,
+                    consoleAvailable: false,
+                    installationAvailable: true,
+                    acknowledged: true,
+                    action: 'external',
+                    canProceed: true,
+                    consoleCheckSkipped: true
+                };
+            }
+
             const consoleResult = options.consoleResult || await initializeConsole(
                 context,
                 report,
@@ -540,11 +577,13 @@ async function resetStataSetupState(context) {
 }
 
 module.exports = {
+    SETUP_DIALOG_TITLE,
     SETUP_NOTICE_STATE_KEY,
     buildSetupSignature,
     collectIssueCodes,
     ensureStataSetup,
     inspectInstallation,
     resetStataSetupState,
+    showDebugLicenseFailureDialog,
     startStartupStataSetup
 };

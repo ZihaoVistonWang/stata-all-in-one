@@ -5,46 +5,102 @@ const os = require('os');
 const path = require('path');
 
 const {
-    DEFAULT_TIMEOUT_MS,
-    normalizeDisplayIcon,
-    registryKeysFromSearchOutput,
-    registryValuesFromQueryOutput,
-    versionFromDisplayName,
-    getInstallationSignals
-} = require('../modules/runCode/windowsStataDiscovery');
+    DISCOVERY_TIMEOUT_MS,
+    DISCOVERY_SCRIPT_NAME,
+    discoverStataInstallations,
+    getDiscoveryScriptPath,
+    getInstallationSignals,
+    parseDiscoveryReport
+} = require('../modules/runCode/stataDiscovery');
 
-test('Windows discovery default timeout is three seconds', () => {
-    assert.equal(DEFAULT_TIMEOUT_MS, 3000);
+test('Windows BAT discovery default timeout is five seconds', () => {
+    assert.equal(DISCOVERY_TIMEOUT_MS.win32, 5000);
 });
 
-test('registry search output extracts Stata uninstall keys', () => {
-    const output = [
-        'HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Stata19',
-        '    DisplayName    REG_SZ    Stata19',
-        '',
-        'HKEY_CURRENT_USER\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\StataNow18'
-    ].join('\r\n');
-
-    assert.deepEqual(registryKeysFromSearchOutput(output), [
-        'HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Stata19',
-        'HKEY_CURRENT_USER\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\StataNow18'
-    ]);
+test('bundled discovery BAT uses the standalone JSON payload contract', () => {
+    const scriptPath = getDiscoveryScriptPath();
+    const script = fs.readFileSync(scriptPath, 'utf8');
+    assert.equal(path.basename(scriptPath), DISCOVERY_SCRIPT_NAME);
+    assert.match(script, /# POWERSHELL_PAYLOAD_BELOW/);
+    assert.match(script, /RegistryKey\]::OpenBaseKey/);
+    assert.match(script, /ConvertTo-Json/);
+    assert.match(script, /schemaVersion = 1/);
+    assert.match(script, /stata-discovery-report\.json/);
 });
 
-test('registry detail output extracts installation values', () => {
-    const output = [
-        '    DisplayName         REG_SZ    StataNow19',
-        '    DisplayVersion      REG_SZ    19.5',
-        '    InstallLocation     REG_SZ    D:\\Apps\\Stata19',
-        '    DisplayIcon         REG_SZ    "D:\\Apps\\Stata19\\StataMP-64.exe",0'
-    ].join('\r\n');
+test('JSON report parser accepts schema version one and rejects invalid output', () => {
+    const report = parseDiscoveryReport(JSON.stringify({ schemaVersion: 1, candidates: [] }));
+    assert.equal(report.schemaVersion, 1);
+    assert.throws(() => parseDiscoveryReport(''), /no JSON output/);
+    assert.throws(
+        () => parseDiscoveryReport(JSON.stringify({ schemaVersion: 2, candidates: [] })),
+        /unsupported JSON schema/
+    );
+});
 
-    assert.deepEqual(registryValuesFromQueryOutput(output), {
-        displayname: 'StataNow19',
-        displayversion: '19.5',
-        installlocation: 'D:\\Apps\\Stata19',
-        displayicon: '"D:\\Apps\\Stata19\\StataMP-64.exe",0'
+test('partial registry errors do not discard valid candidates returned by the BAT', async () => {
+    const installDir = fs.mkdtempSync(path.join(os.tmpdir(), 'stata-win-bat-discovery-'));
+    const executablePath = path.join(installDir, 'StataMP-64.exe');
+    fs.writeFileSync(executablePath, 'test');
+
+    const report = {
+        schemaVersion: 1,
+        supported: true,
+        elapsedMs: 1250.96,
+        searchedKeys: 3,
+        registryEntries: [{ displayName: 'StataNow19' }],
+        candidates: [{
+            executablePath,
+            displayName: 'StataNow19',
+            edition: 'mp',
+            version: 19,
+            registryKey: 'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Stata19',
+            registryView: '64',
+            hasLicense: true,
+            hasMatchingDll: true,
+            dllPath: path.join(installDir, 'mp-64.dll')
+        }],
+        errors: ['Failed to query HKCU uninstall registry [32-bit]']
+    };
+    const scriptRunner = async () => ({
+        stdout: JSON.stringify(report),
+        stderr: '',
+        error: null,
+        timedOut: false
     });
+
+    try {
+        const result = await discoverStataInstallations({
+            platform: 'win32',
+            allowUnsupportedPlatform: true,
+            scriptRunner
+        });
+        assert.equal(result.timedOut, false);
+        assert.equal(result.scriptElapsedMs, 1250.96);
+        assert.equal(result.searchedKeys, 3);
+        assert.equal(result.candidates.length, 1);
+        assert.equal(result.candidates[0].executablePath, executablePath);
+        assert.deepEqual(result.errors, ['Failed to query HKCU uninstall registry [32-bit]']);
+    } finally {
+        fs.rmSync(installDir, { recursive: true, force: true });
+    }
+});
+
+test('BAT execution timeout returns a structured discovery result', async () => {
+    const result = await discoverStataInstallations({
+        platform: 'win32',
+        timeoutMs: 5000,
+        allowUnsupportedPlatform: true,
+        scriptRunner: async () => ({
+            stdout: '',
+            stderr: '',
+            error: 'process timed out',
+            timedOut: true
+        })
+    });
+    assert.equal(result.timedOut, true);
+    assert.deepEqual(result.candidates, []);
+    assert.deepEqual(result.errors, ['process timed out']);
 });
 
 test('Windows DLL discovery uses Stata engine names and edition fallback order', () => {
@@ -63,21 +119,4 @@ test('Windows DLL discovery uses Stata engine names and edition fallback order',
     } finally {
         fs.rmSync(installDir, { recursive: true, force: true });
     }
-});
-
-test('display icon normalization removes quotes and icon index', () => {
-    assert.equal(
-        normalizeDisplayIcon('"D:\\Apps\\Stata19\\StataMP-64.exe",0'),
-        'D:\\Apps\\Stata19\\StataMP-64.exe'
-    );
-    assert.equal(
-        normalizeDisplayIcon('D:\\Apps\\Stata19\\StataSE-64.exe,-1'),
-        'D:\\Apps\\Stata19\\StataSE-64.exe'
-    );
-});
-
-test('Stata and StataNow display names expose their release number', () => {
-    assert.equal(versionFromDisplayName('Stata19'), 19);
-    assert.equal(versionFromDisplayName('StataNow 18'), 18);
-    assert.equal(versionFromDisplayName('Stata'), null);
 });

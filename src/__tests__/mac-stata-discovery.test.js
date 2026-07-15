@@ -4,10 +4,10 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const { DEFAULT_TIMEOUT_MS, discoverMacStataInstallations } = require('../modules/runCode/macStataDiscovery');
+const { DISCOVERY_TIMEOUT_MS, discoverStataInstallations } = require('../modules/runCode/stataDiscovery');
 
 test('macOS discovery default timeout is three seconds', () => {
-    assert.equal(DEFAULT_TIMEOUT_MS, 3000);
+    assert.equal(DISCOVERY_TIMEOUT_MS.darwin, 3000);
 });
 
 function createMacInstallation(baseDir, folderName, appName, edition, withLicense = true) {
@@ -23,7 +23,8 @@ test('macOS discovery prefers the newest numeric version before MP edition', asy
     try {
         createMacInstallation(baseDir, 'Stata17', 'StataMP', 'mp');
         createMacInstallation(baseDir, 'Stata18', 'StataSE', 'se');
-        const result = await discoverMacStataInstallations({
+        const result = await discoverStataInstallations({
+            platform: 'darwin',
             baseDir,
             timeoutMs: 3000,
             allowUnsupportedPlatform: true
@@ -43,7 +44,8 @@ test('macOS discovery prefers MP within the same numeric version', async () => {
     try {
         createMacInstallation(baseDir, 'Stata18-SE', 'StataSE', 'se');
         createMacInstallation(baseDir, 'Stata18-MP', 'StataMP', 'mp');
-        const result = await discoverMacStataInstallations({
+        const result = await discoverStataInstallations({
+            platform: 'darwin',
             baseDir,
             timeoutMs: 3000,
             allowUnsupportedPlatform: true

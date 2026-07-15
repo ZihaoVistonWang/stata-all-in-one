@@ -27,14 +27,15 @@ const { isWindows, isMacOS, showInfo, showWarn, showConsoleUnavailableToast, msg
 const { ensureConsoleFontCache, getConsoleFontWebviewOptions } = require('./utils/consoleFonts');
 const capability = require('./modules/capability');
 const config = require('./utils/config');
-const { discoverStataInstallationsFromRegistry } = require('./modules/runCode/windowsStataDiscovery');
+const { discoverStataInstallations } = require('./modules/runCode/stataDiscovery');
 const {
-    DISCOVERY_TIMEOUT_MS,
+    WINDOWS_DISCOVERY_TIMEOUT_MS,
     ensureStataConfigured,
     resetStataDiscoveryState
 } = require('./modules/runCode/stataInstallationResolver');
 const {
     resetStataSetupState,
+    showDebugLicenseFailureDialog,
     startStartupStataSetup
 } = require('./modules/runCode/stataSetupManager');
 
@@ -89,14 +90,9 @@ async function replaceConfigurationAtGlobalScope(extensionConfig, key, value) {
     await extensionConfig.update(key, value, vscode.ConfigurationTarget.Global);
 }
 
-async function resetStataSetupForDebug(context, extensionConfig) {
+async function resetStataSetupForDebug(context) {
     await resetStataSetupState(context);
     await capability.setCapabilityState(context, 'unverified');
-    await replaceConfigurationAtGlobalScope(
-        extensionConfig,
-        'runMode',
-        config.RUN_MODES.embeddedConsole
-    );
     await context.globalState.update('stata-all-in-one.consoleLicenseDialogSuppressed', undefined);
     await context.globalState.update('stata-all-in-one.consoleLicenseDialogNextReminder', undefined);
 }
@@ -607,12 +603,17 @@ async function activate(context) {
             stataDiscoveryOutput.clear();
             stataDiscoveryOutput.appendLine('Stata All in One - Windows registry discovery');
             stataDiscoveryOutput.appendLine(`Started: ${new Date().toISOString()}`);
-            stataDiscoveryOutput.appendLine(`Timeout: ${DISCOVERY_TIMEOUT_MS} ms`);
+            stataDiscoveryOutput.appendLine(`Timeout: ${WINDOWS_DISCOVERY_TIMEOUT_MS} ms`);
             stataDiscoveryOutput.appendLine('');
             stataDiscoveryOutput.show(true);
 
-            const result = await discoverStataInstallationsFromRegistry({ timeoutMs: DISCOVERY_TIMEOUT_MS });
+            const result = await discoverStataInstallations({
+                platform: 'win32',
+                timeoutMs: WINDOWS_DISCOVERY_TIMEOUT_MS
+            });
             stataDiscoveryOutput.appendLine(`Elapsed: ${result.elapsedMs} ms`);
+            stataDiscoveryOutput.appendLine(`BAT probe elapsed: ${result.scriptElapsedMs} ms`);
+            stataDiscoveryOutput.appendLine(`Probe script: ${result.scriptPath}`);
             stataDiscoveryOutput.appendLine(`Timed out: ${result.timedOut ? 'yes' : 'no'}`);
             stataDiscoveryOutput.appendLine(`Matched registry keys: ${result.searchedKeys}`);
             stataDiscoveryOutput.appendLine(`Valid Stata executables: ${result.candidates.length}`);
@@ -633,7 +634,7 @@ async function activate(context) {
 
             if (result.errors.length) {
                 stataDiscoveryOutput.appendLine('');
-                stataDiscoveryOutput.appendLine('Non-timeout registry errors:');
+                stataDiscoveryOutput.appendLine('Probe errors:');
                 result.errors.forEach(error => stataDiscoveryOutput.appendLine(`- ${error}`));
             }
 
@@ -669,7 +670,7 @@ async function activate(context) {
                 return;
             }
 
-            await resetStataSetupForDebug(context, extensionConfig);
+            await resetStataSetupForDebug(context);
             await vscode.commands.executeCommand('workbench.action.reloadWindow');
         }
     );
@@ -678,12 +679,17 @@ async function activate(context) {
     const debugResetStataSetupStateCommand = vscode.commands.registerCommand(
         'stata-all-in-one.debugResetStataSetupState',
         async () => {
-            const extensionConfig = vscode.workspace.getConfiguration('stata-all-in-one');
-            await resetStataSetupForDebug(context, extensionConfig);
+            await resetStataSetupForDebug(context);
             await vscode.commands.executeCommand('workbench.action.reloadWindow');
         }
     );
     context.subscriptions.push(debugResetStataSetupStateCommand);
+
+    const debugTestStataLicenseFailureCommand = vscode.commands.registerCommand(
+        'stata-all-in-one.debugTestStataLicenseFailure',
+        () => showDebugLicenseFailureDialog()
+    );
+    context.subscriptions.push(debugTestStataLicenseFailureCommand);
 
     // ========== Diagnose Console ==========
 

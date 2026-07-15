@@ -4,6 +4,9 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const Module = require('module');
+const { version: extensionVersion } = require('../../package.json');
+
+const SETUP_TITLE = `✨ Stata All in One (${extensionVersion})`;
 
 const BUTTONS = {
     stataSetupConfirm: '确认',
@@ -11,7 +14,9 @@ const BUTTONS = {
     stataSetupConfirmSwitchExternal: '确认并切换到外部 Stata 软件运行',
     stataSetupUseEmbedded: '切换到内置 Stata 控制台',
     stataSetupKeepExternal: '继续使用外部 Stata 软件',
-    stataSetupReconfigure: '重新配置'
+    stataSetupReconfigure: '重新配置',
+    stataSetupPurchaseGenuine: '采购或使用正版Stata',
+    stataSetupVisitDealer: '联系友万科技'
 };
 
 function localizedMessage(key, params = {}) {
@@ -22,7 +27,8 @@ function localizedMessage(key, params = {}) {
         stataSetupMissingDylib: '未找到内置 Stata 控制台所需的 dylib。',
         stataSetupMissingLicense: '未找到许可证文件 stata.lic。请支持正版Stata软件，以体验Stata All in One完整功能。',
         stataSetupNativeUnavailable: '无法加载原生桥接模块。',
-        stataSetupExternalAvailable: '仍可通过外部 Stata 软件运行代码。'
+        stataSetupExternalAvailable: '仍可通过外部 Stata 软件运行代码。',
+        stataSetupGenuineInfo: '中国大陆用户可以联系 Stata Corp, LLC 官方授权经销商北京友万信息科技有限公司（友万科技）采购正版软件或申请试用。\n\nhttp://xhslink.com/o/QYWdYfrEhy'
     };
     if (messages[key]) return messages[key];
     if (key === 'stataSetupSuccess') return `成功：${params.stataPath}`;
@@ -56,7 +62,8 @@ function loadSetupManager(options = {}) {
         info: [],
         resolver: 0,
         updates: [],
-        warning: []
+        warning: [],
+        external: []
     };
     const settings = {
         runMode: options.runMode || 'embeddedConsole',
@@ -69,6 +76,13 @@ function loadSetupManager(options = {}) {
 
     const vscodeMock = {
         ConfigurationTarget: { Global: 1, Workspace: 2, WorkspaceFolder: 3 },
+        Uri: { parse: value => value },
+        env: {
+            async openExternal(uri) {
+                calls.external.push(uri);
+                return true;
+            }
+        },
         workspace: {
             getConfiguration() {
                 return {
@@ -112,7 +126,7 @@ function loadSetupManager(options = {}) {
         }
     };
     const resolverMock = {
-        DISCOVERY_TIMEOUT_MS: 3000,
+        MAC_DISCOVERY_TIMEOUT_MS: 3000,
         async ensureStataConfigured() {
             calls.resolver++;
             return typeof options.getResolvedInstallation === 'function'
@@ -121,7 +135,7 @@ function loadSetupManager(options = {}) {
         },
         resetStataDiscoveryState() {}
     };
-    const windowsDiscoveryMock = {
+    const stataDiscoveryMock = {
         getInstallationSignals(executablePath) {
             if (typeof options.getWindowsSignals === 'function') {
                 return options.getWindowsSignals(executablePath);
@@ -131,10 +145,8 @@ function loadSetupManager(options = {}) {
                 dllPath: path.join(path.dirname(executablePath), 'mp-64.dll'),
                 hasLicense: true
             };
-        }
-    };
-    const macDiscoveryMock = {
-        async discoverMacStataInstallations() {
+        },
+        async discoverStataInstallations() {
             return { candidates: options.macCandidates || [] };
         }
     };
@@ -155,8 +167,7 @@ function loadSetupManager(options = {}) {
             if (request === '../capability') return capabilityMock;
             if (request === '../../utils/config') return configMock;
             if (request === '../../utils/common') return commonMock;
-            if (request === './macStataDiscovery') return macDiscoveryMock;
-            if (request === './windowsStataDiscovery') return windowsDiscoveryMock;
+            if (request === './stataDiscovery') return stataDiscoveryMock;
             if (request === './stataInstallationResolver') return resolverMock;
             if (request === './embeddedConsole/windows' || request === './embeddedConsole/mac') {
                 return embeddedConsoleMock;
@@ -226,7 +237,7 @@ test('startup setup shares one promise and shows Windows success once', async ()
         assert.equal(calls.info.length, 1);
         assert.equal(calls.events[0], 'cap:unverified');
         assert.ok(calls.events.indexOf('info') < calls.events.lastIndexOf('cap:console'));
-        assert.equal(calls.info[0].message, 'Stata All in One');
+        assert.equal(calls.info[0].message, SETUP_TITLE);
         assert.equal(calls.info[0].modalOptions.modal, true);
         assert.match(calls.info[0].modalOptions.detail, new RegExp(installation.executablePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
         assert.deepEqual(calls.info[0].items, [
@@ -265,7 +276,7 @@ test('fresh auto-discovery reports setup again despite an unchanged acknowledgem
 
         assert.equal(result.consoleAvailable, true);
         assert.equal(calls.info.length, 1);
-        assert.equal(calls.info[0].message, 'Stata All in One');
+        assert.equal(calls.info[0].message, SETUP_TITLE);
     } finally {
         fs.rmSync(installation.directory, { recursive: true, force: true });
     }
@@ -284,26 +295,55 @@ test('Windows missing DLL and license are reported together in one modal', async
             dllPath: null,
             hasLicense: false
         },
-        warningChoices: [BUTTONS.stataSetupConfirmSwitchExternal]
+        infoChoices: [BUTTONS.stataSetupConfirmSwitchExternal]
     });
     try {
         const result = await manager.ensureStataSetup(createContext());
-        assert.equal(calls.warning.length, 1);
-        assert.ok(calls.events.indexOf('warning') < calls.events.lastIndexOf('cap:external'));
-        assert.equal(calls.warning[0].message, 'Stata All in One');
-        assert.equal(calls.warning[0].modalOptions.modal, true);
-        assert.equal(calls.warning[0].items.length, 1);
-        assert.equal(calls.warning[0].items[0], BUTTONS.stataSetupConfirmSwitchExternal);
-        assert.match(calls.warning[0].modalOptions.detail, /DLL/);
-        assert.match(calls.warning[0].modalOptions.detail, /stata\.lic/);
-        assert.match(calls.warning[0].modalOptions.detail, /请支持正版Stata软件，以体验Stata All in One完整功能。/);
-        assert.match(calls.warning[0].modalOptions.detail, new RegExp(installation.executablePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+        assert.equal(calls.info.length, 1);
+        assert.ok(calls.events.indexOf('info') < calls.events.lastIndexOf('cap:external'));
+        assert.equal(calls.info[0].message, SETUP_TITLE);
+        assert.equal(calls.info[0].modalOptions.modal, true);
+        assert.deepEqual(calls.info[0].items, [
+            BUTTONS.stataSetupConfirmSwitchExternal,
+            BUTTONS.stataSetupPurchaseGenuine
+        ]);
+        assert.match(calls.info[0].modalOptions.detail, /DLL/);
+        assert.match(calls.info[0].modalOptions.detail, /stata\.lic/);
+        assert.match(calls.info[0].modalOptions.detail, /请支持正版Stata软件，以体验Stata All in One完整功能。/);
+        assert.match(calls.info[0].modalOptions.detail, new RegExp(installation.executablePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
         assert.equal(calls.console, 0);
         assert.equal(settings.runMode, 'externalApp');
         assert.equal(result.canProceed, true);
     } finally {
         fs.rmSync(installation.directory, { recursive: true, force: true });
     }
+});
+
+test('debug license failure dialog opens genuine Stata guidance and dealer URL', async () => {
+    const { calls, manager, settings } = loadSetupManager({
+        infoChoices: [
+            BUTTONS.stataSetupPurchaseGenuine,
+            BUTTONS.stataSetupVisitDealer,
+            BUTTONS.stataSetupConfirmSwitchExternal
+        ]
+    });
+
+    await manager.showDebugLicenseFailureDialog();
+
+    assert.equal(calls.info.length, 3);
+    assert.deepEqual(calls.info[0].items, [
+        BUTTONS.stataSetupConfirmSwitchExternal,
+        BUTTONS.stataSetupPurchaseGenuine
+    ]);
+    assert.equal(calls.info[1].message, SETUP_TITLE);
+    assert.match(calls.info[1].modalOptions.detail, /中国大陆用户/);
+    assert.match(calls.info[1].modalOptions.detail, /北京友万信息科技有限公司/);
+    assert.deepEqual(calls.info[1].items, [
+        BUTTONS.stataSetupVisitDealer,
+        BUTTONS.stataSetupConfirm
+    ]);
+    assert.deepEqual(calls.external, ['http://xhslink.com/o/QYWdYfrEhy']);
+    assert.equal(settings.runMode, 'externalApp');
 });
 
 test('macOS license failure displays the exact app path and support sentence', async () => {
@@ -316,16 +356,16 @@ test('macOS license failure displays the exact app path and support sentence', a
             source: 'manual',
             candidate: { appPath: installation.appPath, edition: 'mp' }
         },
-        warningChoices: [BUTTONS.stataSetupConfirmSwitchExternal]
+        infoChoices: [BUTTONS.stataSetupConfirmSwitchExternal]
     });
     try {
         await manager.ensureStataSetup(createContext());
-        assert.equal(calls.warning.length, 1);
-        assert.equal(calls.warning[0].message, 'Stata All in One');
-        assert.match(calls.warning[0].modalOptions.detail, new RegExp(installation.appPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
-        assert.doesNotMatch(calls.warning[0].modalOptions.detail, /libstata-mp\.dylib/);
-        assert.match(calls.warning[0].modalOptions.detail, /请支持正版Stata软件，以体验Stata All in One完整功能。/);
-        assert.doesNotMatch(calls.warning[0].modalOptions.detail, /DLL/);
+        assert.equal(calls.info.length, 1);
+        assert.equal(calls.info[0].message, SETUP_TITLE);
+        assert.match(calls.info[0].modalOptions.detail, new RegExp(installation.appPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+        assert.doesNotMatch(calls.info[0].modalOptions.detail, /libstata-mp\.dylib/);
+        assert.match(calls.info[0].modalOptions.detail, /请支持正版Stata软件，以体验Stata All in One完整功能。/);
+        assert.doesNotMatch(calls.info[0].modalOptions.detail, /DLL/);
         assert.equal(calls.console, 0);
     } finally {
         fs.rmSync(installation.directory, { recursive: true, force: true });
@@ -349,7 +389,7 @@ test('macOS success displays the app path and can switch to external mode', asyn
         const result = await manager.ensureStataSetup(context, setupOptions);
         assert.equal(result.consoleAvailable, true);
         assert.equal(calls.info.length, 1);
-        assert.equal(calls.info[0].message, 'Stata All in One');
+        assert.equal(calls.info[0].message, SETUP_TITLE);
         assert.match(calls.info[0].modalOptions.detail, new RegExp(installation.appPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
         assert.deepEqual(calls.info[0].items, [
             BUTTONS.stataSetupConfirm,
@@ -378,12 +418,12 @@ test('closing a failure modal keeps initialization pending until explicit confir
             dllPath: null,
             hasLicense: true
         },
-        warningChoices: [undefined, BUTTONS.stataSetupConfirmSwitchExternal]
+        infoChoices: [undefined, BUTTONS.stataSetupConfirmSwitchExternal]
     });
     const context = createContext();
     try {
         const confirmed = await manager.ensureStataSetup(context);
-        assert.equal(calls.warning.length, 2);
+        assert.equal(calls.info.length, 2);
         assert.equal(confirmed.acknowledged, true);
         assert.equal(settings.runMode, 'externalApp');
         assert.equal(context.values.has(manager.SETUP_NOTICE_STATE_KEY), true);
@@ -412,19 +452,18 @@ test('a configured installation is revalidated silently after its license state 
                 hasLicense: licenseAvailable
             };
         },
-        warningChoices: [BUTTONS.stataSetupConfirmSwitchExternal],
-        infoChoices: [BUTTONS.stataSetupUseEmbedded]
+        infoChoices: [BUTTONS.stataSetupConfirmSwitchExternal]
     });
     const context = createContext();
     try {
         await manager.ensureStataSetup(context);
-        assert.equal(calls.warning.length, 1);
+        assert.equal(calls.info.length, 1);
 
         licenseAvailable = true;
         settings.runMode = 'embeddedConsole';
         const result = await manager.ensureStataSetup(context, setupOptions);
         assert.equal(result.consoleAvailable, true);
-        assert.equal(calls.info.length, 0);
+        assert.equal(calls.info.length, 1);
         assert.equal(calls.console, 1);
         assert.equal(context.values.get(manager.SETUP_NOTICE_STATE_KEY).outcome, 'success');
     } finally {
@@ -463,14 +502,14 @@ test('a changed configured installation validates Console silently when successf
     }
 });
 
-test('external run mode skips Console validation for a configured installation', async () => {
+test('external run mode skips Console validation for an auto-detected installation', async () => {
     const installation = createWindowsInstallation();
     const { calls, manager } = loadSetupManager({
         runMode: 'externalApp',
         resolvedInstallation: {
             platform: 'win32',
             executablePath: installation.executablePath,
-            source: 'configured'
+            source: 'detected'
         }
     });
     try {
@@ -485,6 +524,26 @@ test('external run mode skips Console validation for a configured installation',
     }
 });
 
+test('external run mode still reports a missing Stata application', async () => {
+    const { calls, manager } = loadSetupManager({
+        runMode: 'externalApp',
+        resolvedInstallation: {
+            platform: 'win32',
+            executablePath: 'C:\\Missing\\StataMP-64.exe',
+            source: 'detected'
+        },
+        warningChoices: [BUTTONS.stataSetupConfirm]
+    });
+
+    const result = await manager.ensureStataSetup(createContext());
+
+    assert.equal(result.installationAvailable, false);
+    assert.equal(calls.console, 0);
+    assert.equal(calls.info.length, 0);
+    assert.equal(calls.warning.length, 1);
+    assert.equal(calls.warning[0].modalOptions.detail, '未找到可用的 Stata 安装。');
+});
+
 test('missing installation modal never offers external Stata', async () => {
     const { calls, manager, setupOptions } = loadSetupManager({
         resolvedInstallation: null,
@@ -492,7 +551,7 @@ test('missing installation modal never offers external Stata', async () => {
     });
     const result = await manager.ensureStataSetup(createContext());
     assert.equal(result.installationAvailable, false);
-    assert.equal(calls.warning[0].message, 'Stata All in One');
+    assert.equal(calls.warning[0].message, SETUP_TITLE);
     assert.equal(calls.warning[0].modalOptions.detail, '未找到可用的 Stata 安装。');
     assert.deepEqual(calls.warning[0].items, [
         BUTTONS.stataSetupReconfigure,
@@ -593,14 +652,14 @@ test('native initialization failure uses the single external-switch modal', asyn
             failCode: 'NATIVE_NOT_LOADED',
             reason: 'native module unavailable'
         },
-        warningChoices: [BUTTONS.stataSetupConfirmSwitchExternal]
+        infoChoices: [BUTTONS.stataSetupConfirmSwitchExternal]
     });
     try {
         await manager.ensureStataSetup(createContext(), setupOptions);
-        assert.equal(calls.warning.length, 1);
-        assert.equal(calls.warning[0].message, 'Stata All in One');
-        assert.match(calls.warning[0].modalOptions.detail, /原生桥接模块/);
-        assert.deepEqual(calls.warning[0].items, [BUTTONS.stataSetupConfirmSwitchExternal]);
+        assert.equal(calls.info.length, 1);
+        assert.equal(calls.info[0].message, SETUP_TITLE);
+        assert.match(calls.info[0].modalOptions.detail, /原生桥接模块/);
+        assert.deepEqual(calls.info[0].items, [BUTTONS.stataSetupConfirmSwitchExternal]);
     } finally {
         fs.rmSync(installation.directory, { recursive: true, force: true });
     }
