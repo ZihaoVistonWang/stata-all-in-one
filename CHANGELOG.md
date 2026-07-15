@@ -5,8 +5,8 @@ All notable changes to the Stata All in One extension will be documented in this
 
 ## Unreleased
 
-- **Feat**: Added an independent, disabled-by-default setting for showing the Sponsor button in Stata editor title bars; the existing action-button setting now controls only Bug Report and AI.
-- **新增**：新增独立的 Stata 编辑器打赏支持按钮开关，默认关闭；原操作按钮开关现仅控制 Bug 反馈和 AI 按钮。
+- **Feat**: Added an independent, disabled-by-default setting for showing the Sponsor button in Stata editor title bars; the existing action-button setting now controls only Bug Report and Stata AI Skill.
+- **新增**：新增独立的 Stata 编辑器打赏支持按钮开关，默认关闭；原操作按钮开关现仅控制 Bug 反馈和 Stata AI Skill 按钮。
 - **Feat**: Routed `br` and `browse` from the editor and Embedded Console command input to the built-in Data Viewer, including `varlist`, `if`, `in`, and `nolabel` filters, while retaining the command and a localized confirmation in Console. External App mode remains unchanged.
 - **Fixed**: Data Viewer filtering now preserves commas inside functions and ignores `if` / `in` tokens inside quoted strings or nested expressions.
 - **新增**：将代码编辑器和嵌入式 Console 命令输入框中的 `br` 与 `browse` 路由到内置数据查看器，支持 `varlist`、`if`、`in` 和 `nolabel` 筛选，同时在 Console 保留命令与本地化打开提示；外部 Stata 模式保持原有行为。

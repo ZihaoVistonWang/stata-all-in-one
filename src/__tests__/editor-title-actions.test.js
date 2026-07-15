@@ -4,6 +4,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const packageJson = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../package.json'), 'utf8'));
+const englishMessages = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../package.nls.json'), 'utf8'));
+const chineseMessages = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../package.nls.zh-cn.json'), 'utf8'));
 const properties = packageJson.contributes.configuration.properties;
 const editorTitleItems = packageJson.contributes.menus['editor/title'];
 
@@ -26,4 +28,9 @@ test('Sponsor editor-title button is independently disabled by default', () => {
 test('general action-button setting still controls Bug Report and AI only', () => {
     assert.match(getEditorTitleItem('stata-all-in-one.reportBug').when, /showActionButtons/);
     assert.match(getEditorTitleItem('stata-all-in-one.showAISkillDialog').when, /showActionButtons/);
+});
+
+test('AI editor-title button uses the full Stata AI Skill label', () => {
+    assert.equal(englishMessages['command.showAISkillDialog.title'], 'Stata AI Skill');
+    assert.equal(chineseMessages['command.showAISkillDialog.title'], 'Stata AI Skill');
 });

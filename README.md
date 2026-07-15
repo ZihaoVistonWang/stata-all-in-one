@@ -208,7 +208,7 @@ Click the `AI` button in the Stata editor toolbar to copy a prompt that installs
    - `false`: Stata's working directory is not changed on startup.
 
 8. **Show Action Buttons** (`stata-all-in-one.showActionButtons`)
-   - `true` (default): Show the "Bug Report" and "AI" buttons in the editor title bar.
+   - `true` (default): Show the "Bug Report" and "Stata AI Skill" buttons in the editor title bar.
    - `false`: Hide both buttons.
 
 9. **Show Sponsor Button** (`stata-all-in-one.showSponsorButton`)

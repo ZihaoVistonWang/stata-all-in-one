@@ -209,7 +209,7 @@ Stata All in One
    - `false`：Stata 启动后不更改工作目录。
 
 8. **显示操作按钮** (`stata-all-in-one.showActionButtons`)
-   - `true`（默认）：在编辑器标题栏显示“Bug 反馈”和“AI”按钮。
+   - `true`（默认）：在编辑器标题栏显示“Bug 反馈”和“Stata AI Skill”按钮。
    - `false`：隐藏这两个按钮。
 
 9. **显示打赏支持按钮** (`stata-all-in-one.showSponsorButton`)
