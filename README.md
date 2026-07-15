@@ -208,53 +208,57 @@ Click the `AI` button in the Stata editor toolbar to copy a prompt that installs
    - `false`: Stata's working directory is not changed on startup.
 
 8. **Show Action Buttons** (`stata-all-in-one.showActionButtons`)
-   - `true` (default): Show the "Bug Report", "Sponsor", and "AI" buttons in the editor title bar.
-   - `false`: Hide these buttons.
+   - `true` (default): Show the "Bug Report" and "AI" buttons in the editor title bar.
+   - `false`: Hide both buttons.
 
-9. **Enable Ctrl+Shift+D for Run Shortcut** (`stata-all-in-one.enableCtrlShiftD`)
+9. **Show Sponsor Button** (`stata-all-in-one.showSponsorButton`)
+   - `true`: Show the "Sponsor" button in the Stata editor title bar.
+   - `false` (default): Hide the button.
+
+10. **Enable Ctrl+Shift+D for Run Shortcut** (`stata-all-in-one.enableCtrlShiftD`)
     - `true`: Use `Ctrl/Cmd+Shift+D` as the run code shortcut.
     - `false` (default): Use the default `Ctrl/Cmd+D` shortcut.
 
 ### Embedded Console
 
-10. <mark>**Console Font Mode** (`stata-all-in-one.consoleFontMode`)</mark>
+11. <mark>**Console Font Mode** (`stata-all-in-one.consoleFontMode`)</mark>
     - `online` (default): Load Maple Mono for Latin text and Maple Mono NF CN for CJK text.
     - `editor`: Follow the editor font, falling back to the system monospace font.
     - `system`: Use the system monospace font directly.
     - `custom`: Use the custom font specified below.
     - Font credits: [subframe7536/maple-font](https://github.com/subframe7536/maple-font), [fontsource](https://fontsource.org/fonts/maple-mono), and ZeoSeven Fonts ([443](https://fonts.zeoseven.com/items/443/), [442](https://fonts.zeoseven.com/items/442/)).
 
-11. <mark>**Console Custom Font Family** (`stata-all-in-one.consoleCustomFontFamily`)</mark>
+12. <mark>**Console Custom Font Family** (`stata-all-in-one.consoleCustomFontFamily`)</mark>
     - When font mode is set to `custom`, the CSS `font-family` list used by the console.
     - Example: `"Maple Mono NF CN", Menlo, Monaco, monospace`
 
-12. <mark>**Graph Export DPI** (`stata-all-in-one.graphPngDpi`)</mark>
+13. <mark>**Graph Export DPI** (`stata-all-in-one.graphPngDpi`)</mark>
     - DPI value for saving embedded console graphs as PNG. Default `600`, range 72–1200.
 
 ### Syntax Highlighting and Code Completion
 
-13. **Custom Command Highlighting** (`stata-all-in-one.customCommands`)
+14. **Custom Command Highlighting** (`stata-all-in-one.customCommands`)
     - User-defined Stata commands to highlight as keywords (array of strings). Default: `reghdfe`.
     - Example: `["reghdfe", "ivreghdfe", "gtools", "winsor2", "outreg2"]`
     - **Requires reloading window** after configuration.
 
 ### Hover Help
 
-14. <mark>**Enable Hover Docs** (`stata-all-in-one.enableHoverDocs`)</mark>
+15. <mark>**Enable Hover Docs** (`stata-all-in-one.enableHoverDocs`)</mark>
     - `true` (default): Show official Stata help information when hovering over Stata commands.
     - `false`: Disable hover help.
 
-15. <mark>**Additional ADO Paths** (`stata-all-in-one.additionalAdoPaths`)</mark>
+16. <mark>**Additional ADO Paths** (`stata-all-in-one.additionalAdoPaths`)</mark>
     - Extra Stata ADO paths for scanning help files of community-contributed commands.
     - Example: `["/Users/username/ado/personal", "C:\\Users\\username\\ado\\personal"]`
 
 ### Outline & Navigation
 
-16. **Display Multi-level Numbering** (`stata-all-in-one.numberingShow`)
+17. **Display Multi-level Numbering** (`stata-all-in-one.numberingShow`)
     - `true`: Outline displays `1.1`, `1.2.1` style numbering.
     - `false` (default): Displays original headings.
 
-17. **Auto-update Heading Numbering** (`stata-all-in-one.numberingAdd`)
+18. **Auto-update Heading Numbering** (`stata-all-in-one.numberingAdd`)
     - `true`: **When numbering is enabled**, automatically update section titles in `.do` files to include numbers.
     - `false` (default): Only displays numbering in outline, doesn't modify file.
 
@@ -262,15 +266,15 @@ Click the `AI` button in the Stata editor toolbar to copy a prompt that installs
 
 ### Code Style
 
-18. **Comment Style** (`stata-all-in-one.commentStyle`)
+19. **Comment Style** (`stata-all-in-one.commentStyle`)
     - `// ` (default): Comment style used for toggling comments. Options include `//`, `*`, or `/* ... */`
 
-19. **Separator Length** (`stata-all-in-one.separatorLength`)
+20. **Separator Length** (`stata-all-in-one.separatorLength`)
     - Total character length of the separator line (including the `** #` prefix and separators). Default: `60`
 
 <a id="separatorSymmetric"></a>
 
-20. **Separator Symmetric** (`stata-all-in-one.separatorSymmetric`)
+21. **Separator Symmetric** (`stata-all-in-one.separatorSymmetric`)
     - `true`: Add ` **` at the end of separator lines to ensure visual symmetry (e.g., `** === Title === **`).
     - `false` (default): Separator lines without the suffix.
 

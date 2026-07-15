@@ -157,6 +157,11 @@
           "default": true,
           "markdownDescription": "%config.showActionButtons.description%"
         },
+        "stata-all-in-one.showSponsorButton": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "%config.showSponsorButton.description%"
+        },
         "stata-all-in-one.enableHoverDocs": {
           "type": "boolean",
           "default": true,
@@ -462,7 +467,7 @@
         {
           "command": "stata-all-in-one.showSponsor",
           "title": "%command.showSponsor.short%",
-          "when": "editorLangId == stata && config.stata-all-in-one.showActionButtons",
+          "when": "editorLangId == stata && config.stata-all-in-one.showSponsorButton",
           "group": "navigation@1"
         },
         {
