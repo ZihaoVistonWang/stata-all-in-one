@@ -188,6 +188,17 @@ Stata All in One
 
 点击 Stata 编辑器工具栏中的 `AI` 按钮，可复制一段提示词，指导你的 AI 编程工具安装或注册扩展内置的原生 `stata-ai-skill`。独立服务默认使用 `http://127.0.0.1:19522`，并通过内置的 `skill/SKILL.md` 配置。
 
+### 使用 Stata 配置
+
+自动探测未找到 Stata 时，选择 **没有找到你的 Stata？直接在 Stata 中完成配置**。扩展会提供以下两条命令，复制到 VS Code 外部单独打开的 Stata 软件中依次运行：
+
+```stata
+net install saio, from("<扩展目录>/stata/saio") replace
+saio setup
+```
+
+`saio` 支持 Stata 13 及以上版本，无需 Java、Python、curl 或第三方依赖。它只连接扩展在 `127.0.0.1:16886–16895` 上常驻的本地服务，先打印已有配置，并在覆盖前要求确认。`saio status` 可只读查看状态；无人值守重新配置可使用 `saio setup, force`。VS Code 会拦截编辑器和内置 Console 中的 `saio` 命令，因为已经能在 VS Code 中使用 Stata 时无需再次配置。
+
 ### 代码运行
 
 1. <mark>**运行模式** (`stata-all-in-one.runMode`)</mark>
@@ -195,10 +206,10 @@ Stata All in One
    - `externalApp`：将代码发送到系统安装的外部 Stata 应用执行。
 
 4. **Stata 版本（macOS）** (`stata-all-in-one.stataVersionOnMacOS`)
-   - Stata 运行版本。配置为空时，扩展会在启动时自动探测，最长等待 3 秒；优先数字版本最高的安装，同版本按 `StataMP`、`StataSE`、`StataBE`、`StataIC` 排序。未找到时会弹出版本选择框。启动初始化随后检查准确的 `.app` 路径、Console dylib 和 `stata.lic`，尽可能初始化内置控制台，并通过中心弹窗只汇报一次结果。
+   - Stata 运行版本。配置为空时，扩展会在启动时自动探测，最长等待 3 秒；优先数字版本最高的安装，同版本按 `StataMP`、`StataSE`、`StataBE`、`StataIC` 排序。未找到时可直接从当前运行的 Stata 完成配置。初始化随后检查准确的 `.app` 路径、Console dylib 和 `stata.lic`，尽可能初始化内置控制台，并通过中心弹窗只汇报一次结果。
 
 5. **Stata 路径（Windows）** (`stata-all-in-one.stataPathOnWindows`)
-   - Stata 执行文件路径（例如 `C:\Program Files\Stata17\StataMP-64.exe`）。配置为空时，扩展会在启动时运行内置的 `scripts/discover_stata_windows.bat` 注册表探测脚本，最长等待 5 秒。该 BAT 也可独立运行并生成 `stata-discovery-report.json`，用于问题排查。未找到时会弹出 EXE 路径输入框并验证所选文件。启动初始化随后检查 EXE、Console DLL 和 `stata.lic`，尽可能初始化内置控制台，并通过中心弹窗只汇报一次结果。
+   - Stata 执行文件路径（例如 `C:\Program Files\Stata17\StataMP-64.exe`）。配置为空时，扩展会在启动时运行内置的 `scripts/discover_stata_windows.bat` 注册表探测脚本，最长等待 5 秒。该 BAT 也可独立运行并生成 `stata-discovery-report.json`，用于问题排查。未找到时可直接从当前运行的 Stata 完成配置。初始化随后检查 EXE、Console DLL 和 `stata.lic`，尽可能初始化内置控制台，并通过中心弹窗只汇报一次结果。
 
 6. **发送代码前关闭 Stata 其他窗口（Windows）** (`stata-all-in-one.closeStataOtherWindowsBeforeSendingCode`)
    - `true`：发送运行命令前先关闭 Stata 辅助窗口（如 Viewer、Data Editor）。

@@ -257,6 +257,11 @@ function failureIssueMessages(report, issueCodes, consoleResult) {
     return messages;
 }
 
+function withStataSignalPrefix(detail, signalReceived) {
+    if (!signalReceived) return detail;
+    return `${msg('stataSetupSignalReceived')}\n\n${detail}`;
+}
+
 async function showMissingInstallationDialog() {
     const reconfigure = msg('stataSetupReconfigure');
     const confirm = msg('stataSetupConfirm');
@@ -273,7 +278,7 @@ async function showMissingInstallationDialog() {
     }
 }
 
-async function showSuccessDialog(context, report, signature, forceNotice) {
+async function showSuccessDialog(context, report, signature, forceNotice, signalReceived = false) {
     const acknowledged = !forceNotice && wasAcknowledged(context, signature);
     if (acknowledged) {
         return { acknowledged: true, action: 'previous' };
@@ -288,9 +293,12 @@ async function showSuccessDialog(context, report, signature, forceNotice) {
                 SETUP_DIALOG_TITLE,
                 {
                     modal: true,
-                    detail: msg('stataSetupSuccessExternalMode', {
-                        stataPath: report.installationPath
-                    })
+                    detail: withStataSignalPrefix(
+                        msg('stataSetupSuccessExternalMode', {
+                            stataPath: report.installationPath
+                        }),
+                        signalReceived
+                    )
                 },
                 useEmbedded,
                 keepExternal
@@ -314,7 +322,10 @@ async function showSuccessDialog(context, report, signature, forceNotice) {
             SETUP_DIALOG_TITLE,
             {
                 modal: true,
-                detail: msg('stataSetupSuccess', { stataPath: report.installationPath })
+                detail: withStataSignalPrefix(
+                    msg('stataSetupSuccess', { stataPath: report.installationPath }),
+                    signalReceived
+                )
             },
             confirm,
             switchExternal
@@ -345,7 +356,7 @@ async function showGenuineStataDialog() {
     }
 }
 
-async function promptFailureDialog(report, issueCodes, consoleResult) {
+async function promptFailureDialog(report, issueCodes, consoleResult, signalReceived = false) {
     const issueMessages = failureIssueMessages(report, issueCodes, consoleResult);
     const bulletList = issueMessages.map(message => `• ${message}`).join('\n');
     const message = [
@@ -361,7 +372,7 @@ async function promptFailureDialog(report, issueCodes, consoleResult) {
     while (true) {
         const choice = await vscode.window.showInformationMessage(
             SETUP_DIALOG_TITLE,
-            { modal: true, detail: message },
+            { modal: true, detail: withStataSignalPrefix(message, signalReceived) },
             ...actions
         );
         if (choice === purchaseGenuine && issueCodes.includes('LICENSE_NOT_FOUND')) {
@@ -372,13 +383,21 @@ async function promptFailureDialog(report, issueCodes, consoleResult) {
     }
 }
 
-async function showFailureDialog(context, report, issueCodes, consoleResult, signature, forceNotice) {
+async function showFailureDialog(
+    context,
+    report,
+    issueCodes,
+    consoleResult,
+    signature,
+    forceNotice,
+    signalReceived = false
+) {
     if (!forceNotice && wasAcknowledged(context, signature)) {
         await updateRunMode(config.RUN_MODES.externalApp);
         return { acknowledged: true, action: 'external' };
     }
 
-    await promptFailureDialog(report, issueCodes, consoleResult);
+    await promptFailureDialog(report, issueCodes, consoleResult, signalReceived);
 
     await updateRunMode(config.RUN_MODES.externalApp);
     await saveAcknowledgement(context, signature, 'failure');
@@ -441,12 +460,26 @@ async function performSetup(context, options = {}) {
     let resolvedInstallation = await ensureStataConfigured(context, { promptOnFailure: true });
 
     while (true) {
+        if (resolvedInstallation && resolvedInstallation.source === 'stata-command-pending') {
+            await capability.setCapabilityState(context, 'unverified');
+            return {
+                ...resolvedInstallation,
+                consoleAvailable: false,
+                installationAvailable: false,
+                acknowledged: true,
+                action: 'stata-command-pending',
+                canProceed: false
+            };
+        }
         const report = await inspectInstallation(context, resolvedInstallation);
         if (report.installationAvailable) {
             // External App is an explicit execution preference. Keep locating
             // and validating the Stata application, but do not initialize or
             // promote the Embedded Console when the user selected this mode.
-            if (config.getRunMode() === config.RUN_MODES.externalApp) {
+            if (
+                config.getRunMode() === config.RUN_MODES.externalApp
+                && options.validateConsole !== true
+            ) {
                 await capability.setCapabilityState(context, 'external');
                 return {
                     ...report.resolvedInstallation,
@@ -474,7 +507,13 @@ async function performSetup(context, options = {}) {
 
             if (!issueCodes.length && consoleResult.success) {
                 const notice = forceNotice
-                    ? await showSuccessDialog(context, report, signature, true)
+                    ? await showSuccessDialog(
+                        context,
+                        report,
+                        signature,
+                        true,
+                        options.signalReceived === true
+                    )
                     : { acknowledged: true, action: 'silent' };
                 if (!forceNotice) {
                     await saveAcknowledgement(context, signature, 'success');
@@ -498,7 +537,8 @@ async function performSetup(context, options = {}) {
                 issueCodes,
                 consoleResult,
                 signature,
-                forceNotice
+                forceNotice,
+                options.signalReceived === true
             );
             await capability.setCapabilityState(context, 'external');
             return {
@@ -585,5 +625,6 @@ module.exports = {
     inspectInstallation,
     resetStataSetupState,
     showDebugLicenseFailureDialog,
-    startStartupStataSetup
+    startStartupStataSetup,
+    withStataSignalPrefix
 };

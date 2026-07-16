@@ -1,0 +1,3 @@
+v 3
+d Stata All in One local configuration command
+p saio Configure Stata All in One from the running Stata application

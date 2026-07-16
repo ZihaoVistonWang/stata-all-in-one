@@ -187,6 +187,17 @@ Search for "Stata All in One" in VS Code settings and configure:
 
 Click the `AI` button in the Stata editor toolbar to copy a prompt that installs or registers the bundled native `stata-ai-skill` in your AI coding tool. The standalone service uses `http://127.0.0.1:19522` by default and is configured through the bundled `skill/SKILL.md`.
 
+### Configure from Stata
+
+If automatic discovery cannot find Stata, choose **Stata not found? Configure it directly from Stata**. The extension provides two commands to copy and run in a separately opened Stata application outside VS Code:
+
+```stata
+net install saio, from("<extension>/stata/saio") replace
+saio setup
+```
+
+The `saio` package supports Stata 13 and later without Java, Python, curl, or third-party dependencies. It connects only to the extension's persistent local service on `127.0.0.1:16886–16895`, prints the existing configuration first, and asks before replacing an existing setup. Use `saio status` for a read-only check or `saio setup, force` for unattended reconfiguration. VS Code blocks `saio` in the editor and Embedded Console because an already usable VS Code Stata session does not need this setup command.
+
 ### Code Execution
 
 1. <mark>**Run Mode** (`stata-all-in-one.runMode`)</mark>
@@ -194,10 +205,10 @@ Click the `AI` button in the Stata editor toolbar to copy a prompt that installs
    - `externalApp`: Send code to the system-installed Stata application for execution.
 
 4. **Stata Version on macOS** (`stata-all-in-one.stataVersionOnMacOS`)
-   - Stata runtime version. When empty, the extension detects installed versions at startup for up to 3 seconds, preferring the highest numeric version and then `StataMP`, `StataSE`, `StataBE`, and `StataIC`. If detection fails, select a version from the prompt. The startup initializer then verifies the exact `.app`, Console dylib, and `stata.lic`, initializes the Embedded Console when possible, and reports the result once in a central dialog.
+   - Stata runtime version. When empty, the extension detects installed versions at startup for up to 3 seconds, preferring the highest numeric version and then `StataMP`, `StataSE`, `StataBE`, and `StataIC`. If detection fails, configure directly from the running Stata instance. The initializer then verifies the exact `.app`, Console dylib, and `stata.lic`, initializes the Embedded Console when possible, and reports the result once in a central dialog.
 
 5. **Stata Path on Windows** (`stata-all-in-one.stataPathOnWindows`)
-   - Path to Stata executable file (e.g., `C:\Program Files\Stata17\StataMP-64.exe`). When empty, the extension runs the bundled `scripts/discover_stata_windows.bat` registry probe at startup for up to 5 seconds. The same BAT can be run independently to generate `stata-discovery-report.json` for troubleshooting. If detection fails, enter a valid Stata EXE path in the prompt. The startup initializer then verifies the EXE, Console DLL, and `stata.lic`, initializes the Embedded Console when possible, and reports the result once in a central dialog.
+   - Path to Stata executable file (e.g., `C:\Program Files\Stata17\StataMP-64.exe`). When empty, the extension runs the bundled `scripts/discover_stata_windows.bat` registry probe at startup for up to 5 seconds. The same BAT can be run independently to generate `stata-discovery-report.json` for troubleshooting. If detection fails, configure directly from the running Stata instance. The initializer then verifies the EXE, Console DLL, and `stata.lic`, initializes the Embedded Console when possible, and reports the result once in a central dialog.
 
 6. **Close Stata Other Windows Before Sending Code (Windows)** (`stata-all-in-one.closeStataOtherWindowsBeforeSendingCode`)
    - `true`: Close Stata helper windows (such as Viewer/Data Editor) before sending run commands.

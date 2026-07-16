@@ -17,6 +17,8 @@ function loadResolver(options = {}) {
         macDiscovery: 0,
         macTimeoutMs: null,
         input: 0,
+        info: 0,
+        clipboard: [],
         openDialog: 0,
         quickPick: 0,
         quickPickItems: null,
@@ -24,6 +26,13 @@ function loadResolver(options = {}) {
     };
     const vscodeMock = {
         ConfigurationTarget: { Global: 1, Workspace: 2, WorkspaceFolder: 3 },
+        env: {
+            clipboard: {
+                async writeText(value) {
+                    calls.clipboard.push(value);
+                }
+            }
+        },
         workspace: {
             getConfiguration() {
                 return {
@@ -38,6 +47,10 @@ function loadResolver(options = {}) {
             }
         },
         window: {
+            async showInformationMessage() {
+                calls.info++;
+                return options.infoValue || 'stataSetupCommandDone';
+            },
             async showInputBox() {
                 calls.input++;
                 return options.inputValue;
@@ -114,6 +127,7 @@ function loadResolver(options = {}) {
 function createContext() {
     const values = new Map();
     return {
+        extensionPath: '/extensions/stata-all-in-one',
         globalState: {
             get: key => values.get(key),
             async update(key, value) { values.set(key, value); }
@@ -142,23 +156,13 @@ test('concurrent configuration callers share one Windows discovery promise', asy
     assert.equal(secondResult.executablePath, candidate.executablePath);
 });
 
-test('Windows discovery failure falls back to the existing path input', async () => {
-    const tempDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'stata-resolver-'));
-    const executablePath = path.join(tempDirectory, 'StataSE-64.exe');
-    fs.writeFileSync(executablePath, 'test');
-    const { resolver, settings, calls } = loadResolver({
-        windowsDiscovery: { candidates: [] },
-        inputValue: executablePath
-    });
-    try {
-        const result = await resolver.ensureStataConfigured(createContext(), { promptOnFailure: true });
-        assert.equal(calls.windowsDiscovery, 1);
-        assert.equal(calls.input, 1);
-        assert.equal(settings.stataPathOnWindows, executablePath);
-        assert.equal(result.executablePath, settings.stataPathOnWindows);
-    } finally {
-        fs.rmSync(tempDirectory, { recursive: true, force: true });
-    }
+test('Windows discovery failure opens the Stata command setup flow', async () => {
+    const { resolver, calls } = loadResolver({ windowsDiscovery: { candidates: [] } });
+    const result = await resolver.ensureStataConfigured(createContext(), { promptOnFailure: true });
+    assert.equal(calls.windowsDiscovery, 1);
+    assert.equal(calls.input, 0);
+    assert.equal(calls.info, 1);
+    assert.equal(result.source, 'stata-command-pending');
 });
 
 test('one detected Windows installation still shows the selection list', async () => {
@@ -176,7 +180,7 @@ test('one detected Windows installation still shows the selection list', async (
 
     assert.equal(calls.quickPick, 1);
     assert.equal(calls.quickPickItems.length, 2);
-    assert.equal(calls.quickPickItems[1].label, 'stataDiscoveryManualExePath');
+    assert.equal(calls.quickPickItems[1].label, 'stataDiscoveryUseStataSetup');
     assert.equal(result.executablePath, candidate.executablePath);
 });
 
@@ -197,16 +201,13 @@ test('multiple Windows installations require an explicit selection', async () =>
     assert.equal(calls.quickPickItems[0].label, 'Stata 18 MP');
     assert.equal(calls.quickPickItems[0].description, 'stataDiscoveryRecommended');
     assert.equal(calls.quickPickItems[0].detail, candidates[0].executablePath);
-    assert.equal(calls.quickPickItems.at(-1).label, 'stataDiscoveryManualExePath');
+    assert.equal(calls.quickPickItems.at(-1).label, 'stataDiscoveryUseStataSetup');
     assert.equal(settings.stataPathOnWindows, candidates[1].executablePath);
     assert.equal(result.executablePath, candidates[1].executablePath);
 });
 
-test('manual item in the Windows installation picker opens the existing EXE input', async () => {
-    const tempDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'stata-resolver-manual-'));
-    const executablePath = path.join(tempDirectory, 'StataMP-64.exe');
-    fs.writeFileSync(executablePath, 'test');
-    const { resolver, settings, calls } = loadResolver({
+test('Stata setup item in the Windows picker opens command instructions', async () => {
+    const { resolver, calls } = loadResolver({
         windowsDiscovery: {
             candidates: [
                 { displayName: 'Stata18', edition: 'mp', executablePath: 'D:\\Stata18\\StataMP-64.exe' },
@@ -214,18 +215,13 @@ test('manual item in the Windows installation picker opens the existing EXE inpu
             ]
         },
         quickPickValue: items => items.at(-1),
-        inputValue: executablePath
+        infoValue: 'stataSetupCommandDone'
     });
-
-    try {
-        const result = await resolver.ensureStataConfigured(createContext(), { promptOnFailure: true });
-        assert.equal(calls.quickPick, 1);
-        assert.equal(calls.input, 1);
-        assert.equal(settings.stataPathOnWindows, executablePath);
-        assert.equal(result.executablePath, executablePath);
-    } finally {
-        fs.rmSync(tempDirectory, { recursive: true, force: true });
-    }
+    const result = await resolver.ensureStataConfigured(createContext(), { promptOnFailure: true });
+    assert.equal(calls.quickPick, 1);
+    assert.equal(calls.input, 0);
+    assert.equal(calls.info, 1);
+    assert.equal(result.source, 'stata-command-pending');
 });
 
 test('Windows manual path validation rejects missing and non-EXE files', () => {
@@ -276,21 +272,18 @@ test('auto-configuration clears explicit empty workspace overrides', async () =>
     ]);
 });
 
-test('macOS discovery failure falls back to selecting an application path', async () => {
-    const appPath = '/Applications/Custom/StataBE.app';
-    const { resolver, settings, calls } = loadResolver({
+test('macOS discovery failure opens the Stata command setup flow', async () => {
+    const { resolver, calls } = loadResolver({
         platform: 'darwin',
-        macDiscovery: { candidates: [] },
-        openDialogValue: [{ fsPath: appPath }]
+        macDiscovery: { candidates: [] }
     });
     const context = createContext();
     const result = await resolver.ensureStataConfigured(context, { promptOnFailure: true });
     assert.equal(calls.macDiscovery, 1);
     assert.equal(calls.quickPick, 0);
-    assert.equal(calls.openDialog, 1);
-    assert.equal(settings.stataVersionOnMacOS, 'StataBE');
-    assert.equal(result.version, 'StataBE');
-    assert.equal(context.values.get('stataGuiAppPath'), appPath);
+    assert.equal(calls.openDialog, 0);
+    assert.equal(calls.info, 1);
+    assert.equal(result.source, 'stata-command-pending');
 });
 
 test('macOS discovery success caches the selected app and dylib paths', async () => {
@@ -313,9 +306,30 @@ test('macOS discovery success caches the selected app and dylib paths', async ()
     assert.equal(calls.macDiscovery, 1);
     assert.equal(calls.quickPick, 1);
     assert.equal(calls.quickPickItems[0].label, 'Stata 19 MP');
-    assert.equal(calls.quickPickItems.at(-1).label, 'stataDiscoveryManualMacApp');
+    assert.equal(calls.quickPickItems.at(-1).label, 'stataDiscoveryUseStataSetup');
     assert.equal(settings.stataVersionOnMacOS, 'StataMP');
     assert.equal(context.values.get('stataGuiAppPath'), candidate.appPath);
     assert.equal(context.values.get('stataConsoleDylibPath'), candidate.dylibPath);
     assert.equal(result.autoDetected, true);
+});
+
+test('macOS Stata signal falls back to the installed edition when c(flavor) differs', () => {
+    const tempDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'stata-signal-'));
+    const executableDirectory = path.join(tempDirectory, 'StataMP.app', 'Contents', 'MacOS');
+    fs.mkdirSync(executableDirectory, { recursive: true });
+    fs.writeFileSync(path.join(executableDirectory, 'StataMP'), 'test');
+    fs.writeFileSync(path.join(executableDirectory, 'libstata-mp.dylib'), 'test');
+    const { resolver } = loadResolver({ platform: 'darwin' });
+    try {
+        const result = resolver.resolveMacSignalInstallation({
+            flavor: 'IC',
+            sysdirStata: tempDirectory
+        });
+        assert.equal(result.edition, 'mp');
+        assert.equal(result.version, 'StataMP');
+        assert.equal(result.candidate.appPath, path.join(tempDirectory, 'StataMP.app'));
+        assert.equal(result.candidate.hasDylib, true);
+    } finally {
+        fs.rmSync(tempDirectory, { recursive: true, force: true });
+    }
 });

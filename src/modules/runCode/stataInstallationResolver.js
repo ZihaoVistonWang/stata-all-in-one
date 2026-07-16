@@ -10,8 +10,7 @@ const {
 } = require('../../utils/common');
 const {
     DISCOVERY_TIMEOUT_MS,
-    discoverStataInstallations,
-    editionFromAppName
+    discoverStataInstallations
 } = require('./stataDiscovery');
 const { version: extensionVersion } = require('../../../package.json');
 
@@ -73,27 +72,54 @@ function getConfiguredResult() {
     return null;
 }
 
-async function promptForWindowsPath() {
-    const userPath = await vscode.window.showInputBox({
-        prompt: msg('promptWinPath'),
-        placeHolder: msg('promptWinPathPlaceholder'),
-        ignoreFocusOut: true,
-        validateInput: validateWindowsExecutablePath
-    });
-    if (!userPath) return null;
+function buildStataNetInstallCommand(context) {
+    const packageDirectory = path.join(context.extensionPath, 'stata', 'saio')
+        .replace(/\\/g, '/')
+        .replace(/"/g, '""');
+    return `net install saio, from("${packageDirectory}") replace`;
+}
 
-    const trimmedPath = stripSurroundingQuotes(userPath.trim());
-    if (validateWindowsExecutablePath(trimmedPath)) return null;
-    await saveGlobalConfiguration('stataPathOnWindows', trimmedPath);
+async function promptForStataCommandSetup(context) {
+    const installCommand = buildStataNetInstallCommand(context);
+    const setupCommand = 'saio setup';
+    const copyInstall = msg('stataSetupCopyInstallCommand');
+    const copySetup = msg('stataSetupCopySetupCommand');
+    const done = msg('stataSetupCommandDone');
+
+    while (true) {
+        const choice = await vscode.window.showInformationMessage(
+            SETUP_DIALOG_TITLE,
+            {
+                modal: true,
+                detail: msg('stataSetupCommandInstructions', {
+                    installCommand,
+                    setupCommand
+                })
+            },
+            copyInstall,
+            copySetup,
+            done
+        );
+        if (choice === copyInstall) {
+            await vscode.env.clipboard.writeText(installCommand);
+            continue;
+        }
+        if (choice === copySetup) {
+            await vscode.env.clipboard.writeText(setupCommand);
+            continue;
+        }
+        break;
+    }
+
     return {
-        platform: 'win32',
-        executablePath: stripSurroundingQuotes(trimmedPath),
+        platform: isWindows() ? 'win32' : 'darwin',
         autoDetected: false,
-        source: 'manual'
+        pending: true,
+        source: 'stata-command-pending'
     };
 }
 
-async function discoverAndConfigureWindows() {
+async function discoverAndConfigureWindows(context) {
     const result = await discoverStataInstallations({
         platform: 'win32',
         timeoutMs: WINDOWS_DISCOVERY_TIMEOUT_MS
@@ -107,8 +133,8 @@ async function discoverAndConfigureWindows() {
         candidate: item
     }));
     items.push({
-        label: msg('stataDiscoveryManualExePath'),
-        manualPath: true
+        label: msg('stataDiscoveryUseStataSetup'),
+        stataCommandSetup: true
     });
     const selected = await vscode.window.showQuickPick(items, {
         title: SETUP_DIALOG_TITLE,
@@ -117,7 +143,7 @@ async function discoverAndConfigureWindows() {
         matchOnDetail: true
     });
     if (!selected) return null;
-    if (selected.manualPath) return promptForWindowsPath();
+    if (selected.stataCommandSetup) return promptForStataCommandSetup(context);
     const candidate = selected.candidate;
 
     await saveGlobalConfiguration('stataPathOnWindows', candidate.executablePath);
@@ -156,8 +182,8 @@ async function discoverAndConfigureMac(context) {
         candidate: item
     }));
     items.push({
-        label: msg('stataDiscoveryManualMacApp'),
-        manualApp: true
+        label: msg('stataDiscoveryUseStataSetup'),
+        stataCommandSetup: true
     });
     const selected = await vscode.window.showQuickPick(items, {
         title: SETUP_DIALOG_TITLE,
@@ -166,7 +192,7 @@ async function discoverAndConfigureMac(context) {
         matchOnDetail: true
     });
     if (!selected) return null;
-    if (selected.manualApp) return promptForMacApp(context);
+    if (selected.stataCommandSetup) return promptForStataCommandSetup(context);
     const candidate = selected.candidate;
 
     const version = `Stata${candidate.edition.toUpperCase()}`;
@@ -194,56 +220,6 @@ function getMacCandidateLabel(candidate) {
     return ['Stata', version, edition].filter(Boolean).join(' ');
 }
 
-async function promptForMacApp(context) {
-    const selectedUris = await vscode.window.showOpenDialog({
-        title: SETUP_DIALOG_TITLE,
-        defaultUri: vscode.Uri.file('/Applications'),
-        canSelectFiles: true,
-        canSelectFolders: true,
-        canSelectMany: false,
-        openLabel: msg('stataDiscoveryManualMacApp')
-    });
-    if (!selectedUris || !selectedUris.length) return null;
-
-    const appPath = selectedUris[0].fsPath;
-    const appName = path.basename(appPath, '.app');
-    const edition = editionFromAppName(appName);
-    if (!edition) {
-        await vscode.window.showErrorMessage(msg('stataDiscoveryMacAppInvalid'), {
-            modal: true,
-            title: SETUP_DIALOG_TITLE
-        });
-        return null;
-    }
-
-    const dylibPath = path.join(appPath, 'Contents', 'MacOS', `libstata-${edition}.dylib`);
-    const candidate = {
-        appName,
-        appPath,
-        edition,
-        dylibPath,
-        hasDylib: fs.existsSync(dylibPath),
-        licensePath: path.join(path.dirname(appPath), 'stata.lic'),
-        hasLicense: fs.existsSync(path.join(path.dirname(appPath), 'stata.lic'))
-    };
-    const version = `Stata${edition.toUpperCase()}`;
-    await saveGlobalConfiguration('stataVersionOnMacOS', version);
-    if (context) {
-        await context.globalState.update('stataGuiAppPath', appPath);
-        await context.globalState.update(
-            'stataConsoleDylibPath',
-            candidate.hasDylib ? dylibPath : undefined
-        );
-    }
-    return {
-        platform: 'darwin',
-        version,
-        candidate,
-        autoDetected: false,
-        source: 'manual'
-    };
-}
-
 async function resolveEmptyConfiguration(context, promptOnFailure) {
     const platform = isWindows() ? 'win32' : (isMacOS() ? 'darwin' : null);
     if (!platform) return null;
@@ -252,11 +228,124 @@ async function resolveEmptyConfiguration(context, promptOnFailure) {
     if (!discoveryAttempted[platform]) {
         discoveryAttempted[platform] = true;
         detected = platform === 'win32'
-            ? await discoverAndConfigureWindows()
+            ? await discoverAndConfigureWindows(context)
             : await discoverAndConfigureMac(context);
     }
     if (detected === null || detected || !promptOnFailure) return detected;
-    return platform === 'win32' ? promptForWindowsPath() : promptForMacApp(context);
+    return promptForStataCommandSetup(context);
+}
+
+function normalizeSignalEdition(flavor) {
+    const match = String(flavor || '').match(/^(MP|SE|BE|IC)$/i);
+    return match ? match[1].toLowerCase() : null;
+}
+
+function resolveWindowsSignalInstallation(signal) {
+    const requestedEdition = normalizeSignalEdition(signal.flavor);
+    if (!requestedEdition) return null;
+    const editions = [requestedEdition, 'mp', 'se', 'be', 'ic']
+        .filter((edition, index, values) => values.indexOf(edition) === index);
+    const executableNames = [
+        ...editions.flatMap(edition => [
+            `Stata${edition.toUpperCase()}-64.exe`,
+            `Stata${edition.toUpperCase()}.exe`
+        ]),
+        'Stata-64.exe',
+        'Stata.exe'
+    ];
+    const rawPaths = [signal.sysdirStata, ...(signal.sysdirStataCandidates || [])]
+        .map(value => stripSurroundingQuotes(String(value || '').trim()))
+        .filter((value, index, values) => value && values.indexOf(value) === index);
+    const candidates = rawPaths.flatMap(rawPath => {
+        const windowsPath = rawPath.replace(/\//g, '\\');
+        return path.win32.extname(windowsPath).toLowerCase() === '.exe'
+            ? [windowsPath]
+            : executableNames.map(name => path.win32.join(windowsPath, name));
+    });
+    const executablePath = candidates.find(candidate => !validateWindowsExecutablePath(candidate));
+    if (!executablePath) return null;
+    const editionMatch = path.win32.basename(executablePath).match(/^Stata(MP|SE|BE|IC)/i);
+    const edition = editionMatch ? editionMatch[1].toLowerCase() : requestedEdition;
+    return {
+        platform: 'win32',
+        executablePath,
+        edition,
+        autoDetected: false,
+        source: 'stata-command'
+    };
+}
+
+function extractMacAppPath(rawPath) {
+    const normalized = path.normalize(rawPath);
+    const appIndex = normalized.toLowerCase().indexOf('.app');
+    return appIndex >= 0 ? normalized.slice(0, appIndex + 4) : null;
+}
+
+function resolveMacSignalInstallation(signal) {
+    const requestedEdition = normalizeSignalEdition(signal.flavor);
+    if (!requestedEdition) return null;
+    const rawPath = stripSurroundingQuotes(String(signal.sysdirStata || '').trim());
+    if (!rawPath) return null;
+    const embeddedAppPath = extractMacAppPath(rawPath);
+    const editions = [requestedEdition, 'mp', 'se', 'be', 'ic']
+        .filter((edition, index, values) => values.indexOf(edition) === index);
+    const candidates = [];
+    if (embeddedAppPath) candidates.push({ appPath: embeddedAppPath, edition: requestedEdition });
+    for (const edition of editions) {
+        const appName = `Stata${edition.toUpperCase()}.app`;
+        candidates.push({ appPath: path.join(rawPath, appName), edition });
+        candidates.push({ appPath: path.join(path.dirname(rawPath), appName), edition });
+    }
+    const match = candidates.find(({ appPath: candidate, edition }) => {
+        const executablePaths = [
+            path.join(candidate, 'Contents', 'MacOS', `Stata${edition.toUpperCase()}`),
+            path.join(candidate, 'Contents', 'MacOS', `stata-${edition}`)
+        ];
+        return fs.existsSync(candidate) && executablePaths.some(item => fs.existsSync(item));
+    });
+    if (!match) return null;
+    const { appPath, edition } = match;
+    const dylibPath = path.join(appPath, 'Contents', 'MacOS', `libstata-${edition}.dylib`);
+    const candidate = {
+        appName: path.basename(appPath, '.app'),
+        appPath,
+        edition,
+        dylibPath,
+        hasDylib: fs.existsSync(dylibPath),
+        licensePath: path.join(path.dirname(appPath), 'stata.lic'),
+        hasLicense: fs.existsSync(path.join(path.dirname(appPath), 'stata.lic'))
+    };
+    return {
+        platform: 'darwin',
+        version: `Stata${edition.toUpperCase()}`,
+        candidate,
+        edition,
+        autoDetected: false,
+        source: 'stata-command'
+    };
+}
+
+async function configureFromStataSignal(context, signal) {
+    const resolved = signal.platform === 'win32'
+        ? resolveWindowsSignalInstallation(signal)
+        : resolveMacSignalInstallation(signal);
+    if (!resolved) {
+        const error = new Error(msg('stataSetupSignalPathInvalid'));
+        error.statusCode = 422;
+        error.code = 'STATA_INSTALLATION_NOT_RESOLVED';
+        throw error;
+    }
+    if (resolved.platform === 'win32') {
+        await saveGlobalConfiguration('stataPathOnWindows', resolved.executablePath);
+        return { ...resolved, resolvedPath: resolved.executablePath };
+    }
+    await saveGlobalConfiguration('stataVersionOnMacOS', resolved.version);
+    await context.globalState.update('stataGuiAppPath', resolved.candidate.appPath);
+    await context.globalState.update(
+        'stataConsoleDylibPath',
+        resolved.candidate.hasDylib ? resolved.candidate.dylibPath : undefined
+    );
+    return { ...resolved, resolvedPath: resolved.candidate.appPath };
 }
 
 async function ensureStataConfigured(context, options = {}) {
@@ -282,7 +371,12 @@ function resetStataDiscoveryState(platform = process.platform) {
 module.exports = {
     MAC_DISCOVERY_TIMEOUT_MS,
     WINDOWS_DISCOVERY_TIMEOUT_MS,
+    buildStataNetInstallCommand,
+    configureFromStataSignal,
     ensureStataConfigured,
+    promptForStataCommandSetup,
     resetStataDiscoveryState,
+    resolveMacSignalInstallation,
+    resolveWindowsSignalInstallation,
     validateWindowsExecutablePath
 };

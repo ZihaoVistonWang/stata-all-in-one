@@ -1,0 +1,7 @@
+v 3
+d saio - Configure Stata All in One from Stata
+d Distribution-Date: 20260716
+d Requires: Stata version 13 or newer
+f saio.ado
+f saio.sthlp
+e

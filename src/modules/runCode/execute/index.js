@@ -24,6 +24,7 @@ const { runOnWindows } = require('../externalApp/windows');
 const { runOnMacWebview } = require('../embeddedConsole/mac');
 const { runOnWindowsEmbeddedConsole } = require('../embeddedConsole/windows');
 const { routeBrowseCommand, shouldRouteBrowseCommand } = require('../browseCommand');
+const { containsSaioCommand } = require('../saioCommandGuard');
 
 // 临时文件处理
 const { cleanupTempFile } = require('./tempfile');
@@ -149,6 +150,11 @@ async function runCurrentSection(context, editor = null) {
     const codeToRun = originalCode;
     const runMode = config.getRunMode();
 
+    if (containsSaioCommand(codeToRun)) {
+        showWarn(msg('saioCommandUnavailableInVscode'));
+        return;
+    }
+
     if (shouldRouteBrowseCommand(runMode)) {
         const browseResult = await routeBrowseCommand(codeToRun);
         if (browseResult) {
@@ -257,6 +263,10 @@ async function runArbitraryCode(context, code, options = {}) {
     const normalizedCode = String(code || '');
     if (!normalizedCode.trim()) {
         return { success: false, skipped: true };
+    }
+    if (containsSaioCommand(normalizedCode)) {
+        showWarn(msg('saioCommandUnavailableInVscode'));
+        return { success: false, skipped: true, blockedSaioCommand: true };
     }
 
     const onWindows = isWindows();

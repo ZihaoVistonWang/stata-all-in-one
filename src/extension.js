@@ -22,7 +22,7 @@ const { syncConsoleTerminalTheme } = require('./modules/runCode/embeddedConsole/
 const { prewarmConsoleTextmateTokenizer } = require('./modules/runCode/embeddedConsole/textmateTokenizer');
 const { closeRestoredDataViewerTabs, registerDtaDataViewer } = require('./modules/runCode/embeddedConsole/dataViewer/dtaEditor');
 const { registerHoverProvider, buildHelpIndex, createHoverProvider, DocumentCache } = require('./modules/hoverProvider');
-const { isWindows, isMacOS, showInfo, showWarn, showConsoleUnavailableToast, msg } = require('./utils/common');
+const { isWindows, isMacOS, showError, showInfo, showWarn, showConsoleUnavailableToast, msg } = require('./utils/common');
 
 const { ensureConsoleFontCache, getConsoleFontWebviewOptions } = require('./utils/consoleFonts');
 const capability = require('./modules/capability');
@@ -30,14 +30,17 @@ const config = require('./utils/config');
 const { discoverStataInstallations } = require('./modules/runCode/stataDiscovery');
 const {
     WINDOWS_DISCOVERY_TIMEOUT_MS,
+    configureFromStataSignal,
     ensureStataConfigured,
     resetStataDiscoveryState
 } = require('./modules/runCode/stataInstallationResolver');
 const {
+    ensureStataSetup,
     resetStataSetupState,
     showDebugLicenseFailureDialog,
     startStartupStataSetup
 } = require('./modules/runCode/stataSetupManager');
+const { StataSetupServer } = require('./modules/runCode/stataSetupServer');
 
 // Execution session state context key for "stop" button visibility
 const CONSOLE_SESSION_ACTIVE_KEY = 'stata-all-in-one.consoleSessionActive';
@@ -300,6 +303,35 @@ async function activate(context) {
 
     // Initialize capability state (UNVERIFIED → CONSOLE | EXTERNAL)
     capability.initCapabilityState(context);
+
+    // Keep the localhost setup endpoint alive for the full extension lifetime.
+    // It is intentionally separate from the standalone Stata AI Skill service.
+    const stataSetupServer = new StataSetupServer(context, async signal => {
+        const resolved = await configureFromStataSignal(context, signal);
+        setTimeout(() => {
+            Promise.resolve()
+                .then(() => resetStataSetupState(context))
+                .then(() => capability.setCapabilityState(context, 'unverified'))
+                .then(() => ensureStataSetup(context, {
+                    forceNotice: true,
+                    signalReceived: true,
+                    validateConsole: true,
+                    waitForStartup: false
+                }))
+                .catch(error => {
+                    console.error('Stata All in One: Stata-triggered setup failed:', error.message);
+                    showError(error.message);
+                });
+        }, 0);
+        return resolved;
+    });
+    try {
+        await stataSetupServer.start();
+        context.subscriptions.push(stataSetupServer);
+    } catch (error) {
+        console.error('Stata All in One: Failed to start setup service:', error.message);
+        showWarn(msg('stataSetupServiceUnavailable'));
+    }
 
     clearDeprecatedSettings().catch(err => {
         console.error('Stata All in One: Failed to clear deprecated settings:', err);

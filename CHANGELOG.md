@@ -5,6 +5,10 @@ All notable changes to the Stata All in One extension will be documented in this
 
 ## Unreleased
 
+- **Feat**: Added the dependency-free `saio` command for Stata 13–19, allowing installations missed by automatic discovery to configure the extension through a token-protected persistent localhost GET service. Existing configurations require confirmation unless `force` is supplied.
+- **新增**：新增兼容 Stata 13–19 且无第三方依赖的 `saio` 命令；自动探测遗漏安装时，可通过带一次性令牌保护的常驻本地 GET 服务完成配置。已有配置默认要求确认，只有 `force` 可跳过。
+- **Improved**: VS Code now blocks `saio` commands submitted from the editor or Embedded Console because setup is only needed from a separately opened Stata instance after automatic discovery fails.
+- **优化**：VS Code 现在会拦截从编辑器或内置 Console 提交的 `saio` 命令；该命令只用于自动探测失败后，在单独打开的 Stata 中完成配置。
 - **Feat**: Added an independent, disabled-by-default setting for showing the Sponsor button in Stata editor title bars; the existing action-button setting now controls only Bug Report and Stata AI Skill.
 - **新增**：新增独立的 Stata 编辑器打赏支持按钮开关，默认关闭；原操作按钮开关现仅控制 Bug 反馈和 Stata AI Skill 按钮。
 - **Feat**: Routed `br` and `browse` from the editor and Embedded Console command input to the built-in Data Viewer, including `varlist`, `if`, `in`, and `nolabel` filters, while retaining the command and a localized confirmation in Console. External App mode remains unchanged.

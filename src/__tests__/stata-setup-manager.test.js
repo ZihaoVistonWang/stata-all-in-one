@@ -524,6 +524,32 @@ test('external run mode skips Console validation for an auto-detected installati
     }
 });
 
+test('Stata-triggered setup revalidates Console without changing external run mode', async () => {
+    const installation = createWindowsInstallation();
+    const { calls, manager, settings } = loadSetupManager({
+        runMode: 'externalApp',
+        resolvedInstallation: {
+            platform: 'win32',
+            executablePath: installation.executablePath,
+            source: 'configured'
+        },
+        infoChoices: [BUTTONS.stataSetupKeepExternal]
+    });
+    try {
+        const result = await manager.ensureStataSetup(createContext(), {
+            forceNotice: true,
+            signalReceived: true,
+            validateConsole: true
+        });
+        assert.equal(calls.console, 1);
+        assert.equal(result.consoleAvailable, true);
+        assert.equal(settings.runMode, 'externalApp');
+        assert.match(calls.info[0].modalOptions.detail, /^stataSetupSignalReceived/);
+    } finally {
+        fs.rmSync(installation.directory, { recursive: true, force: true });
+    }
+});
+
 test('external run mode still reports a missing Stata application', async () => {
     const { calls, manager } = loadSetupManager({
         runMode: 'externalApp',
