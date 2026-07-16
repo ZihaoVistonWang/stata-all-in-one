@@ -22,7 +22,12 @@ function loadResolver(options = {}) {
         openDialog: 0,
         quickPick: 0,
         quickPickItems: null,
-        quickPickOptions: null
+        quickPickOptions: null,
+        setupQuickPick: 0,
+        setupQuickPickShow: 0,
+        setupQuickPickHide: 0,
+        setupQuickPickDispose: 0,
+        setupQuickPickInstance: null
     };
     const vscodeMock = {
         ConfigurationTarget: { Global: 1, Workspace: 2, WorkspaceFolder: 3 },
@@ -62,6 +67,30 @@ function loadResolver(options = {}) {
                 return typeof options.quickPickValue === 'function'
                     ? options.quickPickValue(items)
                     : options.quickPickValue;
+            },
+            createQuickPick() {
+                calls.setupQuickPick++;
+                const acceptHandlers = [];
+                const hideHandlers = [];
+                const quickPick = {
+                    items: [],
+                    selectedItems: [],
+                    activeItems: [],
+                    onDidAccept(handler) { acceptHandlers.push(handler); },
+                    onDidHide(handler) { hideHandlers.push(handler); },
+                    show() { calls.setupQuickPickShow++; },
+                    hide() {
+                        calls.setupQuickPickHide++;
+                        for (const handler of hideHandlers) handler();
+                    },
+                    dispose() { calls.setupQuickPickDispose++; },
+                    async accept(index) {
+                        this.selectedItems = [this.items[index]];
+                        for (const handler of acceptHandlers) await handler();
+                    }
+                };
+                calls.setupQuickPickInstance = quickPick;
+                return quickPick;
             },
             async showOpenDialog() {
                 calls.openDialog++;
@@ -161,7 +190,9 @@ test('Windows discovery failure opens the Stata command setup flow', async () =>
     const result = await resolver.ensureStataConfigured(createContext(), { promptOnFailure: true });
     assert.equal(calls.windowsDiscovery, 1);
     assert.equal(calls.input, 0);
-    assert.equal(calls.info, 1);
+    assert.equal(calls.info, 0);
+    assert.equal(calls.setupQuickPick, 1);
+    assert.equal(calls.setupQuickPickShow, 1);
     assert.equal(result.source, 'stata-command-pending');
 });
 
@@ -206,7 +237,7 @@ test('multiple Windows installations require an explicit selection', async () =>
     assert.equal(result.executablePath, candidates[1].executablePath);
 });
 
-test('Stata setup item in the Windows picker opens command instructions', async () => {
+test('Stata setup item opens a persistent two-step copy QuickPick', async () => {
     const { resolver, calls } = loadResolver({
         windowsDiscovery: {
             candidates: [
@@ -214,13 +245,29 @@ test('Stata setup item in the Windows picker opens command instructions', async 
                 { displayName: 'Stata17', edition: 'mp', executablePath: 'D:\\Stata17\\StataMP-64.exe' }
             ]
         },
-        quickPickValue: items => items.at(-1),
-        infoValue: 'stataSetupCommandDone'
+        quickPickValue: items => items.at(-1)
     });
     const result = await resolver.ensureStataConfigured(createContext(), { promptOnFailure: true });
     assert.equal(calls.quickPick, 1);
     assert.equal(calls.input, 0);
-    assert.equal(calls.info, 1);
+    assert.equal(calls.info, 0);
+    assert.equal(calls.setupQuickPick, 1);
+    assert.equal(calls.setupQuickPickInstance.items.length, 2);
+    assert.match(calls.setupQuickPickInstance.items[0].label, /stataSetupQuickPickInstallLabel/);
+    assert.match(calls.setupQuickPickInstance.items[1].label, /stataSetupQuickPickSetupLabel/);
+
+    await calls.setupQuickPickInstance.accept(0);
+    assert.equal(calls.clipboard[0], 'net install saio, from("/extensions/stata-all-in-one/stata/saio") replace');
+    assert.equal(calls.setupQuickPickInstance.items[0].description, 'stataSetupQuickPickCopied');
+    assert.equal(calls.setupQuickPickHide, 0);
+
+    await calls.setupQuickPickInstance.accept(1);
+    assert.equal(calls.clipboard[1], 'saio setup');
+    assert.equal(calls.setupQuickPickInstance.items[1].description, 'stataSetupQuickPickCopied');
+    assert.equal(calls.setupQuickPickHide, 0);
+
+    resolver.closeStataCommandSetupQuickPick();
+    assert.equal(calls.setupQuickPickHide, 1);
     assert.equal(result.source, 'stata-command-pending');
 });
 
@@ -282,7 +329,8 @@ test('macOS discovery failure opens the Stata command setup flow', async () => {
     assert.equal(calls.macDiscovery, 1);
     assert.equal(calls.quickPick, 0);
     assert.equal(calls.openDialog, 0);
-    assert.equal(calls.info, 1);
+    assert.equal(calls.info, 0);
+    assert.equal(calls.setupQuickPick, 1);
     assert.equal(result.source, 'stata-command-pending');
 });
 

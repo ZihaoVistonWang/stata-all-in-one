@@ -30,6 +30,7 @@ const config = require('./utils/config');
 const { discoverStataInstallations } = require('./modules/runCode/stataDiscovery');
 const {
     WINDOWS_DISCOVERY_TIMEOUT_MS,
+    closeStataCommandSetupQuickPick,
     configureFromStataSignal,
     ensureStataConfigured,
     resetStataDiscoveryState
@@ -308,6 +309,7 @@ async function activate(context) {
     // It is intentionally separate from the standalone Stata AI Skill service.
     const stataSetupServer = new StataSetupServer(context, async signal => {
         const resolved = await configureFromStataSignal(context, signal);
+        closeStataCommandSetupQuickPick();
         setTimeout(() => {
             Promise.resolve()
                 .then(() => resetStataSetupState(context))

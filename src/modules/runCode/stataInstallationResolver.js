@@ -20,6 +20,7 @@ const SETUP_DIALOG_TITLE = `✨ Stata All in One (${extensionVersion})`;
 
 let resolutionPromise = null;
 const discoveryAttempted = { win32: false, darwin: false };
+let stataCommandSetupQuickPick = null;
 
 async function saveGlobalConfiguration(key, value) {
     const extensionConfig = vscode.workspace.getConfiguration('stata-all-in-one');
@@ -80,36 +81,69 @@ function buildStataNetInstallCommand(context) {
 }
 
 async function promptForStataCommandSetup(context) {
+    closeStataCommandSetupQuickPick();
+
     const installCommand = buildStataNetInstallCommand(context);
     const setupCommand = 'saio setup';
-    const copyInstall = msg('stataSetupCopyInstallCommand');
-    const copySetup = msg('stataSetupCopySetupCommand');
-    const done = msg('stataSetupCommandDone');
+    const quickPick = vscode.window.createQuickPick();
+    stataCommandSetupQuickPick = quickPick;
+    let installCopied = false;
+    let setupCopied = false;
 
-    while (true) {
-        const choice = await vscode.window.showInformationMessage(
-            SETUP_DIALOG_TITLE,
-            {
-                modal: true,
-                detail: msg('stataSetupCommandInstructions', {
-                    installCommand,
-                    setupCommand
-                })
-            },
-            copyInstall,
-            copySetup,
-            done
-        );
-        if (choice === copyInstall) {
-            await vscode.env.clipboard.writeText(installCommand);
-            continue;
+    const buildItems = () => [
+        {
+            label: `${installCopied ? '$(check)' : '$(primitive-square)'} ${msg('stataSetupQuickPickInstallLabel')}`,
+            description: installCopied
+                ? msg('stataSetupQuickPickCopied')
+                : msg('stataSetupQuickPickClickToCopy'),
+            detail: msg('stataSetupQuickPickInstallDetail'),
+            setupAction: 'copyInstall'
+        },
+        {
+            label: `${setupCopied ? '$(check)' : '$(primitive-square)'} ${msg('stataSetupQuickPickSetupLabel')}`,
+            description: setupCopied
+                ? msg('stataSetupQuickPickCopied')
+                : msg('stataSetupQuickPickClickToCopy'),
+            detail: msg('stataSetupQuickPickSetupDetail'),
+            setupAction: 'copySetup'
         }
-        if (choice === copySetup) {
-            await vscode.env.clipboard.writeText(setupCommand);
-            continue;
-        }
-        break;
+    ];
+
+    quickPick.title = SETUP_DIALOG_TITLE;
+    quickPick.placeholder = msg('stataSetupQuickPickPlaceholder');
+    quickPick.ignoreFocusOut = true;
+    quickPick.matchOnDescription = true;
+    quickPick.matchOnDetail = true;
+    quickPick.items = buildItems();
+    if (context && Array.isArray(context.subscriptions)) {
+        context.subscriptions.push(quickPick);
     }
+
+    quickPick.onDidAccept(async () => {
+        const selected = quickPick.selectedItems[0];
+        if (!selected) return;
+        if (selected.setupAction === 'copyInstall') {
+            await vscode.env.clipboard.writeText(installCommand);
+            installCopied = true;
+            quickPick.placeholder = msg('stataSetupQuickPickInstallCopiedHint');
+        } else if (selected.setupAction === 'copySetup') {
+            await vscode.env.clipboard.writeText(setupCommand);
+            setupCopied = true;
+            quickPick.placeholder = msg('stataSetupQuickPickSetupCopiedHint');
+        }
+        quickPick.items = buildItems();
+        quickPick.selectedItems = [];
+        const nextAction = selected.setupAction === 'copyInstall' ? 'copySetup' : selected.setupAction;
+        const nextItem = quickPick.items.find(item => item.setupAction === nextAction);
+        if (nextItem) quickPick.activeItems = [nextItem];
+    });
+    quickPick.onDidHide(() => {
+        if (stataCommandSetupQuickPick === quickPick) {
+            stataCommandSetupQuickPick = null;
+        }
+        quickPick.dispose();
+    });
+    quickPick.show();
 
     return {
         platform: isWindows() ? 'win32' : 'darwin',
@@ -117,6 +151,13 @@ async function promptForStataCommandSetup(context) {
         pending: true,
         source: 'stata-command-pending'
     };
+}
+
+function closeStataCommandSetupQuickPick() {
+    if (!stataCommandSetupQuickPick) return;
+    const quickPick = stataCommandSetupQuickPick;
+    stataCommandSetupQuickPick = null;
+    quickPick.hide();
 }
 
 async function discoverAndConfigureWindows(context) {
@@ -362,6 +403,7 @@ async function ensureStataConfigured(context, options = {}) {
 }
 
 function resetStataDiscoveryState(platform = process.platform) {
+    closeStataCommandSetupQuickPick();
     if (Object.prototype.hasOwnProperty.call(discoveryAttempted, platform)) {
         discoveryAttempted[platform] = false;
     }
@@ -372,6 +414,7 @@ module.exports = {
     MAC_DISCOVERY_TIMEOUT_MS,
     WINDOWS_DISCOVERY_TIMEOUT_MS,
     buildStataNetInstallCommand,
+    closeStataCommandSetupQuickPick,
     configureFromStataSignal,
     ensureStataConfigured,
     promptForStataCommandSetup,
