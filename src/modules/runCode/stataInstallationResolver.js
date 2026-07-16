@@ -1,5 +1,6 @@
 const vscode = require('vscode');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const config = require('../../utils/config');
 const {
@@ -21,6 +22,7 @@ const SETUP_DIALOG_TITLE = `✨ Stata All in One (${extensionVersion})`;
 let resolutionPromise = null;
 const discoveryAttempted = { win32: false, darwin: false };
 let stataCommandSetupQuickPick = null;
+let stataSetupServer = null;
 
 async function saveGlobalConfiguration(key, value) {
     const extensionConfig = vscode.workspace.getConfiguration('stata-all-in-one');
@@ -80,34 +82,129 @@ function buildStataNetInstallCommand(context) {
     return `net install saio, from("${packageDirectory}") replace`;
 }
 
+function buildStataInstallScript(context, port, token) {
+    const installCommand = buildStataNetInstallCommand(context);
+    const resultFile = '"`__saio_install_response\'"';
+    const resultUrl = `http://127.0.0.1:${port}/installed`;
+    return [
+        'tempfile __saio_install_response',
+        `capture noisily ${installCommand}`,
+        'local __saio_install_rc = _rc',
+        "if `__saio_install_rc' == 0 {",
+        `    capture quietly copy "${resultUrl}?saio=1&token=${token}" ${resultFile}, replace`,
+        '}',
+        'else {',
+        `    capture quietly copy "${resultUrl}?saio=0&token=${token}" ${resultFile}, replace`,
+        '}'
+    ].join('\n');
+}
+
+function getStataInstallationTempDirectory(systemTempDirectory = os.tmpdir()) {
+    return systemTempDirectory;
+}
+
+function buildStataInstallationDoCommand() {
+    return 'do "`c(tmpdir)\'/installation.do"';
+}
+
+function createStataInstallationDo(script) {
+    const installationDoPath = path.join(getStataInstallationTempDirectory(), 'installation.do');
+    fs.writeFileSync(installationDoPath, `${script}\n`, 'utf8');
+    return {
+        installationDoPath,
+        command: buildStataInstallationDoCommand(installationDoPath)
+    };
+}
+
+function removeStataInstallationDo(installationDoPath) {
+    if (!installationDoPath) return;
+    try {
+        fs.unlinkSync(installationDoPath);
+    } catch (error) {
+        if (error.code !== 'ENOENT') {
+            console.warn(`Stata All in One: failed to remove installation do-file: ${error.message}`);
+        }
+    }
+}
+
+function setStataSetupServer(server) {
+    stataSetupServer = server || null;
+}
+
 async function promptForStataCommandSetup(context) {
     closeStataCommandSetupQuickPick();
 
-    const installCommand = buildStataNetInstallCommand(context);
     const setupCommand = 'saio setup';
     const quickPick = vscode.window.createQuickPick();
     stataCommandSetupQuickPick = quickPick;
+    let installSession;
+    let closed = false;
+    let stage = 'install';
     let installCopied = false;
     let setupCopied = false;
+    let installFailed = false;
+    let installationDoPath = null;
 
-    const buildItems = () => [
-        {
+    const buildItems = () => {
+        if (stage === 'setup') {
+            return [{
+                label: `${setupCopied ? '$(check)' : '$(primitive-square)'} ${msg('stataSetupQuickPickSetupLabel')}`,
+                description: setupCopied
+                    ? msg('stataSetupQuickPickCopied')
+                    : msg('stataSetupQuickPickClickToCopy'),
+                detail: msg('stataSetupQuickPickSetupDetail'),
+                setupAction: 'copySetup'
+            }];
+        }
+        return [{
             label: `${installCopied ? '$(check)' : '$(primitive-square)'} ${msg('stataSetupQuickPickInstallLabel')}`,
             description: installCopied
                 ? msg('stataSetupQuickPickCopied')
                 : msg('stataSetupQuickPickClickToCopy'),
-            detail: msg('stataSetupQuickPickInstallDetail'),
+            detail: installFailed
+                ? msg('stataSetupQuickPickInstallFailedDetail')
+                : msg('stataSetupQuickPickInstallDetail'),
             setupAction: 'copyInstall'
-        },
-        {
-            label: `${setupCopied ? '$(check)' : '$(primitive-square)'} ${msg('stataSetupQuickPickSetupLabel')}`,
-            description: setupCopied
-                ? msg('stataSetupQuickPickCopied')
-                : msg('stataSetupQuickPickClickToCopy'),
-            detail: msg('stataSetupQuickPickSetupDetail'),
-            setupAction: 'copySetup'
-        }
-    ];
+        }];
+    };
+
+    try {
+        installSession = stataSetupServer.beginInstallSession(({ installed }) => {
+            if (closed || stataCommandSetupQuickPick !== quickPick) return;
+            quickPick.busy = false;
+            installCopied = false;
+            if (installed) {
+                stage = 'setup';
+                installFailed = false;
+                quickPick.placeholder = msg('stataSetupQuickPickInstallSucceededHint');
+            } else {
+                installFailed = true;
+                quickPick.placeholder = msg('stataSetupQuickPickInstallFailedHint');
+            }
+            quickPick.items = buildItems();
+            quickPick.selectedItems = [];
+            quickPick.activeItems = quickPick.items.length ? [quickPick.items[0]] : [];
+        });
+    } catch {
+        quickPick.dispose();
+        stataCommandSetupQuickPick = null;
+        await vscode.window.showErrorMessage(msg('stataSetupServiceUnavailable'));
+        return {
+            platform: isWindows() ? 'win32' : 'darwin',
+            autoDetected: false,
+            pending: true,
+            source: 'stata-command-pending'
+        };
+    }
+    const installScript = buildStataInstallScript(context, installSession.port, installSession.token);
+    let installClipboardText = installScript;
+    try {
+        const installationDo = createStataInstallationDo(installScript);
+        installationDoPath = installationDo.installationDoPath;
+        installClipboardText = installationDo.command;
+    } catch (error) {
+        console.warn(`Stata All in One: failed to create installation do-file: ${error.message}`);
+    }
 
     quickPick.title = SETUP_DIALOG_TITLE;
     quickPick.placeholder = msg('stataSetupQuickPickPlaceholder');
@@ -123,9 +220,11 @@ async function promptForStataCommandSetup(context) {
         const selected = quickPick.selectedItems[0];
         if (!selected) return;
         if (selected.setupAction === 'copyInstall') {
-            await vscode.env.clipboard.writeText(installCommand);
+            await vscode.env.clipboard.writeText(installClipboardText);
             installCopied = true;
-            quickPick.placeholder = msg('stataSetupQuickPickInstallCopiedHint');
+            installFailed = false;
+            quickPick.busy = true;
+            quickPick.placeholder = msg('stataSetupQuickPickWaitingForInstallHint');
         } else if (selected.setupAction === 'copySetup') {
             await vscode.env.clipboard.writeText(setupCommand);
             setupCopied = true;
@@ -133,11 +232,13 @@ async function promptForStataCommandSetup(context) {
         }
         quickPick.items = buildItems();
         quickPick.selectedItems = [];
-        const nextAction = selected.setupAction === 'copyInstall' ? 'copySetup' : selected.setupAction;
-        const nextItem = quickPick.items.find(item => item.setupAction === nextAction);
-        if (nextItem) quickPick.activeItems = [nextItem];
+        const currentItem = quickPick.items.find(item => item.setupAction === selected.setupAction);
+        if (currentItem) quickPick.activeItems = [currentItem];
     });
     quickPick.onDidHide(() => {
+        closed = true;
+        if (installSession) installSession.dispose();
+        removeStataInstallationDo(installationDoPath);
         if (stataCommandSetupQuickPick === quickPick) {
             stataCommandSetupQuickPick = null;
         }
@@ -413,13 +514,17 @@ function resetStataDiscoveryState(platform = process.platform) {
 module.exports = {
     MAC_DISCOVERY_TIMEOUT_MS,
     WINDOWS_DISCOVERY_TIMEOUT_MS,
+    buildStataInstallationDoCommand,
+    buildStataInstallScript,
     buildStataNetInstallCommand,
     closeStataCommandSetupQuickPick,
     configureFromStataSignal,
     ensureStataConfigured,
+    getStataInstallationTempDirectory,
     promptForStataCommandSetup,
     resetStataDiscoveryState,
     resolveMacSignalInstallation,
     resolveWindowsSignalInstallation,
+    setStataSetupServer,
     validateWindowsExecutablePath
 };

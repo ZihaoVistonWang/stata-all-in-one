@@ -172,6 +172,61 @@ test('setup server advances to the next port when the primary port is occupied',
     }
 });
 
+test('installation result session allows retries after failure and expires after success', async () => {
+    const { StataSetupServer } = loadServerModule();
+    const results = [];
+    const server = new StataSetupServer(createContext(), async () => ({ resolvedPath: '' }), {
+        platform: 'darwin',
+        portStart: 28190,
+        portEnd: 28190,
+        randomBytes: () => Buffer.from('install-session-token-123')
+    });
+    try {
+        await server.start();
+        const session = server.beginInstallSession(result => results.push(result.installed));
+        assert.equal(session.port, 28190);
+
+        const invalidResult = await request(28190, `/installed?saio=2&token=${session.token}`);
+        assert.equal(invalidResult.statusCode, 400);
+
+        const wrongToken = await request(28190, '/installed?saio=1&token=wrong');
+        assert.equal(wrongToken.statusCode, 403);
+
+        const failed = await request(28190, `/installed?saio=0&token=${session.token}`);
+        assert.equal(failed.statusCode, 200);
+        assert.equal(textFields(failed.body).installed, '0');
+        assert.deepEqual(results, [false]);
+
+        const succeeded = await request(28190, `/installed?saio=1&token=${session.token}`);
+        assert.equal(succeeded.statusCode, 200);
+        assert.equal(textFields(succeeded.body).installed, '1');
+        assert.deepEqual(results, [false, true]);
+
+        const replay = await request(28190, `/installed?saio=0&token=${session.token}`);
+        assert.equal(replay.statusCode, 403);
+    } finally {
+        await server.stop();
+    }
+});
+
+test('closing an installation result session invalidates its token', async () => {
+    const { StataSetupServer } = loadServerModule();
+    const server = new StataSetupServer(createContext(), async () => ({ resolvedPath: '' }), {
+        platform: 'darwin',
+        portStart: 28191,
+        portEnd: 28191
+    });
+    try {
+        await server.start();
+        const session = server.beginInstallSession(() => {});
+        session.dispose();
+        const response = await request(28191, `/installed?saio=1&token=${session.token}`);
+        assert.equal(response.statusCode, 403);
+    } finally {
+        await server.stop();
+    }
+});
+
 test('legacy Windows query bytes produce local-code-page path candidates', () => {
     const { decodeQueryValueCandidates } = loadServerModule();
     const candidates = decodeQueryValueCandidates(

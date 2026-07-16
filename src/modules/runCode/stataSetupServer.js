@@ -96,6 +96,7 @@ class StataSetupServer {
         this.server = null;
         this.port = null;
         this.setupToken = null;
+        this.installSession = null;
     }
 
     async start() {
@@ -151,6 +152,7 @@ class StataSetupServer {
         this.server = null;
         this.port = null;
         this.setupToken = null;
+        this.installSession = null;
         await new Promise(resolve => server.close(resolve));
     }
 
@@ -191,6 +193,22 @@ class StataSetupServer {
     _newToken() {
         this.setupToken = this.randomBytes(24).toString('hex');
         return this.setupToken;
+    }
+
+    beginInstallSession(onResult) {
+        if (!this.server || !this.port) {
+            throw new Error('The Stata setup service is not running.');
+        }
+        const token = this.randomBytes(24).toString('hex');
+        const session = { token, onResult };
+        this.installSession = session;
+        return {
+            port: this.port,
+            token,
+            dispose: () => {
+                if (this.installSession === session) this.installSession = null;
+            }
+        };
     }
 
     _validateRequest(request) {
@@ -236,6 +254,10 @@ class StataSetupServer {
         }
         if (url.pathname === '/setup') {
             await this._handleSetup(request, url, response);
+            return;
+        }
+        if (url.pathname === '/installed') {
+            await this._handleInstalled(url, response);
             return;
         }
         this._sendText(response, 404, {
@@ -308,6 +330,35 @@ class StataSetupServer {
             accepted: 1,
             resolvedPath: result.resolvedPath,
             message: 'Configuration received. Return to VS Code.'
+        });
+    }
+
+    async _handleInstalled(url, response) {
+        const result = url.searchParams.get('saio');
+        const token = url.searchParams.get('token');
+        if (result !== '0' && result !== '1') {
+            const error = new Error('The saio installation result must be 0 or 1.');
+            error.statusCode = 400;
+            error.code = 'INVALID_INSTALL_RESULT';
+            throw error;
+        }
+        const session = this.installSession;
+        if (!session || !token || token !== session.token) {
+            const error = new Error('The saio installation session is invalid or has expired.');
+            error.statusCode = 403;
+            error.code = 'INVALID_INSTALL_TOKEN';
+            throw error;
+        }
+
+        const installed = result === '1';
+        if (installed) this.installSession = null;
+        if (typeof session.onResult === 'function') {
+            await session.onResult({ installed });
+        }
+        this._sendText(response, 200, {
+            success: 1,
+            acknowledged: 1,
+            installed: installed ? 1 : 0
         });
     }
 

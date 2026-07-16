@@ -5,6 +5,9 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
+const TEST_EXTENSION_PATH = fs.mkdtempSync(path.join(os.tmpdir(), 'stata-resolver-extension-'));
+const TEST_INSTALLATION_TEMP_PATH = fs.mkdtempSync(path.join(os.tmpdir(), 'stata-resolver-installation-'));
+
 function loadResolver(options = {}) {
     const settings = {
         stataPathOnWindows: options.windowsPath || '',
@@ -27,7 +30,9 @@ function loadResolver(options = {}) {
         setupQuickPickShow: 0,
         setupQuickPickHide: 0,
         setupQuickPickDispose: 0,
-        setupQuickPickInstance: null
+        setupQuickPickInstance: null,
+        installSessionDispose: 0,
+        installResultHandler: null
     };
     const vscodeMock = {
         ConfigurationTarget: { Global: 1, Workspace: 2, WorkspaceFolder: 3 },
@@ -138,6 +143,12 @@ function loadResolver(options = {}) {
     Module._load = function(request, parent, isMain) {
         if (parent && parent.filename === resolverPath) {
             if (request === 'vscode') return vscodeMock;
+            if (request === 'os') {
+                return {
+                    platform: () => 'win32',
+                    tmpdir: () => options.installationTempPath || TEST_INSTALLATION_TEMP_PATH
+                };
+            }
             if (request === '../../utils/config') return configMock;
             if (request === '../../utils/common') return commonMock;
             if (request === './stataDiscovery') return stataDiscoveryMock;
@@ -150,13 +161,23 @@ function loadResolver(options = {}) {
     } finally {
         Module._load = originalLoad;
     }
+    resolver.setStataSetupServer(options.setupServer || {
+        beginInstallSession(handler) {
+            calls.installResultHandler = handler;
+            return {
+                port: options.installPort || 16888,
+                token: 'install-token',
+                dispose() { calls.installSessionDispose++; }
+            };
+        }
+    });
     return { resolver, settings, updates, calls };
 }
 
-function createContext() {
+function createContext(extensionPath = TEST_EXTENSION_PATH) {
     const values = new Map();
     return {
-        extensionPath: '/extensions/stata-all-in-one',
+        extensionPath,
         globalState: {
             get: key => values.get(key),
             async update(key, value) { values.set(key, value); }
@@ -183,6 +204,14 @@ test('concurrent configuration callers share one Windows discovery promise', asy
     assert.equal(settings.stataPathOnWindows, candidate.executablePath);
     assert.equal(firstResult.executablePath, candidate.executablePath);
     assert.equal(secondResult.executablePath, candidate.executablePath);
+});
+
+test('installation do-file command keeps the system temporary path out of the clipboard', () => {
+    const { resolver } = loadResolver();
+    assert.equal(resolver.getStataInstallationTempDirectory('/var/folders/long/T'), '/var/folders/long/T');
+    assert.equal(resolver.getStataInstallationTempDirectory('C:\\Users\\test\\AppData\\Local\\Temp'), 'C:\\Users\\test\\AppData\\Local\\Temp');
+    assert.equal(resolver.buildStataInstallationDoCommand('/var/folders/long/T/installation.do', 'darwin'), 'do "`c(tmpdir)\'/installation.do"');
+    assert.equal(resolver.buildStataInstallationDoCommand('C:\\Users\\test\\AppData\\Local\\Temp\\installation.do', 'win32'), 'do "`c(tmpdir)\'/installation.do"');
 });
 
 test('Windows discovery failure opens the Stata command setup flow', async () => {
@@ -237,7 +266,7 @@ test('multiple Windows installations require an explicit selection', async () =>
     assert.equal(result.executablePath, candidates[1].executablePath);
 });
 
-test('Stata setup item opens a persistent two-step copy QuickPick', async () => {
+test('Stata setup QuickPick reveals setup only after a successful installation result', async () => {
     const { resolver, calls } = loadResolver({
         windowsDiscovery: {
             candidates: [
@@ -252,23 +281,55 @@ test('Stata setup item opens a persistent two-step copy QuickPick', async () => 
     assert.equal(calls.input, 0);
     assert.equal(calls.info, 0);
     assert.equal(calls.setupQuickPick, 1);
-    assert.equal(calls.setupQuickPickInstance.items.length, 2);
+    assert.equal(calls.setupQuickPickInstance.items.length, 1);
     assert.match(calls.setupQuickPickInstance.items[0].label, /stataSetupQuickPickInstallLabel/);
-    assert.match(calls.setupQuickPickInstance.items[1].label, /stataSetupQuickPickSetupLabel/);
 
     await calls.setupQuickPickInstance.accept(0);
-    assert.equal(calls.clipboard[0], 'net install saio, from("/extensions/stata-all-in-one/stata/saio") replace');
+    assert.equal(calls.clipboard[0], 'do "`c(tmpdir)\'/installation.do"');
+    const installationDoPath = path.join(TEST_INSTALLATION_TEMP_PATH, 'installation.do');
+    const installationScript = fs.readFileSync(installationDoPath, 'utf8');
+    assert.match(installationScript, /capture noisily net install saio, from\(".*\/stata\/saio"\) replace/);
+    assert.match(installationScript, /if `__saio_install_rc' == 0 \{/);
+    assert.match(installationScript, /\/installed\?saio=1&token=install-token/);
+    assert.match(installationScript, /else \{/);
+    assert.match(installationScript, /\/installed\?saio=0&token=install-token/);
     assert.equal(calls.setupQuickPickInstance.items[0].description, 'stataSetupQuickPickCopied');
+    assert.equal(calls.setupQuickPickInstance.busy, true);
     assert.equal(calls.setupQuickPickHide, 0);
 
-    await calls.setupQuickPickInstance.accept(1);
+    calls.installResultHandler({ installed: false });
+    assert.equal(calls.setupQuickPickInstance.items.length, 1);
+    assert.match(calls.setupQuickPickInstance.items[0].label, /stataSetupQuickPickInstallLabel/);
+    assert.equal(calls.setupQuickPickInstance.items[0].detail, 'stataSetupQuickPickInstallFailedDetail');
+    assert.equal(calls.setupQuickPickInstance.busy, false);
+
+    calls.installResultHandler({ installed: true });
+    assert.equal(calls.setupQuickPickInstance.items.length, 1);
+    assert.match(calls.setupQuickPickInstance.items[0].label, /stataSetupQuickPickSetupLabel/);
+
+    await calls.setupQuickPickInstance.accept(0);
     assert.equal(calls.clipboard[1], 'saio setup');
-    assert.equal(calls.setupQuickPickInstance.items[1].description, 'stataSetupQuickPickCopied');
+    assert.equal(calls.setupQuickPickInstance.items[0].description, 'stataSetupQuickPickCopied');
     assert.equal(calls.setupQuickPickHide, 0);
 
     resolver.closeStataCommandSetupQuickPick();
     assert.equal(calls.setupQuickPickHide, 1);
+    assert.equal(calls.installSessionDispose, 1);
+    assert.equal(fs.existsSync(installationDoPath), false);
     assert.equal(result.source, 'stata-command-pending');
+});
+
+test('installation command falls back to inline Stata code when the temporary directory is not writable', async () => {
+    const blockedTempPath = path.join(TEST_INSTALLATION_TEMP_PATH, 'not-a-directory');
+    fs.writeFileSync(blockedTempPath, 'blocked');
+    const { resolver, calls } = loadResolver({ installationTempPath: blockedTempPath });
+    await resolver.promptForStataCommandSetup(createContext());
+    await calls.setupQuickPickInstance.accept(0);
+
+    assert.match(calls.clipboard[0], /^tempfile __saio_install_response/);
+    assert.match(calls.clipboard[0], /\/installed\?saio=1&token=install-token/);
+    assert.match(calls.clipboard[0], /\/installed\?saio=0&token=install-token/);
+    resolver.closeStataCommandSetupQuickPick();
 });
 
 test('Windows manual path validation rejects missing and non-EXE files', () => {

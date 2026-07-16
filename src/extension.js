@@ -33,7 +33,8 @@ const {
     closeStataCommandSetupQuickPick,
     configureFromStataSignal,
     ensureStataConfigured,
-    resetStataDiscoveryState
+    resetStataDiscoveryState,
+    setStataSetupServer
 } = require('./modules/runCode/stataInstallationResolver');
 const {
     ensureStataSetup,
@@ -329,8 +330,10 @@ async function activate(context) {
     });
     try {
         await stataSetupServer.start();
+        setStataSetupServer(stataSetupServer);
         context.subscriptions.push(stataSetupServer);
     } catch (error) {
+        setStataSetupServer(null);
         console.error('Stata All in One: Failed to start setup service:', error.message);
         showWarn(msg('stataSetupServiceUnavailable'));
     }
