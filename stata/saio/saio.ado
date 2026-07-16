@@ -100,11 +100,11 @@ program define saio, rclass
         local saio_confirm ""
         if `zh' {
             display as text _newline "检测到 Stata All in One 已有配置。"
-            display as result "是否使用当前运行的 Stata 重新配置？[y/N]: " _request(_saio_confirm)
+            display as result "是否使用当前运行的 Stata 重新配置？继续请输入 y，取消请输入 n：" _request(_saio_confirm)
         }
         else {
             display as text _newline "Stata All in One is already configured."
-            display as result "Reconfigure it using the currently running Stata? [y/N]: " _request(_saio_confirm)
+            display as result "Reconfigure using the currently running Stata? Enter y to continue or n to cancel: " _request(_saio_confirm)
         }
         local answer = lower(strtrim(`"`saio_confirm'"'))
         if !inlist(`"`answer'"', "y", "yes", "1") {
@@ -118,7 +118,8 @@ program define saio, rclass
 
     local stata_os `"`c(os)'"'
     local stata_version `"`c(stata_version)'"'
-    local stata_flavor `"`c(flavor)'"'
+    quietly _saio_detect_flavor
+    local stata_flavor `"`r(flavor)'"'
     local machine_type `"`c(machine_type)'"'
     local sysdir_stata `"`c(sysdir_stata)'"'
 
@@ -176,6 +177,26 @@ program define saio, rclass
     return scalar configured = `configured'
     return local extension_version `"`extension_version'"'
     return local installation_path `"`installation_path'"'
+end
+
+program define _saio_detect_flavor, rclass
+    version 13
+    local edition ""
+    if c(MP) {
+        local edition "MP"
+    }
+    else if c(SE) {
+        local edition "SE"
+    }
+    else {
+        capture local edition = upper(strtrim(c(edition_real)))
+        local edition_rc = _rc
+        if `edition_rc' | `"`edition'"' == "" {
+            capture local edition = upper(strtrim(c(flavor)))
+            if _rc local edition ""
+        }
+    }
+    return local flavor `"`edition'"'
 end
 
 program define _saio_language, rclass
