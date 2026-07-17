@@ -118,6 +118,12 @@ test('exports standalone HTML with escaped output, source link, styles, and embe
     assert.match(result.content, /id="theme-toggle"/);
     assert.match(result.content, /data-theme="dark"/);
     assert.match(result.content, /IntersectionObserver/);
+    assert.match(result.content, /fontsapi\.zeoseven\.com\/442\/main\/result\.css/);
+    assert.match(result.content, /fontsource\/fonts\/maple-mono@latest\/latin-400-normal\.woff2/);
+    assert.match(result.content, /local\("Maple Mono"\)/);
+    assert.match(result.content, /--export-mono-font: "Maple Mono", "Maple Mono NF CN"/);
+    assert.match(result.content, /\.command \{[\s\S]*font-family: var\(--export-mono-font\);/);
+    assert.match(result.content, /\.output-line \{[\s\S]*font-family: var\(--export-mono-font\);/);
     assert.match(result.content, /\.command \{[\s\S]*white-space: pre;[\s\S]*overflow-x: auto;/);
     assert.match(result.content, /\.run-output \{[\s\S]*overflow-x: auto;/);
     assert.match(result.content, /\.output-line \{[\s\S]*width: max-content;[\s\S]*white-space: pre;/);

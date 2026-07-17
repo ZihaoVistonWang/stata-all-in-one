@@ -3,6 +3,9 @@ const path = require('path');
 
 const MARKETPLACE_URL = 'https://marketplace.visualstudio.com/items?itemName=ZihaoVistonWang.stata-all-in-one';
 const EXPORT_BASENAME = 'stata-all-in-one-export';
+const ONLINE_CJK_FONT_CSS_URL = 'https://fontsapi.zeoseven.com/442/main/result.css';
+const ONLINE_LATIN_FONT_WOFF2_URL = 'https://cdn.jsdelivr.net/fontsource/fonts/maple-mono@latest/latin-400-normal.woff2';
+const ONLINE_LATIN_FONT_WOFF_URL = 'https://cdn.jsdelivr.net/fontsource/fonts/maple-mono@latest/latin-400-normal.woff';
 
 function entryText(entry) {
     return (Array.isArray(entry && entry.segments) ? entry.segments : [])
@@ -329,10 +332,23 @@ function serializeInteractiveHtml(prepared, options) {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Stata All in One Export</title>
+<link rel="preload" href="${ONLINE_CJK_FONT_CSS_URL}" as="style" crossorigin>
+<link rel="stylesheet" href="${ONLINE_CJK_FONT_CSS_URL}" crossorigin>
 <script>(function(){try{var saved=localStorage.getItem('stata-all-in-one-export-theme');var theme=saved||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');document.documentElement.dataset.theme=theme}catch(_error){}})();</script>
 <style>
+@font-face {
+    font-family: "Maple Mono";
+    font-style: normal;
+    font-display: swap;
+    font-weight: 400;
+    src: url("${ONLINE_LATIN_FONT_WOFF2_URL}") format("woff2"),
+         url("${ONLINE_LATIN_FONT_WOFF_URL}") format("woff"),
+         local("Maple Mono"),
+         local("Maple Mono NF CN");
+}
 :root {
     color-scheme: light;
+    --export-mono-font: "Maple Mono", "Maple Mono NF CN", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
     --bgColor-default: #ffffff;
     --bgColor-muted: #f6f8fa;
     --bgColor-overlay: #ffffff;
@@ -381,7 +397,9 @@ body {
     padding: 34px 74px 72px 104px;
     background: var(--bgColor-default);
     color: var(--fgColor-default);
-    font: 14px/1.5 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    font-family: var(--export-mono-font);
+    font-size: 14px;
+    line-height: 1.5;
     transition: background-color 0.18s ease, color 0.18s ease;
 }
 .source { margin: 0 0 32px; color: var(--fgColor-muted); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
@@ -474,6 +492,9 @@ body {
     overflow-x: auto;
     overflow-y: hidden;
     overflow-wrap: normal;
+    font-family: var(--export-mono-font);
+    font-size: inherit;
+    line-height: inherit;
     tab-size: 4;
     scrollbar-color: var(--borderColor-default) transparent;
 }
@@ -493,6 +514,7 @@ body {
     min-height: 1.5em;
     padding-left: 1rem;
     white-space: pre;
+    font-family: var(--export-mono-font);
     tab-size: 4;
     overflow-wrap: normal;
 }
