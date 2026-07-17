@@ -1,0 +1,3 @@
+v 3
+d Stata AI Skill local configuration command
+p aiskill Configure Stata AI Skill from Stata

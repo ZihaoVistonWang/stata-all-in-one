@@ -1,17 +1,19 @@
 ---
 name: stata-ai-skill
-description: Run Stata code and statistical analysis through the native Stata AI Skill background service at http://127.0.0.1:19522. Use when the user asks to run Stata commands, regressions, summarize data, t tests, hypothesis tests, do-files, .do scripts, .dta datasets, econometrics workflows, or search Stata articles and cookbook-style resources with lianxh. Uses the packaged native executable and localhost HTTP API.
+version: v1.1
+description: Run, configure, reset, or reconfigure Stata through the native Stata AI Skill background service at http://127.0.0.1:19522. Use when the user asks to run Stata commands, regressions, summarize data, t tests, hypothesis tests, do-files, .do scripts, .dta datasets, econometrics workflows, switch the configured Stata installation, redo Skill setup, clear Stata AI Skill configuration, or search Stata articles and cookbook-style resources with lianxh. No VS Code, Node.js, or Python runtime is required on the user side.
 ---
 
 # Stata AI Skill
 
 Requires Apple Silicon macOS or Windows, the native `stata-ai-skill`
 executable, and a locally installed/licensed Stata. Intel Mac is not
-supported. If automatic Stata discovery fails, ask the user where the Stata
-app/program is installed and configure it with the executable CLI.
+supported. If automatic Stata discovery fails, use the agent-guided two-stage
+`aiskill setup` fallback on the same localhost service port.
 
-This native service provides the Stata AI Skill HTTP workflow through the
-packaged executable and localhost API.
+This native service is extracted from
+[ZihaoVistonWang/stata-all-in-one](https://github.com/ZihaoVistonWang/stata-all-in-one)
+and preserves the AI Skill HTTP workflow without requiring VS Code at runtime.
 
 Use the native localhost service at `http://127.0.0.1:19522` to run Stata.
 Do not import internal modules. The stable interface is HTTP.
@@ -36,6 +38,14 @@ stata-ai-skill/
       stata-ai-skill.exe          (x64)
     windows-arm64/
       stata-ai-skill.exe          (ARM64)
+  scripts/
+    discover_stata_windows.bat
+  stata/
+    aiskill/
+      aiskill.ado
+      aiskill.sthlp
+      aiskill.pkg
+      stata.toc
 ```
 
 Resolution order:
@@ -92,6 +102,40 @@ executable path. Examples:
 
 ## Agent Workflow
 
+### Reset And Reconfigure
+
+Interpret requests such as "reconfigure this Skill", "reset the Stata Skill",
+"重新配置该技能", "重置 Stata 配置", "换一个 Stata", or "start setup
+over" as an explicit request to delete the persisted Stata AI Skill
+configuration and run setup again. The request itself authorizes this reset;
+do not ask for another confirmation.
+
+If the service is online, reset it in place:
+
+```bash
+curl -s -X POST http://127.0.0.1:19522/configure/reset
+```
+
+This removes the persisted config file and returns `restartRequired: true`.
+Wait for the service to stop, then restart it with the resolved executable and
+no `--stata-path` argument. Stopping the process safely closes the embedded
+Stata session and clears install/setup tokens and phases. It does not uninstall
+Stata, delete ado packages, or alter the Stata license.
+
+If the service is offline, use the resolved executable and then start it:
+
+```bash
+stata-ai-skill config reset
+stata-ai-skill serve
+```
+
+After restarting, read `/status` and follow the ordinary setup flow below. A
+detected candidate must be shown to the user for explicit
+selection even when there is only one; no candidate enters the manual two-stage
+flow. If reset returns HTTP 409 because Stata is busy, wait for the current
+execution to finish and retry once. Do not use `aiskill setup, force` as a
+substitute because it leaves the old persisted selection in place.
+
 1. Check whether the service is running:
 
 ```bash
@@ -122,51 +166,86 @@ nohup ./bin/macos-arm64/stata-ai-skill serve > /tmp/stata-ai-skill.log 2>&1 &
 curl -s http://127.0.0.1:19523/status
 ```
 
-3. If `/status` returns `needsConfiguration: true`, ask the user where the Stata
-app/program is installed. Avoid saying only "Stata path" because some users do
-not know what a path is. Then configure it:
+3. Read `setup.phase` before attempting execution. The setup states and required
+agent actions are:
+
+| `setup.phase` | Agent action |
+|---|---|
+| `selection_required` | Ask the user to choose a detected Stata installation, then call `/configure` |
+| `manual_setup_required` | Immediately create an install session and give the user the generated `installation.do` command |
+| `awaiting_install_result` | Wait for the user to run the first copied command; poll `/status` every two seconds in windows no longer than one minute |
+| `awaiting_aiskill_setup` | Give the user the second command, `aiskill setup` |
+| `configuring` | Continue polling until `ready` or `configuration_failed` |
+| `install_failed` | Offer retry or skip; do not show `aiskill setup` |
+| `configuration_failed` | Report `setup.lastResult`, license diagnostics, and offer retry |
+| `ready` | Call `/execute` |
+
+### Confirm An Automatically Detected Installation
+
+`detectedCandidates` is sorted by newest Stata version, then MP, SE, BE, and
+IC. Even when there is only one candidate, do not select it silently. Use the
+host agent's best structured question tool to show the recommended candidate,
+other candidates, and a manual-setup choice. If no structured question tool is
+available, ask in chat and wait for an explicit reply.
+
+If the user chooses manual setup, treat that selection as the complete choice:
+call `POST /setup/install-session` immediately and show its returned command.
+Do not ask a second question about installing `aiskill`.
+
+After confirmation, configure and initialize through the already running
+service; no restart is needed:
 
 ```bash
-stata-ai-skill config set --stata-path "<USER_PROVIDED_STATA_PATH>"
+curl -s -X POST http://127.0.0.1:19522/configure \
+  -H "Content-Type: application/json" \
+  -d '{"stataPath":"/Applications/StataNow/StataMP.app"}'
 ```
 
-Again, use the resolved executable path. For example:
+Use the selected candidate's `path` exactly. A successful response returns the
+updated status with `sessionActive: true` and `setup.phase: "ready"`.
+
+### Manual Two-Stage `aiskill setup`
+
+Use this when automatic discovery finds no candidates or the user explicitly
+chooses manual setup. That choice already starts the manual workflow; do not
+ask for a second installation confirmation. Immediately create an installation
+session:
 
 ```bash
-./bin/macos/stata-ai-skill config set --stata-path "/Applications/StataNow/StataMP.app"
+curl -s -X POST http://127.0.0.1:19522/setup/install-session
 ```
 
-```powershell
-.\bin\windows\stata-ai-skill.exe config set --stata-path "C:\Program Files\Stata18"
+Copy or display the returned `command`, normally:
+
+```stata
+do "`c(tmpdir)'/installation.do"
 ```
 
-**Important:** After running `config set`, the running service does NOT pick up
-the new configuration. You must shut down and restart the service:
+Tell the user to run this command in the specific GUI Stata installation they
+want the Skill to use. The command runs `net install` inside that Stata process,
+so Stata itself selects the correct PERSONAL/PLUS ado directory for that user;
+the agent and background service must not guess or write the ado path directly.
 
-```bash
-curl -s -X POST http://127.0.0.1:19522/shutdown
-# then start again:
-./bin/macos/stata-ai-skill serve
+The 19522 service remains alive in `awaiting_install_result` and receives the
+script's success or failure callback at `GET /installed`. Poll JSON `/status`
+in the background; do not issue the second command until the phase becomes
+`awaiting_aiskill_setup`. Then ask the user to run this in the same separately
+opened GUI Stata:
+
+```stata
+aiskill setup
 ```
 
-User-facing wording:
+Never run `aiskill setup` through `/execute`. It obtains a one-time token from
+`GET /status?format=stata`, reports the GUI Stata platform, version, edition,
+machine type, and `c(sysdir_stata)` to `GET /setup`, and returns immediately.
+Continue polling JSON `/status` until `ready` or `configuration_failed`.
 
-- macOS: "Open Finder > Applications, find the Stata app icon, and tell me its
-  name/location. You can also drag the Stata app into Terminal to reveal a path
-  like `/Applications/StataNow/StataMP.app`."
-- Windows: "Find Stata in the Start menu or under `C:\Program Files\Stata...`.
-  The program may be named `StataMP-64.exe`, `StataSE-64.exe`, or similar."
+Setup/install tokens are single-use and expire after ten minutes. Ordinary
+JSON `/status` polling does not rotate or invalidate the Stata setup token.
 
-Accepted paths include the Stata app/exe, install directory, or shared library:
-
-- macOS: `/Applications/StataMP.app`
-- macOS: `/Applications/StataNow/StataMP.app`
-- macOS: `/Applications/StataMP.app/Contents/MacOS/libstata-mp.dylib`
-- Windows: `C:\Program Files\Stata18`
-- Windows: `C:\Program Files\Stata18\StataMP-64.exe`
-- Windows: `C:\Program Files\Stata18\mp-64.dll`
-
-4. Recheck `/status`. If `sessionActive: true`, call `/execute`.
+4. If `/status` returns `sessionActive: true` and `setup.phase: "ready"`, call
+`/execute`.
 
 `/status` includes diagnostic fields agents should use for troubleshooting:
 
