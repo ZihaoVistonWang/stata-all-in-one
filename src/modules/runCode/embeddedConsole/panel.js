@@ -12,6 +12,7 @@ const variableSuggestions = require('../../variableSuggestionService');
 const config = require('../../../utils/config');
 const capability = require('../../capability');
 const { hasOpenStataSourceTab } = require('./editorRestorePolicy');
+const { createExportFilename, serializeConsoleExport } = require('./consoleExport');
 
 const _renderer = new StataTerminalRenderer();
 
@@ -191,6 +192,8 @@ function attachPanel(panel) {
                 const { revealDataViewer } = require('./dataViewer/panel');
                 revealDataViewer(message.filterText || '');
             }
+        } else if (message && message.type === 'exportConsole') {
+            await exportConsoleHistory();
         } else if (message && message.type === 'saveGraph') {
             await saveGraphAs(message.filePath, message.graphName, message.format);
         } else if (message && message.type === 'copyGraphCopied') {
@@ -209,6 +212,111 @@ function attachPanel(panel) {
         }
     });
     return _panel;
+}
+
+function getConsoleExportDefaultUri(extension) {
+    const fileName = createExportFilename(new Date(), extension);
+    const editor = vscode.window.activeTextEditor;
+    if (editor && editor.document && editor.document.uri && editor.document.uri.scheme === 'file') {
+        const documentPath = editor.document.uri.fsPath;
+        const documentExtension = path.extname(documentPath).toLowerCase();
+        if (editor.document.languageId === 'stata' || ['.do', '.ado', '.mata'].includes(documentExtension)) {
+            return vscode.Uri.file(path.join(path.dirname(documentPath), fileName));
+        }
+    }
+    const workspaceFolder = Array.isArray(vscode.workspace.workspaceFolders)
+        ? vscode.workspace.workspaceFolders[0]
+        : null;
+    return workspaceFolder ? vscode.Uri.joinPath(workspaceFolder.uri, fileName) : undefined;
+}
+
+function ensureConsoleExportExtension(uri, extension) {
+    const expected = `.${String(extension || '').replace(/^\./, '')}`;
+    if (String(uri.path || '').toLowerCase().endsWith(expected.toLowerCase())) {
+        return uri;
+    }
+    const currentExtension = path.posix.extname(uri.path || '');
+    const basePath = currentExtension
+        ? uri.path.slice(0, -currentExtension.length)
+        : uri.path;
+    return uri.with({ path: `${basePath}${expected}` });
+}
+
+async function exportConsoleHistory() {
+    if (_status === 'running') {
+        showWarn(msg('consoleExportWhileRunning'));
+        return;
+    }
+    if (!_history.length) {
+        showWarn(msg('consoleExportNoHistory'));
+        return;
+    }
+
+    const formatPick = await vscode.window.showQuickPick([
+        {
+            label: msg('consoleExportHtml'),
+            description: msg('consoleExportHtmlDescription'),
+            value: 'html'
+        },
+        {
+            label: msg('consoleExportMarkdown'),
+            description: msg('consoleExportMarkdownDescription'),
+            value: 'md'
+        },
+        {
+            label: msg('consoleExportNotebook'),
+            description: msg('consoleExportNotebookDescription'),
+            value: 'ipynb'
+        }
+    ], {
+        placeHolder: msg('consoleExportFormatPlaceholder')
+    });
+    if (!formatPick) return;
+
+    const targetUri = await vscode.window.showSaveDialog({
+        defaultUri: getConsoleExportDefaultUri(formatPick.value),
+        filters: {
+            [msg('consoleExportFileFilter')]: [formatPick.value]
+        }
+    });
+    if (!targetUri) return;
+    if (_status === 'running') {
+        showWarn(msg('consoleExportWhileRunning'));
+        return;
+    }
+    if (!_history.length) {
+        showWarn(msg('consoleExportNoHistory'));
+        return;
+    }
+
+    const normalizedTarget = ensureConsoleExportExtension(targetUri, formatPick.value);
+    const historySnapshot = _history.slice();
+    try {
+        const result = await vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: msg('consoleExportProgress'),
+            cancellable: false
+        }, async () => {
+            const exported = await serializeConsoleExport(historySnapshot, formatPick.value, {
+                language: vscode.env.language,
+                sourceBefore: msg('consoleExportSourceBefore'),
+                sourceAfter: msg('consoleExportSourceAfter'),
+                graphUnavailable: graphName => msg('consoleExportGraphUnavailable', { graphName })
+            });
+            await vscode.workspace.fs.writeFile(normalizedTarget, Buffer.from(exported.content, 'utf8'));
+            return exported;
+        });
+
+        if (result.missingGraphs.length) {
+            showWarn(msg('consoleExportMissingGraphs', { count: result.missingGraphs.length }));
+        } else {
+            showInfo(msg('consoleExportSuccess', {
+                fileName: path.basename(normalizedTarget.fsPath || normalizedTarget.path)
+            }));
+        }
+    } catch (error) {
+        showError(msg('consoleExportFailed', { message: error.message || String(error) }));
+    }
 }
 
 function ensurePanel() {
@@ -1478,6 +1586,11 @@ function getWebviewHtml(webview) {
             <button id="data-button" class="statusbar-button" type="button" title="${escapeHtml(msg('dataViewerPanelTitle'))}">
                 <span class="statusbar-icon codicon codicon-table" aria-hidden="true"></span>
             </button>
+            <button id="export-button" class="statusbar-button" type="button" title="${escapeHtml(msg('consoleExport'))}" disabled>
+                <svg class="statusbar-icon" viewBox="0 0 16 16" aria-hidden="true">
+                    <path d="M8.5 1.5v7.29l2.65-2.64.7.7L8 10.71 4.15 6.85l.7-.7L7.5 8.79V1.5h1zM2.5 10v3.5h11V10h1v4.5h-13V10h1z"></path>
+                </svg>
+            </button>
         </div>
     </div>
     <div id="output">
@@ -1529,6 +1642,7 @@ function getWebviewHtml(webview) {
         const stopButton = document.getElementById('stop-button');
         const clearButton = document.getElementById('clear-button');
         const dataButton = document.getElementById('data-button');
+        const exportButton = document.getElementById('export-button');
         const graphFullscreen = document.getElementById('graph-fullscreen');
         const graphFullscreenImage = document.getElementById('graph-fullscreen-image');
         const graphFullscreenClose = document.getElementById('graph-fullscreen-close');
@@ -2026,6 +2140,7 @@ function getWebviewHtml(webview) {
                     input.focus();
                 }
             }
+            updateExportButtonState();
         }
 
         function ensurePlaceholderVisibility() {
@@ -2064,6 +2179,7 @@ function getWebviewHtml(webview) {
             renderedEntries = renderedEntries.concat(entries);
             appendRenderedEntries(entries);
             ensurePlaceholderVisibility();
+            updateExportButtonState();
             if (shouldStick) {
                 output.scrollTop = output.scrollHeight;
             }
@@ -2074,7 +2190,12 @@ function getWebviewHtml(webview) {
             renderedEntries = Array.isArray(entries) ? entries.slice() : [];
             overflowNoticeDismissedForCurrentView = false;
             renderAllEntries();
+            updateExportButtonState();
             requestAnimationFrame(updateOverflowNotice);
+        }
+
+        function updateExportButtonState() {
+            exportButton.disabled = document.body.dataset.status === 'running' || renderedEntries.length === 0;
         }
 
         function renderAllEntries() {
@@ -2686,6 +2807,12 @@ function getWebviewHtml(webview) {
 
         dataButton.addEventListener('click', () => {
             vscode.postMessage({ type: 'showDataViewer' });
+        });
+
+        exportButton.addEventListener('click', () => {
+            if (!exportButton.disabled) {
+                vscode.postMessage({ type: 'exportConsole' });
+            }
         });
 
         graphFullscreenClose.addEventListener('click', () => {
