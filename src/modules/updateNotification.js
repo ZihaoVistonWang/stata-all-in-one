@@ -10,6 +10,10 @@ const { getUserLanguage, showInfo } = require('../utils/common');
 // Update changelog: version -> changelog text
 const CHANGELOG = {
     en: {
+        '0.3.2': {
+            ver_info: '✨ Stata All in One (0.3.2): Focused on improving Stata initialization and intelligent autocomplete, while adding multi-format Console export, built-in data browsing commands, and Stata AI Skill v1.1.',
+            more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#032-2026-07-17'
+        },
         '0.3.1': {
             ver_info: '✨ Stata All in One (0.3.1): Streamlined Stata startup setup with automatic installation discovery and runtime checks to minimize manual configuration.',
             more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#031-2026-07-13'
@@ -84,6 +88,10 @@ const CHANGELOG = {
         }
     },
     zh: {
+        '0.3.2': {
+            ver_info: '✨ Stata All in One (0.3.2)：重点优化了 Stata 初始化与智能补全，并新增 Console 多格式导出、内置数据浏览命令及 Stata AI Skill v1.1。',
+            more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#032-2026-07-17'
+        },
         '0.3.1': {
             ver_info: '✨ Stata All in One (0.3.1)：优化 Stata 初始化配置流程，自动完成安装探测与运行环境检查，尽可能减少用户手动配置的情况。',
             more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#031-2026-07-13'

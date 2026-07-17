@@ -3,18 +3,20 @@
 All notable changes to the Stata All in One extension will be documented in this file.
 本文件记录 Stata All in One 扩展的所有重要更改。
 
-## Unreleased
+## 0.3.2 (2026-07-17)
 
-- **Feat**: Added the dependency-free `saio` command for Stata 13–19, allowing installations missed by automatic discovery to configure the extension through a token-protected persistent localhost GET service. Existing configurations require confirmation unless `force` is supplied.
-- **新增**：新增兼容 Stata 13–19 且无第三方依赖的 `saio` 命令；自动探测遗漏安装时，可通过带一次性令牌保护的常驻本地 GET 服务完成配置。已有配置默认要求确认，只有 `force` 可跳过。
-- **Improved**: VS Code now blocks `saio` commands submitted from the editor or Embedded Console because setup is only needed from a separately opened Stata instance after automatic discovery fails.
-- **优化**：VS Code 现在会拦截从编辑器或内置 Console 提交的 `saio` 命令；该命令只用于自动探测失败后，在单独打开的 Stata 中完成配置。
-- **Feat**: Added an independent, disabled-by-default setting for showing the Sponsor button in Stata editor title bars; the existing action-button setting now controls only Bug Report and Stata AI Skill.
-- **新增**：新增独立的 Stata 编辑器打赏支持按钮开关，默认关闭；原操作按钮开关现仅控制 Bug 反馈和 Stata AI Skill 按钮。
-- **Feat**: Routed `br` and `browse` from the editor and Embedded Console command input to the built-in Data Viewer, including `varlist`, `if`, `in`, and `nolabel` filters, while retaining the command and a localized confirmation in Console. External App mode remains unchanged.
-- **Fixed**: Data Viewer filtering now preserves commas inside functions and ignores `if` / `in` tokens inside quoted strings or nested expressions.
-- **新增**：将代码编辑器和嵌入式 Console 命令输入框中的 `br` 与 `browse` 路由到内置数据查看器，支持 `varlist`、`if`、`in` 和 `nolabel` 筛选，同时在 Console 保留命令与本地化打开提示；外部 Stata 模式保持原有行为。
-- **修复**：数据查看器筛选不再误拆函数内部的逗号，也不再将引号或嵌套表达式中的 `if` / `in` 误认为限定词。
+- **Improved**: Refined Stata auto-discovery, version selection, and guided setup during extension initialization, with the `saio` command available for manual Stata configuration.
+- **Feat**: Added Embedded Console export to HTML, Markdown, and nbstata-compatible IPYNB, with navigation, themes, syntax highlighting, and embedded graphs.
+- **Feat**: Routed `br` and `browse` to the built-in Data Viewer with `varlist`, `if`, `in`, and `nolabel` support.
+- **Improved**: Made editor and Console autocomplete context-aware, showing only variables where variable input is expected.
+- **Improved**: Refined Console and Data Viewer tab restoration and added an independent Sponsor button setting.
+- **Improved**: Updated the bundled Stata AI Skill to v1.1.
+- **优化**：优化拓展初始化阶段 Stata 自动探测、版本选择和引导配置等方案，并提供手动配置 Stata 的 `saio` 命令。
+- **新增**：内置 Console 支持导出 HTML、Markdown 和兼容 nbstata 的 IPYNB，并提供导航、主题、语法高亮和图形内嵌。
+- **新增**：将 `br` 和 `browse` 路由到内置数据查看器，支持 `varlist`、`if`、`in` 和 `nolabel`。
+- **优化**：编辑器和 Console 根据 Stata 语法上下文筛选补全建议，例如需要显示变量的位置就只显示变量。
+- **优化**：改进 Console 和数据查看器的标签页恢复逻辑，并新增独立的打赏按钮开关。
+- **优化**：内置 Stata AI Skill 更新至 v1.1。
 
 ## 0.3.1 (2026-07-13)
 
