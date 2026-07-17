@@ -44,7 +44,22 @@ function sampleHistory() {
         line('blank', ''),
         line('footer', 'Worked for 1.2s'),
         line('blank', ''),
-        line('command', '. display "```"'),
+        {
+            kind: 'command',
+            segments: [
+                { text: '. ', tokenType: 'prompt', style: { bold: true } },
+                { text: 'display', tokenType: 'command', style: { bold: true } },
+                { text: ' ', tokenType: 'plain', style: {} },
+                { text: '"```"', tokenType: 'string', style: {} }
+            ]
+        },
+        {
+            kind: 'comment-command',
+            segments: [
+                { text: '> ', tokenType: 'prompt', style: { bold: true } },
+                { text: '** =========================================================', tokenType: 'comment', style: { italic: true } }
+            ]
+        },
         line('error', 'error: intentional <error>', { color: '#ff0000', bold: true }),
         {
             kind: 'graph',
@@ -62,7 +77,7 @@ test('groups console history into runs and removes Stata prompts from code', () 
     assert.equal(runs.length, 2);
     assert.equal(runs[0].code, 'sysuse auto\nsummarize price');
     assert.equal(runs[0].footer, 'Worked for 1.2s');
-    assert.equal(runs[1].code, 'display "```"');
+    assert.equal(runs[1].code, 'display "```"\n** =========================================================');
     assert.equal(runs[1].footer, 'Worked for 250ms');
 });
 
@@ -79,7 +94,7 @@ test('exports self-contained Markdown with quoted Stata input, inline images, fo
     assert.match(result.content, /!\[Price chart\]\(data:image\/svg\+xml;base64,/);
     assert.match(result.content, /!\[PNG chart\]\(data:image\/png;base64,/);
     assert.match(result.content, /\*Worked for 1\.2s\*\n\n---/);
-    assert.match(result.content, /> ````stata\n> display "```"\n> ````/);
+    assert.match(result.content, /> ````stata\n> display "```"\n> \*\* =========================================================\n> ````/);
     assert.equal(result.content.includes('/tmp/chart.'), false);
     assert.deepEqual(result.missingGraphs, []);
 });
@@ -90,6 +105,19 @@ test('exports standalone HTML with escaped output, source link, styles, and embe
     assert.match(result.content, new RegExp(`href="${MARKETPLACE_URL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`));
     assert.match(result.content, /error: intentional &lt;error&gt;/);
     assert.match(result.content, /font-weight:700/);
+    assert.match(result.content, /class="execution-count">\[1\]:/);
+    assert.match(result.content, /class="token token-command"/);
+    assert.match(result.content, /class="token token-string"/);
+    assert.match(result.content, /class="token token-comment"/);
+    assert.match(result.content, /\.token-comment \{ color: var\(--syntax-comment\); font-style: italic; \}/);
+    assert.match(result.content, /class="input-nav"/);
+    assert.match(result.content, /data-target="input-2"/);
+    assert.match(result.content, /aria-label="\[2\] display/);
+    assert.match(result.content, /data-tooltip="\[2\] display/);
+    assert.match(result.content, /id="nav-tooltip" class="nav-tooltip"/);
+    assert.match(result.content, /id="theme-toggle"/);
+    assert.match(result.content, /data-theme="dark"/);
+    assert.match(result.content, /IntersectionObserver/);
     assert.match(result.content, /src="data:image\/svg\+xml;base64,/);
     assert.match(result.content, /src="data:image\/png;base64,/);
     assert.equal(result.content.includes('/tmp/chart.'), false);
@@ -112,6 +140,7 @@ test('exports an nbstata notebook with source Markdown cell, code cells, stream 
     assert.equal(notebook.cells[1].outputs[0].output_type, 'stream');
     assert.equal(notebook.cells[1].outputs[1].output_type, 'display_data');
     assert.equal(notebook.cells[1].outputs[1].data['image/svg+xml'], SVG);
+    assert.equal(notebook.cells[2].source, 'display "```"\n** =========================================================');
     assert.equal(notebook.cells[2].outputs[1].data['image/png'], Buffer.from([0x89, 0x50, 0x4e, 0x47]).toString('base64'));
     assert.equal(result.content.includes('Worked for'), false);
 });

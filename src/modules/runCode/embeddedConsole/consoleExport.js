@@ -219,60 +219,360 @@ function escapeHtml(value) {
 function segmentStyle(segment) {
     const style = segment && segment.style || {};
     const rules = [];
-    if (style.color) rules.push(`color:${style.color}`);
-    if (style.backgroundColor) rules.push(`background-color:${style.backgroundColor}`);
     if (style.bold) rules.push('font-weight:700');
     if (style.italic) rules.push('font-style:italic');
     if (style.dim) rules.push('opacity:.72');
     return rules.join(';');
 }
 
+function tokenClassName(value) {
+    return String(value || 'plain').replace(/[^A-Za-z0-9_-]+/g, '-');
+}
+
+function renderHtmlSegments(entry, stripPrompt = false) {
+    const segments = Array.isArray(entry && entry.segments) ? entry.segments : [];
+    let firstSegment = true;
+    return segments.map(segment => {
+        let text = String(segment && segment.text || '');
+        if (stripPrompt && firstSegment) {
+            text = text.replace(/^[.>]\s?/, '');
+        }
+        firstSegment = false;
+        if (!text) return '';
+        const style = segmentStyle(segment);
+        const tokenType = tokenClassName(segment && segment.tokenType);
+        return `<span class="token token-${tokenType}"${style ? ` style="${escapeHtml(style)}"` : ''}>${escapeHtml(text)}</span>`;
+    }).join('');
+}
+
 function renderHtmlTextEntry(entry) {
     const kind = escapeHtml(String(entry && entry.kind || 'default'));
-    const segments = Array.isArray(entry && entry.segments) ? entry.segments : [];
-    const body = segments.map(segment => {
-        const style = segmentStyle(segment);
-        const tokenType = escapeHtml(String(segment && segment.tokenType || 'plain'));
-        return `<span class="token token-${tokenType}"${style ? ` style="${escapeHtml(style)}"` : ''}>${escapeHtml(segment && segment.text || '')}</span>`;
-    }).join('');
+    const body = renderHtmlSegments(entry);
     return `<div class="output-line output-${kind}">${body || '&nbsp;'}</div>`;
 }
 
-function serializeHtml(prepared, options) {
-    const source = sourceParts(options);
-    const lang = String(options.language || '').toLowerCase().startsWith('zh') ? 'zh-CN' : 'en';
-    const runs = prepared.runs.map((run, index) => {
+function renderHtmlCommand(run) {
+    if (!run.commandEntries.length) return escapeHtml(run.code);
+    return run.commandEntries.map(entry => renderHtmlSegments(entry, true)).join('\n');
+}
+
+function firstInputLine(code) {
+    return String(code || '').split('\n')[0].trim() || '(empty input)';
+}
+
+function htmlUiLabels(lang) {
+    const isChinese = lang === 'zh-CN';
+    return {
+        navigation: isChinese ? '输入导航' : 'Input navigation',
+        light: isChinese ? '切换到亮色主题' : 'Switch to light theme',
+        dark: isChinese ? '切换到暗色主题' : 'Switch to dark theme'
+    };
+}
+
+function createHtmlRunViews(runs) {
+    let inputCount = 0;
+    return runs.map(run => ({
+        run,
+        inputNumber: run.code ? inputCount += 1 : 0
+    }));
+}
+
+function renderHtmlNavigation(runViews, label) {
+    const markers = runViews
+        .filter(view => view.inputNumber)
+        .map(view => {
+            const preview = firstInputLine(view.run.code);
+            const tooltip = `[${view.inputNumber}] ${preview}`;
+            return `<a class="nav-marker" href="#input-${view.inputNumber}" data-target="input-${view.inputNumber}" data-tooltip="${escapeHtml(tooltip)}" aria-label="${escapeHtml(tooltip)}"></a>`;
+        })
+        .join('\n');
+    return markers ? `<nav class="input-nav" aria-label="${escapeHtml(label)}">${markers}</nav>` : '';
+}
+
+function renderHtmlRuns(runViews, options) {
+    return runViews.map((view, index) => {
+        const { run, inputNumber } = view;
         const content = [];
-        if (run.code) content.push(`<pre class="command"><code>${escapeHtml(run.code)}</code></pre>`);
+        if (run.code) {
+            content.push(`<div class="input-cell" id="input-${inputNumber}" data-input-number="${inputNumber}"><div class="execution-count">[${inputNumber}]:</div><pre class="command"><code>${renderHtmlCommand(run)}</code></pre></div>`);
+        }
+
+        const output = [];
         for (const item of run.items) {
             if (item.type === 'text') {
-                content.push(renderHtmlTextEntry(item.entry));
+                output.push(renderHtmlTextEntry(item.entry));
             } else if (item.asset.available) {
-                content.push(`<figure><img src="${item.asset.dataUrl}" alt="${escapeHtml(item.graphName)}"><figcaption>${escapeHtml(item.graphName)}</figcaption></figure>`);
+                output.push(`<figure><img src="${item.asset.dataUrl}" alt="${escapeHtml(item.graphName)}"><figcaption>${escapeHtml(item.graphName)}</figcaption></figure>`);
             } else {
-                content.push(`<div class="graph-unavailable">${escapeHtml(unavailableText(item, options))}</div>`);
+                output.push(`<div class="graph-unavailable">${escapeHtml(unavailableText(item, options))}</div>`);
             }
         }
-        if (run.footer) content.push(`<div class="footer"><span>${escapeHtml(run.footer)}</span></div>`);
-        return `<section class="run">${content.join('\n')}</section>${index < prepared.runs.length - 1 ? '<hr>' : ''}`;
+        if (run.footer) output.push(`<div class="footer"><span>${escapeHtml(run.footer)}</span></div>`);
+        if (output.length) {
+            content.push(`<div class="run-output${run.code ? '' : ' output-only'}">${output.join('\n')}</div>`);
+        }
+        return `<section class="run">${content.join('\n')}</section>${index < runViews.length - 1 ? '<hr>' : ''}`;
     }).join('\n');
+}
+
+function serializeInteractiveHtml(prepared, options) {
+    const source = sourceParts(options);
+    const lang = String(options.language || '').toLowerCase().startsWith('zh') ? 'zh-CN' : 'en';
+    const labels = htmlUiLabels(lang);
+    const runViews = createHtmlRunViews(prepared.runs);
+    const navigation = renderHtmlNavigation(runViews, labels.navigation);
+    const runs = renderHtmlRuns(runViews, options);
 
     return `<!DOCTYPE html>
-<html lang="${lang}">
+<html lang="${lang}" data-theme="light">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Stata All in One Export</title>
+<script>(function(){try{var saved=localStorage.getItem('stata-all-in-one-export-theme');var theme=saved||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');document.documentElement.dataset.theme=theme}catch(_error){}})();</script>
 <style>
-:root{color-scheme:light dark;--bg:#fff;--fg:#1f2328;--muted:#656d76;--border:#d0d7de;--code:#f6f8fa;--command:#8250df;--error:#cf222e;--header:#0969da} @media(prefers-color-scheme:dark){:root{--bg:#0d1117;--fg:#e6edf3;--muted:#8b949e;--border:#30363d;--code:#161b22;--command:#d2a8ff;--error:#ff7b72;--header:#79c0ff}} *{box-sizing:border-box} body{max-width:1100px;margin:0 auto;padding:32px 24px 64px;background:var(--bg);color:var(--fg);font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace}.source{margin:0 0 28px;color:var(--muted);font-family:system-ui,sans-serif}.source a{color:var(--header)}.run{margin:0}.command{margin:0 0 14px;padding:14px 16px;border-left:3px solid var(--command);border-radius:6px;background:var(--code);white-space:pre-wrap;overflow-wrap:anywhere}.output-line{min-height:1.5em;padding-left:1rem;white-space:pre-wrap;tab-size:4;overflow-wrap:anywhere}.output-error,.output-break,.output-warning{color:var(--error)}figure{margin:18px 0;padding:14px;border:1px solid var(--border);border-radius:8px;text-align:center}figure img{display:block;max-width:100%;height:auto;margin:auto;background:#fff}figcaption{margin-top:8px;color:var(--muted)}.graph-unavailable{margin:14px 0;color:var(--error)}.footer{display:flex;align-items:center;gap:10px;margin-top:14px;color:var(--muted)}.footer:before,.footer:after{content:"";height:1px;flex:1;background:var(--border)}.footer span{white-space:nowrap}hr{margin:28px 0;border:0;border-top:1px solid var(--border)}
+:root {
+    color-scheme: light;
+    --bgColor-default: #ffffff;
+    --bgColor-muted: #f6f8fa;
+    --bgColor-overlay: #ffffff;
+    --fgColor-default: #1f2328;
+    --fgColor-muted: #59636e;
+    --borderColor-default: #d0d7de;
+    --borderColor-muted: rgba(31, 35, 40, 0.15);
+    --fgColor-accent: #0969da;
+    --fgColor-danger: #d1242f;
+    --syntax-comment: #6e7781;
+    --syntax-constant: #0550ae;
+    --syntax-entity: #8250df;
+    --syntax-keyword: #cf222e;
+    --syntax-string: #0a3069;
+    --syntax-variable: #953800;
+    --nav-marker: #8c959f;
+    --nav-active: #1f2328;
+    --shadow: 0 8px 24px rgba(140, 149, 159, 0.2);
+}
+:root[data-theme="dark"] {
+    color-scheme: dark;
+    --bgColor-default: #0d1117;
+    --bgColor-muted: #161b22;
+    --bgColor-overlay: #161b22;
+    --fgColor-default: #c9d1d9;
+    --fgColor-muted: #8b949e;
+    --borderColor-default: #30363d;
+    --borderColor-muted: rgba(240, 246, 252, 0.1);
+    --fgColor-accent: #58a6ff;
+    --fgColor-danger: #ff7b72;
+    --syntax-comment: #8b949e;
+    --syntax-constant: #79c0ff;
+    --syntax-entity: #d2a8ff;
+    --syntax-keyword: #ff7b72;
+    --syntax-string: #a5d6ff;
+    --syntax-variable: #ffa657;
+    --nav-marker: #6e7681;
+    --nav-active: #f0f6fc;
+    --shadow: 0 8px 24px rgba(1, 4, 9, 0.45);
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; background: var(--bgColor-default); }
+body {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 34px 74px 72px 104px;
+    background: var(--bgColor-default);
+    color: var(--fgColor-default);
+    font: 14px/1.5 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    transition: background-color 0.18s ease, color 0.18s ease;
+}
+.source { margin: 0 0 32px; color: var(--fgColor-muted); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+.source a { color: var(--fgColor-accent); }
+.theme-toggle {
+    position: fixed;
+    z-index: 20;
+    top: 18px;
+    right: 20px;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    height: 32px;
+    padding: 0 11px;
+    border: 1px solid var(--borderColor-default);
+    border-radius: 6px;
+    background: var(--bgColor-overlay);
+    color: var(--fgColor-default);
+    box-shadow: var(--shadow);
+    font: 600 12px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    cursor: pointer;
+}
+.theme-toggle:hover { background: var(--bgColor-muted); }
+.theme-toggle:focus-visible, .nav-marker:focus-visible { outline: 2px solid var(--fgColor-accent); outline-offset: 2px; }
+.theme-toggle svg { width: 15px; height: 15px; fill: currentColor; }
+.theme-icon-sun { display: none; }
+:root[data-theme="dark"] .theme-icon-sun { display: block; }
+:root[data-theme="dark"] .theme-icon-moon { display: none; }
+.input-nav {
+    position: fixed;
+    z-index: 15;
+    left: 26px;
+    top: 50%;
+    display: flex;
+    max-height: 70vh;
+    transform: translateY(-50%);
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 11px;
+    padding: 14px 8px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: none;
+}
+.input-nav::-webkit-scrollbar { display: none; }
+.nav-marker {
+    position: relative;
+    display: block;
+    width: 11px;
+    height: 3px;
+    border-radius: 2px;
+    background: var(--nav-marker);
+    opacity: 0.75;
+    transition: width 0.15s ease, background-color 0.15s ease, opacity 0.15s ease;
+}
+.nav-marker:hover, .nav-marker.active { width: 17px; background: var(--nav-active); opacity: 1; }
+.nav-tooltip {
+    position: fixed;
+    z-index: 30;
+    width: max-content;
+    max-width: min(520px, 70vw);
+    padding: 6px 9px;
+    transform: translate(4px, -50%);
+    border: 1px solid var(--borderColor-default);
+    border-radius: 6px;
+    background: var(--bgColor-overlay);
+    color: var(--fgColor-default);
+    box-shadow: var(--shadow);
+    font: 12px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.12s ease, transform 0.12s ease;
+}
+.nav-tooltip.visible { opacity: 1; visibility: visible; transform: translate(0, -50%); }
+.run { margin: 0; }
+.input-cell { display: grid; grid-template-columns: 62px minmax(0, 1fr); align-items: start; scroll-margin-top: 32px; }
+.execution-count { padding: 14px 13px 0 0; color: var(--fgColor-accent); font-weight: 600; text-align: right; user-select: none; }
+.command {
+    min-width: 0;
+    margin: 0 0 14px;
+    padding: 14px 16px;
+    border: 1px solid var(--borderColor-default);
+    border-radius: 6px;
+    background: var(--bgColor-muted);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+.command code { font: inherit; }
+.run-output { margin-left: 62px; }
+.run-output.output-only { margin-left: 0; }
+.output-line { min-height: 1.5em; padding-left: 1rem; white-space: pre-wrap; tab-size: 4; overflow-wrap: anywhere; }
+.token { color: var(--fgColor-default); }
+.token-prompt { color: var(--fgColor-muted); }
+.token-command, .token-function, .token-header { color: var(--syntax-entity); font-weight: 600; }
+.token-keyword, .token-option, .token-error { color: var(--syntax-keyword); }
+.token-string, .token-path { color: var(--syntax-string); }
+.token-number, .token-constant, .token-timeValue { color: var(--syntax-constant); }
+.token-comment { color: var(--syntax-comment); font-style: italic; }
+.token-variable, .token-macro { color: var(--syntax-variable); }
+.token-operator { color: var(--fgColor-default); }
+.token-separator, .token-time { color: var(--fgColor-muted); }
+.output-error, .output-break, .output-warning { color: var(--fgColor-danger); }
+figure { margin: 18px 0; padding: 14px; border: 1px solid var(--borderColor-default); border-radius: 8px; text-align: center; }
+figure img { display: block; max-width: 100%; height: auto; margin: auto; background: #ffffff; }
+figcaption { margin-top: 8px; color: var(--fgColor-muted); }
+.graph-unavailable { margin: 14px 0; color: var(--fgColor-danger); }
+.footer { display: flex; align-items: center; gap: 10px; margin-top: 14px; color: var(--fgColor-muted); }
+.footer::before, .footer::after { content: ""; height: 1px; flex: 1; background: var(--borderColor-default); }
+.footer span { white-space: nowrap; }
+hr { margin: 30px 0; border: 0; border-top: 1px solid var(--borderColor-muted); }
+@media (max-width: 720px) {
+    body { padding: 68px 18px 48px 48px; }
+    .input-nav { left: 8px; }
+    .input-cell { grid-template-columns: 46px minmax(0, 1fr); }
+    .run-output { margin-left: 46px; }
+    .execution-count { font-size: 12px; }
+    .theme-toggle { top: 14px; right: 14px; }
+}
 </style>
 </head>
 <body>
+<button id="theme-toggle" class="theme-toggle" type="button">
+    <svg class="theme-icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M9.6 1.1a6.7 6.7 0 1 0 5.3 9.8A5.8 5.8 0 0 1 9.6 1.1zm-1 1.2a7 7 0 0 0 4.7 9.5A5.7 5.7 0 1 1 8.6 2.3z"/></svg>
+    <svg class="theme-icon-sun" viewBox="0 0 16 16" aria-hidden="true"><path d="M7.5 0h1v2h-1V0zm0 14h1v2h-1v-2zM0 7.5h2v1H0v-1zm14 0h2v1h-2v-1zM2.34 1.63l1.42 1.42-.71.71-1.42-1.42.71-.71zm9.9 9.9 1.42 1.42-.71.71-1.42-1.42.71-.71zm.71-9.9.71.71-1.42 1.42-.71-.71 1.42-1.42zM3.05 11.53l.71.71-1.42 1.42-.71-.71 1.42-1.42zM8 4a4 4 0 1 1 0 8 4 4 0 0 1 0-8zm0 1a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg>
+    <span id="theme-toggle-label"></span>
+</button>
+${navigation}
+<div id="nav-tooltip" class="nav-tooltip" role="tooltip"></div>
 <p class="source">${escapeHtml(source.before)}<a href="${MARKETPLACE_URL}">${source.linkText}</a>${escapeHtml(source.after)}</p>
 ${runs}
+<script>
+(function(){
+    var root = document.documentElement;
+    var button = document.getElementById('theme-toggle');
+    var label = document.getElementById('theme-toggle-label');
+    var labels = { light: ${JSON.stringify(labels.light)}, dark: ${JSON.stringify(labels.dark)} };
+    function applyTheme(theme) {
+        root.dataset.theme = theme;
+        var nextLabel = theme === 'dark' ? labels.light : labels.dark;
+        label.textContent = nextLabel;
+        button.title = nextLabel;
+        button.setAttribute('aria-label', nextLabel);
+        try { localStorage.setItem('stata-all-in-one-export-theme', theme); } catch (_error) {}
+    }
+    applyTheme(root.dataset.theme === 'dark' ? 'dark' : 'light');
+    button.addEventListener('click', function() { applyTheme(root.dataset.theme === 'dark' ? 'light' : 'dark'); });
+
+    var markers = Array.from(document.querySelectorAll('.nav-marker'));
+    var navTooltip = document.getElementById('nav-tooltip');
+    function setActive(id) {
+        markers.forEach(function(marker) { marker.classList.toggle('active', marker.dataset.target === id); });
+    }
+    function showNavTooltip(marker) {
+        var rect = marker.getBoundingClientRect();
+        navTooltip.textContent = marker.dataset.tooltip || '';
+        navTooltip.style.left = (rect.right + 12) + 'px';
+        navTooltip.style.top = (rect.top + rect.height / 2) + 'px';
+        navTooltip.classList.add('visible');
+    }
+    function hideNavTooltip() { navTooltip.classList.remove('visible'); }
+    if (markers.length) {
+        setActive(markers[0].dataset.target);
+        markers.forEach(function(marker) {
+            marker.addEventListener('mouseenter', function() { showNavTooltip(marker); });
+            marker.addEventListener('mouseleave', hideNavTooltip);
+            marker.addEventListener('focus', function() { showNavTooltip(marker); });
+            marker.addEventListener('blur', hideNavTooltip);
+        });
+        if ('IntersectionObserver' in window) {
+            var observer = new IntersectionObserver(function(entries) {
+                var visible = entries
+                    .filter(function(entry) { return entry.isIntersecting; })
+                    .sort(function(a, b) { return b.intersectionRatio - a.intersectionRatio; });
+                if (visible.length) setActive(visible[0].target.id);
+            }, { rootMargin: '-15% 0px -68% 0px', threshold: [0, 0.2, 0.5, 1] });
+            document.querySelectorAll('.input-cell').forEach(function(cell) { observer.observe(cell); });
+        }
+    }
+})();
+</script>
 </body>
 </html>
 `;
+}
+
+function serializeHtml(prepared, options) {
+    return serializeInteractiveHtml(prepared, options);
 }
 
 function notebookSource(value) {
