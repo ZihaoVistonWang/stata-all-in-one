@@ -118,6 +118,10 @@ test('exports standalone HTML with escaped output, source link, styles, and embe
     assert.match(result.content, /id="theme-toggle"/);
     assert.match(result.content, /data-theme="dark"/);
     assert.match(result.content, /IntersectionObserver/);
+    assert.match(result.content, /\.command \{[\s\S]*white-space: pre;[\s\S]*overflow-x: auto;/);
+    assert.match(result.content, /\.run-output \{[\s\S]*overflow-x: auto;/);
+    assert.match(result.content, /\.output-line \{[\s\S]*width: max-content;[\s\S]*white-space: pre;/);
+    assert.equal(result.content.includes('white-space: pre-wrap'), false);
     assert.match(result.content, /src="data:image\/svg\+xml;base64,/);
     assert.match(result.content, /src="data:image\/png;base64,/);
     assert.equal(result.content.includes('/tmp/chart.'), false);

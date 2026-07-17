@@ -470,13 +470,34 @@ body {
     border: 1px solid var(--borderColor-default);
     border-radius: 6px;
     background: var(--bgColor-muted);
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
+    white-space: pre;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overflow-wrap: normal;
+    tab-size: 4;
+    scrollbar-color: var(--borderColor-default) transparent;
 }
 .command code { font: inherit; }
-.run-output { margin-left: 62px; }
+.run-output {
+    min-width: 0;
+    margin-left: 62px;
+    padding-bottom: 4px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-color: var(--borderColor-default) transparent;
+}
 .run-output.output-only { margin-left: 0; }
-.output-line { min-height: 1.5em; padding-left: 1rem; white-space: pre-wrap; tab-size: 4; overflow-wrap: anywhere; }
+.output-line {
+    width: max-content;
+    min-width: 100%;
+    min-height: 1.5em;
+    padding-left: 1rem;
+    white-space: pre;
+    tab-size: 4;
+    overflow-wrap: normal;
+}
+.command::-webkit-scrollbar, .run-output::-webkit-scrollbar { height: 10px; }
+.command::-webkit-scrollbar-thumb, .run-output::-webkit-scrollbar-thumb { border: 3px solid transparent; border-radius: 8px; background: var(--borderColor-default); background-clip: padding-box; }
 .token { color: var(--fgColor-default); }
 .token-prompt { color: var(--fgColor-muted); }
 .token-command, .token-function, .token-header { color: var(--syntax-entity); font-weight: 600; }

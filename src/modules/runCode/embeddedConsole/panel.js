@@ -1034,6 +1034,7 @@ function getWebviewHtml(webview) {
             justify-content: center;
         }
         .codicon-table::before { content: "\\ebb7"; }
+        .codicon-share::before { content: "\\ec25"; }
         .statusbar-button:hover {
             background: var(--vscode-toolbar-hoverBackground);
         }
@@ -1587,9 +1588,7 @@ function getWebviewHtml(webview) {
                 <span class="statusbar-icon codicon codicon-table" aria-hidden="true"></span>
             </button>
             <button id="export-button" class="statusbar-button" type="button" title="${escapeHtml(msg('consoleExport'))}" disabled>
-                <svg class="statusbar-icon" viewBox="0 0 16 16" aria-hidden="true">
-                    <path d="M8.5 1.5v7.29l2.65-2.64.7.7L8 10.71 4.15 6.85l.7-.7L7.5 8.79V1.5h1zM2.5 10v3.5h11V10h1v4.5h-13V10h1z"></path>
-                </svg>
+                <span class="statusbar-icon codicon codicon-share" aria-hidden="true"></span>
             </button>
         </div>
     </div>
