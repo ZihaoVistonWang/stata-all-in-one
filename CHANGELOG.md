@@ -3,6 +3,19 @@
 All notable changes to the Stata All in One extension will be documented in this file.
 本文件记录 Stata All in One 扩展的所有重要更改。
 
+## 0.3.3 (2026-07-21)
+
+- **Improved**: Improved Embedded Console command compatibility with bilingual guidance for unsupported Stata GUI commands while preserving built-in Data Viewer routing for `br` and `browse`.
+- **Fixed**: Routed `br` and `browse` correctly within multi-line code, preserved the execution order of surrounding Stata code, and reported total execution time only once.
+- **Fixed**: Rendered `which` command results as plain text so paths, versions, and dates are no longer incorrectly highlighted as numbers, while preserving error styling.
+- **Fixed**: Aligned the Sponsor button setting description with its default enabled behavior.
+- **Docs**: Refreshed and standardized bilingual README badges, feature descriptions, requirements, acknowledgements, and formatting.
+- **优化**：改进 Embedded Console 命令兼容性，为不支持的 Stata GUI 命令提供双语提示，同时保留 `br` 和 `browse` 到内置数据查看器的路由。
+- **修复**：正确路由多行代码中的 `br` 和 `browse`，保持前后 Stata 代码的执行顺序，并仅在全部代码完成后显示一次总耗时。
+- **修复**：将 `which` 命令结果显示为普通文本，避免路径、版本号和日期被错误识别为数值高亮，同时保留错误样式。
+- **修复**：使打赏按钮设置说明与默认开启行为保持一致。
+- **文档**：更新并统一中英文 README 的徽章、功能说明、使用要求、致谢和格式。
+
 ## 0.3.2 (2026-07-17)
 
 - **Improved**: Refined Stata auto-discovery, version selection, and guided setup during extension initialization, with the `saio` command available for manual Stata configuration.
