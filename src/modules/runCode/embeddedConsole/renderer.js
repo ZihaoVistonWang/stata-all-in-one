@@ -510,10 +510,12 @@ class StataTerminalRenderer {
         this._pendingLine = '';
         this._lastRenderedLineKind = null;
         this._describeMode = false;
+        this._plainOutputMode = false;
     }
 
     renderCommand(command, width) {
         const normalized = String(command || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        this._plainOutputMode = /^\s*which\s+\S[^\n]*$/i.test(normalized);
         const lines = normalized.split('\n');
         return lines
             .map((line, index) => this._renderCommandLine(`${index === 0 ? '. ' : '> '}${line}`, width))
@@ -522,6 +524,7 @@ class StataTerminalRenderer {
 
     renderCommandSegments(command, width) {
         const normalized = String(command || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        this._plainOutputMode = /^\s*which\s+\S[^\n]*$/i.test(normalized);
         const lines = normalized.split('\n');
         return lines.map((line, index) =>
             this._segmentCommandLine(`${index === 0 ? '. ' : '> '}${line}`, width)
@@ -988,6 +991,16 @@ class StataTerminalRenderer {
             return rendered;
         }
 
+        if (this._plainOutputMode) {
+            lineKind = 'default';
+            const rendered = {
+                kind: lineKind,
+                segments: [this._segment(line, this._styleForTokenType('plain'))]
+            };
+            this._lastRenderedLineKind = lineKind;
+            return rendered;
+        }
+
         if (this._isDescribeSourceLine(line)) {
             this._describeMode = true;
             lineKind = 'describe-source';
@@ -1244,6 +1257,13 @@ class StataTerminalRenderer {
             this._describeMode = false;
             lineKind = 'error';
             const rendered = `${paint(line, { fg: CURRENT_THEME_SLOT_MAP.error, bold: true })}${ANSI.reset}`;
+            this._lastRenderedLineKind = lineKind;
+            return rendered;
+        }
+
+        if (this._plainOutputMode) {
+            lineKind = 'default';
+            const rendered = `${paint(line, { fg: CURRENT_THEME_SLOT_MAP.default })}${ANSI.reset}`;
             this._lastRenderedLineKind = lineKind;
             return rendered;
         }
