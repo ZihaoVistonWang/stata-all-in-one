@@ -723,7 +723,7 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
         if (activeSession) {
             await endGraphCapture(activeSession, graphCaptureState);
         }
-        if (runStartTime !== null) {
+        if (runStartTime !== null && !options.suppressRunFooter) {
             outputSink.writeRunFooter(Date.now() - runStartTime);
         }
 

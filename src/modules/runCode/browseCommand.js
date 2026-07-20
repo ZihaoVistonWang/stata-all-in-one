@@ -15,6 +15,46 @@ function parseBrowseCommand(code) {
     };
 }
 
+function splitBrowseCommandSegments(code) {
+    const normalized = String(code || '').replace(/\r\n?/g, '\n');
+    const lines = normalized.split('\n');
+    const segments = [];
+    let codeLines = [];
+
+    const flushCode = () => {
+        const code = codeLines.join('\n').trim();
+        if (code) {
+            segments.push({ type: 'code', code });
+        }
+        codeLines = [];
+    };
+
+    for (let index = 0; index < lines.length; index += 1) {
+        const parsed = parseBrowseCommand(lines[index]);
+        let previousLineIndex = index - 1;
+        while (previousLineIndex >= 0 && !lines[previousLineIndex].trim()) {
+            previousLineIndex -= 1;
+        }
+        const followsContinuation = previousLineIndex >= 0
+            && /\/\/\/\s*$/.test(lines[previousLineIndex]);
+
+        if (parsed && !followsContinuation) {
+            flushCode();
+            segments.push({
+                type: 'browse',
+                commandText: lines[index].trim(),
+                filterText: parsed.filterText
+            });
+            continue;
+        }
+
+        codeLines.push(lines[index]);
+    }
+
+    flushCode();
+    return segments;
+}
+
 function shouldRouteBrowseCommand(runMode) {
     return runMode === 'embeddedConsole';
 }
@@ -41,7 +81,9 @@ async function routeBrowseCommand(code, dependencies = {}) {
     await revealDataViewer(parsed.filterText);
     sink.writeRawChunk(openedMessage);
     sink.flushOutput();
-    sink.setStatus('success');
+    if (!dependencies.keepRunning) {
+        sink.setStatus('success');
+    }
 
     return {
         success: true,
@@ -53,6 +95,7 @@ async function routeBrowseCommand(code, dependencies = {}) {
 
 module.exports = {
     parseBrowseCommand,
+    splitBrowseCommandSegments,
     shouldRouteBrowseCommand,
     routeBrowseCommand
 };

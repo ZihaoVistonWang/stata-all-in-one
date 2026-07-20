@@ -23,7 +23,7 @@ const { runOnWindows } = require('../externalApp/windows');
 // Embedded Console 执行函数导入
 const { runOnMacWebview } = require('../embeddedConsole/mac');
 const { runOnWindowsEmbeddedConsole } = require('../embeddedConsole/windows');
-const { routeBrowseCommand, shouldRouteBrowseCommand } = require('../browseCommand');
+const { routeBrowseCommand, shouldRouteBrowseCommand, splitBrowseCommandSegments } = require('../browseCommand');
 const { containsSaioCommand } = require('../saioCommandGuard');
 
 // 临时文件处理
@@ -156,8 +156,12 @@ async function runCurrentSection(context, editor = null) {
     }
 
     if (shouldRouteBrowseCommand(runMode)) {
-        const browseResult = await routeBrowseCommand(codeToRun);
-        if (browseResult) {
+        const segments = splitBrowseCommandSegments(codeToRun);
+        if (segments.some(segment => segment.type === 'browse')) {
+            await runBrowseExecutionPlan(context, segments, {
+                docDir: path.dirname(document.fileName),
+                outputMode: runMode
+            });
             return;
         }
     }
@@ -277,10 +281,13 @@ async function runArbitraryCode(context, code, options = {}) {
     }
 
     const runMode = options.outputMode || config.getRunMode();
-    if (shouldRouteBrowseCommand(runMode)) {
-        const browseResult = await routeBrowseCommand(normalizedCode);
-        if (browseResult) {
-            return browseResult;
+    if (shouldRouteBrowseCommand(runMode) && !options.skipBrowseRouting) {
+        const segments = splitBrowseCommandSegments(normalizedCode);
+        if (segments.some(segment => segment.type === 'browse')) {
+            return runBrowseExecutionPlan(context, segments, {
+                ...options,
+                outputMode: runMode
+            });
         }
     }
 
@@ -304,7 +311,9 @@ async function runArbitraryCode(context, code, options = {}) {
             }
 
             await vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
-            const consoleResult = await runOnWindowsEmbeddedConsole(normalizedCode, tmpFilePath, docDir, context);
+            const consoleResult = await runOnWindowsEmbeddedConsole(normalizedCode, tmpFilePath, docDir, context, {
+                suppressRunFooter: Boolean(options.suppressRunFooter)
+            });
             if (consoleResult.success) {
                 await vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
                 capability.setCapabilityState(context, 'console');
@@ -335,7 +344,9 @@ async function runArbitraryCode(context, code, options = {}) {
         }
 
         await vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
-        const consoleResult = await runOnMacWebview(normalizedCode, tmpFilePath, docDir, context);
+        const consoleResult = await runOnMacWebview(normalizedCode, tmpFilePath, docDir, context, {
+            suppressRunFooter: Boolean(options.suppressRunFooter)
+        });
         if (consoleResult.success) {
             await vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
             capability.setCapabilityState(context, 'console');
@@ -361,6 +372,47 @@ async function runArbitraryCode(context, code, options = {}) {
         await vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', false);
         return { success: false, error };
     }
+}
+
+async function runBrowseExecutionPlan(context, segments, options = {}) {
+    let result = { success: true, routedToDataViewer: false };
+    const runStartTime = Date.now();
+    const sink = require('../embeddedConsole/panel').getWebviewTerminalSink();
+    const finishPlan = (finalResult) => {
+        sink.writeRunFooter(Date.now() - runStartTime);
+        return finalResult;
+    };
+
+    for (const segment of segments) {
+        if (segment.type === 'browse') {
+            const browseResult = await routeBrowseCommand(segment.commandText, { keepRunning: true });
+            if (!browseResult || !browseResult.success) {
+                return finishPlan(browseResult || { success: false });
+            }
+            result = {
+                ...result,
+                ...browseResult,
+                routedToDataViewer: true
+            };
+            continue;
+        }
+
+        const codeResult = await runArbitraryCode(context, segment.code, {
+            ...options,
+            skipBrowseRouting: true,
+            suppressRunFooter: true
+        });
+        if (!codeResult || !codeResult.success) {
+            return finishPlan(codeResult || { success: false });
+        }
+        result = {
+            ...result,
+            ...codeResult,
+            routedToDataViewer: result.routedToDataViewer
+        };
+    }
+
+    return finishPlan(result);
 }
 
 async function refreshMemoryVarsAfterRun(context, result) {

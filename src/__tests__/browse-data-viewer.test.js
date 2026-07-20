@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const {
     parseBrowseCommand,
     shouldRouteBrowseCommand,
+    splitBrowseCommandSegments,
     routeBrowseCommand
 } = require('../modules/runCode/browseCommand');
 const { splitFilterSpec } = require('../modules/runCode/embeddedConsole/dataViewer/provider');
@@ -20,6 +21,26 @@ test('does not redirect other commands or multi-line selections', () => {
     assert.equal(parseBrowseCommand('break'), null);
     assert.equal(parseBrowseCommand('quietly browse price'), null);
     assert.equal(parseBrowseCommand('browse price\nsummarize price'), null);
+});
+
+test('splits browse commands from every matching line and preserves execution order', () => {
+    assert.deepEqual(
+        splitBrowseCommandSegments('sysuse "auto.dta", clear\nbrowse price mpg rep78\nsummarize price\nbr if foreign\ncount'),
+        [
+            { type: 'code', code: 'sysuse "auto.dta", clear' },
+            { type: 'browse', commandText: 'browse price mpg rep78', filterText: 'price mpg rep78' },
+            { type: 'code', code: 'summarize price' },
+            { type: 'browse', commandText: 'br if foreign', filterText: 'if foreign' },
+            { type: 'code', code: 'count' }
+        ]
+    );
+});
+
+test('keeps browse text in Stata code when it follows a continuation marker', () => {
+    assert.deepEqual(
+        splitBrowseCommandSegments('display 1 ///\n\nbrowse price\nsummarize price'),
+        [{ type: 'code', code: 'display 1 ///\n\nbrowse price\nsummarize price' }]
+    );
 });
 
 test('routes browse only in Embedded Console mode', () => {

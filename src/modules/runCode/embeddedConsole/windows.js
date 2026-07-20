@@ -620,7 +620,7 @@ async function runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir = null
         if (activeSession) {
             await endGraphCapture(activeSession, graphCaptureState);
         }
-        if (runStartTime !== null) {
+        if (runStartTime !== null && !options.suppressRunFooter) {
             outputSink.writeRunFooter(Date.now() - runStartTime);
         }
 
