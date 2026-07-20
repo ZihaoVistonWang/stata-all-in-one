@@ -24,6 +24,7 @@ const { runOnWindows } = require('../externalApp/windows');
 const { runOnMacWebview } = require('../embeddedConsole/mac');
 const { runOnWindowsEmbeddedConsole } = require('../embeddedConsole/windows');
 const { routeBrowseCommand, shouldRouteBrowseCommand, splitBrowseCommandSegments } = require('../browseCommand');
+const { routeConsoleUnsupportedCommand } = require('../consoleCompatibility');
 const { containsSaioCommand } = require('../saioCommandGuard');
 
 // 临时文件处理
@@ -156,6 +157,13 @@ async function runCurrentSection(context, editor = null) {
     }
 
     if (shouldRouteBrowseCommand(runMode)) {
+        const compatibilityResult = await routeConsoleUnsupportedCommand(codeToRun);
+        if (compatibilityResult) {
+            return;
+        }
+    }
+
+    if (shouldRouteBrowseCommand(runMode)) {
         const segments = splitBrowseCommandSegments(codeToRun);
         if (segments.some(segment => segment.type === 'browse')) {
             await runBrowseExecutionPlan(context, segments, {
@@ -281,6 +289,12 @@ async function runArbitraryCode(context, code, options = {}) {
     }
 
     const runMode = options.outputMode || config.getRunMode();
+    if (shouldRouteBrowseCommand(runMode) && !options.skipCompatibilityRouting) {
+        const compatibilityResult = await routeConsoleUnsupportedCommand(normalizedCode);
+        if (compatibilityResult) {
+            return compatibilityResult;
+        }
+    }
     if (shouldRouteBrowseCommand(runMode) && !options.skipBrowseRouting) {
         const segments = splitBrowseCommandSegments(normalizedCode);
         if (segments.some(segment => segment.type === 'browse')) {
