@@ -15,7 +15,7 @@
   "config.consoleCustomFontFamily.description": "Custom CSS `font-family` list for the Embedded Console when `Console Font Source` is set to `Custom Font Family`. Example: `\"Maple Mono NF CN\", Menlo, Monaco, monospace`.",
   "config.graphPngDpi.description": "DPI used when saving Embedded Console graphs as PNG. The default is 600 DPI.",
   "config.showActionButtons.description": "Whether to show the Bug report and Stata AI Skill buttons in the editor title bar.",
-  "config.showSponsorButton.description": "Whether to show the Sponsor button in the Stata editor title bar. Hidden by default.",
+  "config.showSponsorButton.description": "Whether to show the Sponsor button in the Stata editor title bar. Shown by default.",
   "config.enableHoverDocs.description": "Enable hover documentation for Stata commands. When enabled, hovering over a Stata command will show help information from the official Stata help files.",
   "config.additionalAdoPaths.description": "Additional Stata ado paths to scan for community-contributed command help files. Paths are scanned in order, after the default Stata installation path. Example: [\"/Users/username/ado/personal\", \"C:\\Users\\username\\ado\\personal\"]",
   "command.diagnoseConsole.title": "Stata All in One: Diagnose Console Status",

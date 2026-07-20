@@ -13,10 +13,10 @@ function getEditorTitleItem(command) {
     return editorTitleItems.find((item) => item.command === command);
 }
 
-test('Sponsor editor-title button is independently disabled by default', () => {
+test('Sponsor editor-title button is independently enabled by default', () => {
     assert.deepEqual(properties['stata-all-in-one.showSponsorButton'], {
         type: 'boolean',
-        default: false,
+        default: true,
         markdownDescription: '%config.showSponsorButton.description%'
     });
 
