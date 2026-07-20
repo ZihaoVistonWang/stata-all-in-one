@@ -24,9 +24,10 @@ Stata All in One
 <h3 align="center"><b>Ready out of the box!</b><br>Natively integrated into VS Code—no need to configure external environments like Python or Node.js.</h3>
 
 <p align="center">
-   <a href="https://marketplace.visualstudio.com/items?itemName=ZihaoVistonWang.stata-all-in-one"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fapi.zihaowang.cn%2Fvscode-install&style=for-the-badge&labelColor=363a4f&color=a6da95&label=VS Code Installations" alt="VS Code Installations"></a>
-   <a href="https://xhslink.com/o/4Zs0aSfJSK"><img src="https://img.shields.io/endpoint?url=https://api.zihaowang.cn/rednote-noteinfo&label=Likes%20and%20collection&labelColor=363a4f&color=b7bdf8&style=for-the-badge" alt="Rednote Interactions ~500"></a>
-   <img src="https://img.shields.io/github/commit-activity/t/ZihaoVistonWang/stata-all-in-one?colorA=363a4f&colorB=f5a97f&style=for-the-badge&label=Commits" alt="Commits">
+   <a href="https://marketplace.visualstudio.com/items?itemName=ZihaoVistonWang.stata-all-in-one"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fapi.zihaowang.cn%2Fvscode-install&style=for-the-badge&labelColor=363a4f&color=ff6b81&label=VS Code" alt="VS Code Installations"></a>
+   <a href="https://open-vsx.org/extension/ZihaoVistonWang/stata-all-in-one"><img src="https://img.shields.io/endpoint?url=https://api.zihaowang.cn/openvsx-install&style=for-the-badge&labelColor=363a4f&color=f5a97f&label=Open VSX" alt="Open VSX Downloads"></a>
+   <a href="https://xhslink.com/o/4Zs0aSfJSK"><img src="https://img.shields.io/endpoint?url=https://api.zihaowang.cn/rednote-noteinfo&label=Likes%20and%20collection&labelColor=363a4f&color=ffeaa7&style=for-the-badge" alt="Rednote Interactions ~500"></a>
+   <img src="https://img.shields.io/github/commit-activity/t/ZihaoVistonWang/stata-all-in-one?colorA=363a4f&colorB=7bed9f&style=for-the-badge&label=Commits" alt="Commits">
    <a href="https://github.com/ZihaoVistonWang/stata-all-in-one#buy-me-a-coffee"><img src="https://img.shields.io/badge/BUY%20ME-A%20COFFEE-brightgreen?colorA=363a4f&colorB=e971b7&style=for-the-badge" alt="Buy Me A Coffee"></a>
 </p>
 
@@ -36,11 +37,13 @@ Stata All in One
 
 ## Sponsors
 
-Special thanks to RedNote user **Rich\*\*d**, WeChat users **M\*k\*** and **柿\*\*橙**, an anonymous user who commented “功能强大且配置简单的插件，谢谢！”, and Buy Me a Coffee supporters **LB\*\*PG@gmail.com** and **ol\*\*\*ba@gmail.com** for their generous contributions and continued support of this project.
+- First, my thanks go to RedNote user **Rich\*\*d**, WeChat users **M\*k\***, **柿\*\*橙**, and the anonymous user who commented “功能强大且配置简单的插件，谢谢！”, and Buy Me a Coffee supporters **LB\*\*PG@gmail.com** and **ol\*\*\*ba@gmail.com** for their generous contributions and continued support of this project.
 
-I am grateful to the **Agricultural Economics and Management Innovation Team** at Northwest A&F University for supporting my research, providing funding, and helping [promote and publicize](https://mp.weixin.qq.com/s/kxSfIF2nu1LuUzC2NvKWog) this project.
+- Above all, I am deeply grateful to the **Agricultural Economics and Management Innovation Team** at Northwest A&F University for supporting my research, providing funding, and helping [promote and publicize](https://mp.weixin.qq.com/s/kxSfIF2nu1LuUzC2NvKWog) this project.
 
-My thanks also go to Stata's officially authorized distributor [**Beijing Uone Info&Tech Co.,Ltd (Uone-Tech)**](http://www.uone-tech.cn/) for its support in [promoting and publicizing](https://mp.weixin.qq.com/s/UhLmoGK4VhYULACagjbcTg) this project.
+- I am also sincerely grateful to Assoc. Prof. [Yujun Lian](https://lingnan.sysu.edu.cn/faculty/lianyujun) and the [lianxh.cn](https://www.lianxh.cn/) team for their patient guidance and [publicity support](https://www.lianxh.cn/details/1865.html).
+
+- Finally, I thank Stata's officially authorized distributor [**Beijing Uone Info&Tech Co.,Ltd (Uone-Tech)**](http://www.uone-tech.cn/) for its support in [promoting and publicizing](https://mp.weixin.qq.com/s/UhLmoGK4VhYULACagjbcTg) this project.
 
 ## Features
 
@@ -48,21 +51,21 @@ My thanks also go to Stata's officially authorized distributor [**Beijing Uone I
    <a href="https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/img/example-marked-en.jpg"><img src="img/example-marked-en.jpg" alt="Feature Showcase"/> Click to view full image </a>
 </p>
 
-> ⚠️ Features marked with 🔑 require a `STATA.LIC` license file. Please support genuine Stata software to enjoy the full experience. You can contact Stata Corp, LLC's officially authorized partner [Beijing Uone Info&Tech Co.,Ltd (Uone-Tech)](http://xhslink.com/o/QYWdYfrEhy) to purchase genuine Stata software or request a trial.
+> ⚠️ Features marked with 🛠️ require **Stata 17 or later** and a `STATA.LIC` license file. Please support genuine Stata software to enjoy the full experience. You can contact Stata Corp, LLC's officially authorized partner [Beijing Uone Info&Tech Co.,Ltd (Uone-Tech)](http://xhslink.com/o/QYWdYfrEhy) to purchase genuine Stata software or request a trial.
 
-### 1. AI Skill (Experimental) 🔑
+### 1. AI Skill (Experimental) 🛠️
 
-- **Let AI Agents Run Stata Code**: <mark>Bundle the standalone native `stata-ai-skill` with this extension so AI coding tools (Claude Code, Cursor, Codex CLI, Open Code, OpenClaw, etc.) can run Stata through a Rust background service.</mark>
-- **Native Local Service**: <mark>The AI Skill runs from the packaged native executable and uses `http://127.0.0.1:19522` by default.</mark>
-- **Leave the setup to AI**: <mark>Click the `AI` button in the editor toolbar, copy the prompt, and paste it to your AI tool. The AI will install or register the bundled `stata-ai-skill` from this extension.</mark>
-- **Packaged Native Binaries**: <mark>The bundled skill includes macOS Apple Silicon and Windows x64/ARM64 executables, plus the full `SKILL.md` runtime guide.</mark>
+- **Let AI Agents Run Stata Code**: Bundle the standalone native `stata-ai-skill` with this extension so AI coding tools (Claude Code, Cursor, Codex CLI, Open Code, OpenClaw, etc.) can run Stata through a Rust background service.
+- **Native Local Service**: The AI Skill runs from the packaged native executable and uses `http://127.0.0.1:19522` by default.
+- **Leave the setup to AI**: Click the `AI` button in the editor toolbar, copy the prompt, and paste it to your AI tool. The AI will install or register the bundled `stata-ai-skill` from this extension.
+- **Packaged Native Binaries**: The bundled skill includes macOS Apple Silicon and Windows x64/ARM64 executables, plus the full `SKILL.md` runtime guide.
 
 ### 2. Code Execution (Stata Interaction)
 
 - **Platform Support**: Seamlessly integrates with Stata on both **macOS** and **Windows** without requiring additional extensions.
 - **Two Run Modes**:
-  - **Embedded Console** (default) 🔑: <mark>Run and display Stata output directly within VS Code! Including *command results*, *error messages*, *command window output*, and *graph output* — a true all-in-one IDE experience.</mark>
-  - **External App**: Continue using the traditional approach of sending code to the Stata GUI, for users who prefer Stata's native interface. <mark>Windows now uses [Stata COM Automation](https://www.stata.com/automation/), delivering significantly better performance than the previous PowerShell-based implementation.</mark>
+  - **Embedded Console** (default) 🛠️: Run and display Stata output directly within VS Code! Including *command results*, *error messages*, *command window output*, and *graph output* — a true all-in-one IDE experience.
+  - **External App**: Continue using the traditional approach of sending code to the Stata GUI, for users who prefer Stata's native interface. Windows now uses [Stata COM Automation](https://www.stata.com/automation/), delivering significantly better performance than the previous PowerShell-based implementation.
 - **Multi-Scenario Execution Strategies**:
   - **Section Execution**: When the cursor is on a header line (e.g., `** # Title`), click the ▶️ button or press `Ctrl/Cmd + D` to execute all code from that header to the next same-level or higher-level header (i.e., the entire section).
   - **Single Line Execution**: When the cursor is on a regular code line (no selection), click the ▶️ button or press `Ctrl/Cmd + D` to execute only that specific line.
@@ -72,7 +75,7 @@ My thanks also go to Stata's officially authorized distributor [**Beijing Uone I
 
 - **Full Syntax Highlighting and Code Completion Support**: Integrates [Stata Enhanced](https://github.com/kylebarron/language-stata) syntax engine[^1], providing precise syntax highlighting and code completion for `.do` files (under [MIT](https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/THIRD_PARTY_NOTICES.md) License).
 - **Custom Command Highlighting**: Supports highlighting for commonly used third-party commands (e.g., `reghdfe`, `ivreghdfe`, `gtools`), freely configurable in settings.
-- **Dataset Variable Autocompletion**: <mark>(After running code once) Provides intelligent autocomplete suggestions based on the current dataset when typing variable names in the editor and console, boosting coding efficiency.</mark>
+- **Dataset Variable Autocompletion**: (After running code once) Provides intelligent autocomplete suggestions based on the current dataset when typing variable names in the editor and console, boosting coding efficiency.
 
 [^1]: [Stata Enhanced](https://github.com/kylebarron/language-stata) syntax engine was developed by Kyle Barron, providing comprehensive support for the Stata language. This extension follows the [MIT](https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/THIRD_PARTY_NOTICES.md) License. Thanks to Kyle Barron for his contribution!
 
@@ -90,14 +93,14 @@ My thanks also go to Stata's officially authorized distributor [**Beijing Uone I
 
 <a id="code_execution"></a>
 
-### 5. Data Viewer 🔑
+### 5. Data Viewer 🛠️
 
-- **Click to View**: <mark>Click a `.dta` file in the VS Code Explorer to open it in the new `Data Viewer` panel.</mark>
+- **Click to View**: Click a `.dta` file in the VS Code Explorer to open it in the new `Data Viewer` panel.
   - **Variable Info**: Variable table displays metadata such as name, label, and type.
   - **Data Browsing**: Supports lazy loading of rows and columns — easily browse large datasets right in VS Code without opening Stata.
-- **View After Run**: <mark>After running code, instantly view results in the `Data Viewer` within the `Console` panel. Works in both run modes — no need to switch back and forth.</mark>
-- **Data Filtering**: <mark>Provides Stata-style filtering for quickly locating subsets of data.</mark>
-- **Built-in `br` / `browse`**: <mark>In Embedded Console mode, run `br` or `browse` from either the editor or Console command input to open the built-in Data Viewer. The command and a localized confirmation remain visible in Console, while any following `varlist`, `if`, `in`, and `nolabel` clauses are applied directly as viewer filters. External App mode keeps Stata's original `br` / `browse` behavior unchanged.</mark>
+- **View After Run**: After running code, instantly view results in the `Data Viewer` within the `Console` panel. Works in both run modes — no need to switch back and forth.
+- **Data Filtering**: Provides Stata-style filtering for quickly locating subsets of data.
+- **Built-in `br` / `browse`**: In Embedded Console mode, run `br` or `browse` from either the editor or Console command input to open the built-in Data Viewer. The command and a localized confirmation remain visible in Console, while any following `varlist`, `if`, `in`, and `nolabel` clauses are applied directly as viewer filters. External App mode keeps Stata's original `br` / `browse` behavior unchanged.
 
 ### 6. Efficient Separator Lines & Styling
 
@@ -115,25 +118,25 @@ My thanks also go to Stata's officially authorized distributor [**Beijing Uone I
 
 ### 7. More Features
 
-1. Enhanced Embedded Console 🔑
+1. Enhanced Embedded Console 🛠️
    - **Graph Output**
-     - **Direct Display**: <mark>Render Stata graph output directly in the embedded console.</mark>
-     - **Export Options**: <mark>Save graphs as SVG, PNG (configurable DPI), or copy to clipboard.</mark>
-     - **Fullscreen View**: <mark>Click a graph to view it in fullscreen mode for detailed inspection.</mark>
+     - **Direct Display**: Render Stata graph output directly in the embedded console.
+     - **Export Options**: Save graphs as SVG, PNG (configurable DPI), or copy to clipboard.
+     - **Fullscreen View**: Click a graph to view it in fullscreen mode for detailed inspection.
 
    - **Progress Display**
-     - **Command Execution Status**: <mark>For long-running commands like `bootstrap`, `bdiff`, and `xthreg`, the console shows real-time progress (e.g. 50/2000) and estimated time remaining. Other commands display elapsed time.</mark>
+     - **Command Execution Status**: For long-running commands like `bootstrap`, `bdiff`, and `xthreg`, the console shows real-time progress (e.g. 50/2000) and estimated time remaining. Other commands display elapsed time.
 
    - **Custom Font**:
-     - **Font Settings**: <mark>Use `stata-all-in-one.consoleFontMode` and `stata-all-in-one.consoleCustomFontFamily` to customize the console font for a better reading experience.</mark>
+     - **Font Settings**: Use `stata-all-in-one.consoleFontMode` and `stata-all-in-one.consoleCustomFontFamily` to customize the console font for a better reading experience.
 
 2. Enhanced Comments
    - **Toggle Comments**: Quickly toggle line comments using `Ctrl/Cmd + /`.
    - **Optional Styles**: Defaults to `//`, with support for switching to other valid Stata comment delimiters in settings.
 
 3. Built-in Help
-   - **Show Help Text**: For example, select `regress` and press `Ctrl/Cmd + Shift + H`. In External App mode, this opens Stata's `regress` help page; <mark>in Embedded Console mode, the help text is displayed directly in the console.</mark>
-   - **Hover Help**: <mark>Hover over a Stata command to see help information, with automatic filtering of non-practical commands like `#delimit`, `using`, etc.</mark>
+   - **Show Help Text**: For example, select `regress` and press `Ctrl/Cmd + Shift + H`. In External App mode, this opens Stata's `regress` help page; in Embedded Console mode, the help text is displayed directly in the console.
+   - **Hover Help**: Hover over a Stata command to see help information, with automatic filtering of non-practical commands like `#delimit`, `using`, etc.
 
 <a id="line-break"></a>
 
@@ -153,7 +156,7 @@ My thanks also go to Stata's officially authorized distributor [**Beijing Uone I
    <!-- - **Disabled by default**: This feature is off by default to avoid unexpected behavior for users who manually write `cd` at the top of their do files. Enable via setting `stata-all-in-one.cdToDoFileDir`. -->
 
 7. Quick Settings
-   - **Settings Button**: <mark>Click the gear icon in the editor title bar to quickly access Stata All in One settings.</mark>
+   - **Settings Button**: Click the gear icon in the editor title bar to quickly access Stata All in One settings.
 
 ---
 
@@ -200,7 +203,7 @@ The `saio` package supports Stata 13 and later without Java, Python, curl, or th
 
 ### Code Execution
 
-1. <mark>**Run Mode** (`stata-all-in-one.runMode`)</mark>
+1. **Run Mode** (`stata-all-in-one.runMode`)
    - `embeddedConsole` (default): Run code in the built-in **Console | Stata All in One** panel within VS Code, with direct output viewing and interaction.
    - `externalApp`: Send code to the system-installed Stata application for execution.
 
@@ -232,18 +235,19 @@ The `saio` package supports Stata 13 and later without Java, Python, curl, or th
 
 ### Embedded Console
 
-11. <mark>**Console Font Mode** (`stata-all-in-one.consoleFontMode`)</mark>
-    - `online` (default): Load Maple Mono for Latin text and Maple Mono NF CN for CJK text.
+11. **Console Font Mode** (`stata-all-in-one.consoleFontMode`)
+    - `online` (default): Load Maple Mono for Latin text and Maple Mono NF CN for CJK text. [^3]
     - `editor`: Follow the editor font, falling back to the system monospace font.
     - `system`: Use the system monospace font directly.
     - `custom`: Use the custom font specified below.
-    - Font credits: [subframe7536/maple-font](https://github.com/subframe7536/maple-font), [fontsource](https://fontsource.org/fonts/maple-mono), and ZeoSeven Fonts ([443](https://fonts.zeoseven.com/items/443/), [442](https://fonts.zeoseven.com/items/442/)).
 
-12. <mark>**Console Custom Font Family** (`stata-all-in-one.consoleCustomFontFamily`)</mark>
+[^3]: Font credits: [subframe7536/maple-font](https://github.com/subframe7536/maple-font), [fontsource](https://fontsource.org/fonts/maple-mono), and ZeoSeven Fonts ([443](https://fonts.zeoseven.com/items/443/), [442](https://fonts.zeoseven.com/items/442/)).
+
+12.  **Console Custom Font Family** (`stata-all-in-one.consoleCustomFontFamily`)
     - When font mode is set to `custom`, the CSS `font-family` list used by the console.
     - Example: `"Maple Mono NF CN", Menlo, Monaco, monospace`
 
-13. <mark>**Graph Export DPI** (`stata-all-in-one.graphPngDpi`)</mark>
+13.  **Graph Export DPI** (`stata-all-in-one.graphPngDpi`)
     - DPI value for saving embedded console graphs as PNG. Default `600`, range 72–1200.
 
 ### Syntax Highlighting and Code Completion
@@ -255,11 +259,11 @@ The `saio` package supports Stata 13 and later without Java, Python, curl, or th
 
 ### Hover Help
 
-15. <mark>**Enable Hover Docs** (`stata-all-in-one.enableHoverDocs`)</mark>
+15. **Enable Hover Docs** (`stata-all-in-one.enableHoverDocs`)
     - `true` (default): Show official Stata help information when hovering over Stata commands.
     - `false`: Disable hover help.
 
-16. <mark>**Additional ADO Paths** (`stata-all-in-one.additionalAdoPaths`)</mark>
+16. **Additional ADO Paths** (`stata-all-in-one.additionalAdoPaths`)
     - Extra Stata ADO paths for scanning help files of community-contributed commands.
     - Example: `["/Users/username/ado/personal", "C:\\Users\\username\\ado\\personal"]`
 

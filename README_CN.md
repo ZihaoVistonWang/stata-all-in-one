@@ -24,9 +24,10 @@ Stata All in One
 <h3 align="center"><b>开箱即用！</b></br>所有功能均原生集成于 VS Code，无需额外配置 Python、Node.js 等任何第三方环境。</h3>
 
 <p align="center">
-   <a href="https://marketplace.visualstudio.com/items?itemName=ZihaoVistonWang.stata-all-in-one"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fapi.zihaowang.cn%2Fvscode-install&style=for-the-badge&labelColor=363a4f&color=a6da95&label=VS Code安装" alt="VS Code 安装次数"></a>
-   <a href="https://xhslink.com/o/4Zs0aSfJSK"><img src="https://img.shields.io/endpoint?url=https://api.zihaowang.cn/rednote-noteinfo&label=Rednote互动数据&labelColor=363a4f&color=b7bdf8&style=for-the-badge" alt="Rednote互动数据 ~500"></a>
-   <img src="https://img.shields.io/github/commit-activity/t/ZihaoVistonWang/stata-all-in-one?colorA=363a4f&colorB=f5a97f&style=for-the-badge&label=修订次数" alt="修订次数">
+   <a href="https://marketplace.visualstudio.com/items?itemName=ZihaoVistonWang.stata-all-in-one"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fapi.zihaowang.cn%2Fvscode-install&style=for-the-badge&labelColor=363a4f&color=ff6b81&label=VS Code安装" alt="VS Code 安装次数"></a>
+   <a href="https://open-vsx.org/extension/ZihaoVistonWang/stata-all-in-one"><img src="https://img.shields.io/endpoint?url=https://api.zihaowang.cn/openvsx-install&style=for-the-badge&labelColor=363a4f&color=f5a97f&label=Open VSX下载" alt="Open VSX下载次数"></a>
+   <a href="https://xhslink.com/o/4Zs0aSfJSK"><img src="https://img.shields.io/endpoint?url=https://api.zihaowang.cn/rednote-noteinfo&label=Rednote互动数据&labelColor=363a4f&color=ffeaa7&style=for-the-badge" alt="Rednote互动数据 ~500"></a>
+   <img src="https://img.shields.io/github/commit-activity/t/ZihaoVistonWang/stata-all-in-one?colorA=363a4f&colorB=7bed9f&style=for-the-badge&label=修订次数" alt="修订次数">
    <a href="https://gitee.com/ZihaoVistonWang/stata-all-in-one#项目支持"><img src="https://img.shields.io/badge/点击 - 项目支持-brightgreen?colorA=363a4f&colorB=e971b7&style=for-the-badge" alt="项目支持"></a>
 </p>
 
@@ -36,11 +37,13 @@ Stata All in One
 
 ## 致谢
 
-感谢小红书用户 **Rich\*\*d**、微信用户 **M\*k\***、**柿\*\*橙**、评论 “功能强大且配置简单的插件，谢谢！” 的匿名用户，以及 Buy me a coffee 用户 **LB\*\*PG@gmail.com**、**ol\*\*\*ba@gmail.com** 对本项目的支持。
+- 感谢小红书用户 **Rich\*\*d**、微信用户 **M\*k\***、**柿\*\*橙**、评论 “功能强大且配置简单的插件，谢谢！” 的匿名用户，以及 Buy me a coffee 用户 **LB\*\*PG@gmail.com**、**ol\*\*\*ba@gmail.com** 对本项目的支持。
 
-感谢西北农林科技大学农林经济与管理创新团队为本人提供的科研支持、经费支持和对本项目的[宣传推广支持](https://mp.weixin.qq.com/s/kxSfIF2nu1LuUzC2NvKWog)。
+- 感谢西北农林科技大学农业经济与管理创新团队为本人提供的科研支持、经费支持和对本项目的[宣传推广支持](https://mp.weixin.qq.com/s/kxSfIF2nu1LuUzC2NvKWog)。
 
-感谢Stata官方授权经销商[北京友万信息科技有限公司（友万科技）](http://www.uone-tech.cn/)对本项目的[宣发支持](https://mp.weixin.qq.com/s/UhLmoGK4VhYULACagjbcTg)。
+- 感谢[连玉君](https://lingnan.sysu.edu.cn/faculty/lianyujun)老师的耐心指导和[连享会](https://www.lianxh.cn/)平台的[宣发支持](https://www.lianxh.cn/details/1865.html)。
+
+- 感谢Stata官方授权经销商[北京友万信息科技有限公司（友万科技）](http://www.uone-tech.cn/)对本项目的[宣发支持](https://mp.weixin.qq.com/s/UhLmoGK4VhYULACagjbcTg)。
 
 
 ## 功能概览
@@ -49,21 +52,21 @@ Stata All in One
    <a href="https://pan.zihaowang.cn/share/example-marked-cn.jpg"><img src="img/example-marked-cn.jpg" alt="功能展示图"/> 点击查看大图 </a>
 </p>
 
-> ⚠️ 以下标注 🔑 的功能需要`STATA.LIC`证书文件，请支持正版Stata软件以获得完整功能体验。您可以联系Stata Corp, LLC官方授权合作伙伴[北京友万信息科技有限公司(友万科技)](http://xhslink.com/o/QYWdYfrEhy)采购正版软件或申请试用。
+> ⚠️ 以下标注 🛠️ 的功能需要 **Stata 17 及以上版本**和 `STATA.LIC` 证书文件，请支持正版 Stata 软件以获得完整功能体验。您可以联系 Stata Corp, LLC 官方授权合作伙伴[北京友万信息科技有限公司（友万科技）](http://xhslink.com/o/QYWdYfrEhy)采购正版软件或申请试用。
 
-### 1. AI Skill 功能（实验性）🔑
+### 1. AI Skill 功能（实验性）🛠️
 
-- **让 AI Agent 运行 Stata 代码**：<mark>扩展内置独立版原生 `stata-ai-skill`，让 Claude Code、Cursor、Codex CLI、Open Code、OpenClaw 等 AI 编程工具通过 Rust 后台服务运行 Stata。</mark>
-- **原生本地服务**：<mark>AI Skill 服务由打包好的原生二进制运行，默认使用 `http://127.0.0.1:19522`。</mark>
-- **安装交给 AI 就行**：<mark>点击编辑器工具栏的 `AI` 按钮，复制提示词粘贴到 AI 工具即可，AI 将从本扩展中安装或注册内置的 `stata-ai-skill`。</mark>
-- **内置原生二进制**：<mark>随扩展提供 macOS Apple Silicon、Windows x64/ARM64 可执行文件，以及完整的 `SKILL.md` 运行指南。</mark>
+- **让 AI Agent 运行 Stata 代码**：扩展内置独立版原生 `stata-ai-skill`，让 Claude Code、Cursor、Codex CLI、Open Code、OpenClaw 等 AI 编程工具通过 Rust 后台服务运行 Stata。
+- **原生本地服务**：AI Skill 服务由打包好的原生二进制运行，默认使用 `http://127.0.0.1:19522`。
+- **安装交给 AI 就行**：点击编辑器工具栏的 `AI` 按钮，复制提示词粘贴到 AI 工具即可，AI 将从本扩展中安装或注册内置的 `stata-ai-skill`。
+- **内置原生二进制**：随扩展提供 macOS Apple Silicon、Windows x64/ARM64 可执行文件，以及完整的 `SKILL.md` 运行指南。
 
 ### 2. 代码运行 (Stata 交互)
 
 - **平台支持**：无需额外扩展即可与 **macOS** 和 **Windows** 上的 Stata 无缝集成。
 - **两种运行模式**：
-  - **嵌入式控制台**（默认模式）🔑：<mark>现在可以在 VS Code 内直接运行并展示Stata输出啦！包括*命令结果*、*错误信息*、*命令行窗口*和*图形输出*，真正实现 IDE 一体化体验。</mark>
-  - **外部应用**：继续支持传统的通过 Stata 窗口运行代码的方式，适合喜欢使用 Stata 原生界面的用户。<mark>Windows端现在使用[Stata COM自动化](https://www.stata.com/automation/)，性能相比之前基于 PowerShell 的实现有显著提升。</mark>
+  - **嵌入式控制台**（默认模式）🛠️：现在可以在 VS Code 内直接运行并展示Stata输出啦！包括*命令结果*、*错误信息*、*命令行窗口*和*图形输出*，真正实现 IDE 一体化体验。
+  - **外部应用**：继续支持传统的通过 Stata 窗口运行代码的方式，适合喜欢使用 Stata 原生界面的用户。Windows端现在使用[Stata COM自动化](https://www.stata.com/automation/)，性能相比之前基于 PowerShell 的实现有显著提升。
 - **多场景执行策略**：
   - **章节运行**：当光标在标题行（如 `** # 标题`）时，点击 ▶️ 按钮 或按 `Ctrl/Cmd + D`，将执行从该标题起始至下一个同级或高级别标题前的所有代码（即整个章节）。
   - **单行运行**：当光标在普通代码行（选中）时，点击 ▶️ 按钮 或按 `Ctrl/Cmd + D`，只执行当前行代码。
@@ -73,7 +76,7 @@ Stata All in One
 
 - **完整语法高亮和代码提示支持**：集成 [Stata Enhanced](https://github.com/kylebarron/language-stata) 语法引擎[^1]，为 `.do` 文件提供精确的语法高亮和代码提示（遵循 [MIT](https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/THIRD_PARTY_NOTICES.md) 许可）。
 - **自定义命令高亮**：支持为用户常用的第三方命令（如 `reghdfe`、`ivreghdfe`、`gtools` 等）添加关键字高亮，可在设置中自由配置。
-- **数据集变量名自动补全**：<mark>（运行一次代码后）在编辑器和控制台中输入变量名时，提供基于当前数据集的智能补全建议，提升编码效率。</mark>
+- **数据集变量名自动补全**：（运行一次代码后）在编辑器和控制台中输入变量名时，提供基于当前数据集的智能补全建议，提升编码效率。
 
 [^1]: [Stata Enhanced](https://github.com/kylebarron/language-stata) 语法引擎由 Kyle Barron 开发，提供了对 Stata 语言的全面支持。本拓展遵循 [MIT](https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/THIRD_PARTY_NOTICES.md) 许可协议，感谢 Kyle Barron 的贡献！
 
@@ -91,14 +94,14 @@ Stata All in One
 
 <a id="code_execution"></a>
 
-### 5. 数据查看器🔑
+### 5. 数据查看器🛠️
 
-- **即点即看**：<mark>点击Vs Code资源管理器中的 `.dta` 文件，即可在全新的 `数据查看器` 面板中打开数据集。</mark>
+- **即点即看**：点击Vs Code资源管理器中的 `.dta` 文件，即可在全新的 `数据查看器` 面板中打开数据集。
   - **变量信息**：变量表格显示变量名称、标签、类型等元数据。
   - **数据浏览**：支持行列动态加载，无需打开Stata，现在在Vs Code中就能轻松浏览大数据集。
-- **跑完就看**：<mark>跑完代码后，可以立即在`控制台`面板中的`数据查看器`中查看上述结果。两种运行模式下均可使用，无需来回切换。</mark>
-- **数据过滤**：<mark>提供 Stata 风格的列过滤功能，支持快速定位感兴趣的数据子集。</mark>
-- **内置 `br` / `browse`**：<mark>在嵌入式控制台模式下，无论从代码编辑器还是 Console 命令输入框运行 `br` 或 `browse`，都会直接打开内置数据查看器；命令和本地化打开提示会保留在 Console 中，后续的 `varlist`、`if`、`in` 和 `nolabel` 会直接应用为查看器筛选条件。外部 Stata 模式不做拦截，保留 Stata 原有的 `br` / `browse` 行为。</mark>
+- **跑完就看**：跑完代码后，可以立即在`控制台`面板中的`数据查看器`中查看上述结果。两种运行模式下均可使用，无需来回切换。
+- **数据过滤**：提供 Stata 风格的列过滤功能，支持快速定位感兴趣的数据子集。
+- **内置 `br` / `browse`**：在嵌入式控制台模式下，无论从代码编辑器还是 Console 命令输入框运行 `br` 或 `browse`，都会直接打开内置数据查看器；命令和本地化打开提示会保留在 Console 中，后续的 `varlist`、`if`、`in` 和 `nolabel` 会直接应用为查看器筛选条件。外部 Stata 模式不做拦截，保留 Stata 原有的 `br` / `browse` 行为。
 
 ### 6. 高效分隔线与样式
 
@@ -116,25 +119,25 @@ Stata All in One
 
 ### 7. 更多精彩
 
-1. 优化嵌入式控制台🔑
+1. 优化嵌入式控制台🛠️
    - **图片输出**
-     - **直接显示**：<mark>在嵌入式控制台中直接渲染 Stata 图形输出。</mark>
-     - **导出选项**：<mark>支持将图形保存为SVG、PNG（可配置 DPI）或复制到剪贴板。</mark>
-     - **全屏查看**：<mark>点击图形可在全屏模式下查看细节。</mark>
+     - **直接显示**：在嵌入式控制台中直接渲染 Stata 图形输出。
+     - **导出选项**：支持将图形保存为SVG、PNG（可配置 DPI）或复制到剪贴板。
+     - **全屏查看**：点击图形可在全屏模式下查看细节。
 
    - **进度显示**
-     - **命令执行状态**：<mark>对于`bootstrap`、`bdiff`、`xthreg`等耗时命令，控制台会显示实时进度（如 50/2000）和预计剩余时间。其他命令会显示运行耗时。</mark>
+     - **命令执行状态**：对于`bootstrap`、`bdiff`、`xthreg`等耗时命令，控制台会显示实时进度（如 50/2000）和预计剩余时间。其他命令会显示运行耗时。
 
    - **自定义字体**：
-     - **设置字体**：<mark>通过 `stata-all-in-one.consoleFontMode` 和 `stata-all-in-one.consoleCustomFontFamily` 设置项，用户可以自定义控制台的字体，以获得更好的阅读体验。</mark>
+     - **设置字体**：通过 `stata-all-in-one.consoleFontMode` 和 `stata-all-in-one.consoleCustomFontFamily` 设置项，用户可以自定义控制台的字体，以获得更好的阅读体验。
 
 2. 注释增强
    - **一键切换**：使用 `Ctrl/Cmd + /` 快速切换行注释状态。
    - **可选样式**：默认使用 `//`，支持在设置中更改为其他合法注释符。
 
 3. 内置帮助
-   - **输出帮助文本**：例如：选中 `regress`，按下快捷键`Ctrl/Cmd + Shift + H`，外部应用（externalApp）模式会打开 Stata 的 `regress` 帮助页面，<mark>而嵌入式控制台（embeddedConsole）模式则会在控制台中直接显示 `regress` 的帮助文本。</mark>
-   - **悬浮帮助提示**：<mark>鼠标悬停在 Stata 命令上时显示帮助信息，并自动过滤掉一些非实用命令（如 `#delimit`、`using` 等）。</mark>
+   - **输出帮助文本**：例如：选中 `regress`，按下快捷键`Ctrl/Cmd + Shift + H`，外部应用（externalApp）模式会打开 Stata 的 `regress` 帮助页面，而嵌入式控制台（embeddedConsole）模式则会在控制台中直接显示 `regress` 的帮助文本。
+   - **悬浮帮助提示**：鼠标悬停在 Stata 命令上时显示帮助信息，并自动过滤掉一些非实用命令（如 `#delimit`、`using` 等）。
 
 <a id="line-break"></a>
 
@@ -154,7 +157,7 @@ Stata All in One
    <!-- - **默认关闭**：为避免影响习惯在 do 文件开头手动写 `cd` 命令的用户，防止产生意料之外的错误，该功能默认不启用。需要时可在设置中开启 `stata-all-in-one.cdToDoFileDir`。 -->
 
 7. 快速设置
-   - **设置按钮**：<mark>点击编辑器标题栏的齿轮图标，快速访问 Stata All in One 的相关设置。</mark>
+   - **设置按钮**：点击编辑器标题栏的齿轮图标，快速访问 Stata All in One 的相关设置。
 
 ---
 
@@ -201,7 +204,7 @@ saio setup
 
 ### 代码运行
 
-1. <mark>**运行模式** (`stata-all-in-one.runMode`)</mark>
+1. **运行模式** (`stata-all-in-one.runMode`)
    - `embeddedConsole`（默认）：在 VS Code 内置的 **控制台 | Stata All in One** 面板中运行代码，直接查看输出并交互。
    - `externalApp`：将代码发送到系统安装的外部 Stata 应用执行。
 
@@ -233,18 +236,19 @@ saio setup
 
 ### 嵌入式控制台
 
-11. <mark>**控制台字体模式** (`stata-all-in-one.consoleFontMode`)</mark>
-   - `online`（默认）：为西文加载 Maple Mono，为 CJK 文本加载 Maple Mono NF CN。
+11. **控制台字体模式** (`stata-all-in-one.consoleFontMode`)
+   - `online`（默认）：为西文加载 Maple Mono，为 CJK 文本加载 Maple Mono NF CN。[^3]
    - `editor`：跟随编辑器字体，降级到系统等宽字体。
    - `system`：直接使用系统等宽字体。
    - `custom`：使用下方自定义字体设置。
-   - 字体致谢：[subframe7536/maple-font](https://github.com/subframe7536/maple-font)、[fontsource](https://fontsource.org/fonts/maple-mono) 和 ZeoSeven Fonts（[443](https://fonts.zeoseven.com/items/443/)、[442](https://fonts.zeoseven.com/items/442/)）。
 
-12. <mark>**控制台自定义字体** (`stata-all-in-one.consoleCustomFontFamily`)</mark>
+[^3]: 字体致谢：[subframe7536/maple-font](https://github.com/subframe7536/maple-font)、[fontsource](https://fontsource.org/fonts/maple-mono) 和 ZeoSeven Fonts（[443](https://fonts.zeoseven.com/items/443/)、[442](https://fonts.zeoseven.com/items/442/)）。
+
+12.  **控制台自定义字体** (`stata-all-in-one.consoleCustomFontFamily`)
     - 当字体模式设为 `custom` 时，控制台使用的 CSS `font-family` 列表。
     - 示例：`"Maple Mono NF CN", Menlo, Monaco, monospace`
 
-13. <mark>**图形导出 DPI** (`stata-all-in-one.graphPngDpi`)</mark>
+13.  **图形导出 DPI** (`stata-all-in-one.graphPngDpi`)
     - 嵌入式控制台图形保存为 PNG 时的 DPI 值。默认 `600`，范围 72–1200。
 
 ### 语法高亮和代码提示
@@ -256,11 +260,11 @@ saio setup
 
 ### Hover 悬停帮助
 
-15. <mark>**启用悬停文档** (`stata-all-in-one.enableHoverDocs`)</mark>
+15. **启用悬停文档** (`stata-all-in-one.enableHoverDocs`)
     - `true`（默认）：鼠标悬停在 Stata 命令上时显示官方帮助信息。
     - `false`：关闭悬停帮助。
 
-16. <mark>**额外 ADO 路径** (`stata-all-in-one.additionalAdoPaths`)</mark>
+16. **额外 ADO 路径** (`stata-all-in-one.additionalAdoPaths`)
     - 用于扫描社区贡献命令帮助文件的额外 Stata ADO 路径。
     - 示例：`["/Users/username/ado/personal", "C:\\Users\\username\\ado\\personal"]`
 
