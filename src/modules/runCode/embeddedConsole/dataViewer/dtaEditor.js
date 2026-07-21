@@ -1,7 +1,5 @@
 const vscode = require('vscode');
 const { openDtaFileInDataViewer } = require('./panel');
-const capability = require('../../../capability');
-const { showInfo, showError, msg } = require('../../../../utils/common');
 const { getOpenDataViewerTabs } = require('../editorRestorePolicy');
 
 const DTA_EDITOR_VIEW_TYPE = 'stata-all-in-one.dtaViewer';
@@ -24,18 +22,7 @@ class DtaDataViewerProvider {
     }
 
     async resolveCustomEditor(document, webviewPanel) {
-        const state = capability.getCapabilityState();
-        if (state === 'unverified') {
-            webviewPanel.webview.html = '';
-            showInfo(msg('capabilityUnverified'));
-            return;
-        }
-        if (state === 'external') {
-            webviewPanel.webview.html = '';
-            showError(msg('capabilityExternalOnly'));
-            return;
-        }
-        // state === 'console' → proceed normally
+        // Direct .dta parsing is independent of the Embedded Console and Stata.
         await openDtaFileInDataViewer(this.context, document.uri, webviewPanel);
     }
 }

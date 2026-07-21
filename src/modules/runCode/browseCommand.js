@@ -78,7 +78,10 @@ async function routeBrowseCommand(code, dependencies = {}) {
     const sink = getTerminalSink();
     await sink.prepareForExecution();
     sink.writeCommand(String(code || '').trim());
-    await revealDataViewer(parsed.filterText);
+    await revealDataViewer(parsed.filterText, {
+        allowWhileRunning: Boolean(dependencies.keepRunning),
+        captureSnapshot: Boolean(dependencies.keepRunning)
+    });
     sink.writeRawChunk(openedMessage);
     sink.flushOutput();
     if (!dependencies.keepRunning) {

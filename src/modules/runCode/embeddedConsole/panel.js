@@ -163,6 +163,10 @@ function attachPanel(panel) {
         } else if (message && message.type === 'requestVariables') {
             postVariables();
         } else if (message && message.type === 'executeInput' && typeof _commandHandler === 'function') {
+            if (_status === 'running') {
+                showWarn(msg('consoleBusyAction'));
+                return;
+            }
             try {
                 await _commandHandler(String(message.code || ''));
             } catch (error) {
@@ -2953,6 +2957,7 @@ module.exports = {
     registerWebviewPanelSerializer,
     clearWebviewTerminalPanel: clearPanel,
     setWebviewTerminalStatus: setStatus,
+    isWebviewTerminalRunning: () => _status === 'running',
     postWebviewVariables: postVariables,
     disposeVariableSuggestionSubscription: () => variableSuggestionSubscription.dispose()
 };

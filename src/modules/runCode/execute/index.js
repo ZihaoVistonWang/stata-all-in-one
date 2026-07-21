@@ -151,6 +151,14 @@ async function runCurrentSection(context, editor = null) {
     const codeToRun = originalCode;
     const runMode = config.getRunMode();
 
+    if (runMode === config.RUN_MODES.embeddedConsole) {
+        const terminal = require('../embeddedConsole/panel');
+        if (terminal.isWebviewTerminalRunning && terminal.isWebviewTerminalRunning()) {
+            showWarn(msg('consoleBusyAction'));
+            return;
+        }
+    }
+
     if (containsSaioCommand(codeToRun)) {
         showWarn(msg('saioCommandUnavailableInVscode'));
         return;
@@ -281,6 +289,15 @@ async function runArbitraryCode(context, code, options = {}) {
         return { success: false, skipped: true, blockedSaioCommand: true };
     }
 
+    const runMode = options.outputMode || config.getRunMode();
+    if (runMode === config.RUN_MODES.embeddedConsole && !options.allowWhileRunning) {
+        const terminal = require('../embeddedConsole/panel');
+        if (terminal.isWebviewTerminalRunning && terminal.isWebviewTerminalRunning()) {
+            showWarn(msg('consoleBusyAction'));
+            return { success: false, skipped: true, blockedWhileRunning: true };
+        }
+    }
+
     const onWindows = isWindows();
     const onMac = isMacOS();
     if (!onWindows && !onMac) {
@@ -288,7 +305,6 @@ async function runArbitraryCode(context, code, options = {}) {
         return { success: false };
     }
 
-    const runMode = options.outputMode || config.getRunMode();
     if (shouldRouteBrowseCommand(runMode) && !options.skipCompatibilityRouting) {
         const compatibilityResult = await routeConsoleUnsupportedCommand(normalizedCode);
         if (compatibilityResult) {
@@ -414,6 +430,7 @@ async function runBrowseExecutionPlan(context, segments, options = {}) {
         const codeResult = await runArbitraryCode(context, segment.code, {
             ...options,
             skipBrowseRouting: true,
+            allowWhileRunning: true,
             suppressRunFooter: true
         });
         if (!codeResult || !codeResult.success) {
