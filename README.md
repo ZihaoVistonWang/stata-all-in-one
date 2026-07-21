@@ -13,7 +13,7 @@ Stata All in One
 </p>
 
 <p align="center">
-   | <b>Version:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.3.3</a> | <b>Author:</b> <a href="https://zihaowang.cn">Zihao Viston Wang</a> | <b>Translate:</b>
+   | <b>Version:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.3.4</a> | <b>Author:</b> <a href="https://zihaowang.cn">Zihao Viston Wang</a> | <b>Translate:</b>
   <a href="https://gitee.com/ZihaoVistonWang/stata-all-in-one">中文版本</a> |
 </p>
 
@@ -309,16 +309,10 @@ If this extension has been helpful to you, feel free to scan the **Alipay** (lef
 
 | Version | Changes                                                                                                              | Release Date |
 | ------- | -------------------------------------------------------------------------------------------------------------------- | ------------ |
+| 0.3.4  | Rebuilt the Data Viewer around direct local `.dta` parsing and in-memory Console data access, with isolated snapshots, Stata-style filtering, and safer native execution on macOS and Windows. | 2026-07-22   |
 | 0.3.3  | Improved Embedded Console command compatibility and multi-line `browse` routing, and refined `which` output rendering. | 2026-07-21   |
 | 0.3.2  | Focused on improving Stata initialization and intelligent autocomplete, while adding multi-format Console export, built-in data browsing commands, and Stata AI Skill v1.1 | 2026-07-17   |
 | 0.3.1  | Streamlined Stata startup setup with automatic installation discovery and runtime checks to minimize manual configuration | 2026-07-13   |
 | 0.3.0  | Stable release: Fixed known issues from the preview releases | 2026-07-06   |
-| 0.2.19  | Bundled the standalone native `stata-ai-skill`; fixed macOS Console inheritance of Stata Python settings; refined Stata editor actions | 2026-06-18   |
-| 0.2.18  | Preview release: Fixed Windows Embedded Console init failure; Added STATA.LIC license detection with dialog prompt; Fixed webview Service Worker registration error; Improved console input styling; Fixed AI Skill multi-line code execution | 2026-06-07   |
-| 0.2.17-0.2.14  | Preview release: Introduced AI Skill, Embedded Console, Data Viewer, and Graph Support; improved Hover help display; bug fixes | 2026-05-31   |
-| 0.2.13  | On Windows, running code no longer restores a snapped or maximized Stata window to a smaller size — preserves current window state | 2026-03-12   |
-| 0.2.12  | Refactored Windows code execution logic; Added option to close other Stata windows before sending code; Added toggle for "Bug Report" and "Sponsor" buttons | 2026-03-05   |
-| 0.2.11  | New optional feature: Auto `cd` to do file directory on first Stata launch (disabled by default)                     | 2026-03-02   |
-| 0.2.10  | Refined code execution logic (Section/Line/Selection execution); Configurable run shortcut; F2 rename for variables  | 2026-02-27   |
 
 See [CHANGELOG.md](CHANGELOG.md) for full version history.

@@ -3,6 +3,15 @@
 All notable changes to the Stata All in One extension will be documented in this file.
 本文件记录 Stata All in One 扩展的所有重要更改。
 
+## 0.3.4 (2026-07-22)
+
+- **Feat**: Rebuilt Data Viewer with direct local `.dta` parsing and in-memory Console data access, supporting multiple file formats, paged loading, Stata-style filtering, labels, formats, Chinese text, and missing values without temporary data exports.
+- **Improved**: Isolated external files, current Console data, and `br` / `browse` snapshots, while preventing conflicting actions during Stata execution so each viewer keeps the correct dataset state.
+- **Fixed**: Improved native stability on macOS and Windows, including dedicated-thread execution for Windows, locale-compatible metadata parsing, and updated cross-platform data-reader plugins and bridges.
+- **新增**：重构数据查看器，支持本地直读多版本 `.dta` 与 Console 内存数据，提供分页加载、Stata 风格筛选，并保留标签、格式、中文文本和缺失值，不再导出临时数据。
+- **优化**：隔离外部文件、Console 当前数据与 `br` / `browse` 快照，并在 Stata 运行期间阻止冲突操作，确保各查看器保留正确的数据状态。
+- **修复**：提升 macOS 和 Windows 原生组件稳定性，包括 Windows 专用线程执行、本地化元数据兼容，以及跨平台数据读取插件与原生桥更新。
+
 ## 0.3.3 (2026-07-21)
 
 - **Improved**: Improved Embedded Console command compatibility with bilingual guidance for unsupported Stata GUI commands while preserving built-in Data Viewer routing for `br` and `browse`.

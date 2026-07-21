@@ -10,6 +10,10 @@ const { getUserLanguage, showInfo } = require('../utils/common');
 // Update changelog: version -> changelog text
 const CHANGELOG = {
     en: {
+        '0.3.4': {
+            ver_info: '✨ Stata All in One (0.3.4): Rebuilt the Data Viewer around direct local `.dta` parsing and in-memory Console data access, with isolated snapshots, Stata-style filtering, and safer native execution on macOS and Windows.',
+            more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#034-2026-07-22'
+        },
         '0.3.3': {
             ver_info: '✨ Stata All in One (0.3.3): Improved Embedded Console command compatibility and multi-line `browse` routing, and refined `which` output rendering.',
             more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#033-2026-07-21'
@@ -92,6 +96,10 @@ const CHANGELOG = {
         }
     },
     zh: {
+        '0.3.4': {
+            ver_info: '✨ Stata All in One (0.3.4)：重构数据查看器，支持本地直读 `.dta` 与直接访问 Console 内存数据，并新增独立快照、Stata 风格筛选及更安全的 macOS/Windows 原生执行。',
+            more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#034-2026-07-22'
+        },
         '0.3.3': {
             ver_info: '✨ Stata All in One (0.3.3)：改进 Embedded Console 命令兼容性与多行 `browse` 路由，优化 `which` 输出显示。',
             more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#033-2026-07-21'

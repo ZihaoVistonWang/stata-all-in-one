@@ -13,7 +13,7 @@ Stata All in One
 </p>
 
 <p align="center">
-   | <b>版本:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.3.3</a> | <b>作者:</b> <a href="https://zihaowang.cn">王梓豪</a> | <b>Translate:</b>
+   | <b>版本:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.3.4</a> | <b>作者:</b> <a href="https://zihaowang.cn">王梓豪</a> | <b>Translate:</b>
   <a href="https://github.com/ZihaoVistonWang/stata-all-in-one">English Version</a> |
 </p>
 
@@ -310,16 +310,10 @@ saio setup
 
 | 版本   | 更新内容                                                                           | 发布日期   |
 | ------ | ---------------------------------------------------------------------------------- | ---------- |
+| 0.3.4 | 重构数据查看器，支持本地直读 `.dta` 与直接访问 Console 内存数据，并新增独立快照、Stata 风格筛选及更安全的 macOS/Windows 原生执行。 | 2026-07-22 |
 | 0.3.3 | 改进嵌入式控制台的命令兼容性与多行 `browse` 路由，优化 `which` 输出显示。 | 2026-07-21 |
 | 0.3.2 | 重点优化了 Stata 初始化与智能补全，并新增 Console 多格式导出、内置数据浏览命令及 Stata AI Skill v1.1。 | 2026-07-17 |
 | 0.3.1 | 优化 Stata 初始化配置流程，自动完成安装探测与运行环境检查，尽可能减少用户手动配置的情况 | 2026-07-13 |
 | 0.3.0 | 正式版：修复预览版中的已知问题 | 2026-07-06 |
-| 0.2.19 | 内置独立原生 `stata-ai-skill`；修复 macOS Console 继承 Stata Python 配置；优化 Stata 编辑器操作按钮 | 2026-06-18 |
-| 0.2.18 | 预览版：修复 Windows 嵌入式控制台初始化失败；新增 STATA.LIC 证书检测与弹窗提示；修复 webview Service Worker 注册错误；优化命令行输入框样式；修复 AI Skill 多行代码执行问题 | 2026-06-07 |
-| 0.2.17-0.2.14 | 预览版：引入 AI Skill、嵌入式控制台、数据查看器和图形支持等核心功能；优化 Hover 帮助显示；修复已知问题 | 2026-05-31 |
-| 0.2.13 | Windows 下运行代码时，不再把已贴靠或最大化 的 Stata 窗口还原成更小的普通窗口，现会保持 Stata 当前窗口大小不变 | 2026-03-12 |
-| 0.2.12 | 重构 Windows 端代码执行逻辑；新增配置：发送代码前可选关闭 Viewer、数据编辑器等辅助窗口；新增配置：是否显示“Bug 反馈”和“项目支持”按钮 | 2026-03-05 |
-| 0.2.11 | 新增可选配置：Stata 首次启动时自动 `cd` 到 do 文件所在目录（默认关闭）             | 2026-03-02 |
-| 0.2.10 | 优化代码运行逻辑（章节/单行/选中运行）；新增运行快捷键可选；新增 F2 变量重命名功能 | 2026-02-27 |
 
 详见 [CHANGELOG.md](CHANGELOG.md) 完整版本记录。
