@@ -236,7 +236,7 @@
       "secondarySidebar": [
         {
           "id": "stata-all-in-one-secondarySidebarContainer",
-          "title": "SAiO",
+          "title": "SA𝗂O",
           "icon": "img/tab-icon.svg"
         }
       ]
@@ -246,9 +246,9 @@
         {
           "type": "webview",
           "id": "stata-all-in-one.secondarySidebar",
-          "name": "SAiO",
+          "name": "SA𝗂O",
           "icon": "img/tab-icon.svg",
-          "contextualTitle": "SAiO"
+          "contextualTitle": "SA𝗂O"
         }
       ]
     },

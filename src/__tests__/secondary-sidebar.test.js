@@ -32,12 +32,12 @@ test('manifest contributes one SAiO secondary sidebar webview and defaults to it
     const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, '../../package.json'), 'utf8'));
     const containers = manifest.contributes.viewsContainers.secondarySidebar;
     assert.equal(containers.length, 1);
-    assert.equal(containers[0].title, 'SAiO');
+    assert.equal(containers[0].title, 'SA𝗂O');
     assert.match(containers[0].id, /^[A-Za-z0-9_-]+$/);
     const views = manifest.contributes.views[containers[0].id];
     assert.equal(views.length, 1);
     assert.equal(views[0].id, 'stata-all-in-one.secondarySidebar');
-    assert.equal(views[0].name, 'SAiO');
+    assert.equal(views[0].name, 'SA𝗂O');
     assert.equal(manifest.contributes.configuration.properties['stata-all-in-one.runMode'].default, 'secondarySidebar');
     assert.equal(manifest.engines.vscode, '^1.94.0');
 });
@@ -68,6 +68,9 @@ test('secondary sidebar carries the embedded Console and Data Viewer visual stru
     ), 'utf8');
 
     assert.match(panelSource, /getSecondarySidebarHtml/);
+    assert.doesNotMatch(panelSource, /workbench\.action\.maximizeAuxiliaryBar/);
+    assert.doesNotMatch(panelSource, /workbench\.action\.increaseViewWidth/);
+    assert.doesNotMatch(panelSource, /INITIAL_WIDTH_STATE_KEY/);
     const webview = {
         cspSource: 'vscode-webview:',
         asWebviewUri: uri => uri
