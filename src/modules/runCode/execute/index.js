@@ -30,9 +30,11 @@ const { containsSaioCommand } = require('../saioCommandGuard');
 // 临时文件处理
 const { cleanupTempFile } = require('./tempfile');
 
-async function invalidateConsoleDataViewer() {
+async function invalidateConsoleDataViewer(runMode = config.getRunMode()) {
     try {
-        const viewer = require('../embeddedConsole/dataViewer/panel');
+        const viewer = runMode === config.RUN_MODES.secondarySidebar
+            ? require('../secondarySidebar/panel')
+            : require('../embeddedConsole/dataViewer/panel');
         if (viewer.updateDataViewerData) await viewer.updateDataViewerData();
     } catch (_) {}
 }
@@ -158,8 +160,8 @@ async function runCurrentSection(context, editor = null) {
     const codeToRun = originalCode;
     const runMode = config.getRunMode();
 
-    if (runMode === config.RUN_MODES.embeddedConsole) {
-        const terminal = require('../embeddedConsole/panel');
+    if (config.isConsoleRunMode(runMode)) {
+        const terminal = require('../consoleTarget').getConsoleTarget(runMode);
         if (terminal.isWebviewTerminalRunning && terminal.isWebviewTerminalRunning()) {
             showWarn(msg('consoleBusyAction'));
             return;
@@ -172,7 +174,9 @@ async function runCurrentSection(context, editor = null) {
     }
 
     if (shouldRouteBrowseCommand(runMode)) {
-        const compatibilityResult = await routeConsoleUnsupportedCommand(codeToRun);
+        const compatibilityResult = await routeConsoleUnsupportedCommand(codeToRun, {
+            getTerminalSink: () => require('../consoleTarget').getWebviewTerminalSink(runMode)
+        });
         if (compatibilityResult) {
             return;
         }
@@ -209,7 +213,9 @@ async function runCurrentSection(context, editor = null) {
                 vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', false);
             } else {
                 vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
-                const consoleResult = await runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir, context);
+                const consoleResult = await runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir, context, {
+                    outputMode: runMode
+                });
                 if (consoleResult.success) {
                     vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
                     capability.setCapabilityState(context, 'console');
@@ -235,7 +241,9 @@ async function runCurrentSection(context, editor = null) {
                 vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', false);
             } else {
                 vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
-                const consoleResult = await runOnMacWebview(codeToRun, tmpFilePath, docDir, context);
+                const consoleResult = await runOnMacWebview(codeToRun, tmpFilePath, docDir, context, {
+                    outputMode: runMode
+                });
                 if (consoleResult.success) {
                     vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
                     capability.setCapabilityState(context, 'console');
@@ -297,8 +305,8 @@ async function runArbitraryCode(context, code, options = {}) {
     }
 
     const runMode = options.outputMode || config.getRunMode();
-    if (runMode === config.RUN_MODES.embeddedConsole && !options.allowWhileRunning) {
-        const terminal = require('../embeddedConsole/panel');
+    if (config.isConsoleRunMode(runMode) && !options.allowWhileRunning) {
+        const terminal = require('../consoleTarget').getConsoleTarget(runMode);
         if (terminal.isWebviewTerminalRunning && terminal.isWebviewTerminalRunning()) {
             showWarn(msg('consoleBusyAction'));
             return { success: false, skipped: true, blockedWhileRunning: true };
@@ -313,7 +321,9 @@ async function runArbitraryCode(context, code, options = {}) {
     }
 
     if (shouldRouteBrowseCommand(runMode) && !options.skipCompatibilityRouting) {
-        const compatibilityResult = await routeConsoleUnsupportedCommand(normalizedCode);
+        const compatibilityResult = await routeConsoleUnsupportedCommand(normalizedCode, {
+            getTerminalSink: () => require('../consoleTarget').getWebviewTerminalSink(runMode)
+        });
         if (compatibilityResult) {
             return compatibilityResult;
         }
@@ -349,13 +359,14 @@ async function runArbitraryCode(context, code, options = {}) {
 
             await vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
             const consoleResult = await runOnWindowsEmbeddedConsole(normalizedCode, tmpFilePath, docDir, context, {
-                suppressRunFooter: Boolean(options.suppressRunFooter)
+                suppressRunFooter: Boolean(options.suppressRunFooter),
+                outputMode: runMode
             });
             if (consoleResult.success) {
                 await vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
                 capability.setCapabilityState(context, 'console');
                 await refreshMemoryVarsAfterRun(context, consoleResult);
-                await invalidateConsoleDataViewer();
+                await invalidateConsoleDataViewer(runMode);
                 return consoleResult;
             }
             if (consoleResult.shouldOfferGuiFallback) {
@@ -383,13 +394,14 @@ async function runArbitraryCode(context, code, options = {}) {
 
         await vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
         const consoleResult = await runOnMacWebview(normalizedCode, tmpFilePath, docDir, context, {
-            suppressRunFooter: Boolean(options.suppressRunFooter)
+            suppressRunFooter: Boolean(options.suppressRunFooter),
+            outputMode: runMode
         });
         if (consoleResult.success) {
             await vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
             capability.setCapabilityState(context, 'console');
             await refreshMemoryVarsAfterRun(context, consoleResult);
-            await invalidateConsoleDataViewer();
+            await invalidateConsoleDataViewer(runMode);
             return consoleResult;
         }
         if (consoleResult.shouldOfferGuiFallback) {
@@ -416,7 +428,7 @@ async function runArbitraryCode(context, code, options = {}) {
 async function runBrowseExecutionPlan(context, segments, options = {}) {
     let result = { success: true, routedToDataViewer: false };
     const runStartTime = Date.now();
-    const sink = require('../embeddedConsole/panel').getWebviewTerminalSink();
+    const sink = require('../consoleTarget').getWebviewTerminalSink(options.outputMode || config.getRunMode());
     const finishPlan = (finalResult) => {
         sink.writeRunFooter(Date.now() - runStartTime);
         return finalResult;
@@ -424,7 +436,10 @@ async function runBrowseExecutionPlan(context, segments, options = {}) {
 
     for (const segment of segments) {
         if (segment.type === 'browse') {
-            const browseResult = await routeBrowseCommand(segment.commandText, { keepRunning: true });
+            const browseResult = await routeBrowseCommand(segment.commandText, {
+                keepRunning: true,
+                outputMode: options.outputMode || config.getRunMode()
+            });
             if (!browseResult || !browseResult.success) {
                 return finishPlan(browseResult || { success: false });
             }

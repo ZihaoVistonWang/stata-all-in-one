@@ -304,7 +304,9 @@ async function showSuccessDialog(context, report, signature, forceNotice, signal
                 keepExternal
             );
             if (choice === useEmbedded) {
-                await updateRunMode(config.RUN_MODES.embeddedConsole);
+                await updateRunMode(
+                    config.RUN_MODES.secondarySidebar || config.RUN_MODES.embeddedConsole
+                );
                 await saveAcknowledgement(context, signature, 'success');
                 return { acknowledged: true, action: 'embedded' };
             }

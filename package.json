@@ -21,11 +21,12 @@
     "AI coding skill"
   ],
   "engines": {
-    "vscode": "^1.70.0"
+    "vscode": "^1.94.0"
   },
   "activationEvents": [
     "onLanguage:stata",
     "onCommand:stata-all-in-one.showDataViewer",
+    "onView:stata-all-in-one.secondarySidebar",
     "onCustomEditor:stata-all-in-one.dtaViewer",
     "onStartupFinished"
   ],
@@ -114,13 +115,15 @@
           "type": "string",
           "enum": [
             "externalApp",
-            "embeddedConsole"
+            "embeddedConsole",
+            "secondarySidebar"
           ],
           "enumItemLabels": [
             "External App",
-            "Embedded Console"
+            "Embedded Console",
+            "Secondary Sidebar"
           ],
-          "default": "embeddedConsole",
+          "default": "secondarySidebar",
           "markdownDescription": "%config.runMode.description%"
         },
         "stata-all-in-one.consoleFontMode": {
@@ -229,6 +232,26 @@
         "priority": "default"
       }
     ],
+    "viewsContainers": {
+      "secondarySidebar": [
+        {
+          "id": "stata-all-in-one-secondarySidebarContainer",
+          "title": "SAiO",
+          "icon": "img/tab-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "stata-all-in-one-secondarySidebarContainer": [
+        {
+          "type": "webview",
+          "id": "stata-all-in-one.secondarySidebar",
+          "name": "SAiO",
+          "icon": "img/tab-icon.svg",
+          "contextualTitle": "SAiO"
+        }
+      ]
+    },
     "commands": [
       {
         "command": "stata-all-in-one.setLevel1",

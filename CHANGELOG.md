@@ -5,11 +5,15 @@ All notable changes to the Stata All in One extension will be documented in this
 
 ## 0.3.3 (2026-07-21)
 
+- **Feat**: Added the default **SAiO** secondary-sidebar run mode with a single view containing internal Console and Data Viewer tabs.
+- **Feat**: Running code now reveals the right secondary sidebar on Console, while `browse`, the Data Viewer command, and `.dta` files switch the same view to Data Viewer.
 - **Improved**: Improved Embedded Console command compatibility with bilingual guidance for unsupported Stata GUI commands while preserving built-in Data Viewer routing for `br` and `browse`.
 - **Fixed**: Routed `br` and `browse` correctly within multi-line code, preserved the execution order of surrounding Stata code, and reported total execution time only once.
 - **Fixed**: Rendered `which` command results as plain text so paths, versions, and dates are no longer incorrectly highlighted as numbers, while preserving error styling.
 - **Fixed**: Aligned the Sponsor button setting description with its default enabled behavior.
 - **Docs**: Refreshed and standardized bilingual README badges, feature descriptions, requirements, acknowledgements, and formatting.
+- **新增**：新增默认的 **SAiO** 辅助侧栏运行模式，在单一视图内提供`控制台`和`数据查看器`两个内部标签。
+- **新增**：运行代码时自动在右侧辅助侧栏显示`控制台`；`browse`、数据查看器命令和 `.dta` 文件则在同一视图中切换到`数据查看器`。
 - **优化**：改进 Embedded Console 命令兼容性，为不支持的 Stata GUI 命令提供双语提示，同时保留 `br` 和 `browse` 到内置数据查看器的路由。
 - **修复**：正确路由多行代码中的 `br` 和 `browse`，保持前后 Stata 代码的执行顺序，并仅在全部代码完成后显示一次总耗时。
 - **修复**：将 `which` 命令结果显示为普通文本，避免路径、版本号和日期被错误识别为数值高亮，同时保留错误样式。

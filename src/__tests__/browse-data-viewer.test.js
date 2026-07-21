@@ -43,8 +43,9 @@ test('keeps browse text in Stata code when it follows a continuation marker', ()
     );
 });
 
-test('routes browse only in Embedded Console mode', () => {
+test('routes browse in both Console modes', () => {
     assert.equal(shouldRouteBrowseCommand('embeddedConsole'), true);
+    assert.equal(shouldRouteBrowseCommand('secondarySidebar'), true);
     assert.equal(shouldRouteBrowseCommand('externalApp'), false);
 });
 

@@ -95,10 +95,10 @@ Stata All in One
 
 ### 5. Data Viewer 🛠️
 
-- **Click to View**: Click a `.dta` file in the VS Code Explorer to open it in the new `Data Viewer` panel.
+- **Click to View**: In the default Secondary Sidebar mode, click a `.dta` file in the VS Code Explorer to open it in the `Data Viewer` tab inside the right-side **SAiO** view.
   - **Variable Info**: Variable table displays metadata such as name, label, and type.
   - **Data Browsing**: Supports lazy loading of rows and columns — easily browse large datasets right in VS Code without opening Stata.
-- **View After Run**: After running code, instantly view results in the `Data Viewer` within the `Console` panel. Works in both run modes — no need to switch back and forth.
+- **One Right-Side Workspace**: The **SAiO** secondary sidebar contains internal `Console` and `Data Viewer` tabs. Running code opens the sidebar on `Console`; switch to `Data Viewer` from the fixed header without creating another editor tab.
 - **Data Filtering**: Provides Stata-style filtering for quickly locating subsets of data.
 - **Built-in `br` / `browse`**: In Embedded Console mode, run `br` or `browse` from either the editor or Console command input to open the built-in Data Viewer. The command and a localized confirmation remain visible in Console, while any following `varlist`, `if`, `in`, and `nolabel` clauses are applied directly as viewer filters. External App mode keeps Stata's original `br` / `browse` behavior unchanged.
 
@@ -204,7 +204,8 @@ The `saio` package supports Stata 13 and later without Java, Python, curl, or th
 ### Code Execution
 
 1. **Run Mode** (`stata-all-in-one.runMode`)
-   - `embeddedConsole` (default): Run code in the built-in **Console | Stata All in One** panel within VS Code, with direct output viewing and interaction.
+   - `secondarySidebar` (default): Run code in the right-side **SAiO** auxiliary sidebar, with `Console` and `Data Viewer` in one view.
+   - `embeddedConsole`: Keep the legacy **Console | Stata All in One** editor-tab experience.
    - `externalApp`: Send code to the system-installed Stata application for execution.
 
 4. **Stata Version on macOS** (`stata-all-in-one.stataVersionOnMacOS`)

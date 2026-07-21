@@ -91,7 +91,7 @@ async function runHelpCommand(context) {
 
     // 如果是 Embedded Console 模式，直接在控制台中运行 help 命令
     const runMode = config.getRunMode();
-    if (runMode === config.RUN_MODES.embeddedConsole) {
+    if (config.isConsoleRunMode(runMode)) {
         const { runArbitraryCode } = require('./runCode/execute/index');
         await runArbitraryCode(context, helpCode);
         return;

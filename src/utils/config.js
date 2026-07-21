@@ -3,7 +3,8 @@ const vscode = require('vscode');
 const CONFIG_NAMESPACE = 'stata-all-in-one';
 const RUN_MODES = Object.freeze({
     externalApp: 'externalApp',
-    embeddedConsole: 'embeddedConsole'
+    embeddedConsole: 'embeddedConsole',
+    secondarySidebar: 'secondarySidebar'
 });
 const CONSOLE_FONT_MODES = Object.freeze({
     online: 'online',
@@ -106,9 +107,11 @@ const getCdToDoFileDir = () => getConfigValue('cdToDoFileDir', false);
  * Get preferred code execution mode
  */
 const getRunMode = () => {
-    const mode = String(getConfigValue('runMode', RUN_MODES.embeddedConsole) || '').trim();
-    return Object.values(RUN_MODES).includes(mode) ? mode : RUN_MODES.embeddedConsole;
+    const mode = String(getConfigValue('runMode', RUN_MODES.secondarySidebar) || '').trim();
+    return Object.values(RUN_MODES).includes(mode) ? mode : RUN_MODES.secondarySidebar;
 };
+
+const isConsoleRunMode = mode => mode === RUN_MODES.embeddedConsole || mode === RUN_MODES.secondarySidebar;
 
 /**
  * Get embedded console font mode
@@ -166,6 +169,7 @@ module.exports = {
     getEnableCtrlShiftD,
     getCdToDoFileDir,
     getRunMode,
+    isConsoleRunMode,
     getConsoleFontMode,
     getConsoleCustomFontFamily,
     getGraphPngDpi,

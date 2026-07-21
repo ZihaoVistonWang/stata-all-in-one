@@ -55,7 +55,7 @@ async function routeConsoleUnsupportedCommand(code, dependencies = {}) {
     }
 
     const sink = dependencies.getTerminalSink
-        || require('./embeddedConsole/panel').getWebviewTerminalSink;
+        || (() => require('./consoleTarget').getWebviewTerminalSink());
     const openedMessage = dependencies.message
         || (() => {
             const { msg } = require('../../utils/common');

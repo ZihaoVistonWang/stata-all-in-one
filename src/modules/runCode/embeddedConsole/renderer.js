@@ -423,7 +423,12 @@ function syncConsoleTerminalTheme() {
 }
 
 function getWebviewThemeVariables() {
+    const colors = (CURRENT_THEME_DATA && CURRENT_THEME_DATA.colors) || {};
     return {
+        background: colors['editor.background'] || colors['panel.background'] || '#1e1e1e',
+        foreground: colors['editor.foreground'] || colors['terminal.foreground'] || '#cccccc',
+        border: colors['panel.border'] || colors['editorIndentGuide.background'] || '#3c3c3c',
+        description: colors['descriptionForeground'] || colors['editorLineNumber.foreground'] || '#9d9d9d',
         prompt: CURRENT_THEME_SLOT_MAP.prompt || DEFAULT_SLOT_MAP.prompt,
         command: CURRENT_THEME_SLOT_MAP.command || null,
         keyword: CURRENT_THEME_SLOT_MAP.keyword || null,

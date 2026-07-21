@@ -1,6 +1,7 @@
 const vscode = require('vscode');
 const { openDtaFileInDataViewer } = require('./panel');
 const { getOpenDataViewerTabs } = require('../editorRestorePolicy');
+const config = require('../../../../utils/config');
 
 const DTA_EDITOR_VIEW_TYPE = 'stata-all-in-one.dtaViewer';
 
@@ -23,6 +24,14 @@ class DtaDataViewerProvider {
 
     async resolveCustomEditor(document, webviewPanel) {
         // Direct .dta parsing is independent of the Embedded Console and Stata.
+        if (config.getRunMode() === config.RUN_MODES.secondarySidebar) {
+            await require('../../secondarySidebar/panel').openDtaFileInDataViewer(
+                this.context,
+                document.uri
+            );
+            webviewPanel.dispose();
+            return;
+        }
         await openDtaFileInDataViewer(this.context, document.uri, webviewPanel);
     }
 }

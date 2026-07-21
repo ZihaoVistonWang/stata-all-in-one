@@ -56,7 +56,7 @@ function splitBrowseCommandSegments(code) {
 }
 
 function shouldRouteBrowseCommand(runMode) {
-    return runMode === 'embeddedConsole';
+    return runMode === 'embeddedConsole' || runMode === 'secondarySidebar';
 }
 
 async function routeBrowseCommand(code, dependencies = {}) {
@@ -65,14 +65,23 @@ async function routeBrowseCommand(code, dependencies = {}) {
         return null;
     }
 
+    let currentMode = dependencies.outputMode;
+    if (!currentMode && (!dependencies.revealDataViewer || !dependencies.getTerminalSink)) {
+        currentMode = require('../../utils/config').getRunMode();
+    }
+    currentMode = currentMode || 'embeddedConsole';
     const revealDataViewer = dependencies.revealDataViewer
-        || require('./embeddedConsole/dataViewer/panel').revealDataViewer;
+        || (currentMode === 'secondarySidebar'
+            ? require('./secondarySidebar/panel').revealDataViewer
+            : require('./embeddedConsole/dataViewer/panel').revealDataViewer);
     const getTerminalSink = dependencies.getTerminalSink
-        || require('./embeddedConsole/panel').getWebviewTerminalSink;
+        || (() => require('./consoleTarget').getWebviewTerminalSink(currentMode));
     const openedMessage = dependencies.openedMessage
         || (() => {
             const { msg } = require('../../utils/common');
-            return msg('dataViewerOpenedNotice', { title: msg('dataViewerPanelTitle') });
+            return currentMode === 'secondarySidebar'
+                ? msg('dataViewerOpenedSidebarNotice')
+                : msg('dataViewerOpenedNotice', { title: msg('dataViewerPanelTitle') });
         })();
 
     const sink = getTerminalSink();

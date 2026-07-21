@@ -14,7 +14,7 @@ const config = require('../../../utils/config');
 const { showInfo, showError, msg } = require('../../../utils/common');
 const { getInstallationSignals } = require('../stataDiscovery');
 const { ensureStataConfigured } = require('../stataInstallationResolver');
-const { getWebviewTerminalSink, setGraphResourceRoot, convertGraphSvgToBitmap } = require('./panel');
+const { getWebviewTerminalSink, setGraphResourceRoot, convertGraphSvgToBitmap } = require('../consoleTarget');
 const { beginGraphCapture, endGraphCapture, executeBitmapGraphExport, exportCapturedGraphs, getGraphCacheDir } = require('./graphs');
 
 let _activeOutputSink = null;
@@ -283,8 +283,8 @@ function computeIncrementalChunk(emittedOutput, currentOutput) {
     return currentOutput;
 }
 
-function getOutputSink() {
-    return getWebviewTerminalSink();
+function getOutputSink(mode) {
+    return getWebviewTerminalSink(mode);
 }
 
 // =========================================================================
@@ -425,7 +425,7 @@ async function runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir = null
     let runStartTime = null;
     let graphCaptureState = null;
     let graphDir = null;
-    const outputSink = getOutputSink();
+    const outputSink = getOutputSink(options.outputMode);
 
     try {
         const initResult = await ensureConsoleSession(context);

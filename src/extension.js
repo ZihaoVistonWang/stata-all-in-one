@@ -21,6 +21,7 @@ const { registerUpdateCheck } = require('./modules/updateNotification');
 const { syncConsoleTerminalTheme } = require('./modules/runCode/embeddedConsole/renderer');
 const { prewarmConsoleTextmateTokenizer } = require('./modules/runCode/embeddedConsole/textmateTokenizer');
 const { closeRestoredDataViewerTabs, registerDtaDataViewer } = require('./modules/runCode/embeddedConsole/dataViewer/dtaEditor');
+const secondarySidebar = require('./modules/runCode/secondarySidebar/panel');
 const { registerHoverProvider, buildHelpIndex, createHoverProvider, DocumentCache } = require('./modules/hoverProvider');
 const { isWindows, isMacOS, showError, showInfo, showWarn, showConsoleUnavailableToast, msg } = require('./utils/common');
 
@@ -443,14 +444,21 @@ async function activate(context) {
 
     // Register run code command (uses dispatch layer for Embedded Console/External App routing)
     registerExecuteCommand(context);
+    secondarySidebar.registerSecondarySidebar(context);
     setWebviewCommandHandler(async (code) => {
         await runArbitraryCode(context, code, {
             outputMode: config.RUN_MODES.embeddedConsole
         });
     });
+    secondarySidebar.setWebviewCommandHandler(async (code) => {
+        await runArbitraryCode(context, code, {
+            outputMode: config.RUN_MODES.secondarySidebar
+        });
+    });
     refreshConsoleFontOptions();
     registerWebviewPanelSerializer(context);
     setOverflowNoticeSuppressed(Boolean(context.globalState.get(EMBEDDED_CONSOLE_OVERFLOW_NOTICE_SUPPRESSED_KEY, false)));
+    secondarySidebar.setOverflowNoticeSuppressed(Boolean(context.globalState.get(EMBEDDED_CONSOLE_OVERFLOW_NOTICE_SUPPRESSED_KEY, false)));
     context.subscriptions.push(vscode.workspace.onDidChangeConfiguration((event) => {
         if (event.affectsConfiguration('editor.fontFamily')
             || event.affectsConfiguration('stata-all-in-one.consoleFontMode')
@@ -458,7 +466,7 @@ async function activate(context) {
             refreshConsoleFontOptions();
         }
     }));
-    setWebviewActionHandler(async (action) => {
+    const handleConsoleAction = async (action) => {
         if (action === 'stopExecution') {
             stopConsoleExecution(context);
             return;
@@ -472,8 +480,11 @@ async function activate(context) {
 
         if (action === 'showOverflowNotice') {
             const dismissForeverLabel = msg('webviewOverflowDismissForever');
+            const overflowMessageKey = config.getRunMode() === config.RUN_MODES.secondarySidebar
+                ? 'secondarySidebarOverflowNotice'
+                : 'webviewOverflowNotice';
             const choice = await showInfo(
-                msg('webviewOverflowNotice'),
+                msg(overflowMessageKey),
                 msg('webviewOverflowConfirm'),
                 dismissForeverLabel
             );
@@ -481,9 +492,12 @@ async function activate(context) {
             if (choice === dismissForeverLabel) {
                 await context.globalState.update(EMBEDDED_CONSOLE_OVERFLOW_NOTICE_SUPPRESSED_KEY, true);
                 setOverflowNoticeSuppressed(true);
+                secondarySidebar.setOverflowNoticeSuppressed(true);
             }
         }
-    });
+    };
+    setWebviewActionHandler(handleConsoleAction);
+    secondarySidebar.setWebviewActionHandler(handleConsoleAction);
 
     // Register stop execution command
     const stopConsoleCommand = vscode.commands.registerCommand(
@@ -529,11 +543,15 @@ async function activate(context) {
     context.subscriptions.push(sponsorCommand);
 
     // Register data viewer command
-    const { revealDataViewer } = require('./modules/runCode/embeddedConsole/dataViewer/panel');
     const dataViewerCommand = vscode.commands.registerCommand(
         'stata-all-in-one.showDataViewer',
         (filterText) => {
-            revealDataViewer(typeof filterText === 'string' ? filterText : '');
+            const normalizedFilter = typeof filterText === 'string' ? filterText : '';
+            if (config.getRunMode() === config.RUN_MODES.secondarySidebar) {
+                secondarySidebar.revealDataViewer(normalizedFilter);
+            } else {
+                require('./modules/runCode/embeddedConsole/dataViewer/panel').revealDataViewer(normalizedFilter);
+            }
         }
     );
     context.subscriptions.push(dataViewerCommand);
@@ -617,10 +635,19 @@ async function activate(context) {
     const resetEmbeddedConsoleOverflowNoticeCommand = vscode.commands.registerCommand(
         'stata-all-in-one.debugResetEmbeddedConsoleOverflowNotice',
         async () => {
-            console.log('Stata All in One: Debug reset embedded console overflow notice command executed');
+            console.log('Stata All in One: Debug reset console overflow notice command executed');
             await context.globalState.update(EMBEDDED_CONSOLE_OVERFLOW_NOTICE_SUPPRESSED_KEY, false);
             setOverflowNoticeSuppressed(false);
-            showInfo('Embedded console overflow notice reset. It will show again when output overflows.');
+            secondarySidebar.setOverflowNoticeSuppressed(false);
+            const runMode = config.getRunMode();
+            if (runMode === config.RUN_MODES.externalApp) {
+                showInfo(msg('consoleOverflowNoticeResetExternal'));
+                return;
+            }
+            const surface = msg(runMode === config.RUN_MODES.secondarySidebar
+                ? 'secondarySidebarConsoleSurfaceName'
+                : 'embeddedConsoleSurfaceName');
+            showInfo(msg('consoleOverflowNoticeReset', { surface }));
         }
     );
     context.subscriptions.push(resetEmbeddedConsoleOverflowNoticeCommand);

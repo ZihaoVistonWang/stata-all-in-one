@@ -1,863 +1,51 @@
-const vscode = require('vscode');
 const fs = require('fs');
 const path = require('path');
-const { StataTerminalRenderer, getWebviewThemeVariables } = require('./renderer');
-const { msg, showInfo, showWarn, showError } = require('../../../utils/common');
+const vscode = require('vscode');
+const { msg } = require('../../../utils/common');
+const { getWebviewThemeVariables } = require('../embeddedConsole/renderer');
 
-let _context = null;
-const CONSOLE_OPEN_STATE_KEY = 'embeddedConsolePanelOpen';
-const { StataBuiltinCommands, StataKeywords, StataFunctions, StataOptions } = require('../../completionProvider');
-const { analyzeCompletionContext, selectCompletionCandidates } = require('../../completionContext');
-const variableSuggestions = require('../../variableSuggestionService');
-const config = require('../../../utils/config');
-const capability = require('../../capability');
-const { hasOpenStataSourceTab } = require('./editorRestorePolicy');
-const { createExportFilename, serializeConsoleExport } = require('./consoleExport');
-
-const _renderer = new StataTerminalRenderer();
-
-const PANEL_VIEW_TYPE = 'stata-all-in-one.webviewTerminal';
-
-let _panel = null;
-let _history = [];
-let _status = 'idle';
-let _commandHandler = null;
-let _actionHandler = null;
-let _asciiLogo53x13Cache = null;
-let _lastRunFailed = false;
-let _overflowNoticeSuppressed = false;
-let _extensionUri = null;
-let _workingDetail = null;
-let _graphResourceRoot = null;
-let _graphSaveRequestSeq = 0;
-const _pendingGraphSaveRequests = new Map();
-let _consoleFontOptions = {
-    fontMode: 'online',
-    editorFontFamily: '',
-    customFontFamily: '',
-    systemFallbackFamily: 'monospace'
-};
-
-const CODICON_RESOURCE_ROOT = vscode.Uri.joinPath(vscode.Uri.file(vscode.env.appRoot), 'out', 'media');
+let asciiLogoCache = null;
 const ONLINE_CJK_FONT_CSS_URL = 'https://fontsapi.zeoseven.com/442/main/result.css';
 const ONLINE_LATIN_FONT_WOFF2_URL = 'https://cdn.jsdelivr.net/fontsource/fonts/maple-mono@latest/latin-400-normal.woff2';
 const ONLINE_LATIN_FONT_WOFF_URL = 'https://cdn.jsdelivr.net/fontsource/fonts/maple-mono@latest/latin-400-normal.woff';
 
 function getCodiconFontUri(webview) {
-    return webview.asWebviewUri(vscode.Uri.joinPath(vscode.Uri.file(vscode.env.appRoot), 'out', 'media', 'codicon.ttf'));
-}
-
-function getLocalResourceRoots() {
-    const roots = [CODICON_RESOURCE_ROOT];
-    if (_graphResourceRoot) {
-        roots.push(vscode.Uri.file(_graphResourceRoot));
+    try {
+        const fontPath = vscode.Uri.joinPath(vscode.Uri.file(vscode.env.appRoot), 'out', 'media', 'codicon.ttf').fsPath;
+        return `data:font/ttf;base64,${fs.readFileSync(fontPath).toString('base64')}`;
+    } catch (_error) {
+        return webview.asWebviewUri(vscode.Uri.joinPath(vscode.Uri.file(vscode.env.appRoot), 'out', 'media', 'codicon.ttf'));
     }
-    return roots;
 }
 
 function getPanelTitle() {
     return msg('webviewPanelTitle');
 }
 
-function getPanelIconPath() {
-    if (!_extensionUri) {
-        return undefined;
-    }
-
-    const iconUri = vscode.Uri.joinPath(_extensionUri, 'img', 'tab-icon.svg');
-    return {
-        light: iconUri,
-        dark: iconUri
-    };
-}
-
-function highlightInputText(text) {
-    if (!text) {
-        return [];
-    }
-    const lines = text.split('\\n');
-    const result = [];
-    for (let li = 0; li < lines.length; li++) {
-        if (li > 0) {
-            result.push({ text: '\\n', tokenType: 'plain', className: 'tok tok-plain', style: {} });
-        }
-        const line = lines[li];
-        if (!line) {
-            continue;
-        }
-        try {
-            const entry = _renderer._segmentCommandLine(line);
-            if (entry && Array.isArray(entry.segments)) {
-                for (const seg of entry.segments) {
-                    result.push(seg);
-                }
-            }
-        } catch (_e) {
-            result.push({ text: line, tokenType: 'plain', className: 'tok tok-plain', style: {} });
-        }
-    }
-    return result;
-}
-
-function getConsoleAutocomplete(text, cursor) {
-    const completionContext = analyzeCompletionContext(text, cursor);
-    return {
-        context: completionContext,
-        matches: selectCompletionCandidates(completionContext, {
-            commands: [...new Set([...StataBuiltinCommands, ...StataKeywords, ...config.getCustomCommands()])],
-            variables: variableSuggestions.getActiveVariables(),
-            functions: StataFunctions,
-            options: StataOptions
-        })
-    };
-}
-
-function attachPanel(panel) {
-    // Prevent duplicate console panels on VS Code restore:
-    // if a panel already exists (e.g. from ensurePanel during activation),
-    // dispose the incoming restored panel to keep only one.
-    if (_panel && _panel !== panel) {
-        panel.dispose();
-        return;
-    }
-    _panel = panel;
-    _panel.title = getPanelTitle();
-    _panel.iconPath = getPanelIconPath();
-    try {
-        _panel.webview.html = getWebviewHtml(_panel.webview);
-    } catch (err) {
-        console.error('Stata All in One: Failed to generate console HTML:', err.message);
-        _panel.webview.html = '<html><body style="color:var(--vscode-foreground);font-family:sans-serif;padding:20px;"><p>控制台加载失败。</p><p>' + (err.message || 'Unknown error') + '</p></body></html>';
-    }
-    // Remember panel was open for restore on next VS Code start
-    if (_context) {
-        _context.globalState.update(CONSOLE_OPEN_STATE_KEY, true);
-    }
-    _panel.onDidDispose(async () => {
-        if (_panel === panel) {
-            _panel = null;
-            // Clear all state — fresh console on next open
-            _history = [];
-            _status = 'idle';
-            _workingDetail = null;
-            _lastRunFailed = false;
-            // Remember panel is closed
-            if (_context) {
-                _context.globalState.update(CONSOLE_OPEN_STATE_KEY, false);
-            }
-            // Mark session as stale — a fresh one will be created on next run.
-            // We do NOT force-shutdown here because the C++ output-polling
-            // worker threads race with dlclose/FreeLibrary and crash VS Code.
-            // The stale session will be cleanly shut down before the next run
-            // (when no execution workers are active).
-            try {
-                const session = require('./session');
-                session.markSessionStale();
-            } catch (_e) {}
-        }
-    });
-    _panel.webview.onDidReceiveMessage(async (message) => {
-        if (message && message.type === 'ready') {
-            postState();
-            postVariables();
-        } else if (message && message.type === 'requestVariables') {
-            postVariables();
-        } else if (message && message.type === 'executeInput' && typeof _commandHandler === 'function') {
-            if (_status === 'running') {
-                showWarn(msg('consoleBusyAction'));
-                return;
-            }
-            try {
-                await _commandHandler(String(message.code || ''));
-            } catch (error) {
-                console.error('Stata All in One: Embedded Console input execution failed:', error.message);
-            }
-        } else if (message && message.type === 'highlightInput') {
-            if (_panel) {
-                const segments = highlightInputText(String(message.text || ''));
-                _panel.webview.postMessage({ type: 'highlightResult', segments });
-            }
-        } else if (message && message.type === 'autocompleteInput') {
-            if (_panel) {
-                const result = getConsoleAutocomplete(
-                    String(message.text || ''),
-                    Number(message.cursor)
-                );
-                _panel.webview.postMessage({
-                    type: 'autocompleteResult',
-                    requestId: message.requestId,
-                    matches: result.matches,
-                    wordStart: result.context.wordStart
-                });
-            }
-        } else if (message && message.type === 'showDataViewer') {
-            const config = require('../../../utils/config');
-            if (config.getRunMode() === 'embeddedConsole') {
-                const { revealDataViewer } = require('./dataViewer/panel');
-                revealDataViewer(message.filterText || '');
-            }
-        } else if (message && message.type === 'exportConsole') {
-            await exportConsoleHistory();
-        } else if (message && message.type === 'saveGraph') {
-            await saveGraphAs(message.filePath, message.graphName, message.format);
-        } else if (message && message.type === 'copyGraphCopied') {
-            showInfo(msg('graphCopyPngSuccess'));
-        } else if (message && message.type === 'copyGraphFailed') {
-            const detail = String(message.message || '').trim();
-            showWarn(msg('graphCopyPngFailed', { detail: detail ? ` ${detail}` : '' }));
-        } else if (message && (message.type === 'graphImageDataUrl' || message.type === 'graphImageDataUrlFailed')) {
-            resolveGraphImageDataUrlRequest(message);
-        } else if (message && (message.type === 'stopExecution' || message.type === 'clearConsole' || message.type === 'showOverflowNotice') && typeof _actionHandler === 'function') {
-            try {
-                await _actionHandler(message.type);
-            } catch (error) {
-                console.error('Stata All in One: Embedded Console action failed:', error.message);
-            }
-        }
-    });
-    return _panel;
-}
-
-function getConsoleExportDefaultUri(extension) {
-    const fileName = createExportFilename(new Date(), extension);
-    const editor = vscode.window.activeTextEditor;
-    if (editor && editor.document && editor.document.uri && editor.document.uri.scheme === 'file') {
-        const documentPath = editor.document.uri.fsPath;
-        const documentExtension = path.extname(documentPath).toLowerCase();
-        if (editor.document.languageId === 'stata' || ['.do', '.ado', '.mata'].includes(documentExtension)) {
-            return vscode.Uri.file(path.join(path.dirname(documentPath), fileName));
-        }
-    }
-    const workspaceFolder = Array.isArray(vscode.workspace.workspaceFolders)
-        ? vscode.workspace.workspaceFolders[0]
-        : null;
-    return workspaceFolder ? vscode.Uri.joinPath(workspaceFolder.uri, fileName) : undefined;
-}
-
-function ensureConsoleExportExtension(uri, extension) {
-    const expected = `.${String(extension || '').replace(/^\./, '')}`;
-    if (String(uri.path || '').toLowerCase().endsWith(expected.toLowerCase())) {
-        return uri;
-    }
-    const currentExtension = path.posix.extname(uri.path || '');
-    const basePath = currentExtension
-        ? uri.path.slice(0, -currentExtension.length)
-        : uri.path;
-    return uri.with({ path: `${basePath}${expected}` });
-}
-
-async function exportConsoleHistory() {
-    if (_status === 'running') {
-        showWarn(msg('consoleExportWhileRunning'));
-        return;
-    }
-    if (!_history.length) {
-        showWarn(msg('consoleExportNoHistory'));
-        return;
-    }
-
-    const formatPick = await vscode.window.showQuickPick([
-        {
-            label: msg('consoleExportHtml'),
-            description: msg('consoleExportHtmlDescription'),
-            value: 'html'
-        },
-        {
-            label: msg('consoleExportMarkdown'),
-            description: msg('consoleExportMarkdownDescription'),
-            value: 'md'
-        },
-        {
-            label: msg('consoleExportNotebook'),
-            description: msg('consoleExportNotebookDescription'),
-            value: 'ipynb'
-        }
-    ], {
-        placeHolder: msg('consoleExportFormatPlaceholder')
-    });
-    if (!formatPick) return;
-
-    const targetUri = await vscode.window.showSaveDialog({
-        defaultUri: getConsoleExportDefaultUri(formatPick.value),
-        filters: {
-            [msg('consoleExportFileFilter')]: [formatPick.value]
-        }
-    });
-    if (!targetUri) return;
-    if (_status === 'running') {
-        showWarn(msg('consoleExportWhileRunning'));
-        return;
-    }
-    if (!_history.length) {
-        showWarn(msg('consoleExportNoHistory'));
-        return;
-    }
-
-    const normalizedTarget = ensureConsoleExportExtension(targetUri, formatPick.value);
-    const historySnapshot = _history.slice();
-    try {
-        const result = await vscode.window.withProgress({
-            location: vscode.ProgressLocation.Notification,
-            title: msg('consoleExportProgress'),
-            cancellable: false
-        }, async () => {
-            const exported = await serializeConsoleExport(historySnapshot, formatPick.value, {
-                language: vscode.env.language,
-                sourceBefore: msg('consoleExportSourceBefore'),
-                sourceAfter: msg('consoleExportSourceAfter'),
-                graphUnavailable: graphName => msg('consoleExportGraphUnavailable', { graphName })
-            });
-            await vscode.workspace.fs.writeFile(normalizedTarget, Buffer.from(exported.content, 'utf8'));
-            return exported;
-        });
-
-        if (result.missingGraphs.length) {
-            showWarn(msg('consoleExportMissingGraphs', { count: result.missingGraphs.length }));
-        } else {
-            showInfo(msg('consoleExportSuccess', {
-                fileName: path.basename(normalizedTarget.fsPath || normalizedTarget.path)
-            }));
-        }
-    } catch (error) {
-        showError(msg('consoleExportFailed', { message: error.message || String(error) }));
-    }
-}
-
-function ensurePanel() {
-    if (_panel) {
-        _panel.title = getPanelTitle();
-        _panel.iconPath = getPanelIconPath();
-        return _panel;
-    }
-
-    const panel = vscode.window.createWebviewPanel(
-        PANEL_VIEW_TYPE,
-        getPanelTitle(),
-        {
-            viewColumn: vscode.ViewColumn.Beside,
-            preserveFocus: true
-        },
-        {
-            enableScripts: true,
-            retainContextWhenHidden: true,
-            enableServiceWorker: false,
-            localResourceRoots: getLocalResourceRoots()
-        }
-    );
-
-    return attachPanel(panel);
-}
-
-function postState() {
-    if (!_panel) {
-        return;
-    }
-
-    // Base tips from i18n
-    let tips = [...msg('composerTips')];
-
-    // Dynamic tip: console is proven available but user chose externalApp → suggest switching
-    if (config.getRunMode() === 'externalApp' && capability.getCapabilityState() === 'console') {
-        tips.push(msg('consoleAvailSuggestSwitchBack'));
-    }
-
-    _panel.webview.postMessage({
-        type: 'reset',
-        status: _status,
-        entries: hydrateEntriesForWebview(_history),
-        overflowNoticeSuppressed: _overflowNoticeSuppressed,
-        workingDetail: _workingDetail,
-        composerTips: tips
-    });
-}
-
-function postVariables() {
-    if (!_panel) return;
-    try {
-        _panel.webview.postMessage({ type: 'variablesUpdate', variables: variableSuggestions.getActiveVariables() });
-    } catch (_e) {}
-}
-
-const variableSuggestionSubscription = variableSuggestions.onDidChangeVariables(() => {
-    postVariables();
-});
-
-async function revealPanel(preserveFocus = true) {
-    const existingPanel = _panel;
-    const panel = ensurePanel();
-    if (!(existingPanel && existingPanel.visible)) {
-        panel.reveal(vscode.ViewColumn.Beside, preserveFocus);
-    }
-    postState();
-    return panel;
-}
-
-function setStatus(status) {
-    _status = status;
-    if (status !== 'running') {
-        _workingDetail = null;
-    }
-    if (_panel) {
-        _panel.webview.postMessage({
-            type: 'status',
-            status
-        });
-    }
-}
-
-function appendEntries(entries) {
-    const normalized = Array.isArray(entries) ? entries.filter(Boolean) : [];
-    if (!normalized.length) {
-        return;
-    }
-
-    _history.push(...normalized);
-    if (_history.length > 1200) {
-        _history = _history.slice(-1200);
-    }
-
-    if (_panel) {
-        _panel.webview.postMessage({
-            type: 'append',
-            entries: hydrateEntriesForWebview(normalized)
-        });
-    }
-}
-
-function hydrateEntriesForWebview(entries) {
-    if (!Array.isArray(entries)) {
-        return [];
-    }
-    if (!_panel) {
-        return entries;
-    }
-    return entries.map(entry => hydrateEntryForWebview(entry));
-}
-
-function hydrateEntryForWebview(entry) {
-    if (!entry || entry.kind !== 'graph' || !entry.filePath) {
-        return entry;
-    }
-    const hydrated = {
-        ...entry,
-        src: String(_panel.webview.asWebviewUri(vscode.Uri.file(entry.filePath)))
-    };
-    if (String(entry.format || '').toLowerCase() === 'svg') {
-        try {
-            hydrated.svgText = fs.readFileSync(entry.filePath, 'utf8');
-        } catch (_error) {
-            hydrated.svgText = '';
-        }
-    }
-    return hydrated;
-}
-
-async function saveGraphAs(filePath, graphName, format) {
-    const sourcePath = typeof filePath === 'string' ? filePath : '';
-    if (!sourcePath || !fs.existsSync(sourcePath)) {
-        showWarn(msg('graphFileUnavailable'));
-        return;
-    }
-
-    const sourceExtension = String(format || path.extname(sourcePath).replace(/^\./, '') || 'svg').toLowerCase();
-    const pngDpi = config.getGraphPngDpi();
-    const formatPick = await vscode.window.showQuickPick([
-        {
-            label: msg('graphFormatSvg'),
-            description: msg('graphFormatSvgDescription'),
-            value: 'svg'
-        },
-        {
-            label: msg('graphFormatPng'),
-            description: msg('graphFormatPngDescription', { dpi: pngDpi }),
-            value: 'png'
-        },
-        {
-            label: msg('graphFormatJpg'),
-            description: msg('graphFormatJpgDescription', { dpi: pngDpi }),
-            value: 'jpg'
-        }
-    ], {
-        placeHolder: msg('graphSaveFormatPlaceholder')
-    });
-    if (!formatPick) {
-        return;
-    }
-
-    const selectedExtension = formatPick.value;
-    const defaultName = `${sanitizeGraphFileName(graphName || path.basename(sourcePath, path.extname(sourcePath)))}.${selectedExtension}`;
-    const targetUri = await vscode.window.showSaveDialog({
-        defaultUri: vscode.Uri.file(path.join(path.dirname(sourcePath), defaultName)),
-        filters: {
-            [msg('graphImageFilter')]: [selectedExtension],
-            'All Files': ['*']
-        }
-    });
-    if (!targetUri) {
-        return;
-    }
-
-    try {
-        const targetExtension = String(path.extname(targetUri.fsPath).replace(/^\./, '') || selectedExtension || sourceExtension || 'svg').toLowerCase();
-        if (targetExtension === 'png' || targetExtension === 'jpg' || targetExtension === 'jpeg') {
-            const dataUrl = await requestGraphImageDataUrl(sourcePath, {
-                dpi: pngDpi,
-                format: targetExtension
-            });
-            await fs.promises.writeFile(targetUri.fsPath, decodeGraphImageDataUrl(dataUrl, targetExtension));
-        } else {
-            await fs.promises.copyFile(sourcePath, targetUri.fsPath);
-        }
-    } catch (error) {
-        showError(msg('graphSaveFailed', { message: error.message }));
-    }
-}
-
-function sanitizeGraphFileName(value) {
-    return String(value || 'graph')
-        .replace(/[^A-Za-z0-9._-]+/g, '_')
-        .replace(/^_+|_+$/g, '')
-        || 'graph';
-}
-
-function requestGraphImageDataUrl(filePath, options = {}) {
-    if (!_panel) {
-        return Promise.reject(new Error(msg('graphPanelUnavailable')));
-    }
-
-    const format = normalizeGraphBitmapFormat(options.format || 'png');
-    const dpi = Number(options.dpi) || config.getGraphPngDpi();
-    let svgText = '';
-    try {
-        if (String(path.extname(filePath || '')).toLowerCase() === '.svg') {
-            svgText = fs.readFileSync(filePath, 'utf8');
-        }
-    } catch (_error) {
-        svgText = '';
-    }
-
-    const requestId = `graph-save-${Date.now()}-${_graphSaveRequestSeq += 1}`;
-    return new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-            _pendingGraphSaveRequests.delete(requestId);
-            reject(new Error(msg('graphImageRequestTimeout')));
-        }, 15000);
-
-        _pendingGraphSaveRequests.set(requestId, { resolve, reject, timeout });
-        _panel.webview.postMessage({
-            type: 'requestGraphImageDataUrl',
-            requestId,
-            filePath,
-            dpi,
-            format,
-            width: options.width || 0,
-            height: options.height || 0,
-            svgText
-        });
-    });
-}
-
-function resolveGraphImageDataUrlRequest(message) {
-    const requestId = String(message.requestId || '');
-    const pending = _pendingGraphSaveRequests.get(requestId);
-    if (!pending) {
-        return;
-    }
-
-    clearTimeout(pending.timeout);
-    _pendingGraphSaveRequests.delete(requestId);
-    if (message.type === 'graphImageDataUrl') {
-        pending.resolve(String(message.dataUrl || ''));
-    } else {
-        pending.reject(new Error(String(message.message || msg('graphImageConversionFailed'))));
-    }
-}
-
-function decodeGraphImageDataUrl(dataUrl, format) {
-    const mimeType = getGraphBitmapMimeType(format);
-    const escapedMime = mimeType.replace('/', '\\/');
-    const match = String(dataUrl || '').match(new RegExp(`^data:${escapedMime};base64,([A-Za-z0-9+/=]+)$`));
-    if (!match) {
-        throw new Error(msg('graphInvalidImageData'));
-    }
-    return Buffer.from(match[1], 'base64');
-}
-
-async function convertGraphSvgToBitmap(sourcePath, targetPath, request = {}) {
-    const format = normalizeGraphBitmapFormat(request.format || path.extname(targetPath).replace(/^\./, ''));
-    const dataUrl = await requestGraphImageDataUrl(sourcePath, {
-        dpi: config.getGraphPngDpi(),
-        format,
-        width: request.width || 0,
-        height: request.height || 0
-    });
-    await fs.promises.writeFile(targetPath, decodeGraphImageDataUrl(dataUrl, format));
-}
-
-function normalizeGraphBitmapFormat(format) {
-    const normalized = String(format || '').trim().toLowerCase();
-    return normalized === 'jpg' || normalized === 'jpeg' ? 'jpeg' : 'png';
-}
-
-function getGraphBitmapMimeType(format) {
-    return normalizeGraphBitmapFormat(format) === 'jpeg' ? 'image/jpeg' : 'image/png';
-}
-
-function clearPanel() {
-    _history = [];
-    _lastRunFailed = false;
-    _status = 'idle';
-    _workingDetail = null;
-    if (_panel) {
-        _panel.webview.postMessage({
-            type: 'clear'
-        });
-        _panel.webview.postMessage({
-            type: 'status',
-            status: 'idle'
-        });
-    }
-}
-
-class WebviewTerminalSink {
-    constructor() {
-        this._renderer = new StataTerminalRenderer();
-        this._width = 88;
-    }
-
-    async prepareForExecution() {
-        _lastRunFailed = false;
-        setWorkingDetail(null);
-        await revealPanel(true);
-        setStatus('running');
-    }
-
-    async reveal() {
-        await revealPanel(false);
-    }
-
-    writeCommand(command) {
-        appendEntries(this._renderer.renderCommandSegments(command, this._width));
-    }
-
-    writeOutputChunk(text) {
-        const rendered = this._renderer.renderOutputChunkSegments(text, this._width);
-        if (rendered.length) {
-            appendEntries(rendered);
-        }
-    }
-
-    writeError(text) {
-        _lastRunFailed = true;
-        setStatus('error');
-        appendEntries(this._renderer.renderErrorSegments(text));
-    }
-
-    writeWarningMessage(text) {
-        appendEntries(this._renderer.renderWarningBlockSegments(text));
-    }
-
-    setStatus(status) {
-        setStatus(status);
-    }
-
-    setWorkingDetail(detail) {
-        setWorkingDetail(detail);
-    }
-
-    writeAccentBlock(text) {
-        appendEntries(this._renderer.renderAccentBlockSegments(text));
-    }
-
-    writeCommandAccentBlock(text) {
-        appendEntries(this._renderer.renderAccentBlockSegments(text));
-    }
-
-    writeFunctionAccentBlock(text) {
-        appendEntries(this._renderer.renderFunctionAccentBlockSegments(text));
-    }
-
-    writePrompt() {
-        appendEntries(this._renderer.renderCommandSegments('', this._width));
-    }
-
-    writeBreak() {
-        appendEntries(this._renderer.renderBreakLineSegments());
-        this.writePrompt();
-    }
-
-    writeRawChunk(text) {
-        const normalized = String(text || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-        if (!normalized) {
-            return;
-        }
-        appendEntries(normalized.split('\n').map(line => ({
-            kind: /^[.]+$/.test(line)
-                ? 'raw-progress'
-                : (/^>\s?$/.test(line) ? 'raw-prompt' : 'raw'),
-            segments: line
-                ? [{
-                    text: line,
-                    tokenType: /^>\s?$/.test(line) ? 'prompt' : 'plain',
-                    className: /^>\s?$/.test(line) ? 'tok tok-prompt is-bold' : 'tok tok-plain',
-                    style: {
-                        color: null,
-                        backgroundColor: null,
-                        bold: /^>\s?$/.test(line),
-                        italic: false,
-                        dim: false
-                    }
-                }]
-                : []
-        })));
-    }
-
-    writeGraphEntries(graphs) {
-        const entries = Array.isArray(graphs)
-            ? graphs
-                .filter(graph => graph && graph.filePath)
-                .map(graph => ({
-                    kind: 'graph',
-                    graphName: String(graph.graphName || 'Graph'),
-                    format: String(graph.format || ''),
-                    filePath: graph.filePath,
-                    segments: []
-                }))
-            : [];
-        appendEntries(entries);
-    }
-
-    flushOutput() {
-        const flushed = this._renderer.flushPendingOutputSegments(this._width);
-        if (flushed.length) {
-            appendEntries(flushed);
-        }
-    }
-
-    discardBufferedOutput() {
-        this._renderer.discardPendingOutput();
-    }
-
-    writeRunFooter(durationMs) {
-        this.flushOutput();
-        appendEntries(this._renderer.renderRunFooterSegments(durationMs, this._width));
-        setStatus(_lastRunFailed ? 'error' : 'success');
-    }
-
-    dispose() {}
-}
-
-function getWebviewTerminalSink() {
-    return new WebviewTerminalSink();
-}
-
-function setWebviewCommandHandler(handler) {
-    _commandHandler = typeof handler === 'function' ? handler : null;
-}
-
-function setWebviewActionHandler(handler) {
-    _actionHandler = typeof handler === 'function' ? handler : null;
-}
-
-function setOverflowNoticeSuppressed(suppressed) {
-    _overflowNoticeSuppressed = Boolean(suppressed);
-    if (_panel) {
-        _panel.webview.postMessage({
-            type: 'overflowNoticePreference',
-            suppressed: _overflowNoticeSuppressed
-        });
-    }
-}
-
-function setWorkingDetail(detail) {
-    if (detail && typeof detail === 'object') {
-        _workingDetail = detail;
-    } else if (detail) {
-        _workingDetail = String(detail);
-    } else {
-        _workingDetail = null;
-    }
-    if (_panel) {
-        _panel.webview.postMessage({
-            type: 'workingDetail',
-            detail: _workingDetail
-        });
-    }
-}
-
-function registerWebviewPanelSerializer(context) {
-    _extensionUri = context.extensionUri;
-    _context = context;
-    // VS Code's webview serializer is unreliable on macOS; we also use globalState
-    // to remember whether the console was open and restore it ourselves.
-    context.subscriptions.push(
-        vscode.window.registerWebviewPanelSerializer(PANEL_VIEW_TYPE, {
-            async deserializeWebviewPanel(panel) {
-                if (config.getRunMode() !== config.RUN_MODES.embeddedConsole
-                    || !hasOpenStataSourceTab(vscode.window.tabGroups.all)) {
-                    await context.globalState.update(CONSOLE_OPEN_STATE_KEY, false);
-                    panel.dispose();
-                    return;
-                }
-                clearPanel();
-                attachPanel(panel);
-            }
-        })
-    );
-    // Restore only when the previous console was open and the restored editor
-    // layout still contains at least one .do, .ado, or .mata source tab.
-    const wasOpen = context.globalState.get(CONSOLE_OPEN_STATE_KEY, false);
-    if (wasOpen
-        && config.getRunMode() === config.RUN_MODES.embeddedConsole
-        && hasOpenStataSourceTab(vscode.window.tabGroups.all)) {
-        ensurePanel();
-    } else if (wasOpen) {
-        context.globalState.update(CONSOLE_OPEN_STATE_KEY, false);
-    }
-}
-
-function setConsoleFontOptions(options) {
-    _consoleFontOptions = Object.assign({}, _consoleFontOptions, options || {});
-    if (_panel) {
-        _panel.webview.html = getWebviewHtml(_panel.webview);
-        postState();
-    }
-}
-
-function setGraphResourceRoot(resourceRoot) {
-    _graphResourceRoot = resourceRoot || null;
-    if (_panel) {
-        _panel.webview.options = {
-            enableScripts: true,
-            retainContextWhenHidden: true,
-            enableServiceWorker: false,
-            localResourceRoots: getLocalResourceRoots()
-        };
-    }
-}
-
 function getAsciiLogo53x13() {
-    if (_asciiLogo53x13Cache) {
-        return _asciiLogo53x13Cache;
-    }
-
+    if (asciiLogoCache) return asciiLogoCache;
     const logoDir = path.resolve(__dirname, '../../../../ascii_logo/53x13');
-    const fallback = { up: 'STATA', down: 'ALL IN ONE' };
-
     try {
-        _asciiLogo53x13Cache = {
+        asciiLogoCache = {
             up: fs.readFileSync(path.join(logoDir, 'up.txt'), 'utf8').replace(/\r\n/g, '\n').replace(/\s+$/, ''),
             down: fs.readFileSync(path.join(logoDir, 'down.txt'), 'utf8').replace(/\r\n/g, '\n').replace(/\s+$/, '')
         };
-        return _asciiLogo53x13Cache;
-    } catch (error) {
-        console.error('Stata All in One: Failed to load ascii_logo/53x13:', error.message);
-        _asciiLogo53x13Cache = fallback;
-        return _asciiLogo53x13Cache;
+    } catch (_error) {
+        asciiLogoCache = { up: 'STATA', down: 'ALL IN ONE' };
     }
+    return asciiLogoCache;
 }
 
-function getWebviewHtml(webview) {
+function escapeHtml(text) {
+    return String(text || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function getConsoleFrameHtml(webview, fontOptionsInput = {}) {
     const nonce = String(Date.now());
     const codiconFontUri = getCodiconFontUri(webview);
     const themeVars = getWebviewThemeVariables();
@@ -865,29 +53,19 @@ function getWebviewHtml(webview) {
     const asciiLogoTop = escapeHtml(asciiLogo.up);
     const asciiLogoBottom = escapeHtml(asciiLogo.down);
     const fontOptions = {
-        fontMode: String(_consoleFontOptions.fontMode || 'online'),
-        editorFontFamily: String(_consoleFontOptions.editorFontFamily || ''),
-        customFontFamily: String(_consoleFontOptions.customFontFamily || ''),
-        systemFallbackFamily: String(_consoleFontOptions.systemFallbackFamily || 'monospace')
+        fontMode: String(fontOptionsInput.fontMode || 'online'),
+        editorFontFamily: String(fontOptionsInput.editorFontFamily || ''),
+        customFontFamily: String(fontOptionsInput.customFontFamily || ''),
+        systemFallbackFamily: String(fontOptionsInput.systemFallbackFamily || 'monospace')
     };
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} data:; font-src ${webview.cspSource} https: data:; style-src ${webview.cspSource} 'unsafe-inline' https://fontsapi.zeoseven.com; script-src 'nonce-${nonce}';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} data: blob:; font-src ${webview.cspSource} https: data:; style-src ${webview.cspSource} 'unsafe-inline' https://fontsapi.zeoseven.com; script-src 'nonce-${nonce}';">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="preload" href="${ONLINE_CJK_FONT_CSS_URL}" as="style" crossorigin>
-    <link rel="stylesheet" href="${ONLINE_CJK_FONT_CSS_URL}" crossorigin>
     <title>${escapeHtml(getPanelTitle())}</title>
     <style>
-        @font-face {
-            font-family: "Maple Mono";
-            font-style: normal;
-            font-display: swap;
-            font-weight: 400;
-            src: url("${ONLINE_LATIN_FONT_WOFF2_URL}") format("woff2"),
-                 url("${ONLINE_LATIN_FONT_WOFF_URL}") format("woff");
-        }
         @font-face {
             font-family: "codicon";
             font-display: block;
@@ -895,37 +73,43 @@ function getWebviewHtml(webview) {
         }
         :root {
             color-scheme: light dark;
-            --stata-prompt: ${themeVars.prompt || 'var(--vscode-descriptionForeground)'};
-            --stata-command: ${themeVars.command || 'var(--vscode-editor-foreground)'};
-            --stata-keyword: ${themeVars.keyword || 'var(--vscode-editor-foreground)'};
-            --stata-string: ${themeVars.string || 'var(--vscode-editor-foreground)'};
-            --stata-path: ${themeVars.path || 'var(--vscode-editor-foreground)'};
-            --stata-number: ${themeVars.number || 'var(--vscode-editor-foreground)'};
-            --stata-comment: ${themeVars.comment || 'var(--vscode-descriptionForeground)'};
-            --stata-function: ${themeVars.function || 'var(--vscode-editor-foreground)'};
-            --stata-option: ${themeVars.option || 'var(--stata-function)'};
-            --stata-variable: ${themeVars.variable || 'var(--vscode-editor-foreground)'};
-            --stata-macro: ${themeVars.macro || 'var(--stata-variable)'};
-            --stata-operator: ${themeVars.operator || 'var(--vscode-editor-foreground)'};
-            --stata-plain: ${themeVars.plain || 'var(--vscode-editor-foreground)'};
-            --stata-default: ${themeVars.default || 'var(--vscode-editor-foreground)'};
-            --stata-error: ${themeVars.error || 'var(--vscode-errorForeground)'};
-            --stata-header: ${themeVars.header || 'var(--vscode-textLink-foreground)'};
-            --stata-separator: ${themeVars.separator || 'var(--vscode-panel-border)'};
-            --stata-time: ${themeVars.time || 'var(--vscode-editor-foreground)'};
-            --stata-time-value: ${themeVars.timeValue || 'var(--stata-number)'};
+            --vscode-editor-background: ${escapeHtml(themeVars.background)};
+            --vscode-editor-foreground: ${escapeHtml(themeVars.foreground)};
+            --vscode-foreground: ${escapeHtml(themeVars.foreground)};
+            --vscode-descriptionForeground: ${escapeHtml(themeVars.description)};
+            --vscode-panel-border: ${escapeHtml(themeVars.border)};
+            --vscode-font-family: var(--vscode-editor-font-family, monospace);
+            --stata-prompt: ${themeVars.prompt || '#666666'};
+            --stata-command: ${themeVars.command || '#d670d6'};
+            --stata-keyword: ${themeVars.keyword || '#29b8db'};
+            --stata-string: ${themeVars.string || '#f5f543'};
+            --stata-path: ${themeVars.path || '#f5f543'};
+            --stata-number: ${themeVars.number || '#23d18b'};
+            --stata-comment: ${themeVars.comment || '#666666'};
+            --stata-function: ${themeVars.function || '#3b8eea'};
+            --stata-option: ${themeVars.option || '#3b8eea'};
+            --stata-variable: ${themeVars.variable || '#f5f543'};
+            --stata-macro: ${themeVars.macro || '#f5f543'};
+            --stata-operator: ${themeVars.operator || '#11a8cd'};
+            --stata-plain: ${themeVars.plain || '#e5e5e5'};
+            --stata-default: ${themeVars.default || '#e5e5e5'};
+            --stata-error: ${themeVars.error || '#f14c4c'};
+            --stata-header: ${themeVars.header || '#29b8db'};
+            --stata-separator: ${themeVars.separator || '#666666'};
+            --stata-time: ${themeVars.time || '#29b8db'};
+            --stata-time-value: ${themeVars.timeValue || '#f5f543'};
             --console-editor-font-family: var(--vscode-editor-font-family, monospace);
             --console-custom-font-family: var(--console-editor-font-family);
             --console-system-fallback-family: ${escapeHtml(fontOptions.systemFallbackFamily)};
             --console-online-font-family: "Maple Mono", "Maple Mono NF CN", var(--console-system-fallback-family);
-            --console-active-font-family: var(--console-online-font-family);
+            --console-active-font-family: var(--console-system-fallback-family);
         }
         html, body {
             height: 100%;
             margin: 0;
-            background: var(--vscode-editor-background);
-            color: var(--vscode-editor-foreground);
-            font-family: var(--vscode-font-family);
+            background: var(--vscode-editor-background, #1e1e1e);
+            color: var(--vscode-editor-foreground, #cccccc);
+            font-family: var(--vscode-font-family, monospace);
         }
         body {
             display: flex;
@@ -1494,6 +678,7 @@ function getWebviewHtml(webview) {
             display: block;
             max-width: 100%;
             height: auto;
+            pointer-events: none;
             background: #fff;
             border: 1px solid var(--vscode-panel-border);
             border-radius: 6px;
@@ -1509,6 +694,7 @@ function getWebviewHtml(webview) {
             background: color-mix(in srgb, var(--vscode-editor-background) 84%, transparent);
             border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 78%, transparent);
             opacity: 0;
+            z-index: 2;
             transition: opacity 120ms ease;
         }
         .graph-frame:hover .graph-actions,
@@ -1530,6 +716,12 @@ function getWebviewHtml(webview) {
             font-family: "codicon";
             font-size: 15px;
             line-height: 1;
+        }
+        .graph-action svg {
+            width: 16px;
+            height: 16px;
+            fill: currentColor;
+            pointer-events: none;
         }
         .graph-action:hover {
             background: var(--vscode-toolbar-hoverBackground);
@@ -1556,9 +748,19 @@ function getWebviewHtml(webview) {
         .graph-fullscreen.visible {
             display: flex;
         }
-        .graph-fullscreen img {
+        .graph-fullscreen-visual {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .graph-fullscreen-visual > img,
+        .graph-fullscreen-visual > svg {
             max-width: 100%;
             max-height: 100%;
+            width: auto;
+            height: auto;
             background: #fff;
             border: 1px solid var(--vscode-panel-border);
             border-radius: 6px;
@@ -1568,6 +770,7 @@ function getWebviewHtml(webview) {
             top: 14px;
             right: 14px;
             opacity: 1;
+            z-index: 2;
             font-family: "codicon";
             font-size: 16px;
             font-weight: 400;
@@ -1587,15 +790,18 @@ function getWebviewHtml(webview) {
                 </svg>
             </button>
             <button id="clear-button" class="statusbar-button" type="button" title="${escapeHtml(msg('webviewClear'))}">
-                <svg class="statusbar-icon" viewBox="0 0 16 16" aria-hidden="true">
-                    <path d="M2 3h12v1H2V3zm0 4h12v1H2V7zm0 4h7v1H2v-1zm9.85-1.71 1.15-1.15.71.71-1.14 1.15 1.14 1.14-.71.71-1.15-1.14-1.14 1.14-.71-.71 1.14-1.14-1.14-1.15.71-.71 1.14 1.15z"></path>
+                <svg class="statusbar-icon" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                    <path d="M13.5004 12.0004C13.7762 12.0006 14.0004 12.2245 14.0004 12.5004C14.0002 12.7761 13.7761 13.0002 13.5004 13.0004H2.50037C2.22449 13.0004 2.00056 12.7762 2.00037 12.5004C2.00037 12.2244 2.22437 12.0004 2.50037 12.0004H13.5004Z"></path>
+                    <path d="M13.5004 9.00037C13.7762 9.00056 14.0004 9.22449 14.0004 9.50037C14.0002 9.77608 13.7761 10.0002 13.5004 10.0004H2.50037C2.22449 10.0004 2.00056 9.7762 2.00037 9.50037C2.00037 9.22437 2.22437 9.00037 2.50037 9.00037H13.5004Z"></path>
+                    <path d="M13.5004 6.00037C13.7762 6.00056 14.0004 6.22449 14.0004 6.50037C14.0002 6.77608 13.7761 7.00017 13.5004 7.00037H7.50037C7.22449 7.00037 7.00056 6.7762 7.00037 6.50037C7.00037 6.22437 7.22437 6.00037 7.50037 6.00037H13.5004Z"></path>
+                    <path d="M5.50037 0.999023C5.63295 0.999115 5.76009 1.05179 5.85388 1.14551C5.94777 1.23939 6.00037 1.36722 6.00037 1.5C6.00027 1.63265 5.94769 1.75971 5.85388 1.85352L3.7074 4L5.85388 6.14551C5.94777 6.23939 6.00037 6.36722 6.00037 6.5C6.00027 6.63265 5.94769 6.75971 5.85388 6.85352C5.76008 6.94732 5.63302 6.99991 5.50037 7C5.36759 7 5.23976 6.9474 5.14587 6.85352L3.00037 4.70703L0.853882 6.85352C0.760077 6.94732 0.633017 6.99991 0.500366 7C0.36759 7 0.239761 6.9474 0.145874 6.85352C0.0521583 6.75972 -0.000519052 6.63258 -0.000610352 6.5C-0.000610354 6.36722 0.0519875 6.23939 0.145874 6.14551L2.29333 4L0.145874 1.85352C0.0521583 1.75972 -0.000519119 1.63258 -0.000610352 1.5C-0.000610351 1.36722 0.0519874 1.23939 0.145874 1.14551C0.239761 1.05162 0.36759 0.999023 0.500366 0.999023C0.63295 0.999115 0.76009 1.05179 0.853882 1.14551L3.00037 3.29297L5.14587 1.14551C5.23976 1.05162 5.36759 0.999023 5.50037 0.999023Z"></path>
+                    <path d="M13.5004 3.00037C13.7762 3.00056 14.0004 3.22449 14.0004 3.50037C14.0002 3.77608 13.7761 4.00017 13.5004 4.00037H7.50037C7.22449 4.00037 7.00056 3.7762 7.00037 3.50037C7.00037 3.22437 7.22437 3.00037 7.50037 3.00037H13.5004Z"></path>
                 </svg>
             </button>
-            <button id="data-button" class="statusbar-button" type="button" title="${escapeHtml(msg('dataViewerPanelTitle'))}">
-                <span class="statusbar-icon codicon codicon-table" aria-hidden="true"></span>
-            </button>
             <button id="export-button" class="statusbar-button" type="button" title="${escapeHtml(msg('consoleExport'))}" disabled>
-                <span class="statusbar-icon codicon codicon-share" aria-hidden="true"></span>
+                <svg class="statusbar-icon" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                    <path d="M11.307 1.10533C11.1562 0.988085 10.9519 0.966945 10.7803 1.05085C10.6088 1.13475 10.5 1.30904 10.5 1.5V3.49274C10.4571 3.49456 10.4122 3.49701 10.3654 3.5002C9.96247 3.52766 9.41128 3.61105 8.82119 3.83704C8.11343 4.10809 7.34877 4.58508 6.72601 5.41126C6.10338 6.23727 5.64499 7.38259 5.50206 8.95474C5.48301 9.16438 5.5973 9.36351 5.78793 9.4528C5.97857 9.54209 6.20471 9.50241 6.35356 9.35356C7.54248 8.16464 8.72298 7.57773 9.59562 7.28685C9.9558 7.16679 10.2643 7.09693 10.5 7.0563V9C10.5 9.1969 10.6156 9.37546 10.7952 9.45612C10.9748 9.53678 11.185 9.50452 11.3322 9.37371L15.8322 5.37371C15.9432 5.27502 16.0046 5.13207 15.9997 4.98361C15.9949 4.83514 15.9242 4.69653 15.807 4.60533L11.307 1.10533ZM10.9429 4.49679L10.9457 4.49705C11.0865 4.51223 11.2279 4.46706 11.3335 4.37257C11.4394 4.27772 11.5 4.14223 11.5 4V2.52232L14.7186 5.02564L11.5 7.88658V6.5C11.5 6.22386 11.2762 6 11 6L10.9989 6L10.9976 6.00001L10.9943 6.00003L10.9848 6.00014L10.9552 6.00087C10.9307 6.00166 10.897 6.00316 10.8544 6.00599C10.7695 6.01166 10.6495 6.02268 10.4996 6.04409C10.1999 6.08691 9.77971 6.17139 9.2794 6.33816C8.55493 6.57965 7.66479 6.99299 6.7319 7.69863C6.9264 6.98158 7.2077 6.43355 7.52456 6.01319C8.01593 5.36132 8.61523 4.98675 9.17883 4.7709C9.65371 4.58903 10.1025 4.52044 10.4334 4.49788C10.5981 4.48666 10.7314 4.48699 10.8211 4.48988C10.866 4.49133 10.8997 4.49341 10.9209 4.49498L10.9429 4.49679ZM3.5 2C2.11929 2 1 3.11929 1 4.5V12.5C1 13.8807 2.11929 15 3.5 15H11.5C12.8807 15 14 13.8807 14 12.5V9.5C14 9.22386 13.7761 9 13.5 9C13.2239 9 13 9.22386 13 9.5V12.5C13 13.3284 12.3284 14 11.5 14H3.5C2.67157 14 2 13.3284 2 12.5V4.5C2 3.67157 2.67157 3 3.5 3H7.5C7.77614 3 8 2.77614 8 2.5C8 2.22386 7.77614 2 7.5 2H3.5Z"></path>
+                </svg>
             </button>
         </div>
     </div>
@@ -1616,8 +822,10 @@ function getWebviewHtml(webview) {
     </div>
     <div id="resize-handle" title="${escapeHtml(msg('webviewDragResizeTip'))}"></div>
     <div id="graph-fullscreen" class="graph-fullscreen" hidden>
-        <button id="graph-fullscreen-close" class="graph-action graph-fullscreen-close codicon-close" type="button" title="${escapeHtml(msg('graphClose'))}" aria-label="${escapeHtml(msg('graphClose'))}"></button>
-        <img id="graph-fullscreen-image" alt="">
+        <button id="graph-fullscreen-close" class="graph-action graph-fullscreen-close" type="button" title="${escapeHtml(msg('graphClose'))}" aria-label="${escapeHtml(msg('graphClose'))}">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.65 3 8 7.35 12.35 3l.65.65L8.65 8 13 12.35l-.65.65L8 8.65 3.65 13 3 12.35 7.35 8 3 3.65 3.65 3z"></path></svg>
+        </button>
+        <div id="graph-fullscreen-visual" class="graph-fullscreen-visual"></div>
     </div>
     <div class="composer" id="composer">
         <div class="composer-label">
@@ -1632,7 +840,7 @@ function getWebviewHtml(webview) {
     </div>
     <script nonce="${nonce}">
         document.body.dataset.scriptStarted = '1';
-        const vscode = acquireVsCodeApi();
+        const vscode = { postMessage: message => window.parent.postMessage({ __saioFrame: 'console', message }, '*') };
         const output = document.getElementById('output');
         const outputShell = document.getElementById('output-shell');
         const workingIndicator = document.getElementById('working-indicator');
@@ -1647,10 +855,9 @@ function getWebviewHtml(webview) {
         const resizeHandle = document.getElementById('resize-handle');
         const stopButton = document.getElementById('stop-button');
         const clearButton = document.getElementById('clear-button');
-        const dataButton = document.getElementById('data-button');
         const exportButton = document.getElementById('export-button');
         const graphFullscreen = document.getElementById('graph-fullscreen');
-        const graphFullscreenImage = document.getElementById('graph-fullscreen-image');
+        const graphFullscreenVisual = document.getElementById('graph-fullscreen-visual');
         const graphFullscreenClose = document.getElementById('graph-fullscreen-close');
         const inputHighlight = document.getElementById('input-highlight');
 
@@ -1978,7 +1185,7 @@ function getWebviewHtml(webview) {
                 ? FONT_BOOTSTRAP.customFontFamily.trim()
                 : getEditorFontFamilyCssValue());
             rootStyle.setProperty('--console-system-fallback-family', FONT_BOOTSTRAP.systemFallbackFamily || 'monospace');
-            rootStyle.setProperty('--console-active-font-family', 'var(--console-online-font-family)');
+            rootStyle.setProperty('--console-active-font-family', 'var(--console-system-fallback-family)');
         }
 
         function getCanvasContext() {
@@ -2038,7 +1245,8 @@ function getWebviewHtml(webview) {
             const customFontFamily = getComputedStyle(document.documentElement).getPropertyValue('--console-custom-font-family');
 
             if (FONT_BOOTSTRAP.fontMode === 'online') {
-                applyConsoleFont('online');
+                applyConsoleFont('system');
+                promoteOnlineConsoleFont();
                 return;
             }
 
@@ -2073,6 +1281,54 @@ function getWebviewHtml(webview) {
             }
 
             applyConsoleFont('system');
+        }
+
+        async function promoteOnlineConsoleFont() {
+            loadOnlineCjkFontStylesheet();
+            addOnlineLatinFontFace();
+            const loaded = await waitForConsoleFont('400 16px "Maple Mono"', 5000);
+            if (!loaded) return;
+            applyConsoleFont('online');
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+                fitPlaceholderLogo();
+            }));
+        }
+
+        function addOnlineLatinFontFace() {
+            if (document.getElementById('saio-online-latin-font')) return;
+            const style = document.createElement('style');
+            style.id = 'saio-online-latin-font';
+            style.textContent = '@font-face{font-family:"Maple Mono";font-style:normal;font-display:swap;font-weight:400;'
+                + 'src:url("${ONLINE_LATIN_FONT_WOFF2_URL}") format("woff2"),'
+                + 'url("${ONLINE_LATIN_FONT_WOFF_URL}") format("woff");}';
+            document.head.appendChild(style);
+        }
+
+        function loadOnlineCjkFontStylesheet() {
+            if (document.getElementById('saio-online-cjk-font')) return;
+            const stylesheet = document.createElement('link');
+            stylesheet.id = 'saio-online-cjk-font';
+            stylesheet.rel = 'stylesheet';
+            stylesheet.href = ${JSON.stringify(ONLINE_CJK_FONT_CSS_URL)};
+            stylesheet.crossOrigin = 'anonymous';
+            document.head.appendChild(stylesheet);
+        }
+
+        async function waitForConsoleFont(fontSpec, timeoutMs) {
+            if (!document.fonts || typeof document.fonts.load !== 'function') return false;
+            let timeout = null;
+            try {
+                return await Promise.race([
+                    document.fonts.load(fontSpec, 'STATA ALL IN ONE 0123456789').then(fonts => fonts.length > 0),
+                    new Promise(resolve => {
+                        timeout = setTimeout(() => resolve(false), timeoutMs);
+                    })
+                ]);
+            } catch (_error) {
+                return false;
+            } finally {
+                if (timeout) clearTimeout(timeout);
+            }
         }
 
         function updateWorkingMeta() {
@@ -2184,6 +1440,7 @@ function getWebviewHtml(webview) {
             const shouldStick = output.scrollTop + output.clientHeight >= output.scrollHeight - 24;
             renderedEntries = renderedEntries.concat(entries);
             appendRenderedEntries(entries);
+            resetResultBlockScrollPositions();
             ensurePlaceholderVisibility();
             updateExportButtonState();
             if (shouldStick) {
@@ -2196,6 +1453,7 @@ function getWebviewHtml(webview) {
             renderedEntries = Array.isArray(entries) ? entries.slice() : [];
             overflowNoticeDismissedForCurrentView = false;
             renderAllEntries();
+            resetResultBlockScrollPositions();
             updateExportButtonState();
             requestAnimationFrame(updateOverflowNotice);
         }
@@ -2214,6 +1472,12 @@ function getWebviewHtml(webview) {
                 appendRenderedEntries(renderedEntries);
             }
             ensurePlaceholderVisibility();
+        }
+
+        function resetResultBlockScrollPositions() {
+            outputShell.querySelectorAll('.result-block-scroll').forEach(block => {
+                block.scrollLeft = 0;
+            });
         }
 
         function appendRenderedEntries(entries) {
@@ -2308,12 +1572,8 @@ function getWebviewHtml(webview) {
             const frame = document.createElement('div');
             frame.className = 'graph-frame';
 
-            const image = document.createElement('img');
-            image.className = 'graph-image';
-            image.src = String(entry.src || '');
-            image.alt = graphName;
-            image.loading = 'lazy';
-            frame.appendChild(image);
+            const visual = createGraphVisual(entry, graphName);
+            frame.appendChild(visual);
 
             const actions = document.createElement('div');
             actions.className = 'graph-actions';
@@ -2337,18 +1597,56 @@ function getWebviewHtml(webview) {
             return shell;
         }
 
+        function createGraphVisual(entry, graphName) {
+            const svgText = String(entry && entry.svgText || '');
+            if (svgText) {
+                const parsed = new DOMParser().parseFromString(svgText, 'image/svg+xml');
+                const root = parsed.documentElement;
+                if (root && root.nodeName.toLowerCase() === 'svg' && !parsed.querySelector('parsererror')) {
+                    const svg = document.importNode(root, true);
+                    svg.classList.add('graph-image');
+                    svg.setAttribute('role', 'img');
+                    svg.setAttribute('aria-label', graphName);
+                    return svg;
+                }
+            }
+
+            const image = document.createElement('img');
+            image.className = 'graph-image';
+            image.src = String(entry && entry.src || '');
+            image.alt = graphName;
+            image.loading = 'lazy';
+            return image;
+        }
+
         function createGraphAction(iconName, title, onClick) {
             const button = document.createElement('button');
-            button.className = 'graph-action codicon-' + iconName;
+            button.className = 'graph-action';
             button.type = 'button';
             button.title = title;
             button.setAttribute('aria-label', title);
+            button.appendChild(createGraphActionIcon(iconName));
             button.addEventListener('click', function (event) {
                 event.preventDefault();
                 event.stopPropagation();
                 onClick();
             });
             return button;
+        }
+
+        function createGraphActionIcon(iconName) {
+            const paths = {
+                copy: 'M5 1h8v10h-2v4H3V5h2V1zm1 4h5v5h1V2H6v3zM4 6v8h6V6H4z',
+                save: 'M7.5 1h1v7.3l2.65-2.65.7.7L8 10.2 4.15 6.35l.7-.7L7.5 8.3V1zM3 11h1v3h8v-3h1v4H3v-4z',
+                'screen-full': 'M2 2h5v1H3v4H2V2zm7 0h5v5h-1V3H9V2zM2 9h1v4h4v1H2V9zm11 0h1v5H9v-1h4V9z'
+            };
+            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('viewBox', '0 0 16 16');
+            svg.setAttribute('aria-hidden', 'true');
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            path.setAttribute('d', paths[iconName] || paths.copy);
+            svg.appendChild(path);
+            return svg;
         }
 
         function findGraphEntryByFilePath(filePath) {
@@ -2419,7 +1717,7 @@ function getWebviewHtml(webview) {
                 throw new Error(GRAPH_LABELS.svgEmpty);
             }
 
-            const image = await loadImage(svgTextToDataUrl(svgText));
+            const image = await loadSvgImage(svgText);
             const sourceSize = getSvgRasterSize(svgText, image, dpi);
             const size = getRequestedRasterSize(sourceSize, options && options.width, options && options.height);
             const bitmapFormat = normalizeGraphBitmapFormat(options && options.format);
@@ -2474,6 +1772,15 @@ function getWebviewHtml(webview) {
                 image.onerror = function () { reject(new Error(GRAPH_LABELS.svgLoadFailed)); };
                 image.src = src;
             });
+        }
+
+        async function loadSvgImage(svgText) {
+            const objectUrl = URL.createObjectURL(new Blob([svgText], { type: 'image/svg+xml' }));
+            try {
+                return await loadImage(objectUrl);
+            } finally {
+                URL.revokeObjectURL(objectUrl);
+            }
         }
 
         function normalizeGraphDpi(dpi) {
@@ -2634,10 +1941,9 @@ function getWebviewHtml(webview) {
         }
 
         function showGraphFullscreen(entry) {
-            const src = String(entry && entry.src || '');
-            if (!src) return;
-            graphFullscreenImage.src = src;
-            graphFullscreenImage.alt = String(entry.graphName || 'Graph');
+            const graphName = String(entry && entry.graphName || 'Graph');
+            if (!String(entry && entry.src || '') && !String(entry && entry.svgText || '')) return;
+            graphFullscreenVisual.replaceChildren(createGraphVisual(entry, graphName));
             graphFullscreen.hidden = false;
             graphFullscreen.classList.add('visible');
             graphFullscreenClose.focus();
@@ -2646,7 +1952,7 @@ function getWebviewHtml(webview) {
         function hideGraphFullscreen() {
             graphFullscreen.classList.remove('visible');
             graphFullscreen.hidden = true;
-            graphFullscreenImage.removeAttribute('src');
+            graphFullscreenVisual.replaceChildren();
         }
 
         function pushHistory(code) {
@@ -2811,10 +2117,6 @@ function getWebviewHtml(webview) {
             vscode.postMessage({ type: 'clearConsole' });
         });
 
-        dataButton.addEventListener('click', () => {
-            vscode.postMessage({ type: 'showDataViewer' });
-        });
-
         exportButton.addEventListener('click', () => {
             if (!exportButton.disabled) {
                 vscode.postMessage({ type: 'exportConsole' });
@@ -2929,38 +2231,53 @@ function getWebviewHtml(webview) {
             }
         });
 
-        bootstrapConsoleFont().finally(() => {
-            vscode.postMessage({ type: 'ready' });
-            vscode.postMessage({ type: 'requestVariables' });
+        function applyHostTheme(message) {
+            const variables = message && message.variables;
+            if (!variables || typeof variables !== 'object') return;
+            for (const [name, value] of Object.entries(variables)) {
+                document.documentElement.style.setProperty(name, value);
+            }
+        }
+        window.addEventListener('message', event => {
+            if (event.data && event.data.type === 'secondarySidebar.theme') applyHostTheme(event.data);
         });
+
+        function fitPlaceholderLogo() {
+            const logos = Array.from(document.querySelectorAll('.placeholder-logo'));
+            if (!logos.length || !placeholder) return;
+            const baseSize = 11;
+            logos.forEach(logo => { logo.style.fontSize = baseSize + 'px'; });
+            const naturalWidth = Math.max(...logos.map(logo => logo.scrollWidth));
+            const availableWidth = Math.max(1, placeholder.clientWidth - 16);
+            const fittedSize = naturalWidth > availableWidth
+                ? Math.max(3, baseSize * availableWidth / naturalWidth)
+                : baseSize;
+            logos.forEach(logo => { logo.style.fontSize = fittedSize.toFixed(2) + 'px'; });
+        }
+
+        new ResizeObserver(() => {
+            fitPlaceholderLogo();
+        }).observe(output);
+
+        let consoleInitialization = null;
+        function initializeConsoleFrame() {
+            if (consoleInitialization) return consoleInitialization;
+            consoleInitialization = bootstrapConsoleFont().then(() => new Promise(resolve => {
+                requestAnimationFrame(() => requestAnimationFrame(resolve));
+            })).finally(() => {
+                fitPlaceholderLogo();
+                document.documentElement.classList.add('saio-ready');
+                vscode.postMessage({ type: 'ready' });
+                vscode.postMessage({ type: 'requestVariables' });
+            });
+            return consoleInitialization;
+        }
+
+        initializeConsoleFrame();
+        vscode.postMessage({ type: 'themeRequest' });
     </script>
 </body>
 </html>`;
 }
 
-function escapeHtml(text) {
-    return String(text || '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-}
-
-module.exports = {
-    revealWebviewTerminalPanel: revealPanel,
-    getWebviewTerminalSink,
-    setWebviewCommandHandler,
-    setWebviewActionHandler,
-    setOverflowNoticeSuppressed,
-    setWorkingDetail,
-    setConsoleFontOptions,
-    setGraphResourceRoot,
-    convertGraphSvgToBitmap,
-    registerWebviewPanelSerializer,
-    clearWebviewTerminalPanel: clearPanel,
-    setWebviewTerminalStatus: setStatus,
-    isWebviewTerminalRunning: () => _status === 'running',
-    postWebviewVariables: postVariables,
-    disposeVariableSuggestionSubscription: () => variableSuggestionSubscription.dispose()
-};
+module.exports = { getConsoleFrameHtml };
