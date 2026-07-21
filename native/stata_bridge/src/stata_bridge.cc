@@ -7,6 +7,7 @@
  */
 
 #include <napi.h>
+#include <algorithm>
 #include <string>
 #include <vector>
 #include <memory>
@@ -815,18 +816,24 @@ Napi::Value ExecuteSync(const Napi::CallbackInfo& info) {
         echo = info[1].As<Napi::Boolean>().Value() ? 1 : 0;
     }
 
-    std::lock_guard<std::mutex> lock(g_stata_mutex);
+    int return_code;
+    std::string output;
 
+    #ifdef _WIN32
+    // On Windows, submit to the dedicated Stata thread via SubmitStataCommand
+    // to respect thread affinity. The mutex g_stata_mutex is NOT held here;
+    // SubmitStataCommand manages its own synchronization via the command queue.
+    return_code = SubmitStataCommand(code, echo, output);
+    #else
+    // macOS: Stata DLL is thread-safe, call directly with mutex protection.
+    std::lock_guard<std::mutex> lock(g_stata_mutex);
     {
         std::lock_guard<std::mutex> output_lock(g_output_mutex);
         if (g_StataSO_ClearOutputBuffer) {
             g_StataSO_ClearOutputBuffer();
         }
     }
-
-    int return_code = g_StataSO_Execute(code.c_str(), echo);
-
-    std::string output = "";
+    return_code = g_StataSO_Execute(code.c_str(), echo);
     {
         std::lock_guard<std::mutex> output_lock(g_output_mutex);
         if (g_StataSO_GetOutputBuffer) {
@@ -836,6 +843,7 @@ Napi::Value ExecuteSync(const Napi::CallbackInfo& info) {
             }
         }
     }
+    #endif
 
     Napi::Object result = Napi::Object::New(env);
     result.Set("returnCode", Napi::Number::New(env, return_code));
@@ -1060,6 +1068,11 @@ Napi::Value GetDatasetInfo(const Napi::CallbackInfo& info) {
     for (auto& line : lines) {
         std::string l = Trim(line);
         if (l.empty()) continue;
+        // Strip commas from locale-formatted numbers before stoi
+        auto stripCommas = [](std::string s) -> std::string {
+            s.erase(std::remove(s.begin(), s.end(), ','), s.end());
+            return s;
+        };
         if (l.find("Contains data from") != std::string::npos) {
             std::string src = Trim(l.substr(std::string("Contains data from").size()));
             result.Set("source", Napi::String::New(env, src));
@@ -1068,13 +1081,13 @@ Napi::Value GetDatasetInfo(const Napi::CallbackInfo& info) {
             std::string num = Trim(l.substr(pos + 1));
             size_t space = num.find(' ');
             if (space != std::string::npos) num = num.substr(0, space);
-            try { result.Set("observations", Napi::Number::New(env, std::stoi(num))); } catch(...) {}
+            try { result.Set("observations", Napi::Number::New(env, std::stoi(stripCommas(num)))); } catch(...) {}
         } else if (l.find("vars:") != std::string::npos || l.find("Variables:") != std::string::npos) {
             size_t pos = l.find(":");
             std::string num = Trim(l.substr(pos + 1));
             size_t space = num.find(' ');
             if (space != std::string::npos) num = num.substr(0, space);
-            try { result.Set("variables", Napi::Number::New(env, std::stoi(num))); } catch(...) {}
+            try { result.Set("variables", Napi::Number::New(env, std::stoi(stripCommas(num)))); } catch(...) {}
         } else if (l.find("Sorted by:") != std::string::npos) {
             std::string s = Trim(l.substr(std::string("Sorted by:").size()));
             result.Set("sortedBy", Napi::String::New(env, s));
