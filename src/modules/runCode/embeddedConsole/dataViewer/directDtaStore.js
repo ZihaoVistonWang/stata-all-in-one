@@ -86,6 +86,10 @@ function buildQuery(data, filterText) {
 
 async function getSnapshot(filePath, rowLimit = 500, filterText = '', force = false) {
     const data = await load(filePath, force);
+    return getSnapshotFromData(data, filePath, rowLimit, filterText);
+}
+
+function getSnapshotFromData(data, source, rowLimit = 500, filterText = '') {
     const query = buildQuery(data, filterText);
     const headers = query.columns;
     const filter = query.filter;
@@ -99,12 +103,12 @@ async function getSnapshot(filePath, rowLimit = 500, filterText = '', force = fa
         rows.push({ rowNum: row + 1, values: headers.map((name) => valueAt(data, name, row)) });
     }
     return {
-        info: { observations: matched, variables: headers.length, source: filePath, sortedBy: null },
+        info: { observations: matched, variables: headers.length, source, sortedBy: null },
         vars: headers.map((name, index) => ({
             name,
-            type: data.meta.types[index],
-            format: (data.meta.formats && data.meta.formats[index]) || '.',
-            label: data.meta.labels[index] || null,
+            type: data.meta.types[data.meta.headers.indexOf(name)] || '',
+            format: (data.meta.formats && data.meta.formats[data.meta.headers.indexOf(name)]) || '.',
+            label: data.meta.labels[data.meta.headers.indexOf(name)] || null,
             valueLabel: null
         })),
         dataColumns: headers,
@@ -117,6 +121,10 @@ async function getSnapshot(filePath, rowLimit = 500, filterText = '', force = fa
 
 async function getMore(filePath, startObs, count, filterText = '') {
     const data = await load(filePath);
+    return getMoreFromData(data, startObs, count, filterText);
+}
+
+function getMoreFromData(data, startObs, count, filterText = '') {
     const query = buildQuery(data, filterText);
     const headers = query.columns;
     const filter = query.filter;
@@ -135,4 +143,9 @@ function invalidate(filePath) {
     if (session) session.data = null;
 }
 
-module.exports = { getSnapshot, getMore, invalidate };
+function dispose(filePath) {
+    if (!filePath) return;
+    sessions.delete(path.resolve(filePath));
+}
+
+module.exports = { getSnapshot, getMore, getSnapshotFromData, getMoreFromData, invalidate, dispose };

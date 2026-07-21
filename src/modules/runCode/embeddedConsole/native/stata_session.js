@@ -260,6 +260,21 @@ function getDatasetInfo() {
     }
 }
 
+function beginDatasetCapture() {
+    if (!isNativeLoaded()) throw new Error('Native module not loaded.');
+    return nativeModule.beginDatasetCapture();
+}
+
+function finishDatasetCapture() {
+    if (!isNativeLoaded()) throw new Error('Native module not loaded.');
+    return nativeModule.finishDatasetCapture();
+}
+
+function cancelDatasetCapture() {
+    if (!isNativeLoaded()) return;
+    nativeModule.cancelDatasetCapture();
+}
+
 /**
  * Get variable metadata (name, type, format, label)
  */
@@ -316,6 +331,9 @@ module.exports = {
     shutdown,
     getOutput,
     getDatasetInfo,
+    beginDatasetCapture,
+    finishDatasetCapture,
+    cancelDatasetCapture,
     getVarMetadata,
     getDataRows,
     getSummary,

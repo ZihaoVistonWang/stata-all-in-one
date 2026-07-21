@@ -133,6 +133,9 @@ Write-Host "[Done] Output: $TargetPath" -ForegroundColor Green
 $fileInfo = Get-Item $TargetPath
 Write-Host "[Done] Size: $([math]::Round($fileInfo.Length / 1KB, 1)) KB" -ForegroundColor Green
 
+Write-Host "[Build] Compiling the Windows Stata data plugin..." -ForegroundColor Gray
+& (Join-Path $PSScriptRoot "build-data-plugin.ps1")
+
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "  Build completed successfully!" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan

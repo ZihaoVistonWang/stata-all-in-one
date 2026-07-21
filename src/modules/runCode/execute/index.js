@@ -30,6 +30,13 @@ const { containsSaioCommand } = require('../saioCommandGuard');
 // 临时文件处理
 const { cleanupTempFile } = require('./tempfile');
 
+async function invalidateConsoleDataViewer() {
+    try {
+        const viewer = require('../embeddedConsole/dataViewer/panel');
+        if (viewer.updateDataViewerData) await viewer.updateDataViewerData();
+    } catch (_) {}
+}
+
 /**
  * 获取要运行的代码
  * 基于当前选择或节来确定要执行的代码范围
@@ -348,6 +355,7 @@ async function runArbitraryCode(context, code, options = {}) {
                 await vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
                 capability.setCapabilityState(context, 'console');
                 await refreshMemoryVarsAfterRun(context, consoleResult);
+                await invalidateConsoleDataViewer();
                 return consoleResult;
             }
             if (consoleResult.shouldOfferGuiFallback) {
@@ -381,6 +389,7 @@ async function runArbitraryCode(context, code, options = {}) {
             await vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
             capability.setCapabilityState(context, 'console');
             await refreshMemoryVarsAfterRun(context, consoleResult);
+            await invalidateConsoleDataViewer();
             return consoleResult;
         }
         if (consoleResult.shouldOfferGuiFallback) {

@@ -16,6 +16,8 @@
 #include <chrono>
 #include <cctype>
 #include <condition_variable>
+#include <cstdint>
+#include <sstream>
 
 #ifdef _WIN32
   #include <windows.h>
@@ -33,6 +35,22 @@ static void* g_library_handle = nullptr;
 static std::atomic<bool> g_initialized{false};
 static std::mutex g_stata_mutex;
 static std::mutex g_output_mutex;
+static std::mutex g_dataset_capture_mutex;
+static std::vector<uint8_t> g_dataset_capture;
+static bool g_dataset_capture_active = false;
+
+#ifdef _WIN32
+extern "C" __declspec(dllexport)
+#else
+extern "C" __attribute__((visibility("default")))
+#endif
+void SaioDatasetWrite(const void* data, size_t length) {
+    if (!data || length == 0) return;
+    std::lock_guard<std::mutex> lock(g_dataset_capture_mutex);
+    if (!g_dataset_capture_active) return;
+    const uint8_t* bytes = static_cast<const uint8_t*>(data);
+    g_dataset_capture.insert(g_dataset_capture.end(), bytes, bytes + length);
+}
 
 typedef int (*StataSO_Main_t)(int argc, char** argv);
 typedef int (*StataSO_Execute_t)(const char* cmd, int echo);
@@ -924,6 +942,39 @@ Napi::Value IsLibraryLoadedJS(const Napi::CallbackInfo& info) {
     return Napi::Boolean::New(info.Env(), IsLibraryLoaded() && AreFunctionsResolved());
 }
 
+Napi::Value BeginDatasetCapture(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+    {
+        std::lock_guard<std::mutex> lock(g_dataset_capture_mutex);
+        g_dataset_capture.clear();
+        g_dataset_capture_active = true;
+    }
+    std::ostringstream address;
+    address << std::hex << reinterpret_cast<uintptr_t>(&SaioDatasetWrite);
+    return Napi::String::New(env, address.str());
+}
+
+Napi::Value FinishDatasetCapture(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+    std::lock_guard<std::mutex> lock(g_dataset_capture_mutex);
+    g_dataset_capture_active = false;
+    Napi::Buffer<uint8_t> result = Napi::Buffer<uint8_t>::Copy(
+        env,
+        g_dataset_capture.empty() ? nullptr : g_dataset_capture.data(),
+        g_dataset_capture.size()
+    );
+    g_dataset_capture.clear();
+    g_dataset_capture.shrink_to_fit();
+    return result;
+}
+
+Napi::Value CancelDatasetCapture(const Napi::CallbackInfo& info) {
+    std::lock_guard<std::mutex> lock(g_dataset_capture_mutex);
+    g_dataset_capture_active = false;
+    g_dataset_capture.clear();
+    return info.Env().Undefined();
+}
+
 // ===== Data Access Helpers =====
 
 std::string ExecuteStataAndGetOutput(const std::string& code) {
@@ -1281,6 +1332,9 @@ Napi::Object Init(Napi::Env env, Napi::Object exports) {
     exports.Set("shutdown", Napi::Function::New(env, Shutdown));
     exports.Set("isInitialized", Napi::Function::New(env, IsInitializedJS));
     exports.Set("isDylibLoaded", Napi::Function::New(env, IsLibraryLoadedJS));
+    exports.Set("beginDatasetCapture", Napi::Function::New(env, BeginDatasetCapture));
+    exports.Set("finishDatasetCapture", Napi::Function::New(env, FinishDatasetCapture));
+    exports.Set("cancelDatasetCapture", Napi::Function::New(env, CancelDatasetCapture));
     exports.Set("getDatasetInfo", Napi::Function::New(env, GetDatasetInfo));
     exports.Set("getVarMetadata", Napi::Function::New(env, GetVarMetadata));
     exports.Set("getDataRows", Napi::Function::New(env, GetDataRows));

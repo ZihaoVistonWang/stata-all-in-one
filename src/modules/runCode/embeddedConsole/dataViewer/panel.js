@@ -1,6 +1,6 @@
 const vscode = require('vscode');
-const { fetchDataSnapshot, fetchMoreRows } = require('./provider');
 const directDtaStore = require('./directDtaStore');
+const consoleStore = require('./consoleStore');
 const { msg, showInfo, showError } = require('../../../../utils/common');
 const { StataTerminalRenderer, getWebviewThemeVariables } = require('../renderer');
 const variableSuggestions = require('../../../variableSuggestionService');
@@ -11,7 +11,7 @@ const PANEL_VIEW_TYPE = 'stata-all-in-one.dataViewer';
 const _panels = { console: null, file: null };
 const _ready = { console: false, file: false };
 const _pendingFilter = { console: '', file: '' };
-const _consoleSnapshot = { pinned: false, data: null };
+const _consoleSnapshot = { pinned: false, data: null, entry: null };
 const _filePaths = new WeakMap();
 const _renderer = new StataTerminalRenderer();
 
@@ -1480,10 +1480,15 @@ function attachPanel(panel, mode) {
             _panels[mode] = null;
             _ready[mode] = false;
             if (mode === 'file') {
+                const filePath = _filePaths.get(panel);
+                if (filePath) directDtaStore.dispose(filePath);
                 _filePaths.delete(panel);
             } else {
                 _consoleSnapshot.pinned = false;
                 _consoleSnapshot.data = null;
+                if (_consoleSnapshot.entry) consoleStore.dispose(_consoleSnapshot.entry).catch(() => {});
+                _consoleSnapshot.entry = null;
+                consoleStore.invalidateLive().catch(() => {});
             }
         }
     });
@@ -1541,7 +1546,9 @@ async function handleLoadMore(mode, message) {
     const startObs = (message.startObs || 0) + 1;
     const count = message.count || 500;
     try {
-        const rows = await fetchMoreRows(startObs, count, message.filterText || '');
+        const rows = _consoleSnapshot.pinned && _consoleSnapshot.entry
+            ? await consoleStore.getMore(_consoleSnapshot.entry, startObs, count, message.filterText || '')
+            : await consoleStore.getLiveMore(startObs, count, message.filterText || '');
         if (_panels[mode]) {
             if (rows && rows.length > 0) {
                 _panels[mode].webview.postMessage({ type: 'appendRows', rows, hasMore: rows.length >= count });
@@ -1603,11 +1610,12 @@ async function refreshDataViewer(mode, filterText, targetPanel) {
         let data;
         if (mode === 'file') {
             data = await directDtaStore.getSnapshot(_filePaths.get(panel), 500, filterText || '');
-        } else if (_consoleSnapshot.pinned && _consoleSnapshot.data) {
-            data = { ..._consoleSnapshot.data };
+        } else if (_consoleSnapshot.pinned && _consoleSnapshot.entry) {
+            data = await consoleStore.getSnapshot(_consoleSnapshot.entry, filterText || '');
         } else {
-            // Console mode: query the active Stata session directly
-            data = await fetchDataSnapshot(undefined, filterText || '');
+            // Console mode: capture once, then use the same local DTA engine
+            // as external files for paging and filtering.
+            data = await consoleStore.getLiveSnapshot(filterText || '');
             if (data && Array.isArray(data.allVarNames) && data.allVarNames.length) {
                 variableSuggestions.setMemoryVars(data.allVarNames);
             }
@@ -1632,14 +1640,19 @@ async function reveal(filterText, options = {}) {
     if (!options.captureSnapshot) {
         _consoleSnapshot.pinned = false;
         _consoleSnapshot.data = null;
+        if (_consoleSnapshot.entry) consoleStore.dispose(_consoleSnapshot.entry).catch(() => {});
+        _consoleSnapshot.entry = null;
     }
     if (options.captureSnapshot) {
         try {
-            _consoleSnapshot.data = await fetchDataSnapshot(200000, _pendingFilter['console']);
+            if (_consoleSnapshot.entry) await consoleStore.dispose(_consoleSnapshot.entry);
+            _consoleSnapshot.entry = await consoleStore.captureSnapshot(_pendingFilter['console']);
+            _consoleSnapshot.data = _consoleSnapshot.entry.view;
             _consoleSnapshot.pinned = Boolean(_consoleSnapshot.data && !_consoleSnapshot.data.error);
         } catch (error) {
             _consoleSnapshot.pinned = false;
             _consoleSnapshot.data = { error: error.message };
+            _consoleSnapshot.entry = null;
         }
     }
     const panel = ensurePanel('console');
@@ -1656,6 +1669,8 @@ async function reveal(filterText, options = {}) {
 
 // ── external update trigger (e.g., after running code in console) ──────────────
 async function updateData() {
+    await consoleStore.invalidateLive();
+    if (_consoleSnapshot.pinned) return;
     await refreshDataViewer('console', _pendingFilter['console']);
 }
 
