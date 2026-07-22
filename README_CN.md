@@ -13,7 +13,7 @@ Stata All in One
 </p>
 
 <p align="center">
-   | <b>版本:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.3.4</a> | <b>作者:</b> <a href="https://zihaowang.cn">王梓豪</a> | <b>Translate:</b>
+   | <b>版本:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.3.5</a> | <b>作者:</b> <a href="https://zihaowang.cn">王梓豪</a> | <b>Translate:</b>
   <a href="https://github.com/ZihaoVistonWang/stata-all-in-one">English Version</a> |
 </p>
 
@@ -311,7 +311,8 @@ saio setup
 
 | 版本   | 更新内容                                                                           | 发布日期   |
 | ------ | ---------------------------------------------------------------------------------- | ---------- |
-| 0.3.4 | 重构数据查看器，支持直读 `.dta` 与 Console 内存数据，提升原生组件稳定性，并将内置 AI Skill 二进制改为在线安装提示词。 | 2026-07-22 |
+| 0.3.5 | Stata AI Skill 改为在线安装，Stata All in One拓展包精简至 2.48 MB；修复代码中字符串间的 Tab 命令识别问题。 | 2026-07-22 |
+| 0.3.4 | 重构数据查看器，支持直读 `.dta` 与 Console 内存数据，并提升 macOS 和 Windows 原生组件稳定性。 | 2026-07-22 |
 | 0.3.3 | 改进嵌入式控制台的命令兼容性与多行 `browse` 路由，优化 `which` 输出显示。 | 2026-07-21 |
 | 0.3.2 | 重点优化了 Stata 初始化与智能补全，并新增 Console 多格式导出、内置数据浏览命令及 Stata AI Skill v1.1。 | 2026-07-17 |
 | 0.3.1 | 优化 Stata 初始化配置流程，自动完成安装探测与运行环境检查，尽可能减少用户手动配置的情况 | 2026-07-13 |

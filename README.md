@@ -13,7 +13,7 @@ Stata All in One
 </p>
 
 <p align="center">
-   | <b>Version:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.3.4</a> | <b>Author:</b> <a href="https://zihaowang.cn">Zihao Viston Wang</a> | <b>Translate:</b>
+   | <b>Version:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.3.5</a> | <b>Author:</b> <a href="https://zihaowang.cn">Zihao Viston Wang</a> | <b>Translate:</b>
   <a href="https://gitee.com/ZihaoVistonWang/stata-all-in-one">中文版本</a> |
 </p>
 
@@ -310,7 +310,8 @@ If this extension has been helpful to you, feel free to scan the **Alipay** (lef
 
 | Version | Changes                                                                                                              | Release Date |
 | ------- | -------------------------------------------------------------------------------------------------------------------- | ------------ |
-| 0.3.4  | Rebuilt the Data Viewer with direct `.dta` and Console-memory access, improved native stability, and replaced bundled AI Skill binaries with an online installation prompt. | 2026-07-22   |
+| 0.3.5  | Moved Stata AI Skill online, reducing the Stata All in One extension package to 2.48 MB; fixed Tab recognition between code tokens. | 2026-07-22   |
+| 0.3.4  | Rebuilt the Data Viewer with direct `.dta` and Console-memory access and improved native stability on macOS and Windows. | 2026-07-22   |
 | 0.3.3  | Improved Embedded Console command compatibility and multi-line `browse` routing, and refined `which` output rendering. | 2026-07-21   |
 | 0.3.2  | Focused on improving Stata initialization and intelligent autocomplete, while adding multi-format Console export, built-in data browsing commands, and Stata AI Skill v1.1 | 2026-07-17   |
 | 0.3.1  | Streamlined Stata startup setup with automatic installation discovery and runtime checks to minimize manual configuration | 2026-07-13   |

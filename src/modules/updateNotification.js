@@ -10,8 +10,12 @@ const { getUserLanguage, showInfo } = require('../utils/common');
 // Update changelog: version -> changelog text
 const CHANGELOG = {
     en: {
+        '0.3.5': {
+            ver_info: '✨ Stata All in One (0.3.5): Moved Stata AI Skill online, reducing the Stata All in One extension package to 2.48 MB; fixed Tab recognition between code tokens.',
+            more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#035-2026-07-22'
+        },
         '0.3.4': {
-            ver_info: '✨ Stata All in One (0.3.4): Rebuilt the Data Viewer around direct local `.dta` parsing and in-memory Console data access, improved native stability, and removed bundled Stata AI Skill binaries in favor of an online installation prompt.',
+            ver_info: '✨ Stata All in One (0.3.4): Rebuilt the Data Viewer around direct local `.dta` parsing and in-memory Console data access, with isolated snapshots, Stata-style filtering, and safer native execution on macOS and Windows.',
             more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#034-2026-07-22'
         },
         '0.3.3': {
@@ -96,8 +100,12 @@ const CHANGELOG = {
         }
     },
     zh: {
+        '0.3.5': {
+            ver_info: '✨ Stata All in One (0.3.5)：Stata AI Skill 改为在线安装，Stata All in One拓展包精简至 2.48 MB；修复代码中字符串间的 Tab 命令识别问题。',
+            more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#035-2026-07-22'
+        },
         '0.3.4': {
-            ver_info: '✨ Stata All in One (0.3.4)：重构数据查看器，支持本地直读 `.dta` 与直接访问 Console 内存数据，提升原生组件稳定性，并移除内置 Stata AI Skill 二进制，改为在线安装提示词。',
+            ver_info: '✨ Stata All in One (0.3.4)：重构数据查看器，支持本地直读 `.dta` 与直接访问 Console 内存数据，并新增独立快照、Stata 风格筛选及更安全的 macOS/Windows 原生执行。',
             more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#034-2026-07-22'
         },
         '0.3.3': {

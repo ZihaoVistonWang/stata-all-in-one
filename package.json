@@ -2,7 +2,7 @@
   "name": "stata-all-in-one",
   "displayName": "Stata All in One",
   "description": "Supercharge your Stata workflow in VS Code. An enhanced version of `Stata Outline` with advanced Syntax Highlighting + Code Hints + Smart Outline + Code Execution + Data Viewing + AI Skill. All your Stata needs in one place.",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "publisher": "ZihaoVistonWang",
   "icon": "img/icon.png",
   "keywords": [
