@@ -129,6 +129,7 @@ Stata All in One
      - **命令执行状态**：对于`bootstrap`、`bdiff`、`xthreg`等耗时命令，控制台会显示实时进度（如 50/2000）和预计剩余时间。其他命令会显示运行耗时。
 
    - **自定义字体**：
+     - **在线字体（默认）**：为西文加载 Maple Mono，为中文文本加载 Maple Mono NF CN。
      - **设置字体**：通过 `stata-all-in-one.consoleFontMode` 和 `stata-all-in-one.consoleCustomFontFamily` 设置项，用户可以自定义控制台的字体，以获得更好的阅读体验。
 
 2. 注释增强

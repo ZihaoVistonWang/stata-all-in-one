@@ -128,6 +128,7 @@ Stata All in One
      - **Command Execution Status**: For long-running commands like `bootstrap`, `bdiff`, and `xthreg`, the console shows real-time progress (e.g. 50/2000) and estimated time remaining. Other commands display elapsed time.
 
    - **Custom Font**:
+     - **Online (Default)**: Load Maple Mono for Latin text and Maple Mono NF CN for Chinese text.
      - **Font Settings**: Use `stata-all-in-one.consoleFontMode` and `stata-all-in-one.consoleCustomFontFamily` to customize the console font for a better reading experience.
 
 2. Enhanced Comments
