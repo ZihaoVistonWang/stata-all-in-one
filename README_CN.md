@@ -56,10 +56,10 @@ Stata All in One
 
 ### 1. AI Skill 功能（实验性）🛠️
 
-- **让 AI Agent 运行 Stata 代码**：扩展内置独立版原生 `stata-ai-skill`，让 Claude Code、Cursor、Codex CLI、Open Code、OpenClaw 等 AI 编程工具通过 Rust 后台服务运行 Stata。
-- **原生本地服务**：AI Skill 服务由打包好的原生二进制运行，默认使用 `http://127.0.0.1:19522`。
-- **安装交给 AI 就行**：点击编辑器工具栏的 `AI` 按钮，复制提示词粘贴到 AI 工具即可，AI 将从本扩展中安装或注册内置的 `stata-ai-skill`。
-- **内置原生二进制**：随扩展提供 macOS Apple Silicon、Windows x64/ARM64 可执行文件，以及完整的 `SKILL.md` 运行指南。
+- **让 AI Agent 运行 Stata 代码**：安装独立版原生 `stata-ai-skill`，让 Claude Code、Cursor、Codex CLI、Open Code、OpenClaw 等 AI 编程工具通过 Rust 后台服务运行 Stata。
+- **原生本地服务**：安装完成后，AI Skill 通过其原生可执行文件和本地服务运行。
+- **安装交给 AI 就行**：点击编辑器工具栏的 `AI` 按钮，复制提示词并粘贴到 AI 工具。提示词通过 Gitee 和 GitHub 链接到在线 `installation.md`。
+- **扩展更轻量**：AI Skill 可执行文件仅在用户需要时安装，不再随本扩展打包。
 
 ### 2. 代码运行 (Stata 交互)
 
@@ -190,7 +190,7 @@ Stata All in One
 
 ### AI Skill
 
-点击 Stata 编辑器工具栏中的 `AI` 按钮，可复制一段提示词，指导你的 AI 编程工具安装或注册扩展内置的原生 `stata-ai-skill`。独立服务默认使用 `http://127.0.0.1:19522`，并通过内置的 `skill/SKILL.md` 配置。
+点击 Stata 编辑器工具栏中的 `AI` 按钮，可复制一段包含 Gitee 和 GitHub 在线 `installation.md` 地址的提示词。安装完成后，AI 编程工具将按照所安装 Skill 中的 `SKILL.md` 完成服务启动、状态检查、Stata 配置和后续操作。
 
 ### 使用 Stata 配置
 
@@ -311,7 +311,7 @@ saio setup
 
 | 版本   | 更新内容                                                                           | 发布日期   |
 | ------ | ---------------------------------------------------------------------------------- | ---------- |
-| 0.3.4 | 重构数据查看器，支持本地直读 `.dta` 与直接访问 Console 内存数据，并新增独立快照、Stata 风格筛选及更安全的 macOS/Windows 原生执行。 | 2026-07-22 |
+| 0.3.4 | 重构数据查看器，支持直读 `.dta` 与 Console 内存数据，提升原生组件稳定性，并将内置 AI Skill 二进制改为在线安装提示词。 | 2026-07-22 |
 | 0.3.3 | 改进嵌入式控制台的命令兼容性与多行 `browse` 路由，优化 `which` 输出显示。 | 2026-07-21 |
 | 0.3.2 | 重点优化了 Stata 初始化与智能补全，并新增 Console 多格式导出、内置数据浏览命令及 Stata AI Skill v1.1。 | 2026-07-17 |
 | 0.3.1 | 优化 Stata 初始化配置流程，自动完成安装探测与运行环境检查，尽可能减少用户手动配置的情况 | 2026-07-13 |

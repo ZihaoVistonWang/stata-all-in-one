@@ -55,10 +55,10 @@ Stata All in One
 
 ### 1. AI Skill (Experimental) 🛠️
 
-- **Let AI Agents Run Stata Code**: Bundle the standalone native `stata-ai-skill` with this extension so AI coding tools (Claude Code, Cursor, Codex CLI, Open Code, OpenClaw, etc.) can run Stata through a Rust background service.
-- **Native Local Service**: The AI Skill runs from the packaged native executable and uses `http://127.0.0.1:19522` by default.
-- **Leave the setup to AI**: Click the `AI` button in the editor toolbar, copy the prompt, and paste it to your AI tool. The AI will install or register the bundled `stata-ai-skill` from this extension.
-- **Packaged Native Binaries**: The bundled skill includes macOS Apple Silicon and Windows x64/ARM64 executables, plus the full `SKILL.md` runtime guide.
+- **Let AI Agents Run Stata Code**: Install the standalone native `stata-ai-skill` so AI coding tools (Claude Code, Cursor, Codex CLI, Open Code, OpenClaw, etc.) can run Stata through a Rust background service.
+- **Native Local Service**: Once installed, the AI Skill runs through its native executable and local service.
+- **Leave the setup to AI**: Click the `AI` button in the editor toolbar, copy the prompt, and paste it into your AI tool. The prompt links to the online `installation.md` through Gitee and GitHub.
+- **Lightweight Extension**: AI Skill executables are installed only when needed and are no longer bundled with this extension.
 
 ### 2. Code Execution (Stata Interaction)
 
@@ -189,7 +189,7 @@ Search for "Stata All in One" in VS Code settings and configure:
 
 ### AI Skill
 
-Click the `AI` button in the Stata editor toolbar to copy a prompt that installs or registers the bundled native `stata-ai-skill` in your AI coding tool. The standalone service uses `http://127.0.0.1:19522` by default and is configured through the bundled `skill/SKILL.md`.
+Click the `AI` button in the Stata editor toolbar to copy a prompt containing Gitee and GitHub links to the online `installation.md`. After installation, your AI coding tool follows the installed Skill's `SKILL.md` for service startup, status checks, Stata configuration, and subsequent operations.
 
 ### Configure from Stata
 
@@ -310,7 +310,7 @@ If this extension has been helpful to you, feel free to scan the **Alipay** (lef
 
 | Version | Changes                                                                                                              | Release Date |
 | ------- | -------------------------------------------------------------------------------------------------------------------- | ------------ |
-| 0.3.4  | Rebuilt the Data Viewer around direct local `.dta` parsing and in-memory Console data access, with isolated snapshots, Stata-style filtering, and safer native execution on macOS and Windows. | 2026-07-22   |
+| 0.3.4  | Rebuilt the Data Viewer with direct `.dta` and Console-memory access, improved native stability, and replaced bundled AI Skill binaries with an online installation prompt. | 2026-07-22   |
 | 0.3.3  | Improved Embedded Console command compatibility and multi-line `browse` routing, and refined `which` output rendering. | 2026-07-21   |
 | 0.3.2  | Focused on improving Stata initialization and intelligent autocomplete, while adding multi-format Console export, built-in data browsing commands, and Stata AI Skill v1.1 | 2026-07-17   |
 | 0.3.1  | Streamlined Stata startup setup with automatic installation discovery and runtime checks to minimize manual configuration | 2026-07-13   |

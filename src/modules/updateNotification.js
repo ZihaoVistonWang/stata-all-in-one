@@ -11,7 +11,7 @@ const { getUserLanguage, showInfo } = require('../utils/common');
 const CHANGELOG = {
     en: {
         '0.3.4': {
-            ver_info: '✨ Stata All in One (0.3.4): Rebuilt the Data Viewer around direct local `.dta` parsing and in-memory Console data access, with isolated snapshots, Stata-style filtering, and safer native execution on macOS and Windows.',
+            ver_info: '✨ Stata All in One (0.3.4): Rebuilt the Data Viewer around direct local `.dta` parsing and in-memory Console data access, improved native stability, and removed bundled Stata AI Skill binaries in favor of an online installation prompt.',
             more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#034-2026-07-22'
         },
         '0.3.3': {
@@ -97,7 +97,7 @@ const CHANGELOG = {
     },
     zh: {
         '0.3.4': {
-            ver_info: '✨ Stata All in One (0.3.4)：重构数据查看器，支持本地直读 `.dta` 与直接访问 Console 内存数据，并新增独立快照、Stata 风格筛选及更安全的 macOS/Windows 原生执行。',
+            ver_info: '✨ Stata All in One (0.3.4)：重构数据查看器，支持本地直读 `.dta` 与直接访问 Console 内存数据，提升原生组件稳定性，并移除内置 Stata AI Skill 二进制，改为在线安装提示词。',
             more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#034-2026-07-22'
         },
         '0.3.3': {
