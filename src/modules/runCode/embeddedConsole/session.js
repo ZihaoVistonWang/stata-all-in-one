@@ -14,6 +14,41 @@ const nodePath = require('path');
 let _consoleSessionInstance = null;
 let _sessionStale = false; // true when console panel was closed — session should be recreated
 
+/**
+ * StataSO_Execute does not consistently recognize horizontal tabs as token
+ * separators. Normalize tabs in executable code while preserving literal tabs
+ * inside quoted strings.
+ *
+ * @param {string} code - Stata code submitted to the native session
+ * @returns {string}
+ */
+function normalizeNativeCommandWhitespace(code) {
+    const source = String(code || '');
+    let normalized = '';
+    let inQuotedString = false;
+
+    for (let index = 0; index < source.length; index++) {
+        const character = source[index];
+
+        if (character === '"') {
+            normalized += character;
+
+            // A doubled quote inside a string represents a literal quote.
+            if (inQuotedString && source[index + 1] === '"') {
+                normalized += source[index + 1];
+                index += 1;
+            } else {
+                inQuotedString = !inQuotedString;
+            }
+            continue;
+        }
+
+        normalized += character === '\t' && !inQuotedString ? ' ' : character;
+    }
+
+    return normalized;
+}
+
 // Platform-aware globalState key for persisting library path
 const kLibraryPathKey = process.platform === 'win32'
     ? 'stataConsoleDllPath'
@@ -216,7 +251,8 @@ class StataConsoleSession {
         }
 
         try {
-            const result = await native.execute(code, echo, onOutput);
+            const normalizedCode = normalizeNativeCommandWhitespace(code);
+            const result = await native.execute(normalizedCode, echo, onOutput);
             return {
                 success: result.success,
                 returnCode: result.returnCode,
@@ -426,6 +462,7 @@ function getActiveSession() {
 
 module.exports = {
     StataConsoleSession,
+    normalizeNativeCommandWhitespace,
     getConsoleSession,
     getActiveSession,
     initConsoleSession,
