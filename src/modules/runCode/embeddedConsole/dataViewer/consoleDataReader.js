@@ -4,6 +4,8 @@ const { getActiveSession } = require('../session');
 const { msg } = require('../../../../utils/common');
 
 const UNIT_SEPARATOR = String.fromCharCode(31);
+const META_BEGIN = '__SAIO_META_BEGIN__';
+const META_END = '__SAIO_META_END__';
 let loadedSessions = new WeakSet();
 
 function pluginPath() {
@@ -17,17 +19,22 @@ function quoteStataPath(value) {
     return String(value).replace(/"/g, '""').replace(/\\/g, '/');
 }
 
-async function readMetadata(session) {
-    const result = await session.execute(
-        `mata: printf("__SAIO_NOBS__%f\\n", st_nobs()); for(i=1;i<=st_nvar();i++) printf("%s%s%s%s%s%s%s\\n", st_varname(i), char(31), st_vartype(i), char(31), st_varformat(i), char(31), st_varlabel(i))`,
-        false
-    );
-    if (!result.success) throw new Error(msg('dataViewerDirectReadFailed'));
-    const rows = String(result.output || '').split(/\r?\n/).filter((line) => line.includes(UNIT_SEPARATOR));
+function parseMetadataOutput(output) {
+    const text = String(output || '');
+    const reassembledText = text.replace(/\r?\n\s*>\s?/g, '');
     const headers = [];
     const types = [];
     const formats = [];
     const labels = [];
+    const framedRows = [];
+    const framedPattern = new RegExp(`${META_BEGIN}([\\s\\S]*?)${META_END}`, 'g');
+    let match;
+    while ((match = framedPattern.exec(reassembledText)) !== null) {
+        framedRows.push(match[1]);
+    }
+    const rows = framedRows.length
+        ? framedRows
+        : text.split(/\r?\n/).filter((line) => line.includes(UNIT_SEPARATOR));
     for (const row of rows) {
         const parts = row.split(UNIT_SEPARATOR);
         if (parts.length < 4) continue;
@@ -36,9 +43,18 @@ async function readMetadata(session) {
         formats.push(parts[2].trim() || '.');
         labels.push(parts.slice(3).join(UNIT_SEPARATOR).trim());
     }
-    const nobsMatch = String(result.output || '').match(/__SAIO_NOBS__([0-9]+(?:\.[0-9]+)?)/);
+    const nobsMatch = reassembledText.match(/__SAIO_NOBS__([0-9]+(?:\.[0-9]+)?)/);
     const nobs = Number(nobsMatch ? nobsMatch[1] : 0);
     return { headers, types, formats, labels, nobs };
+}
+
+async function readMetadata(session) {
+    const result = await session.execute(
+        `mata: printf("__SAIO_NOBS__%f\\n", st_nobs()); for(i=1;i<=st_nvar();i++) printf("${META_BEGIN}%s%s%s%s%s%s%s${META_END}\\n", st_varname(i), char(31), st_vartype(i), char(31), st_varformat(i), char(31), st_varlabel(i))`,
+        false
+    );
+    if (!result.success) throw new Error(msg('dataViewerDirectReadFailed'));
+    return parseMetadataOutput(result.output);
 }
 
 function allocColumn(type, nobs) {
@@ -138,4 +154,4 @@ function resetSessionCache() {
     loadedSessions = new WeakSet();
 }
 
-module.exports = { capture, pluginPath, parseCapture, resetSessionCache };
+module.exports = { capture, pluginPath, parseCapture, parseMetadataOutput, resetSessionCache };

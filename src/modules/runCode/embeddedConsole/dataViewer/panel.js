@@ -482,6 +482,29 @@ function getDataViewerHtml(webview) {
         body:not(.data-tab-active) .filter-row {
             display: none;
         }
+        .cell-overflow-tooltip {
+            position: fixed;
+            z-index: 1000;
+            display: none;
+            max-width: min(720px, calc(100vw - 24px));
+            max-height: min(360px, calc(100vh - 24px));
+            padding: 7px 10px;
+            overflow: auto;
+            color: var(--vscode-editorHoverWidget-foreground, var(--vscode-foreground));
+            background: var(--vscode-editorHoverWidget-background, var(--vscode-editor-background));
+            border: 1px solid var(--vscode-editorHoverWidget-border, var(--vscode-panel-border));
+            border-radius: 4px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28);
+            font-family: var(--vscode-editor-font-family, monospace);
+            font-size: var(--vscode-editor-font-size, 13px);
+            line-height: 1.45;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+            pointer-events: none;
+        }
+        .cell-overflow-tooltip.visible {
+            display: block;
+        }
     </style>
 </head>
 <body class="loading">
@@ -534,6 +557,7 @@ function getDataViewerHtml(webview) {
         </div>
     </div>
     <div class="info-bar" id="info-bar"></div>
+    <div class="cell-overflow-tooltip" id="cell-overflow-tooltip" role="tooltip" aria-hidden="true"></div>
     <script nonce="${nonce}">
         const vscode = acquireVsCodeApi();
         let currentTab = 'vars';
@@ -542,6 +566,8 @@ function getDataViewerHtml(webview) {
         const filterHighlight = document.getElementById('filter-highlight');
         const filterAutocomplete = document.getElementById('filter-autocomplete');
         const filterIcon = document.getElementById('filter-icon');
+        const overflowTooltipEl = document.getElementById('cell-overflow-tooltip');
+        const autoFitColumnLabel = ${JSON.stringify(msg('dataViewerAutoFitColumn'))};
         var autocompleteVariables = [];
         var sharedAutocompleteVariables = [];
         var filterAutocompleteIndex = -1;
@@ -554,6 +580,7 @@ function getDataViewerHtml(webview) {
         });
 
         document.getElementById('refresh-btn').addEventListener('click', function () {
+            resetColumnWidthsForRefresh();
             requestRefresh();
         });
         document.getElementById('filter-btn').addEventListener('click', function () {
@@ -663,6 +690,7 @@ function getDataViewerHtml(webview) {
             syncFilterUi();
             scheduleDataRender(false);
             scheduleAutoLoadCheck();
+            scheduleOverflowTitleUpdate();
         }
 
         function syncFilterUi() {
@@ -876,15 +904,23 @@ function getDataViewerHtml(webview) {
             for (var i = 0; i < vars.length; i++) {
                 var v = vars[i];
                 var tr = document.createElement('tr');
-                tr.innerHTML = '<td class="var-name">' + esc(v.name) + '</td>' +
-                    '<td class="var-type">' + esc(displayValue(v.type)) + '</td>' +
-                    '<td class="var-format">' + esc(displayValue(v.format)) + '</td>' +
-                    '<td class="var-label">' + esc(displayValue(v.label || v.valueLabel)) + '</td>';
+                appendVarsCell(tr, 'var-name', v.name);
+                appendVarsCell(tr, 'var-type', displayValue(v.type));
+                appendVarsCell(tr, 'var-format', displayValue(v.format));
+                appendVarsCell(tr, 'var-label', displayValue(v.label || v.valueLabel));
                 tbody.appendChild(tr);
             }
-            for (var c = 0; c < varsColumnWidths.length; c++) {
-                setVarsColumnWidth(c, varsColumnWidths[c]);
-            }
+            autoSizeVarsColumns();
+            scheduleOverflowTitleUpdate();
+        }
+
+        function appendVarsCell(row, className, value) {
+            var cell = document.createElement('td');
+            var text = String(value === null || value === undefined ? '' : value);
+            cell.className = className;
+            cell.textContent = text;
+            cell.setAttribute('data-full-text', text);
+            row.appendChild(cell);
         }
 
         var dataColumnsCache = [];
@@ -893,10 +929,15 @@ function getDataViewerHtml(webview) {
         var virtualRowHeight = 28;
         var virtualOverscan = 80;
         var columnWidths = [];
-        var varsColumnWidths = [140, 80, 100, 200];
-        var defaultColWidth = 120;
-        var colMinWidth = 40;
-        var colMaxWidth = 500;
+        var columnNaturalWidths = [];
+        var columnManualWidths = [];
+        var varsColumnWidths = [72, 72, 72, 72];
+        var varsColumnNaturalWidths = [72, 72, 72, 72];
+        var varsColumnManualWidths = [false, false, false, false];
+        var varsAutoColMaxWidths = [156, 100, 100, 210];
+        var defaultColWidth = 72;
+        var colMinWidth = 72;
+        var autoColMaxWidth = 210;
         var virtualColumnOverscan = 4;
         var rowNumberColumnWidth = 56;
         function getColWidth(i) { return i >= 0 && i < columnWidths.length ? columnWidths[i] : defaultColWidth; }
@@ -914,6 +955,252 @@ function getDataViewerHtml(webview) {
         var pageSize = 500;
         var preloadRowBuffer = 100;
 
+        function resetColumnWidthsForRefresh() {
+            varsColumnWidths = [72, 72, 72, 72];
+            varsColumnNaturalWidths = [72, 72, 72, 72];
+            varsColumnManualWidths = [false, false, false, false];
+            autoSizeVarsColumns();
+            for (var col = 0; col < columnManualWidths.length; col++) {
+                columnManualWidths[col] = false;
+                columnWidths[col] = clampAutoColumnWidth(columnNaturalWidths[col]);
+            }
+            updateDataTableWidth();
+            lastVirtualColStart = -1;
+            lastVirtualColEnd = -1;
+            scheduleDataRender(true);
+            hideOverflowTooltip();
+        }
+
+        function clampAutoColumnWidth(width, maxWidth) {
+            var limit = Number.isFinite(maxWidth) ? maxWidth : autoColMaxWidth;
+            return Math.max(colMinWidth, Math.min(limit, Math.ceil(width || 0)));
+        }
+
+        function measureTableText(text, sourceEl) {
+            var value = String(text === null || text === undefined ? '' : text);
+            if (!measureTableText._canvas) {
+                measureTableText._canvas = document.createElement('canvas');
+                measureTableText._fonts = {};
+            }
+            var context = measureTableText._canvas.getContext('2d');
+            if (!context) return colMinWidth;
+            var table = sourceEl && sourceEl.closest ? sourceEl.closest('table') : sourceEl;
+            var key = table && table.id ? table.id : 'default';
+            if (!measureTableText._fonts[key]) {
+                var style = window.getComputedStyle(sourceEl || document.body);
+                measureTableText._fonts[key] = style.font ||
+                    [style.fontSize || '13px', style.fontFamily || 'monospace'].join(' ');
+            }
+            context.font = measureTableText._fonts[key];
+            return Math.ceil(context.measureText(value).width + 28);
+        }
+
+        function measureStyledText(text, sourceEl) {
+            if (!sourceEl) return measureTableText(text, document.body);
+            if (!measureStyledText._el) {
+                var measurer = document.createElement('span');
+                measurer.style.cssText = 'position:absolute;left:-99999px;top:-99999px;display:inline-block;width:auto;max-width:none;padding:0;white-space:pre;visibility:hidden;pointer-events:none;';
+                document.body.appendChild(measurer);
+                measureStyledText._el = measurer;
+            }
+            var style = window.getComputedStyle(sourceEl);
+            var el = measureStyledText._el;
+            el.style.font = style.font;
+            el.style.fontFamily = style.fontFamily;
+            el.style.fontSize = style.fontSize;
+            el.style.fontStyle = style.fontStyle;
+            el.style.fontWeight = style.fontWeight;
+            el.style.fontStretch = style.fontStretch;
+            el.style.fontVariantNumeric = style.fontVariantNumeric;
+            el.style.letterSpacing = style.letterSpacing;
+            el.style.textTransform = style.textTransform;
+            el.textContent = String(text === null || text === undefined ? '' : text);
+            var horizontalPadding = (parseFloat(style.paddingLeft) || 0)
+                + (parseFloat(style.paddingRight) || 0);
+            return Math.ceil(el.getBoundingClientRect().width + horizontalPadding + 2);
+        }
+
+        var overflowTitleUpdateQueued = false;
+        var overflowTooltipTarget = null;
+        var overflowTooltipRequiresOverflow = false;
+
+        function cellHasOverflow(cell) {
+            return Boolean(
+                cell
+                && cell.offsetParent !== null
+                && cell.scrollWidth > cell.clientWidth + 1
+            );
+        }
+
+        function hideOverflowTooltip() {
+            overflowTooltipTarget = null;
+            overflowTooltipRequiresOverflow = false;
+            overflowTooltipEl.classList.remove('visible');
+            overflowTooltipEl.setAttribute('aria-hidden', 'true');
+            overflowTooltipEl.textContent = '';
+        }
+
+        function positionOverflowTooltip(cell) {
+            var cellRect = cell.getBoundingClientRect();
+            var tooltipRect = overflowTooltipEl.getBoundingClientRect();
+            var viewportPadding = 8;
+            var left = Math.max(
+                viewportPadding,
+                Math.min(cellRect.left, window.innerWidth - tooltipRect.width - viewportPadding)
+            );
+            var below = cellRect.bottom + viewportPadding;
+            var top = below + tooltipRect.height <= window.innerHeight - viewportPadding
+                ? below
+                : Math.max(viewportPadding, cellRect.top - tooltipRect.height - viewportPadding);
+            overflowTooltipEl.style.left = Math.round(left) + 'px';
+            overflowTooltipEl.style.top = Math.round(top) + 'px';
+        }
+
+        function showTooltipForTarget(target, text, requiresOverflow) {
+            if (!target || !text || (requiresOverflow && !cellHasOverflow(target))) {
+                hideOverflowTooltip();
+                return;
+            }
+            overflowTooltipTarget = target;
+            overflowTooltipRequiresOverflow = Boolean(requiresOverflow);
+            overflowTooltipEl.textContent = text;
+            overflowTooltipEl.classList.add('visible');
+            overflowTooltipEl.setAttribute('aria-hidden', 'false');
+            positionOverflowTooltip(target);
+        }
+
+        function showOverflowTooltip(cell) {
+            var fullText = cell.getAttribute('data-full-text') || '';
+            showTooltipForTarget(cell, fullText, true);
+        }
+
+        function scheduleOverflowTitleUpdate() {
+            if (overflowTitleUpdateQueued) return;
+            overflowTitleUpdateQueued = true;
+            requestAnimationFrame(function () {
+                overflowTitleUpdateQueued = false;
+                document.querySelectorAll('#table-vars tbody td[data-full-text], #table-data tbody td[data-full-text]').forEach(function (cell) {
+                    cell.toggleAttribute('data-overflow', cellHasOverflow(cell));
+                });
+                if (overflowTooltipTarget) {
+                    if (
+                        overflowTooltipTarget.isConnected
+                        && (
+                            !overflowTooltipRequiresOverflow
+                            || cellHasOverflow(overflowTooltipTarget)
+                        )
+                    ) {
+                        positionOverflowTooltip(overflowTooltipTarget);
+                    } else {
+                        hideOverflowTooltip();
+                    }
+                }
+            });
+        }
+
+        document.addEventListener('mouseover', function (event) {
+            var handle = event.target.closest
+                ? event.target.closest('.col-resize-handle')
+                : null;
+            if (handle) {
+                if (handle !== overflowTooltipTarget) {
+                    showTooltipForTarget(handle, autoFitColumnLabel, false);
+                }
+                return;
+            }
+            var cell = event.target.closest
+                ? event.target.closest('#table-vars tbody td[data-full-text], #table-data tbody td[data-full-text]')
+                : null;
+            if (!cell || cell === overflowTooltipTarget) return;
+            showOverflowTooltip(cell);
+        });
+
+        document.addEventListener('mouseout', function (event) {
+            if (!overflowTooltipTarget) return;
+            var next = event.relatedTarget;
+            if (next && overflowTooltipTarget.contains(next)) return;
+            hideOverflowTooltip();
+        });
+
+        document.addEventListener('scroll', hideOverflowTooltip, true);
+        window.addEventListener('resize', hideOverflowTooltip);
+
+        document.addEventListener('dblclick', function (event) {
+            var cell = event.target.closest
+                ? event.target.closest('#table-vars tbody td[data-full-text], #table-data tbody td[data-full-text]')
+                : null;
+            if (!cell || (event.target.closest && event.target.closest('.col-resize-handle'))) return;
+            event.preventDefault();
+            hideOverflowTooltip();
+            var table = cell.closest('table');
+            var column = '';
+            if (table && table.id === 'table-data') {
+                var columnIndex = parseInt(cell.getAttribute('data-col-index'), 10);
+                column = Number.isFinite(columnIndex) ? (dataColumnsCache[columnIndex] || '') : '';
+            } else if (table) {
+                var heading = table.querySelector(
+                    'thead tr > *:nth-child(' + (cell.cellIndex + 1) + ')'
+                );
+                column = heading ? String(heading.textContent || '').trim() : '';
+            }
+            vscode.postMessage({
+                type: 'copyCell',
+                column: column,
+                text: cell.getAttribute('data-full-text') || ''
+            });
+        });
+
+        function autoSizeVarsColumns() {
+            var table = document.getElementById('table-vars');
+            for (var col = 0; col < varsColumnWidths.length; col++) {
+                var cells = table.querySelectorAll('tr > *:nth-child(' + (col + 1) + ')');
+                var naturalWidth = colMinWidth;
+                cells.forEach(function (cell) {
+                    var text = cell.getAttribute('data-full-text');
+                    if (text === null) text = cell.textContent || '';
+                    naturalWidth = Math.max(naturalWidth, measureTableText(text, cell));
+                });
+                varsColumnNaturalWidths[col] = naturalWidth;
+                if (!varsColumnManualWidths[col]) {
+                    setVarsColumnWidth(
+                        col,
+                        clampAutoColumnWidth(naturalWidth, varsAutoColMaxWidths[col])
+                    );
+                } else {
+                    setVarsColumnWidth(col, varsColumnWidths[col]);
+                }
+            }
+        }
+
+        function autoSizeDataColumns(rows) {
+            if (!Array.isArray(rows) || !rows.length) return;
+            var changed = false;
+            for (var col = 0; col < dataColumnsCache.length; col++) {
+                var naturalWidth = columnNaturalWidths[col] || colMinWidth;
+                for (var rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+                    var values = Array.isArray(rows[rowIndex].values) ? rows[rowIndex].values : [];
+                    var value = col < values.length ? displayValue(values[col]) : '';
+                    naturalWidth = Math.max(
+                        naturalWidth,
+                        measureTableText(value, document.getElementById('table-data'))
+                    );
+                }
+                columnNaturalWidths[col] = naturalWidth;
+                if (!columnManualWidths[col]) {
+                    var width = clampAutoColumnWidth(naturalWidth);
+                    if (columnWidths[col] !== width) {
+                        columnWidths[col] = width;
+                        changed = true;
+                    }
+                }
+            }
+            if (changed) {
+                updateDataTableWidth();
+                lastVirtualColStart = -1;
+                lastVirtualColEnd = -1;
+            }
+        }
+
         function renderDataHeader(columns, typeMap) {
             dataColumnsCache = columns;
             dataColumnTypesCache = [];
@@ -930,9 +1217,14 @@ function getDataViewerHtml(webview) {
             contentEl.scrollTop = 0;
             contentEl.scrollLeft = 0;
             columnWidths = [];
+            columnNaturalWidths = [];
+            columnManualWidths = [];
             for (var i = 0; i < columns.length; i++) {
                 dataColumnTypesCache.push(typeMap[columns[i]] || '');
-                columnWidths.push(defaultColWidth);
+                var naturalWidth = measureTableText(columns[i], table);
+                columnNaturalWidths.push(naturalWidth);
+                columnManualWidths.push(false);
+                columnWidths.push(clampAutoColumnWidth(naturalWidth));
             }
             updateDataTableWidth(table);
             renderVisibleDataHeader(0, Math.min(columns.length, getVisibleColumnCount()));
@@ -953,6 +1245,7 @@ function getDataViewerHtml(webview) {
             }
             Array.prototype.push.apply(dataRowsCache, rows);
             loadedRows += rows.length;
+            autoSizeDataColumns(rows);
             setLoadingMore(false);
             scheduleDataRender(true);
             scheduleAutoLoadCheck();
@@ -1003,6 +1296,7 @@ function getDataViewerHtml(webview) {
             appendSpacerRow(fragment, Math.max(0, (dataRowsCache.length - end) * virtualRowHeight), columnRange.start, columnRange.end);
             tbody.innerHTML = '';
             tbody.appendChild(fragment);
+            scheduleOverflowTitleUpdate();
         }
 
         function getVisibleColumnCount() {
@@ -1043,6 +1337,7 @@ function getDataViewerHtml(webview) {
                 var handle = document.createElement('div');
                 handle.className = 'col-resize-handle';
                 handle.setAttribute('data-col', i);
+                handle.setAttribute('aria-label', autoFitColumnLabel);
                 th2.appendChild(handle);
                 headerRow.appendChild(th2);
             }
@@ -1050,6 +1345,7 @@ function getDataViewerHtml(webview) {
             appendColumnSpacer(headerRow, rightSpacer, 'th');
             thead.innerHTML = '';
             thead.appendChild(headerRow);
+            scheduleOverflowTitleUpdate();
         }
 
         function appendSpacerRow(fragment, height, colStart, colEnd) {
@@ -1101,6 +1397,7 @@ function getDataViewerHtml(webview) {
                 var val = v < vals.length ? displayValue(vals[v]) : '';
                 td.textContent = val;
                 td.setAttribute('data-col-index', v);
+                td.setAttribute('data-full-text', val);
                 var isString = /^str/i.test(dataColumnTypesCache[v] || '');
                 td.className = isString ? 'data-string' : 'num data-number';
                 setVirtualColumnWidth(td, v);
@@ -1140,6 +1437,7 @@ function getDataViewerHtml(webview) {
                 handle.className = 'col-resize-handle';
                 handle.setAttribute('data-table', 'vars');
                 handle.setAttribute('data-col', i);
+                handle.setAttribute('aria-label', autoFitColumnLabel);
                 ths[i].appendChild(handle);
             }
             updateVarsTableWidth();
@@ -1178,19 +1476,104 @@ function getDataViewerHtml(webview) {
         document.getElementById('table-data').addEventListener('mousedown', onResizeStart);
         document.getElementById('table-vars').addEventListener('mousedown', onResizeStart);
 
+        function measureVarsColumnForAutoFit(colIndex) {
+            var naturalWidth = colMinWidth;
+            var cells = document.querySelectorAll(
+                '#table-vars tr > *:nth-child(' + (colIndex + 1) + ')'
+            );
+            cells.forEach(function (cell) {
+                var text = cell.getAttribute('data-full-text');
+                if (text === null) text = cell.textContent || '';
+                naturalWidth = Math.max(naturalWidth, measureStyledText(text, cell));
+            });
+            varsColumnNaturalWidths[colIndex] = naturalWidth;
+            return naturalWidth;
+        }
+
+        function measureDataColumnForAutoFit(colIndex, headerCell, fullColumnValue) {
+            var naturalWidth = measureStyledText(
+                dataColumnsCache[colIndex] || '',
+                headerCell
+            );
+            var bodyCell = document.querySelector(
+                '#table-data tbody td[data-col-index="' + colIndex + '"]'
+            ) || document.querySelector('#table-data tbody td[data-full-text]');
+            var sourceCell = bodyCell || headerCell;
+            for (var rowIndex = 0; rowIndex < dataRowsCache.length; rowIndex++) {
+                var values = Array.isArray(dataRowsCache[rowIndex].values)
+                    ? dataRowsCache[rowIndex].values
+                    : [];
+                var value = colIndex < values.length ? displayValue(values[colIndex]) : '';
+                naturalWidth = Math.max(
+                    naturalWidth,
+                    measureStyledText(value, sourceCell)
+                );
+            }
+            if (fullColumnValue !== undefined && fullColumnValue !== null) {
+                naturalWidth = Math.max(
+                    naturalWidth,
+                    measureStyledText(fullColumnValue, sourceCell)
+                );
+            }
+            naturalWidth = Math.max(colMinWidth, naturalWidth);
+            columnNaturalWidths[colIndex] = naturalWidth;
+            return naturalWidth;
+        }
+
+        function onResizeHandleDoubleClick(e) {
+            var handle = e.target.closest ? e.target.closest('.col-resize-handle') : null;
+            if (!handle) return;
+            e.preventDefault();
+            e.stopPropagation();
+            var tableName = handle.getAttribute('data-table') || 'data';
+            var colIndex = parseInt(handle.getAttribute('data-col'), 10);
+            if (!Number.isFinite(colIndex) || colIndex < 0) return;
+            if (tableName === 'vars') {
+                varsColumnManualWidths[colIndex] = true;
+                setVarsColumnWidth(
+                    colIndex,
+                    measureVarsColumnForAutoFit(colIndex)
+                );
+            } else {
+                columnManualWidths[colIndex] = true;
+                columnWidths[colIndex] = measureDataColumnForAutoFit(
+                    colIndex,
+                    handle.parentElement,
+                    null
+                );
+                updateDataTableWidth();
+                lastVirtualColStart = -1;
+                lastVirtualColEnd = -1;
+                scheduleDataRender(true);
+                vscode.postMessage({
+                    type: 'autoFitColumn',
+                    column: dataColumnsCache[colIndex] || '',
+                    colIndex: colIndex,
+                    filterText: filterInput.value || ''
+                });
+            }
+            scheduleOverflowTitleUpdate();
+        }
+
+        document.getElementById('table-data').addEventListener('dblclick', onResizeHandleDoubleClick);
+        document.getElementById('table-vars').addEventListener('dblclick', onResizeHandleDoubleClick);
+
         document.addEventListener('mousemove', function (e) {
             if (resizeCol < 0 || !resizeTable) return;
             var delta = e.clientX - resizeStartX;
-            var newWidth = Math.max(colMinWidth, Math.min(colMaxWidth, resizeStartWidth + delta));
+            var newWidth = Math.max(colMinWidth, resizeStartWidth + delta);
             if (resizeTable === 'vars') {
+                varsColumnManualWidths[resizeCol] = true;
                 setVarsColumnWidth(resizeCol, newWidth);
             } else {
+                columnManualWidths[resizeCol] = true;
                 if (columnWidths[resizeCol] !== newWidth) {
                     columnWidths[resizeCol] = newWidth;
                     updateDataTableWidth();
                     applyVisibleDataColumnWidth(resizeCol, newWidth);
                 }
             }
+            scheduleOverflowTitleUpdate();
         });
 
         document.addEventListener('mouseup', function () {
@@ -1205,6 +1588,7 @@ function getDataViewerHtml(webview) {
             resizeTable = null;
             resizeCol = -1;
             resizeTh = null;
+            scheduleOverflowTitleUpdate();
         });
 
         function requestLoadMore() {
@@ -1370,9 +1754,12 @@ function getDataViewerHtml(webview) {
         function renderInfo(info) {
             var bar = document.getElementById('info-bar');
             var html = [];
+            var sourceText = info.source === 'Stata memory'
+                ? ${JSON.stringify(msg('dataViewerDoubleClickCopyHint'))}
+                : info.source;
             if (info.observations > 0) html.push('<span>' + esc(${JSON.stringify(msg('dataViewerObs'))} + ': ' + info.observations) + '</span>');
             if (info.variables > 0) html.push('<span>' + esc(${JSON.stringify(msg('dataViewerVars'))} + ': ' + info.variables) + '</span>');
-            if (info.source) html.push('<span class="source-path" title="' + esc(info.source) + '" data-full-path="' + esc(info.source) + '">' + esc(info.source) + '</span>');
+            if (sourceText) html.push('<span class="source-path" title="' + esc(sourceText) + '" data-full-path="' + esc(sourceText) + '">' + esc(sourceText) + '</span>');
             if (info.sortedBy) html.push('<span>' + esc(${JSON.stringify(msg('dataViewerSortedBy'))} + ': ' + info.sortedBy) + '</span>');
             bar.innerHTML = html.join('');
             observeInfoSourcePath();
@@ -1450,6 +1837,24 @@ function getDataViewerHtml(webview) {
                 sharedAutocompleteVariables = message.variables || [];
                 autocompleteVariables = mergeVariableLists(dataColumnsCache, sharedAutocompleteVariables);
                 updateFilterHighlight();
+            } else if (
+                message.type === 'autoFitColumnResult'
+                && dataColumnsCache[message.colIndex] === message.column
+            ) {
+                var headerCell = document.querySelector(
+                    '#table-data thead [data-col-index="' + message.colIndex + '"]'
+                ) || document.getElementById('table-data');
+                columnManualWidths[message.colIndex] = true;
+                columnWidths[message.colIndex] = measureDataColumnForAutoFit(
+                    message.colIndex,
+                    headerCell,
+                    message.value
+                );
+                updateDataTableWidth();
+                lastVirtualColStart = -1;
+                lastVirtualColEnd = -1;
+                scheduleDataRender(true);
+                scheduleOverflowTitleUpdate();
             }
         });
 
@@ -1513,6 +1918,45 @@ function attachPanel(panel, mode) {
             }
         } else if (message.type === 'loadMore') {
             await handleLoadMore(mode, message);
+        } else if (message.type === 'copyCell') {
+            const column = String(message.column || '');
+            const value = String(message.text || '');
+            try {
+                await vscode.env.clipboard.writeText(value);
+                vscode.window.showInformationMessage(msg('dataViewerCellCopied', { column, value }));
+            } catch (error) {
+                showError(msg('dataViewerCellCopyFailed', { error: error.message }));
+            }
+        } else if (message.type === 'autoFitColumn') {
+            try {
+                let value;
+                if (mode === 'file') {
+                    value = await directDtaStore.getColumnAutoFitValue(
+                        _filePaths.get(panel),
+                        message.column,
+                        message.filterText || ''
+                    );
+                } else if (_consoleSnapshot.pinned && _consoleSnapshot.entry) {
+                    value = await consoleStore.getColumnAutoFitValue(
+                        _consoleSnapshot.entry,
+                        message.column,
+                        message.filterText || ''
+                    );
+                } else {
+                    value = await consoleStore.getLiveColumnAutoFitValue(
+                        message.column,
+                        message.filterText || ''
+                    );
+                }
+                panel.webview.postMessage({
+                    type: 'autoFitColumnResult',
+                    column: message.column,
+                    colIndex: message.colIndex,
+                    value
+                });
+            } catch (error) {
+                console.error('Stata All in One: auto-fit column failed:', error.message);
+            }
         }
     });
 

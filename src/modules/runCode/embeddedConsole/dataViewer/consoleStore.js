@@ -27,6 +27,11 @@ async function getLiveMore(startObs, count, filterText = '') {
     return directDtaStore.getMoreFromData(data, startObs, count, filterText);
 }
 
+async function getLiveColumnAutoFitValue(column, filterText = '') {
+    const data = await getLiveData();
+    return directDtaStore.getColumnAutoFitValueFromData(data, column, filterText);
+}
+
 async function captureSnapshot(filterText = '') {
     const data = await consoleDataReader.capture();
     return {
@@ -37,6 +42,14 @@ async function captureSnapshot(filterText = '') {
 
 async function getMore(entry, startObs, count, filterText = '') {
     return directDtaStore.getMoreFromData(entry.data, startObs, count, filterText);
+}
+
+async function getColumnAutoFitValue(entry, column, filterText = '') {
+    return directDtaStore.getColumnAutoFitValueFromData(
+        entry.data,
+        column,
+        filterText
+    );
 }
 
 async function getSnapshot(entry, filterText = '') {
@@ -65,9 +78,11 @@ async function dispose(entry) {
 module.exports = {
     getLiveSnapshot,
     getLiveMore,
+    getLiveColumnAutoFitValue,
     captureSnapshot,
     getSnapshot,
     getMore,
+    getColumnAutoFitValue,
     invalidateLive,
     resetLive,
     dispose
