@@ -35,7 +35,7 @@ Stata All in One
 
 ---
 
-## Sponsors
+## Acknowledgments
 
 - First, my thanks go to RedNote user **Rich\*\*d**, WeChat users **M\*k\***, **柿\*\*橙**, and the anonymous user who commented “功能强大且配置简单的插件，谢谢！”, and Buy Me a Coffee supporters **LB\*\*PG@gmail.com** and **ol\*\*\*ba@gmail.com** for their generous contributions and continued support of this project.
 
@@ -98,9 +98,12 @@ Stata All in One
 - **Click to View**: Click a `.dta` file in the VS Code Explorer to open it in the new `Data Viewer` panel.
   - **Variable Info**: Variable table displays metadata such as name, label, and type.
   - **Data Browsing**: Supports lazy loading of rows and columns — easily browse large datasets right in VS Code without opening Stata.
-- **View After Run**: After running code, instantly view results in the `Data Viewer` within the `Console` panel. Works in both run modes — no need to switch back and forth.
+- **View After Run**: After running code, instantly view results in the `Data Viewer` within the `Console` panel.
 - **Data Filtering**: Provides Stata-style filtering for quickly locating subsets of data.
-- **Built-in `br` / `browse`**: In Embedded Console mode, run `br` or `browse` from either the editor or Console command input to open the built-in Data Viewer. The command and a localized confirmation remain visible in Console, while any following `varlist`, `if`, `in`, and `nolabel` clauses are applied directly as viewer filters. External App mode keeps Stata's original `br` / `browse` behavior unchanged.
+- **Handy Extras**:
+  - **Built-in `br` / `browse`**: In Embedded Console mode, run `br` or `browse` from either the code editor or Console input to open the built-in Data Viewer.
+  - **View Long Text**: If a cell contains more text than it can display, hover over the cell to view the full content.
+  - **Double-click to Copy**: Double-click a cell to copy its full content to the clipboard.
 
 ### 6. Efficient Separator Lines & Styling
 
