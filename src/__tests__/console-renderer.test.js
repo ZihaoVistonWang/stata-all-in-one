@@ -46,3 +46,26 @@ test('keeps which errors highlighted as errors', () => {
     assert.equal(outputEntries[0].segments.every(segment => segment.tokenType === 'plain'), true);
     assert.equal(outputEntries[1].kind, 'error');
 });
+
+test('keeps comma options in their positional option role after file strings', () => {
+    const renderer = new StataTerminalRenderer();
+    const commands = [
+        'use "/Users/test/panel_data copy.dta", clear',
+        'log using "analysis output.smcl", replace',
+        'export excel using "results workbook.xlsx", replace',
+        'outreg2 using "statistics.xls", replace sum(log)'
+    ];
+
+    for (const command of commands) {
+        const segments = renderer.renderCommandSegments(command, 88)[0].segments;
+        const commaIndex = segments.findIndex(segment => segment.text === ',');
+        const positionalTokens = segments
+            .slice(commaIndex + 1)
+            .filter(segment => /^[A-Za-z_][A-Za-z0-9_]*$/.test(segment.text));
+
+        assert.ok(commaIndex >= 0, command);
+        assert.ok(positionalTokens.length >= 1, command);
+        assert.equal(positionalTokens[0].tokenType, 'option', command);
+        assert.match(positionalTokens[0].className, /\btok-option\b/, command);
+    }
+});

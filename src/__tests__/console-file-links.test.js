@@ -6,6 +6,7 @@ const {
     commandFileCandidates,
     decorateCommandEntries,
     decorateOutputEntries,
+    isStataFilePath,
     isTextFilePath,
     outputFileCandidates,
     resolveFilePath
@@ -77,6 +78,26 @@ test('resolves each command link against the cwd active for that command', () =>
     );
 });
 
+test('uses the theme string color for every segment inside a file link', () => {
+    const result = decorateCommandEntries([{
+        kind: 'command',
+        segments: [
+            { text: '. use "', tokenType: 'command', className: 'tok tok-command', style: { color: '#ff00ff' } },
+            { text: 'results/', tokenType: 'path', className: 'tok tok-path', style: { color: '#ffffff' } },
+            { text: 'panel data.dta', tokenType: 'plain', className: 'tok tok-plain', style: { color: '#ffff00' } },
+            { text: '"', tokenType: 'string', className: 'tok tok-string', style: { color: '#ffff00' } }
+        ]
+    }], path.join(path.sep, 'project'));
+    const linkedSegments = links(result);
+
+    assert.equal(linkedSegments.length, 2);
+    for (const segment of linkedSegments) {
+        assert.equal(segment.tokenType, 'string');
+        assert.equal(segment.className, 'tok tok-string');
+        assert.equal(segment.style.color, null);
+    }
+});
+
 test('recognizes explicit output paths and file-context output', () => {
     assert.equal(
         outputFileCandidates('file statistics.xls saved').length,
@@ -137,9 +158,11 @@ test('classifies files that should open in the VS Code editor', () => {
     for (const value of ['analysis.do', 'command.ado', 'notes.txt', 'table.csv', 'report.md']) {
         assert.equal(isTextFilePath(value), true, value);
     }
-    for (const value of ['data.dta', 'table.xlsx', 'report.docx', 'report.pdf', 'image.png']) {
+    for (const value of ['data.dta', 'results.smcl', 'table.xlsx', 'report.docx', 'report.pdf', 'image.png']) {
         assert.equal(isTextFilePath(value), false, value);
     }
+    assert.equal(isStataFilePath('results.smcl'), true);
+    assert.equal(isStataFilePath('results.log'), false);
 });
 
 test('recognizes common Stata, Office, document, and archive extensions', () => {

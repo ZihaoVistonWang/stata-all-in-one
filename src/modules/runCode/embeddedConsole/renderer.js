@@ -1686,15 +1686,16 @@ class StataTerminalRenderer {
     }
 
     _foregroundForCommandToken(type, scopes, tokenForeground) {
-        if (hasSpecificGrammarScope(scopes)) {
-            if (tokenForeground) {
-                return tokenForeground;
-            }
-
-            return CURRENT_THEME_SLOT_MAP[type] || CURRENT_THEME_DEFAULT_FOREGROUND || CURRENT_THEME_SLOT_MAP.default;
+        const roleColor = CURRENT_THEME_SLOT_MAP[type];
+        if (roleColor) {
+            return roleColor;
         }
 
-        return CURRENT_THEME_SLOT_MAP[type] || CURRENT_THEME_SLOT_MAP.default;
+        if (hasSpecificGrammarScope(scopes) && tokenForeground) {
+            return tokenForeground;
+        }
+
+        return CURRENT_THEME_DEFAULT_FOREGROUND || CURRENT_THEME_SLOT_MAP.default;
     }
 
     _tokenizeCommandLine(line) {

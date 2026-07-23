@@ -64,7 +64,7 @@ Stata All in One
 
 - **Platform Support**: Seamlessly integrates with Stata on both **macOS** and **Windows** without requiring additional extensions.
 - **Two Run Modes**:
-  - **Embedded Console** (default) 🛠️: Run and display Stata output directly within VS Code! Including *command results*, *error messages*, *command window output*, and *graph output* — a true all-in-one IDE experience.
+  - **Embedded Console** (default) 🛠️: Run and display Stata output directly within VS Code! Including *command results*, *error messages*, *command window output*, and *graph output* — a true all-in-one IDE experience. Click any file path shown in the Console output to open it.
   - **External App**: Continue using the traditional approach of sending code to the Stata GUI, for users who prefer Stata's native interface. Windows now uses [Stata COM Automation](https://www.stata.com/automation/), delivering significantly better performance than the previous PowerShell-based implementation.
 - **Multi-Scenario Execution Strategies**:
   - **Section Execution**: When the cursor is on a header line (e.g., `** # Title`), click the ▶️ button or press `Ctrl/Cmd + D` to execute all code from that header to the next same-level or higher-level header (i.e., the entire section).

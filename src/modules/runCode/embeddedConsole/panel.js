@@ -1209,17 +1209,13 @@ function getWebviewHtml(webview) {
             border: 0;
             padding: 0;
             background: transparent;
-            color: inherit;
             font: inherit;
             line-height: inherit;
             text-align: inherit;
             text-decoration: underline;
-            text-decoration-style: dotted;
+            text-decoration-style: solid;
             text-underline-offset: 0.16em;
             cursor: pointer;
-        }
-        .console-file-link:hover {
-            text-decoration-style: solid;
         }
         .console-file-link:focus-visible {
             outline: 1px solid var(--vscode-focusBorder);
@@ -2342,16 +2338,24 @@ function getWebviewHtml(webview) {
             const segments = Array.isArray(entry && entry.segments) ? entry.segments : [];
             for (const segment of segments) {
                 const isFileLink = Boolean(segment && segment.fileLink && segment.fileLink.path);
-                const span = document.createElement(isFileLink ? 'button' : 'span');
+                const span = document.createElement('span');
                 if (isFileLink) {
-                    span.type = 'button';
+                    span.setAttribute('role', 'link');
+                    span.tabIndex = 0;
                     span.classList.add('console-file-link');
                     span.title = '${escapeHtml(msg('consoleOpenFile'))}: ' + String(segment.fileLink.path);
-                    span.addEventListener('click', () => {
+                    const openLinkedFile = () => {
                         vscode.postMessage({
                             type: 'openConsoleFile',
                             filePath: String(segment.fileLink.path)
                         });
+                    };
+                    span.addEventListener('click', openLinkedFile);
+                    span.addEventListener('keydown', event => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            openLinkedFile();
+                        }
                     });
                 }
                 const className = String(segment && segment.className || '').trim();

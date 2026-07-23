@@ -7,6 +7,9 @@ const { openConsoleFile } = require('../modules/runCode/embeddedConsole/fileOpen
 function harness(overrides = {}) {
     const calls = [];
     const vscode = {
+        ViewColumn: {
+            Active: 1
+        },
         Uri: {
             file(filePath) {
                 return { fsPath: filePath };
@@ -58,8 +61,18 @@ test('opens text files in the VS Code editor', async () => {
     assert.equal(await openConsoleFile({ ...options, filePath }), 'editor');
     assert.deepEqual(calls, [
         ['openTextDocument', filePath],
-        ['showTextDocument', filePath, { preview: true }]
+        ['showTextDocument', filePath, {
+            viewColumn: 1,
+            preview: false
+        }]
     ]);
+});
+
+test('opens .smcl through the Stata file association', async () => {
+    const { calls, options } = harness();
+    const filePath = path.resolve('/tmp/analysis output.smcl');
+    assert.equal(await openConsoleFile({ ...options, filePath }), 'stata');
+    assert.deepEqual(calls, [['openExternal', filePath]]);
 });
 
 test('opens office and other files with the system application', async () => {

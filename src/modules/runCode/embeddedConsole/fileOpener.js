@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { isTextFilePath } = require('./fileLinks');
+const { isStataFilePath, isTextFilePath } = require('./fileLinks');
 
 async function openConsoleFile(options) {
     const {
@@ -33,9 +33,19 @@ async function openConsoleFile(options) {
             await openData(context, uri);
             return 'data-viewer';
         }
+        if (isStataFilePath(targetPath)) {
+            const opened = await vscode.env.openExternal(uri);
+            if (!opened) {
+                throw new Error(message('consoleSystemOpenRejected'));
+            }
+            return 'stata';
+        }
         if (isTextFilePath(targetPath)) {
             const document = await vscode.workspace.openTextDocument(uri);
-            await vscode.window.showTextDocument(document, { preview: true });
+            await vscode.window.showTextDocument(document, {
+                viewColumn: vscode.ViewColumn.Active,
+                preview: false
+            });
             return 'editor';
         }
 

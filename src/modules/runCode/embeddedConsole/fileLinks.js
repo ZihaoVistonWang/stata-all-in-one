@@ -12,9 +12,11 @@ const FILE_EXTENSIONS = new Set([
 
 const TEXT_FILE_EXTENSIONS = new Set([
     '.ado', '.csv', '.dct', '.do', '.htm', '.html', '.ipynb', '.json',
-    '.log', '.mata', '.md', '.rtf', '.smcl', '.sthlp', '.tex', '.tsv',
+    '.log', '.mata', '.md', '.rtf', '.sthlp', '.tex', '.tsv',
     '.txt', '.xml'
 ]);
+
+const STATA_FILE_EXTENSIONS = new Set(['.smcl']);
 
 const FILE_COMMANDS = new Set([
     'append', 'asdoc', 'asdocx', 'collect', 'copy', 'do', 'dyndoc', 'erase',
@@ -268,6 +270,12 @@ function decorateSegments(segments, candidates, cwd) {
                 ...segment,
                 text: text.slice(start, end),
                 ...(range ? {
+                    tokenType: 'string',
+                    className: 'tok tok-string',
+                    style: {
+                        ...(segment && segment.style ? segment.style : {}),
+                        color: null
+                    },
                     fileLink: {
                         path: range.resolvedPath,
                         source: range.value
@@ -338,11 +346,16 @@ function isTextFilePath(filePath) {
     return TEXT_FILE_EXTENSIONS.has(path.extname(String(filePath || '')).toLowerCase());
 }
 
+function isStataFilePath(filePath) {
+    return STATA_FILE_EXTENSIONS.has(path.extname(String(filePath || '')).toLowerCase());
+}
+
 module.exports = {
     commandFileCandidates,
     decorateCommandEntries,
     decorateOutputEntries,
     entryText,
+    isStataFilePath,
     isTextFilePath,
     outputFileCandidates,
     parseCdTarget,
