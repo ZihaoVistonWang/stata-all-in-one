@@ -47,8 +47,28 @@ async function invalidateLive() {
     live = null;
 }
 
+async function resetLive() {
+    if (loading) {
+        try {
+            await loading;
+        } catch (_error) {
+            // A failed capture is already surfaced by the Data Viewer.
+        }
+    }
+    live = null;
+}
+
 async function dispose(entry) {
     if (entry) entry.data = null;
 }
 
-module.exports = { getLiveSnapshot, getLiveMore, captureSnapshot, getSnapshot, getMore, invalidateLive, dispose };
+module.exports = {
+    getLiveSnapshot,
+    getLiveMore,
+    captureSnapshot,
+    getSnapshot,
+    getMore,
+    invalidateLive,
+    resetLive,
+    dispose
+};

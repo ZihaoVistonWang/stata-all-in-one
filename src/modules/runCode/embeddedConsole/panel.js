@@ -163,7 +163,7 @@ function attachPanel(panel) {
         } else if (message && message.type === 'requestVariables') {
             postVariables();
         } else if (message && message.type === 'executeInput' && typeof _commandHandler === 'function') {
-            if (_status === 'running') {
+            if (_status === 'running' || _status === 'restarting') {
                 showWarn(msg('consoleBusyAction'));
                 return;
             }
@@ -961,6 +961,10 @@ function getWebviewHtml(webview) {
             background: #d7ba7d;
             animation: status-pulse 1.1s ease-in-out infinite;
         }
+        .dot.restarting {
+            background: #d7ba7d;
+            animation: status-pulse 1.1s ease-in-out infinite;
+        }
         .dot.success {
             background: #4ec9b0;
         }
@@ -1704,6 +1708,7 @@ function getWebviewHtml(webview) {
             idle: ${JSON.stringify(msg('webviewIdle'))},
             success: ${JSON.stringify(msg('webviewIdle'))},
             running: ${JSON.stringify(msg('webviewRunning'))},
+            restarting: ${JSON.stringify(msg('webviewRestarting'))},
             error: ${JSON.stringify(msg('webviewError'))}
         };
         const GRAPH_LABELS = {
@@ -2126,8 +2131,9 @@ function getWebviewHtml(webview) {
             document.body.dataset.status = status || 'idle';
             dot.className = 'dot ' + (status || 'idle');
             label.textContent = STATUS_LABELS[status] || STATUS_LABELS.idle;
-            input.disabled = status === 'running';
+            input.disabled = status === 'running' || status === 'restarting';
             stopButton.disabled = status !== 'running';
+            clearButton.disabled = status === 'running' || status === 'restarting';
             if (status === 'running') {
                 wasRunning = true;
                 startWorkingIndicator();
@@ -2198,7 +2204,8 @@ function getWebviewHtml(webview) {
         }
 
         function updateExportButtonState() {
-            exportButton.disabled = document.body.dataset.status === 'running' || renderedEntries.length === 0;
+            const status = document.body.dataset.status;
+            exportButton.disabled = status === 'running' || status === 'restarting' || renderedEntries.length === 0;
         }
 
         function renderAllEntries() {
@@ -2805,6 +2812,9 @@ function getWebviewHtml(webview) {
         });
 
         clearButton.addEventListener('click', () => {
+            if (clearButton.disabled) {
+                return;
+            }
             vscode.postMessage({ type: 'clearConsole' });
         });
 

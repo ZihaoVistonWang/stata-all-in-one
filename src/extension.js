@@ -84,6 +84,34 @@ function getUserLanguage() {
     return lang.startsWith('zh') ? 'zh' : 'en';
 }
 
+async function restartEmbeddedConsoleSession(context) {
+    const session = require('./modules/runCode/embeddedConsole/session');
+    const { resetConsoleDataViewer } = require('./modules/runCode/embeddedConsole/dataViewer/panel');
+    const { resetSessionCache } = require('./modules/runCode/embeddedConsole/dataViewer/consoleDataReader');
+    const variableSuggestions = require('./modules/variableSuggestionService');
+
+    await variableSuggestions.refreshMemoryVars(context);
+    await resetConsoleDataViewer();
+    resetSessionCache();
+
+    if (session.getActiveSession()) {
+        const result = await session.restartConsoleSession(context);
+        if (!result.success) {
+            throw new Error(result.error || 'Stata session reset failed.');
+        }
+    } else {
+        const platformModule = isWindows()
+            ? require('./modules/runCode/embeddedConsole/windows')
+            : require('./modules/runCode/embeddedConsole/mac');
+        const result = await platformModule.ensureConsoleSession(context);
+        if (!result || !result.success) {
+            throw new Error((result && result.reason) || 'Stata session initialization failed.');
+        }
+    }
+
+    await vscode.commands.executeCommand('setContext', CONSOLE_SESSION_ACTIVE_KEY, true);
+}
+
 async function replaceConfigurationAtGlobalScope(extensionConfig, key, value) {
     const inspected = extensionConfig.inspect(key);
     if (inspected && inspected.workspaceFolderValue !== undefined) {
@@ -466,7 +494,17 @@ async function activate(context) {
 
         if (action === 'clearConsole') {
             clearWebviewTerminalPanel();
-            setWebviewTerminalStatus('idle');
+            setWebviewTerminalStatus('restarting');
+            try {
+                await restartEmbeddedConsoleSession(context);
+                setWebviewTerminalStatus('idle');
+            } catch (error) {
+                await vscode.commands.executeCommand('setContext', CONSOLE_SESSION_ACTIVE_KEY, false);
+                setWebviewTerminalStatus('error');
+                showError(msg('consoleRestartFailed', {
+                    error: error && error.message ? error.message : String(error)
+                }));
+            }
             return;
         }
 

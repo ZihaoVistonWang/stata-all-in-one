@@ -1674,6 +1674,31 @@ async function updateData() {
     await refreshDataViewer('console', _pendingFilter['console']);
 }
 
+async function resetConsoleData() {
+    await consoleStore.resetLive();
+    if (_consoleSnapshot.entry) {
+        await consoleStore.dispose(_consoleSnapshot.entry);
+    }
+    _consoleSnapshot.pinned = false;
+    _consoleSnapshot.data = null;
+    _consoleSnapshot.entry = null;
+    _pendingFilter.console = '';
+
+    const panel = _panels.console;
+    if (panel) {
+        panel.webview.postMessage({
+            type: 'setData',
+            data: {
+                info: { observations: 0, variables: 0 },
+                vars: [],
+                dataColumns: [],
+                dataRows: [],
+                filterText: ''
+            }
+        });
+    }
+}
+
 // ── open a .dta file in its own independent data viewer ────────────────────────
 async function openDtaFile(context, uri, panel) {
     if (!uri || uri.scheme !== 'file') {
@@ -1712,6 +1737,7 @@ module.exports = {
     revealDataViewer: reveal,
     openDtaFileInDataViewer: openDtaFile,
     updateDataViewerData: updateData,
+    resetConsoleDataViewer: resetConsoleData,
     getDataViewerPanel: () => _panels['console'],
     getPanelViewType: () => PANEL_VIEW_TYPE,
     postDataViewerVariables: postVariables,

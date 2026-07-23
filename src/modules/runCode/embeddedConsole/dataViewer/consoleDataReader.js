@@ -4,7 +4,7 @@ const { getActiveSession } = require('../session');
 const { msg } = require('../../../../utils/common');
 
 const UNIT_SEPARATOR = String.fromCharCode(31);
-const loadedSessions = new WeakSet();
+let loadedSessions = new WeakSet();
 
 function pluginPath() {
     const fileName = process.platform === 'win32'
@@ -134,4 +134,8 @@ async function capture() {
     }
 }
 
-module.exports = { capture, pluginPath, parseCapture };
+function resetSessionCache() {
+    loadedSessions = new WeakSet();
+}
+
+module.exports = { capture, pluginPath, parseCapture, resetSessionCache };

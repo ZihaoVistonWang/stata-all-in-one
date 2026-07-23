@@ -9,6 +9,7 @@
 const native = require('./native/stata_session');
 const fs = require('fs');
 const nodePath = require('path');
+const os = require('os');
 
 // Module-level singleton
 let _consoleSessionInstance = null;
@@ -69,6 +70,8 @@ class StataConsoleSession {
         this._context = context;
         this._workingDirectory = null;
         this._bootstrapped = false;
+        this._activeExecutions = 0;
+        this._idleWaiters = [];
 
         // Restore state from previous session if available
         this._restoreState();
@@ -250,6 +253,7 @@ class StataConsoleSession {
             };
         }
 
+        this._activeExecutions += 1;
         try {
             const normalizedCode = normalizeNativeCommandWhitespace(code);
             const result = await native.execute(normalizedCode, echo, onOutput);
@@ -266,7 +270,69 @@ class StataConsoleSession {
                 output: '',
                 error: error.message || 'Unknown execution error'
             };
+        } finally {
+            this._activeExecutions = Math.max(0, this._activeExecutions - 1);
+            if (this._activeExecutions === 0 && this._idleWaiters.length) {
+                const waiters = this._idleWaiters.splice(0);
+                for (const resolve of waiters) {
+                    resolve();
+                }
+            }
         }
+    }
+
+    /**
+     * Wait until all direct Console/Data Viewer calls using this session finish.
+     * This prevents shutdown from racing with a background memory capture.
+     * @returns {Promise<void>}
+     */
+    waitUntilIdle() {
+        if (this._activeExecutions === 0) {
+            return Promise.resolve();
+        }
+        return new Promise((resolve) => {
+            this._idleWaiters.push(resolve);
+        });
+    }
+
+    isBusy() {
+        return this._activeExecutions > 0;
+    }
+
+    /**
+     * Reset all user-visible Stata state without calling StataSO_Shutdown.
+     * StataSO_Shutdown terminates the hosting Extension Host process, so an
+     * in-window restart must reset Stata and replace the JS session wrapper.
+     * @returns {Promise<{success: boolean, error?: string}>}
+     */
+    async resetState() {
+        const resetDirectory = os.homedir().replace(/"/g, '""').replace(/\\/g, '/');
+        const commands = [
+            'clear all',
+            'capture macro drop _all',
+            'capture scalar drop _all',
+            'capture matrix drop _all',
+            'capture constraint drop _all',
+            'capture estimates clear',
+            'capture collect clear',
+            'capture discard',
+            `cd "${resetDirectory}"`
+        ];
+
+        for (const command of commands) {
+            const result = await this.execute(command, false);
+            if (!result.success) {
+                return {
+                    success: false,
+                    error: result.error || result.output || `Failed to execute: ${command}`
+                };
+            }
+        }
+
+        this._workingDirectory = null;
+        this._bootstrapped = false;
+        this.clearOutput();
+        return { success: true };
     }
 
     /**
@@ -445,11 +511,38 @@ function clearStaleSession() {
  */
 function forceShutdownConsoleSession() {
     if (_consoleSessionInstance) {
+        if (_consoleSessionInstance.isBusy()) {
+            console.warn('Stata All in One: Refusing to shutdown a busy Console session.');
+            return false;
+        }
         const result = _consoleSessionInstance.shutdown();
         _consoleSessionInstance = null;
+        _sessionStale = false;
         return result;
     }
+    _sessionStale = false;
     return true;
+}
+
+async function restartConsoleSession(context) {
+    if (!_consoleSessionInstance || !_consoleSessionInstance.isInitialized()) {
+        return { success: false, error: 'Stata session is not initialized.' };
+    }
+
+    await _consoleSessionInstance.waitUntilIdle();
+    const resetResult = await _consoleSessionInstance.resetState();
+    if (!resetResult.success) {
+        return resetResult;
+    }
+
+    _consoleSessionInstance = new StataConsoleSession(context);
+    _sessionStale = false;
+    return {
+        success: _consoleSessionInstance.isInitialized(),
+        error: _consoleSessionInstance.isInitialized()
+            ? ''
+            : 'Failed to reconnect to the reset Stata session.'
+    };
 }
 
 // 导出接口
@@ -468,6 +561,7 @@ module.exports = {
     initConsoleSession,
     hasActiveConsoleSession,
     forceShutdownConsoleSession,
+    restartConsoleSession,
     markSessionStale,
     isSessionStale,
     clearStaleSession
