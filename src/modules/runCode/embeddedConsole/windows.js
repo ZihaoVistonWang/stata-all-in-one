@@ -468,6 +468,9 @@ async function runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir = null
         const progressTotal = extractProgressTotalFromCode(execCode);
         await ensureWebviewBootstrap(consoleSession);
         await ensureInitialWorkingDirectory(consoleSession, docDir);
+        if (typeof outputSink.setWorkingDirectory === 'function') {
+            outputSink.setWorkingDirectory(consoleSession.getWorkingDirectory());
+        }
         graphCaptureState = await beginGraphCapture(consoleSession);
         executionPlan = createExecutionPlan(execCode, consoleSession.getWorkingDirectory());
         lastRealChunkAt = Date.now();
@@ -537,6 +540,9 @@ async function runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir = null
             console.log(`Stata All in One: Executing ${executionPlan.commands.length} command(s) line-by-line`);
             for (let ci = 0; ci < executionPlan.commands.length; ci++) {
                 const command = executionPlan.commands[ci];
+                if (typeof outputSink.setWorkingDirectory === 'function') {
+                    outputSink.setWorkingDirectory(consoleSession.getWorkingDirectory());
+                }
                 const cmdStart = Date.now();
                 console.log(`Stata All in One: [${ci + 1}/${executionPlan.commands.length}] Executing: ${command.substring(0, 100)}`);
                 result = await executeConsoleCommand(consoleSession, graphDir, command, onExecutionChunk);
@@ -547,6 +553,9 @@ async function runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir = null
                     break;
                 }
                 updateWorkingDirectoryFromCode(consoleSession, command);
+                if (typeof outputSink.setWorkingDirectory === 'function') {
+                    outputSink.setWorkingDirectory(consoleSession.getWorkingDirectory());
+                }
             }
         } else {
             const cmdStart = Date.now();
@@ -555,6 +564,9 @@ async function runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir = null
             result = await executeConsoleCommand(consoleSession, graphDir, executionPlan.command, onExecutionChunk);
             if (result.success && !executionPlan.tempFilePath) {
                 updateWorkingDirectoryFromCode(consoleSession, executionPlan.command);
+                if (typeof outputSink.setWorkingDirectory === 'function') {
+                    outputSink.setWorkingDirectory(consoleSession.getWorkingDirectory());
+                }
             }
             console.log(`Stata All in One: Do-file execution done in ${Date.now() - cmdStart}ms, success=${result.success}`);
         }
@@ -597,6 +609,9 @@ async function runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir = null
         }
 
         updateWorkingDirectoryFromCode(consoleSession, normalizedCode);
+        if (typeof outputSink.setWorkingDirectory === 'function') {
+            outputSink.setWorkingDirectory(consoleSession.getWorkingDirectory());
+        }
         return {
             success: true,
             shouldOfferGuiFallback: false

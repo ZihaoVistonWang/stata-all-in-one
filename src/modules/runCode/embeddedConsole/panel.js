@@ -3,6 +3,11 @@ const fs = require('fs');
 const path = require('path');
 const { StataTerminalRenderer, getWebviewThemeVariables } = require('./renderer');
 const { msg, showInfo, showWarn, showError } = require('../../../utils/common');
+const {
+    decorateCommandEntries,
+    decorateOutputEntries
+} = require('./fileLinks');
+const { openConsoleFile: openConsoleFilePath } = require('./fileOpener');
 
 let _context = null;
 const CONSOLE_OPEN_STATE_KEY = 'embeddedConsolePanelOpen';
@@ -69,6 +74,17 @@ function getPanelIconPath() {
         light: iconUri,
         dark: iconUri
     };
+}
+
+async function openConsoleFile(filePath) {
+    return openConsoleFilePath({
+        filePath,
+        vscode,
+        context: _context,
+        showWarn,
+        showError,
+        message: msg
+    });
 }
 
 function highlightInputText(text) {
@@ -200,6 +216,8 @@ function attachPanel(panel) {
             await exportConsoleHistory();
         } else if (message && message.type === 'saveGraph') {
             await saveGraphAs(message.filePath, message.graphName, message.format);
+        } else if (message && message.type === 'openConsoleFile') {
+            await openConsoleFile(message.filePath);
         } else if (message && message.type === 'copyGraphCopied') {
             showInfo(msg('graphCopyPngSuccess'));
         } else if (message && message.type === 'copyGraphFailed') {
@@ -623,6 +641,7 @@ class WebviewTerminalSink {
     constructor() {
         this._renderer = new StataTerminalRenderer();
         this._width = 88;
+        this._workingDirectory = null;
     }
 
     async prepareForExecution() {
@@ -636,25 +655,42 @@ class WebviewTerminalSink {
         await revealPanel(false);
     }
 
+    setWorkingDirectory(workingDirectory) {
+        this._workingDirectory = workingDirectory || null;
+    }
+
     writeCommand(command) {
-        appendEntries(this._renderer.renderCommandSegments(command, this._width));
+        const rendered = this._renderer.renderCommandSegments(command, this._width);
+        appendEntries(decorateCommandEntries(rendered, this._workingDirectory).entries);
     }
 
     writeOutputChunk(text) {
         const rendered = this._renderer.renderOutputChunkSegments(text, this._width);
         if (rendered.length) {
-            appendEntries(rendered);
+            const decorated = decorateOutputEntries(rendered, this._workingDirectory);
+            this._workingDirectory = decorated.cwd;
+            appendEntries(decorated.entries);
         }
     }
 
     writeError(text) {
         _lastRunFailed = true;
         setStatus('error');
-        appendEntries(this._renderer.renderErrorSegments(text));
+        const decorated = decorateOutputEntries(
+            this._renderer.renderErrorSegments(text),
+            this._workingDirectory
+        );
+        this._workingDirectory = decorated.cwd;
+        appendEntries(decorated.entries);
     }
 
     writeWarningMessage(text) {
-        appendEntries(this._renderer.renderWarningBlockSegments(text));
+        const decorated = decorateOutputEntries(
+            this._renderer.renderWarningBlockSegments(text),
+            this._workingDirectory
+        );
+        this._workingDirectory = decorated.cwd;
+        appendEntries(decorated.entries);
     }
 
     setStatus(status) {
@@ -691,7 +727,7 @@ class WebviewTerminalSink {
         if (!normalized) {
             return;
         }
-        appendEntries(normalized.split('\n').map(line => ({
+        const rendered = normalized.split('\n').map(line => ({
             kind: /^[.]+$/.test(line)
                 ? 'raw-progress'
                 : (/^>\s?$/.test(line) ? 'raw-prompt' : 'raw'),
@@ -709,7 +745,10 @@ class WebviewTerminalSink {
                     }
                 }]
                 : []
-        })));
+        }));
+        const decorated = decorateOutputEntries(rendered, this._workingDirectory);
+        this._workingDirectory = decorated.cwd;
+        appendEntries(decorated.entries);
     }
 
     writeGraphEntries(graphs) {
@@ -730,7 +769,9 @@ class WebviewTerminalSink {
     flushOutput() {
         const flushed = this._renderer.flushPendingOutputSegments(this._width);
         if (flushed.length) {
-            appendEntries(flushed);
+            const decorated = decorateOutputEntries(flushed, this._workingDirectory);
+            this._workingDirectory = decorated.cwd;
+            appendEntries(decorated.entries);
         }
     }
 
@@ -1162,6 +1203,27 @@ function getWebviewHtml(webview) {
         }
         .tok-path {
             color: var(--stata-path);
+        }
+        .console-file-link {
+            appearance: none;
+            border: 0;
+            padding: 0;
+            background: transparent;
+            color: inherit;
+            font: inherit;
+            line-height: inherit;
+            text-align: inherit;
+            text-decoration: underline;
+            text-decoration-style: dotted;
+            text-underline-offset: 0.16em;
+            cursor: pointer;
+        }
+        .console-file-link:hover {
+            text-decoration-style: solid;
+        }
+        .console-file-link:focus-visible {
+            outline: 1px solid var(--vscode-focusBorder);
+            outline-offset: 1px;
         }
         .tok-number {
             color: var(--stata-number);
@@ -2279,10 +2341,22 @@ function getWebviewHtml(webview) {
 
             const segments = Array.isArray(entry && entry.segments) ? entry.segments : [];
             for (const segment of segments) {
-                const span = document.createElement('span');
+                const isFileLink = Boolean(segment && segment.fileLink && segment.fileLink.path);
+                const span = document.createElement(isFileLink ? 'button' : 'span');
+                if (isFileLink) {
+                    span.type = 'button';
+                    span.classList.add('console-file-link');
+                    span.title = '${escapeHtml(msg('consoleOpenFile'))}: ' + String(segment.fileLink.path);
+                    span.addEventListener('click', () => {
+                        vscode.postMessage({
+                            type: 'openConsoleFile',
+                            filePath: String(segment.fileLink.path)
+                        });
+                    });
+                }
                 const className = String(segment && segment.className || '').trim();
                 if (className) {
-                    span.className = className;
+                    span.classList.add(...className.split(/\\s+/).filter(Boolean));
                 }
                 const style = segment && segment.style || {};
                 if (style.color) {

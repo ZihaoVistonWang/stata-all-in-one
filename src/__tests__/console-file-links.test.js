@@ -1,0 +1,156 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const path = require('node:path');
+
+const {
+    commandFileCandidates,
+    decorateCommandEntries,
+    decorateOutputEntries,
+    isTextFilePath,
+    outputFileCandidates,
+    resolveFilePath
+} = require('../modules/runCode/embeddedConsole/fileLinks');
+
+function entry(text, kind = 'command') {
+    return {
+        kind,
+        segments: [{ text, tokenType: 'plain', className: 'tok tok-plain', style: {} }]
+    };
+}
+
+function links(result) {
+    return result.entries.flatMap(item =>
+        item.segments.filter(segment => segment.fileLink)
+    );
+}
+
+test('recognizes common and community-command file arguments', () => {
+    const cases = [
+        '. use "./panel_data.dta"',
+        '. save "results/final data.dta", replace',
+        '. import excel "raw/input.xlsx", firstrow',
+        '. export delimited using "output/results.csv", replace',
+        '. do "scripts/clean.do"',
+        '. include config/setup.do',
+        '. log using "logs/model.log", replace',
+        '. graph export "figures/result.png", replace',
+        '. putexcel set "tables/results.xlsx", replace',
+        '. outreg2 using "statistics.xls", replace',
+        '. repairCN statistics.xls',
+        '. collect export "tables/table.docx", replace',
+        '. translate "logs/run.smcl" "reports/run.pdf", replace',
+        '. copy "raw/source.csv" "processed/copy.csv", replace',
+        '. putdocx save "reports/results.docx", replace',
+        '. estimates save "models/model.ster", replace'
+    ];
+    for (const value of cases) {
+        assert.ok(commandFileCandidates(value).length >= 1, value);
+    }
+});
+
+test('rejects ordinary strings, wildcards, and unexpanded Stata macros', () => {
+    const cases = [
+        '. display "statistics.xls"',
+        '. local report "statistics.xls"',
+        '. global report "statistics.xls"',
+        '. use "*.dta"',
+        '. use "$data/panel.dta"',
+        '. use "`datafile\'"'
+    ];
+    for (const value of cases) {
+        assert.deepEqual(commandFileCandidates(value), [], value);
+    }
+});
+
+test('resolves each command link against the cwd active for that command', () => {
+    const start = path.join(path.sep, 'project');
+    const result = decorateCommandEntries([
+        entry('. use "before.dta"'),
+        entry('. cd "results"'),
+        entry('. outreg2 using "statistics.xls", replace')
+    ], start);
+
+    assert.equal(links(result)[0].fileLink.path, path.join(start, 'before.dta'));
+    assert.equal(
+        links(result)[1].fileLink.path,
+        path.join(start, 'results', 'statistics.xls')
+    );
+});
+
+test('recognizes explicit output paths and file-context output', () => {
+    assert.equal(
+        outputFileCandidates('file statistics.xls saved').length,
+        1
+    );
+    assert.equal(
+        outputFileCandidates('output written to /tmp/results with spaces/table.xlsx').length,
+        1
+    );
+    assert.deepEqual(outputFileCandidates('statistics.xls'), []);
+    assert.deepEqual(outputFileCandidates('https://example.com/report.pdf'), []);
+});
+
+test('tracks echoed cd output before resolving later relative paths', () => {
+    const result = decorateOutputEntries([
+        entry('. cd "exports"', 'default'),
+        entry('file model.csv saved', 'default')
+    ], path.join(path.sep, 'project'));
+    assert.equal(
+        links(result)[0].fileLink.path,
+        path.join(path.sep, 'project', 'exports', 'model.csv')
+    );
+});
+
+test('recognizes file lines emitted by a real Stata session', () => {
+    const cwd = path.join(path.sep, 'private', 'tmp', 'stata-console-links');
+    const result = decorateOutputEntries([
+        entry('(file panel data.dta not found)', 'default'),
+        entry('file panel data.dta saved', 'default'),
+        entry('file statistics.xlsx saved', 'default'),
+        entry(`       log:  ${cwd}/analysis output.smcl`, 'default'),
+        entry('file results workbook.xlsx saved', 'default'),
+        entry('file analysis output.pdf saved as PDF format', 'default'),
+        entry('Fix applied: Converted XLS to UTF-8 encoding for statistics.xls!', 'default')
+    ], cwd);
+    assert.deepEqual(
+        links(result).map(segment => segment.fileLink.path),
+        [
+            path.join(cwd, 'panel data.dta'),
+            path.join(cwd, 'panel data.dta'),
+            path.join(cwd, 'statistics.xlsx'),
+            path.join(cwd, 'analysis output.smcl'),
+            path.join(cwd, 'results workbook.xlsx'),
+            path.join(cwd, 'analysis output.pdf'),
+            path.join(cwd, 'statistics.xls')
+        ]
+    );
+});
+
+test('supports Windows absolute paths independently of host platform', () => {
+    assert.equal(
+        resolveFilePath('C:\\Data Files\\panel.dta', 'C:\\Project'),
+        'C:\\Data Files\\panel.dta'
+    );
+});
+
+test('classifies files that should open in the VS Code editor', () => {
+    for (const value of ['analysis.do', 'command.ado', 'notes.txt', 'table.csv', 'report.md']) {
+        assert.equal(isTextFilePath(value), true, value);
+    }
+    for (const value of ['data.dta', 'table.xlsx', 'report.docx', 'report.pdf', 'image.png']) {
+        assert.equal(isTextFilePath(value), false, value);
+    }
+});
+
+test('recognizes common Stata, Office, document, and archive extensions', () => {
+    for (const extension of [
+        'dta', 'do', 'ado', 'ster', 'gph', 'smcl', 'xls', 'xlsx', 'doc',
+        'docx', 'pptx', 'tex', 'md', 'pdf', 'csv', 'svg', 'zip'
+    ]) {
+        assert.equal(
+            commandFileCandidates(`. customexport result.${extension}`).length,
+            1,
+            extension
+        );
+    }
+});

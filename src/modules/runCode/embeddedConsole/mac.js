@@ -584,6 +584,9 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
         const progressTotal = extractProgressTotalFromCode(execCode);
         await ensureWebviewBootstrap(consoleSession);
         await ensureInitialWorkingDirectory(consoleSession, docDir);
+        if (typeof outputSink.setWorkingDirectory === 'function') {
+            outputSink.setWorkingDirectory(consoleSession.getWorkingDirectory());
+        }
         graphCaptureState = await beginGraphCapture(consoleSession);
         executionPlan = createExecutionPlan(execCode, consoleSession.getWorkingDirectory());
         lastRealChunkAt = Date.now();
@@ -648,17 +651,26 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
             result = { success: true, returnCode: 0, output: '' };
         } else if (Array.isArray(executionPlan.commands) && executionPlan.commands.length) {
             for (const command of executionPlan.commands) {
+                if (typeof outputSink.setWorkingDirectory === 'function') {
+                    outputSink.setWorkingDirectory(consoleSession.getWorkingDirectory());
+                }
                 result = await executeConsoleCommand(consoleSession, graphDir, command, onExecutionChunk);
                 if (!result.success) {
                     break;
                 }
                 updateWorkingDirectoryFromCode(consoleSession, command);
+                if (typeof outputSink.setWorkingDirectory === 'function') {
+                    outputSink.setWorkingDirectory(consoleSession.getWorkingDirectory());
+                }
             }
         } else {
             // writeCommand already shows the code; echo:false avoids duplicate
             result = await executeConsoleCommand(consoleSession, graphDir, executionPlan.command, onExecutionChunk);
             if (result.success && !executionPlan.tempFilePath) {
                 updateWorkingDirectoryFromCode(consoleSession, executionPlan.command);
+                if (typeof outputSink.setWorkingDirectory === 'function') {
+                    outputSink.setWorkingDirectory(consoleSession.getWorkingDirectory());
+                }
             }
         }
 
@@ -700,6 +712,9 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
         }
 
         updateWorkingDirectoryFromCode(consoleSession, normalizedCode);
+        if (typeof outputSink.setWorkingDirectory === 'function') {
+            outputSink.setWorkingDirectory(consoleSession.getWorkingDirectory());
+        }
         return {
             success: true,
             shouldOfferGuiFallback: false
