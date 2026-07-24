@@ -1,8 +1,12 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
+const EventEmitter = require('node:events');
 
-const { openConsoleFile } = require('../modules/runCode/embeddedConsole/fileOpener');
+const {
+    isAbsoluteFilePath,
+    openConsoleFile
+} = require('../modules/runCode/embeddedConsole/fileOpener');
 
 function harness(overrides = {}) {
     const calls = [];
@@ -53,6 +57,16 @@ function harness(overrides = {}) {
     };
 }
 
+function successfulWindowsSpawn(calls) {
+    return (command, args, options) => {
+        calls.push(['spawn', command, args, options]);
+        const child = new EventEmitter();
+        child.unref = () => calls.push(['unref']);
+        process.nextTick(() => child.emit('spawn'));
+        return child;
+    };
+}
+
 test('opens .dta in the built-in Data Viewer', async () => {
     const { calls, options } = harness();
     const filePath = path.resolve('/tmp/panel data.dta');
@@ -78,6 +92,39 @@ test('opens .smcl through the Stata file association', async () => {
     const filePath = path.resolve('/tmp/analysis output.smcl');
     assert.equal(await openConsoleFile({ ...options, filePath }), 'stata');
     assert.deepEqual(calls, [['openExternal', filePath]]);
+});
+
+test('uses explorer.exe for Windows system file associations', async () => {
+    const { calls, options } = harness();
+    const filePath = 'C:\\Research project\\analysis output.pdf';
+    const spawn = successfulWindowsSpawn(calls);
+
+    assert.equal(await openConsoleFile({
+        ...options,
+        filePath,
+        platform: 'win32',
+        spawn
+    }), 'system');
+    assert.deepEqual(calls, [
+        ['spawn', 'explorer.exe', [filePath], {
+            detached: true,
+            stdio: 'ignore',
+            windowsHide: true
+        }],
+        ['unref']
+    ]);
+});
+
+test('recognizes Windows absolute paths independently of the test host', () => {
+    assert.equal(isAbsoluteFilePath(
+        'C:\\Research project\\analysis output.pdf',
+        'win32'
+    ), true);
+    assert.equal(isAbsoluteFilePath(
+        '\\\\server\\share\\analysis output.pdf',
+        'win32'
+    ), true);
+    assert.equal(isAbsoluteFilePath('./analysis output.pdf', 'win32'), false);
 });
 
 test('opens common images in a separate VS Code preview tab', async () => {

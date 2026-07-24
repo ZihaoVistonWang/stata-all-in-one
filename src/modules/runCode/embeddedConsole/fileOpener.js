@@ -1,10 +1,38 @@
 const fs = require('fs');
 const path = require('path');
+const childProcess = require('child_process');
 const {
     isImageFilePath,
     isStataFilePath,
     isTextFilePath
 } = require('./fileLinks');
+
+function openWithSystemDefault(filePath, uri, vscode, options = {}) {
+    const platform = options.platform || process.platform;
+    const spawn = options.spawn || childProcess.spawn;
+    if (platform !== 'win32') {
+        return vscode.env.openExternal(uri);
+    }
+
+    return new Promise((resolve, reject) => {
+        const child = spawn('explorer.exe', [filePath], {
+            detached: true,
+            stdio: 'ignore',
+            windowsHide: true
+        });
+        child.once('error', reject);
+        child.once('spawn', () => {
+            child.unref();
+            resolve(true);
+        });
+    });
+}
+
+function isAbsoluteFilePath(filePath, platform) {
+    return platform === 'win32'
+        ? path.win32.isAbsolute(filePath)
+        : path.isAbsolute(filePath);
+}
 
 async function openConsoleFile(options) {
     const {
@@ -15,10 +43,12 @@ async function openConsoleFile(options) {
         showError,
         message,
         stat = fs.promises.stat,
-        openDtaFile
+        openDtaFile,
+        platform = process.platform,
+        spawn = childProcess.spawn
     } = options;
     const targetPath = String(filePath || '').trim();
-    if (!targetPath || !path.isAbsolute(targetPath)) {
+    if (!targetPath || !isAbsoluteFilePath(targetPath, platform)) {
         showWarn(message('consoleFileNotFound', { filePath: targetPath }));
         return 'missing';
     }
@@ -38,7 +68,10 @@ async function openConsoleFile(options) {
             return 'data-viewer';
         }
         if (isStataFilePath(targetPath)) {
-            const opened = await vscode.env.openExternal(uri);
+            const opened = await openWithSystemDefault(targetPath, uri, vscode, {
+                platform,
+                spawn
+            });
             if (!opened) {
                 throw new Error(message('consoleSystemOpenRejected'));
             }
@@ -60,7 +93,10 @@ async function openConsoleFile(options) {
             return 'editor';
         }
 
-        const opened = await vscode.env.openExternal(uri);
+        const opened = await openWithSystemDefault(targetPath, uri, vscode, {
+            platform,
+            spawn
+        });
         if (!opened) {
             throw new Error(message('consoleSystemOpenRejected'));
         }
@@ -79,5 +115,7 @@ async function openConsoleFile(options) {
 }
 
 module.exports = {
-    openConsoleFile
+    isAbsoluteFilePath,
+    openConsoleFile,
+    openWithSystemDefault
 };
