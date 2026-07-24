@@ -13,7 +13,7 @@ Stata All in One
 </p>
 
 <p align="center">
-   | <b>版本:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.3.5</a> | <b>作者:</b> <a href="https://zihaowang.cn">王梓豪</a> | <b>Translate:</b>
+   | <b>版本:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.3.6</a> | <b>作者:</b> <a href="https://zihaowang.cn">王梓豪</a> | <b>Translate:</b>
   <a href="https://github.com/ZihaoVistonWang/stata-all-in-one">English Version</a> |
 </p>
 
@@ -314,6 +314,7 @@ saio setup
 
 | 版本   | 更新内容                                                                           | 发布日期   |
 | ------ | ---------------------------------------------------------------------------------- | ---------- |
+| 0.3.6 | 新增 Embedded Console 输出文件路径一键打开，优化数据查看器交互，并修复图形输出顺序与 Console 清空重启问题。 | 2026-07-24 |
 | 0.3.5 | Stata AI Skill 改为在线安装，Stata All in One拓展包精简至 2.48 MB；修复代码中字符串间的 Tab 命令识别问题。 | 2026-07-22 |
 | 0.3.4 | 重构数据查看器，支持直读 `.dta` 与 Console 内存数据，并提升 macOS 和 Windows 原生组件稳定性。 | 2026-07-22 |
 | 0.3.3 | 改进嵌入式控制台的命令兼容性与多行 `browse` 路由，优化 `which` 输出显示。 | 2026-07-21 |

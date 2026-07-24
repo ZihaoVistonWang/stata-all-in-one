@@ -3,6 +3,15 @@
 All notable changes to the Stata All in One extension will be documented in this file.
 本文件记录 Stata All in One 扩展的所有重要更改。
 
+## 0.3.6 (2026-07-24)
+
+- **Feat**: Added clickable file paths to Embedded Console results, with working-directory-aware resolution and appropriate routing to Data Viewer, VS Code previews, or system-default applications on macOS and Windows.
+- **Improved**: Enhanced Data Viewer metadata, adaptive column sizing, long-text tooltips, double-click copy, and double-click column auto-fit interactions.
+- **Fixed**: Restarted the Stata session when clearing Console, preserved graph output order, limited file links to result output, and corrected quoted file-path highlighting and first-click file opening.
+- **新增**：Embedded Console 结果中的文件路径现可点击打开，支持根据 Stata 工作目录解析路径，并在 macOS 和 Windows 上按文件类型调用数据查看器、VS Code 预览或系统默认应用。
+- **优化**：改进数据查看器元数据、自适应列宽、长文本悬浮提示、双击复制及双击列分隔线自动调整列宽功能。
+- **修复**：清空 Console 时同步重启 Stata Session，保持图形输出顺序，将文件链接限定于结果输出，并修复引号路径高亮及文件首次点击打开问题。
+
 ## 0.3.5 (2026-07-22)
 
 - **Improved**: Moved Stata AI Skill to online installation and removed its bundled multi-platform binaries to significantly reduce the extension package size; the AI button now provides bilingual Gitee and GitHub installation links.

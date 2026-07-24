@@ -10,6 +10,10 @@ const { getUserLanguage, showInfo } = require('../utils/common');
 // Update changelog: version -> changelog text
 const CHANGELOG = {
     en: {
+        '0.3.6': {
+            ver_info: '✨ Stata All in One (0.3.6): Added one-click file opening from Embedded Console output, improved Data Viewer interactions, and fixed graph ordering and Console reset behavior.',
+            more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#036-2026-07-24'
+        },
         '0.3.5': {
             ver_info: '✨ Stata All in One (0.3.5): Moved Stata AI Skill online, reducing the Stata All in One extension package to 2.48 MB; fixed Tab recognition between code tokens.',
             more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#035-2026-07-22'
@@ -100,6 +104,10 @@ const CHANGELOG = {
         }
     },
     zh: {
+        '0.3.6': {
+            ver_info: '✨ Stata All in One (0.3.6)：新增 Embedded Console 输出文件路径一键打开，优化数据查看器交互，并修复图形输出顺序与 Console 清空重启问题。',
+            more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#036-2026-07-24'
+        },
         '0.3.5': {
             ver_info: '✨ Stata All in One (0.3.5)：Stata AI Skill 改为在线安装，Stata All in One拓展包精简至 2.48 MB；修复代码中字符串间的 Tab 命令识别问题。',
             more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#035-2026-07-22'
