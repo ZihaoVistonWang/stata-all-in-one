@@ -64,7 +64,7 @@ async function endGraphCapture(consoleSession, captureState) {
     }
 }
 
-async function exportCapturedGraphs(consoleSession, graphDir) {
+async function exportCapturedGraphs(consoleSession, graphDir, captureState = null, options = {}) {
     if (!consoleSession || !graphDir) {
         return [];
     }
@@ -76,14 +76,41 @@ async function exportCapturedGraphs(consoleSession, graphDir) {
 
     const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const exported = [];
-    for (let index = 0; index < graphNames.length; index += 1) {
-        const graphName = graphNames[index];
-        const exportedGraph = await exportGraph(consoleSession, graphDir, graphName, runId, index);
-        if (exportedGraph) {
-            exported.push(exportedGraph);
+    try {
+        for (let index = 0; index < graphNames.length; index += 1) {
+            const graphName = graphNames[index];
+            const exportedGraph = await exportGraph(consoleSession, graphDir, graphName, runId, index);
+            if (exportedGraph) {
+                exported.push(exportedGraph);
+            }
+        }
+    } finally {
+        if (options.resetAfterExport) {
+            await resetGraphCapture(consoleSession, captureState);
         }
     }
     return exported;
+}
+
+async function resetGraphCapture(consoleSession, captureState) {
+    try {
+        const offResult = await consoleSession.execute('quietly _gr_list off', false);
+        const onResult = offResult && offResult.success
+            ? await consoleSession.execute('quietly _gr_list on', false)
+            : null;
+        const enabled = Boolean(onResult && onResult.success);
+        if (captureState) {
+            captureState.enabled = enabled;
+        }
+        if (!enabled) {
+            console.error('Stata All in One: Failed to reset graph capture.');
+        }
+    } catch (error) {
+        if (captureState) {
+            captureState.enabled = false;
+        }
+        console.error('Stata All in One: Failed to reset graph capture:', error.message);
+    }
 }
 
 async function executeBitmapGraphExport(consoleSession, graphDir, command, workingDirectory = null, bitmapConverter = null) {

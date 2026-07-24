@@ -656,6 +656,7 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
                     outputSink.setWorkingDirectory(consoleSession.getWorkingDirectory());
                 }
                 result = await executeConsoleCommand(consoleSession, graphDir, command, onExecutionChunk);
+                await writeChangedGraphs(consoleSession, graphDir, graphCaptureState, outputSink, true);
                 if (!result.success) {
                     break;
                 }
@@ -692,6 +693,7 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
         }
 
         outputSink.flushOutput();
+        await writeChangedGraphs(consoleSession, graphDir, graphCaptureState, outputSink);
 
         if (!result.success) {
             console.error('Stata All in One: 执行失败:', result.error);
@@ -705,11 +707,6 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
                 message: result.error || '',
                 returnCode: result.returnCode
             };
-        }
-
-        if (graphCaptureState && graphCaptureState.enabled && graphDir && typeof outputSink.writeGraphEntries === 'function') {
-            const exportedGraphs = await exportCapturedGraphs(consoleSession, graphDir);
-            outputSink.writeGraphEntries(exportedGraphs);
         }
 
         updateWorkingDirectoryFromCode(consoleSession, normalizedCode);
@@ -775,6 +772,25 @@ async function executeConsoleCommand(consoleSession, graphDir, command, onExecut
     }
 
     return await consoleSession.execute(command, false, onExecutionChunk);
+}
+
+async function writeChangedGraphs(consoleSession, graphDir, captureState, outputSink, resetAfterExport = false) {
+    if (!captureState || !captureState.enabled || !graphDir || typeof outputSink.writeGraphEntries !== 'function') {
+        return;
+    }
+
+    const exportedGraphs = await exportCapturedGraphs(
+        consoleSession,
+        graphDir,
+        captureState,
+        { resetAfterExport }
+    );
+    if (!exportedGraphs.length) {
+        return;
+    }
+
+    outputSink.flushOutput();
+    outputSink.writeGraphEntries(exportedGraphs);
 }
 
 async function ensureInitialWorkingDirectory(consoleSession, docDir) {
