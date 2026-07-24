@@ -547,6 +547,7 @@ async function runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir = null
                 const cmdStart = Date.now();
                 console.log(`Stata All in One: [${ci + 1}/${executionPlan.commands.length}] Executing: ${command.substring(0, 100)}`);
                 result = await executeConsoleCommand(consoleSession, graphDir, command, onExecutionChunk);
+                await writeChangedGraphs(consoleSession, graphDir, graphCaptureState, outputSink, true);
                 const cmdElapsed = Date.now() - cmdStart;
                 console.log(`Stata All in One: [${ci + 1}/${executionPlan.commands.length}] Done in ${cmdElapsed}ms, success=${result.success}, rc=${result.returnCode}`);
                 if (!result.success) {
@@ -589,6 +590,7 @@ async function runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir = null
         }
 
         outputSink.flushOutput();
+        await writeChangedGraphs(consoleSession, graphDir, graphCaptureState, outputSink);
 
         if (!result.success) {
             console.error('Stata All in One: Execution failed:', result.error);
@@ -602,11 +604,6 @@ async function runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir = null
                 message: result.error || '',
                 returnCode: result.returnCode
             };
-        }
-
-        if (graphCaptureState && graphCaptureState.enabled && graphDir && typeof outputSink.writeGraphEntries === 'function') {
-            const exportedGraphs = await exportCapturedGraphs(consoleSession, graphDir);
-            outputSink.writeGraphEntries(exportedGraphs);
         }
 
         updateWorkingDirectoryFromCode(consoleSession, normalizedCode);
@@ -676,6 +673,25 @@ async function executeConsoleCommand(consoleSession, graphDir, command, onExecut
     }
 
     return await consoleSession.execute(command, false, onExecutionChunk);
+}
+
+async function writeChangedGraphs(consoleSession, graphDir, captureState, outputSink, resetAfterExport = false) {
+    if (!captureState || !captureState.enabled || !graphDir || typeof outputSink.writeGraphEntries !== 'function') {
+        return;
+    }
+
+    const exportedGraphs = await exportCapturedGraphs(
+        consoleSession,
+        graphDir,
+        captureState,
+        { resetAfterExport }
+    );
+    if (!exportedGraphs.length) {
+        return;
+    }
+
+    outputSink.flushOutput();
+    outputSink.writeGraphEntries(exportedGraphs);
 }
 
 async function ensureInitialWorkingDirectory(consoleSession, docDir) {

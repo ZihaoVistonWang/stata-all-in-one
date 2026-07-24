@@ -4,7 +4,11 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const { executeBitmapGraphExport } = require('../modules/runCode/embeddedConsole/graphs');
+const {
+    beginGraphCapture,
+    executeBitmapGraphExport,
+    exportCapturedGraphs
+} = require('../modules/runCode/embeddedConsole/graphs');
 
 const TEST_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="96" height="64"><rect width="96" height="64" fill="white"/></svg>';
 
@@ -118,4 +122,65 @@ test('non-bitmap graph export is left for native Stata execution', async () => {
     );
 
     assert.equal(result, null);
+});
+
+test('reset capture windows preserve repeated identical graphs without probing old graphs again', async () => {
+    const tempDir = makeTempDir();
+    try {
+        let graphNames = ['Graph'];
+        const executedCommands = [];
+        const consoleSession = {
+            async execute(command) {
+                executedCommands.push(command);
+                if (command === 'quietly _gr_list on') {
+                    return { success: true, returnCode: 0, output: '' };
+                }
+                if (command === 'quietly _gr_list off') {
+                    graphNames = [];
+                    return { success: true, returnCode: 0, output: '' };
+                }
+                if (command === 'quietly _gr_list list') {
+                    return { success: true, returnCode: 0, output: '' };
+                }
+                if (command === 'display "`r(_grlist)\'"') {
+                    return { success: true, returnCode: 0, output: graphNames.join(' ') };
+                }
+
+                const match = String(command).match(/graph export "((?:[^"]|"")+)"/i);
+                assert.ok(match, `unexpected command: ${command}`);
+                fs.writeFileSync(match[1].replace(/""/g, '"'), TEST_SVG);
+                return { success: true, returnCode: 0, output: '' };
+            }
+        };
+
+        const captureState = await beginGraphCapture(consoleSession);
+        const first = await exportCapturedGraphs(
+            consoleSession,
+            tempDir,
+            captureState,
+            { resetAfterExport: true }
+        );
+        graphNames = ['Graph'];
+        const repeated = await exportCapturedGraphs(
+            consoleSession,
+            tempDir,
+            captureState,
+            { resetAfterExport: true }
+        );
+        const afterReset = await exportCapturedGraphs(
+            consoleSession,
+            tempDir,
+            captureState,
+            { resetAfterExport: true }
+        );
+
+        assert.equal(first.length, 1);
+        assert.equal(repeated.length, 1);
+        assert.equal(afterReset.length, 0);
+        assert.notEqual(first[0].filePath, repeated[0].filePath);
+        assert.equal(executedCommands.filter(command => command === 'quietly _gr_list off').length, 2);
+        assert.equal(captureState.enabled, true);
+    } finally {
+        removeTempDir(tempDir);
+    }
 });
