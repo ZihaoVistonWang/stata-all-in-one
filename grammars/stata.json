@@ -1208,7 +1208,7 @@
                             "name": "keyword.control.flow.stata"
                         },
                         {
-                            "match": "\\b(using)\\b(\\s+)([^\\s,]+)",
+                            "match": "\\b(using)\\b(\\s+)(?![\"'`])([^\\s,]+)",
                             "captures": {
                                 "1": {
                                     "name": "keyword.control.flow.stata"
