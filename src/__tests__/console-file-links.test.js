@@ -6,6 +6,7 @@ const {
     commandFileCandidates,
     decorateCommandEntries,
     decorateOutputEntries,
+    isImageFilePath,
     isStataFilePath,
     isTextFilePath,
     outputFileCandidates,
@@ -163,6 +164,12 @@ test('classifies files that should open in the VS Code editor', () => {
     }
     assert.equal(isStataFilePath('results.smcl'), true);
     assert.equal(isStataFilePath('results.log'), false);
+    assert.equal(isImageFilePath('figure.png'), true);
+    assert.equal(isImageFilePath('figure.svg'), true);
+    assert.equal(isImageFilePath('figure.webp'), true);
+    assert.equal(isImageFilePath('figure.avif'), true);
+    assert.equal(isImageFilePath('figure.tiff'), false);
+    assert.equal(isImageFilePath('figure.pdf'), false);
 });
 
 test('recognizes common Stata, Office, document, and archive extensions', () => {

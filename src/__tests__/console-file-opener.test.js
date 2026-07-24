@@ -31,6 +31,11 @@ function harness(overrides = {}) {
                 calls.push(['openExternal', uri.fsPath]);
                 return true;
             }
+        },
+        commands: {
+            async executeCommand(command, uri, options) {
+                calls.push(['executeCommand', command, uri.fsPath, options]);
+            }
         }
     };
     return {
@@ -75,8 +80,24 @@ test('opens .smcl through the Stata file association', async () => {
     assert.deepEqual(calls, [['openExternal', filePath]]);
 });
 
+test('opens common images in a separate VS Code preview tab', async () => {
+    for (const extension of [
+        'avif', 'bmp', 'gif', 'ico', 'jpe', 'jpeg', 'jpg', 'png', 'svg', 'webp'
+    ]) {
+        const { calls, options } = harness();
+        const filePath = path.resolve(`/tmp/figure.${extension}`);
+        assert.equal(await openConsoleFile({ ...options, filePath }), 'image-preview');
+        assert.deepEqual(calls, [[
+            'executeCommand',
+            'vscode.open',
+            filePath,
+            { viewColumn: 1, preview: false }
+        ]]);
+    }
+});
+
 test('opens office and other files with the system application', async () => {
-    for (const extension of ['xls', 'xlsx', 'doc', 'docx', 'pdf', 'png']) {
+    for (const extension of ['xls', 'xlsx', 'doc', 'docx', 'pdf', 'tiff']) {
         const { calls, options } = harness();
         const filePath = path.resolve(`/tmp/result.${extension}`);
         assert.equal(await openConsoleFile({ ...options, filePath }), 'system');

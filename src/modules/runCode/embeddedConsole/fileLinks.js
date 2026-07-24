@@ -1,13 +1,13 @@
 const path = require('path');
 
 const FILE_EXTENSIONS = new Set([
-    '.ado', '.bmp', '.csv', '.dct', '.doc', '.docx', '.do', '.dta', '.eps',
-    '.exe', '.gph', '.gz', '.htm', '.html', '.ipynb', '.irf', '.jpeg', '.jpg',
-    '.json', '.log', '.mata', '.md', '.mlib', '.odt', '.pdf', '.plugin', '.png',
-    '.ppt', '.pptx', '.ps',
+    '.ado', '.avif', '.bmp', '.csv', '.dct', '.doc', '.docx', '.do', '.dta', '.eps',
+    '.exe', '.gif', '.gph', '.gz', '.htm', '.html', '.ico', '.ipynb', '.irf',
+    '.jpe', '.jpeg', '.jpg', '.json', '.log', '.mata', '.md', '.mlib', '.odt', '.pdf',
+    '.plugin', '.png', '.ppt', '.pptx', '.ps',
     '.rar', '.rtf', '.sas7bdat', '.sav', '.smcl', '.sthlp', '.svg', '.tex',
     '.ster', '.tif', '.tiff', '.tsv', '.txt', '.xls', '.xlsb', '.xlsm',
-    '.xlsx', '.xml', '.xpt', '.zip', '.7z'
+    '.webp', '.xlsx', '.xml', '.xpt', '.zip', '.7z'
 ]);
 
 const TEXT_FILE_EXTENSIONS = new Set([
@@ -17,6 +17,10 @@ const TEXT_FILE_EXTENSIONS = new Set([
 ]);
 
 const STATA_FILE_EXTENSIONS = new Set(['.smcl']);
+const IMAGE_FILE_EXTENSIONS = new Set([
+    '.avif', '.bmp', '.gif', '.ico', '.jpe', '.jpeg', '.jpg', '.png', '.svg',
+    '.webp'
+]);
 
 const FILE_COMMANDS = new Set([
     'append', 'asdoc', 'asdocx', 'collect', 'copy', 'do', 'dyndoc', 'erase',
@@ -346,6 +350,10 @@ function isTextFilePath(filePath) {
     return TEXT_FILE_EXTENSIONS.has(path.extname(String(filePath || '')).toLowerCase());
 }
 
+function isImageFilePath(filePath) {
+    return IMAGE_FILE_EXTENSIONS.has(path.extname(String(filePath || '')).toLowerCase());
+}
+
 function isStataFilePath(filePath) {
     return STATA_FILE_EXTENSIONS.has(path.extname(String(filePath || '')).toLowerCase());
 }
@@ -355,6 +363,7 @@ module.exports = {
     decorateCommandEntries,
     decorateOutputEntries,
     entryText,
+    isImageFilePath,
     isStataFilePath,
     isTextFilePath,
     outputFileCandidates,

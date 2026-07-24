@@ -1,6 +1,10 @@
 const fs = require('fs');
 const path = require('path');
-const { isStataFilePath, isTextFilePath } = require('./fileLinks');
+const {
+    isImageFilePath,
+    isStataFilePath,
+    isTextFilePath
+} = require('./fileLinks');
 
 async function openConsoleFile(options) {
     const {
@@ -39,6 +43,13 @@ async function openConsoleFile(options) {
                 throw new Error(message('consoleSystemOpenRejected'));
             }
             return 'stata';
+        }
+        if (isImageFilePath(targetPath)) {
+            await vscode.commands.executeCommand('vscode.open', uri, {
+                viewColumn: vscode.ViewColumn.Active,
+                preview: false
+            });
+            return 'image-preview';
         }
         if (isTextFilePath(targetPath)) {
             const document = await vscode.workspace.openTextDocument(uri);

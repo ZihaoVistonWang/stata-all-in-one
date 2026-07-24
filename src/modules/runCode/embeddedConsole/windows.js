@@ -11,6 +11,7 @@ const path = require('path');
 const session = require('./session');
 const { getTempFilePath, cleanupTempFile } = require('../execute/tempfile');
 const config = require('../../../utils/config');
+const { ensureSessionWorkingDirectory } = require('./workingDirectory');
 const { showInfo, showError, msg } = require('../../../utils/common');
 const { getInstallationSignals } = require('../stataDiscovery');
 const { ensureStataConfigured } = require('../stataInstallationResolver');
@@ -678,17 +679,11 @@ async function executeConsoleCommand(consoleSession, graphDir, command, onExecut
 }
 
 async function ensureInitialWorkingDirectory(consoleSession, docDir) {
-    if (consoleSession.getWorkingDirectory() || !docDir || !config.getCdToDoFileDir()) {
-        return;
-    }
-
-    const escapedDir = String(docDir).replace(/"/g, '""');
-    const cdResult = await consoleSession.execute(`quietly cd "${escapedDir}"`, false);
-    if (!cdResult.success) {
-        throw new Error(cdResult.error || 'Failed to initialize working directory.');
-    }
-
-    consoleSession.setWorkingDirectory(docDir);
+    await ensureSessionWorkingDirectory(
+        consoleSession,
+        docDir,
+        config.getCdToDoFileDir()
+    );
 }
 
 async function ensureWebviewBootstrap(consoleSession) {
