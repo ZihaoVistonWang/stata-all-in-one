@@ -314,11 +314,12 @@ function decorateCommandEntries(entries, cwd) {
         const text = entryText(entry);
         const next = {
             ...entry,
-            segments: decorateSegments(
-                Array.isArray(entry.segments) ? entry.segments : [],
-                commandFileCandidates(text),
-                currentCwd
-            )
+            segments: (Array.isArray(entry.segments) ? entry.segments : [])
+                .map(segment => {
+                    if (!segment || typeof segment !== 'object') return segment;
+                    const { fileLink: _fileLink, ...plainSegment } = segment;
+                    return plainSegment;
+                })
         };
         const cdTarget = parseCdTarget(text);
         if (cdTarget) currentCwd = resolveWorkingDirectory(cdTarget, currentCwd);
@@ -331,13 +332,23 @@ function decorateOutputEntries(entries, cwd) {
     let currentCwd = cwd || null;
     const decorated = (Array.isArray(entries) ? entries : []).map(entry => {
         const text = entryText(entry);
+        const isCommand = ['command', 'comment-command'].includes(
+            String(entry && entry.kind || '')
+        ) || /^[.>]\s/.test(text);
         const next = {
             ...entry,
-            segments: decorateSegments(
-                Array.isArray(entry.segments) ? entry.segments : [],
-                outputFileCandidates(text),
-                currentCwd
-            )
+            segments: isCommand
+                ? (Array.isArray(entry.segments) ? entry.segments : [])
+                    .map(segment => {
+                        if (!segment || typeof segment !== 'object') return segment;
+                        const { fileLink: _fileLink, ...plainSegment } = segment;
+                        return plainSegment;
+                    })
+                : decorateSegments(
+                    Array.isArray(entry.segments) ? entry.segments : [],
+                    outputFileCandidates(text),
+                    currentCwd
+                )
         };
         const cdTarget = parseCdTarget(text);
         if (cdTarget) currentCwd = resolveWorkingDirectory(cdTarget, currentCwd);

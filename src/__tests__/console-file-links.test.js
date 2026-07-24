@@ -64,7 +64,7 @@ test('rejects ordinary strings, wildcards, and unexpanded Stata macros', () => {
     }
 });
 
-test('resolves each command link against the cwd active for that command', () => {
+test('keeps command paths unlinked while tracking cd changes', () => {
     const start = path.resolve(path.sep, 'project');
     const result = decorateCommandEntries([
         entry('. use "before.dta"'),
@@ -72,21 +72,34 @@ test('resolves each command link against the cwd active for that command', () =>
         entry('. outreg2 using "statistics.xls", replace')
     ], start);
 
-    assert.equal(links(result)[0].fileLink.path, path.join(start, 'before.dta'));
-    assert.equal(
-        links(result)[1].fileLink.path,
-        path.join(start, 'results', 'statistics.xls')
-    );
+    assert.equal(links(result).length, 0);
+    assert.equal(result.cwd, path.join(start, 'results'));
 });
 
-test('uses the theme string color for every segment inside a file link', () => {
+test('preserves normal command string styling without file links', () => {
+    const segments = [
+        { text: '. use "', tokenType: 'command', className: 'tok tok-command', style: { color: '#ff00ff' } },
+        { text: 'results/', tokenType: 'string', className: 'tok tok-string', style: { color: '#ffff00' } },
+        { text: 'panel data.dta', tokenType: 'string', className: 'tok tok-string', style: { color: '#ffff00' } },
+        { text: '"', tokenType: 'string', className: 'tok tok-string', style: { color: '#ffff00' } }
+    ];
     const result = decorateCommandEntries([{
         kind: 'command',
+        segments
+    }], path.join(path.sep, 'project'));
+
+    assert.equal(links(result).length, 0);
+    assert.deepEqual(result.entries[0].segments, segments);
+});
+
+test('uses the theme string color for every segment inside an output file link', () => {
+    const result = decorateOutputEntries([{
+        kind: 'default',
         segments: [
-            { text: '. use "', tokenType: 'command', className: 'tok tok-command', style: { color: '#ff00ff' } },
+            { text: 'file ', tokenType: 'plain', className: 'tok tok-plain', style: { color: '#ffffff' } },
             { text: 'results/', tokenType: 'path', className: 'tok tok-path', style: { color: '#ffffff' } },
             { text: 'panel data.dta', tokenType: 'plain', className: 'tok tok-plain', style: { color: '#ffff00' } },
-            { text: '"', tokenType: 'string', className: 'tok tok-string', style: { color: '#ffff00' } }
+            { text: ' saved', tokenType: 'plain', className: 'tok tok-plain', style: { color: '#ffffff' } }
         ]
     }], path.join(path.sep, 'project'));
     const linkedSegments = links(result);
@@ -97,6 +110,20 @@ test('uses the theme string color for every segment inside a file link', () => {
         assert.equal(segment.className, 'tok tok-string');
         assert.equal(segment.style.color, null);
     }
+});
+
+test('does not link command echoes routed through the output renderer', () => {
+    const result = decorateOutputEntries([
+        entry('. outreg2 using "statistics.xls", replace', 'command'),
+        entry('> repairCN "statistics.xls"', 'raw'),
+        entry('file statistics.xls saved', 'default')
+    ], path.resolve(path.sep, 'project'));
+
+    assert.equal(links(result).length, 1);
+    assert.equal(
+        links(result)[0].fileLink.path,
+        path.resolve(path.sep, 'project', 'statistics.xls')
+    );
 });
 
 test('recognizes explicit output paths and file-context output', () => {
