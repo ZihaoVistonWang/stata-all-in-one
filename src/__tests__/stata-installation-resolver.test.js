@@ -257,7 +257,7 @@ test('multiple Windows installations require an explicit selection', async () =>
     const result = await resolver.ensureStataConfigured(createContext(), { promptOnFailure: true });
 
     assert.equal(calls.quickPick, 1);
-    assert.equal(calls.quickPickOptions.title, '✨ Stata All in One (0.3.6)');
+    assert.equal(calls.quickPickOptions.title, '✨ Stata All in One (0.3.7)');
     assert.equal(calls.quickPickItems[0].label, 'Stata 18 MP');
     assert.equal(calls.quickPickItems[0].description, 'stataDiscoveryRecommended');
     assert.equal(calls.quickPickItems[0].detail, candidates[0].executablePath);

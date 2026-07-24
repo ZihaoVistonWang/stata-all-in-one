@@ -5,11 +5,15 @@
  */
 
 const vscode = require('vscode');
-const { getUserLanguage, showInfo } = require('../utils/common');
+const { getUserLanguage } = require('../utils/common');
 
 // Update changelog: version -> changelog text
 const CHANGELOG = {
     en: {
+        '0.3.7': {
+            ver_info: '✨ Stata All in One (0.3.7): Fixed standalone file-path detection in Embedded Console and corrected the duplicated Update Notice prefix.',
+            more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#037-2026-07-24'
+        },
         '0.3.6': {
             ver_info: '✨ Stata All in One (0.3.6): Added one-click file opening from Embedded Console output, improved Data Viewer interactions, and fixed graph ordering and Console reset behavior.',
             more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#036-2026-07-24'
@@ -104,6 +108,10 @@ const CHANGELOG = {
         }
     },
     zh: {
+        '0.3.7': {
+            ver_info: '✨ Stata All in One (0.3.7)：修复 Embedded Console 无法识别独立文件路径的问题，并修正 Update Notice 的重复前缀。',
+            more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#037-2026-07-24'
+        },
         '0.3.6': {
             ver_info: '✨ Stata All in One (0.3.6)：新增 Embedded Console 输出文件路径一键打开，优化数据查看器交互，并修复图形输出顺序与 Console 清空重启问题。',
             more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#036-2026-07-24'
@@ -207,6 +215,9 @@ function getChangelog(version, lang = 'en') {
     return langChangelog[version] || null;
 }
 
+const showUpdateInfo = (message, ...items) =>
+    vscode.window.showInformationMessage(message, ...items);
+
 /**
  * Check for updates and show notification
  */
@@ -234,7 +245,7 @@ function checkAndNotifyUpdate(context) {
             if (changelog) {
                 const learnMoreLabel = lang === 'zh' ? '了解更多' : 'Learn More';
                 const sponsorLabel = lang === 'zh' ? '☕ 打赏支持' : '☕ Buy me a coffee';
-                showInfo(changelog.ver_info, 'OK', learnMoreLabel, sponsorLabel).then(selection => {
+                showUpdateInfo(changelog.ver_info, 'OK', learnMoreLabel, sponsorLabel).then(selection => {
                     if (selection === learnMoreLabel && changelog.more_url) {
                         vscode.env.openExternal(vscode.Uri.parse(changelog.more_url));
                     } else if (selection === sponsorLabel) {
@@ -264,7 +275,7 @@ function checkAndNotifyUpdate(context) {
         if (changelog) {
             const learnMoreLabel = lang === 'zh' ? '了解更多' : 'Learn More';
             const sponsorLabel = lang === 'zh' ? '☕ 打赏支持' : '☕ Buy me a coffee';
-            showInfo(changelog.ver_info, 'OK', learnMoreLabel, sponsorLabel).then(selection => {
+            showUpdateInfo(changelog.ver_info, 'OK', learnMoreLabel, sponsorLabel).then(selection => {
                 if (selection === learnMoreLabel && changelog.more_url) {
                     vscode.env.openExternal(vscode.Uri.parse(changelog.more_url));
                 } else if (selection === sponsorLabel) {
@@ -298,6 +309,7 @@ function registerUpdateCheck(context) {
 
 module.exports = {
     getChangelog,
+    showUpdateInfo,
     checkAndNotifyUpdate,
     registerUpdateCheck
 };

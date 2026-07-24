@@ -77,7 +77,7 @@ test('setup server reports configuration and stays alive after repeated setup', 
         platform: 'darwin',
         portStart: 28186,
         portEnd: 28186,
-        extensionVersion: '0.3.6',
+        extensionVersion: '0.3.7',
         config: {
             getRunMode: () => 'embeddedConsole',
             getStataPathOnWindows: () => '',

@@ -3,6 +3,13 @@
 All notable changes to the Stata All in One extension will be documented in this file.
 本文件记录 Stata All in One 扩展的所有重要更改。
 
+## 0.3.7 (2026-07-24)
+
+- **Fixed**: Recognized standalone, quoted, and explicit relative file paths in Embedded Console results, including filenames emitted by commands such as `outreg2`, while avoiding ordinary-text false positives.
+- **Fixed**: Removed the duplicate `Stata All in One` prefix from Update Notice messages for current and historical versions.
+- **修复**：识别 Embedded Console 结果中独占一行、带引号及显式相对路径的文件名，包括 `outreg2` 等命令输出的独立文件路径，同时避免普通文本误判。
+- **修复**：移除当前及历史版本 Update Notice 中重复的 `Stata All in One` 前缀。
+
 ## 0.3.6 (2026-07-24)
 
 - **Feat**: Added clickable file paths to Embedded Console results, with working-directory-aware resolution and appropriate routing to Data Viewer, VS Code previews, or system-default applications on macOS and Windows.
