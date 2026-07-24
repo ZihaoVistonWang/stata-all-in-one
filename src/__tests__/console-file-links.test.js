@@ -126,7 +126,7 @@ test('does not link command echoes routed through the output renderer', () => {
     );
 });
 
-test('recognizes explicit output paths and file-context output', () => {
+test('recognizes quoted, standalone, explicit, and contextual output paths', () => {
     assert.equal(
         outputFileCandidates('file statistics.xls saved').length,
         1
@@ -135,8 +135,27 @@ test('recognizes explicit output paths and file-context output', () => {
         outputFileCandidates('output written to /tmp/results with spaces/table.xlsx').length,
         1
     );
-    assert.deepEqual(outputFileCandidates('statistics.xls'), []);
+    assert.equal(outputFileCandidates('statistics.xls').length, 1);
+    assert.equal(outputFileCandidates('"results workbook.xlsx"').length, 1);
+    assert.equal(outputFileCandidates('./exports/statistics.xls').length, 1);
+    assert.deepEqual(outputFileCandidates('value statistics.xls value'), []);
     assert.deepEqual(outputFileCandidates('https://example.com/report.pdf'), []);
+    for (const value of ['0.123', 'i.year', 'c.name', 'example.com', 'sum(log)']) {
+        assert.deepEqual(outputFileCandidates(value), [], value);
+    }
+});
+
+test('links standalone outreg2 output against the active Stata directory', () => {
+    const cwd = path.resolve(path.sep, 'project', 'tables');
+    const result = decorateOutputEntries([
+        entry('statistics.xls', 'default')
+    ], cwd);
+
+    assert.equal(links(result).length, 1);
+    assert.equal(
+        links(result)[0].fileLink.path,
+        path.join(cwd, 'statistics.xls')
+    );
 });
 
 test('tracks echoed cd output before resolving later relative paths', () => {

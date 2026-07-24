@@ -234,9 +234,17 @@ function outputFileCandidates(text) {
             [...quoted, ...explicitWithSpaces, ...contextualWithSpaces]
         )
     ]);
-    return candidates.filter(candidate =>
-        isExplicitPath(candidate.value) || OUTPUT_FILE_CONTEXT.test(text)
-    );
+    return candidates.filter(candidate => {
+        const isQuoted = quoted.some(range =>
+            range.start === candidate.start && range.end === candidate.end
+        );
+        const isStandalone = !text.slice(0, candidate.start).trim()
+            && !text.slice(candidate.end).trim();
+        return isQuoted
+            || isExplicitPath(candidate.value)
+            || isStandalone
+            || OUTPUT_FILE_CONTEXT.test(text);
+    });
 }
 
 function decorateSegments(segments, candidates, cwd) {
