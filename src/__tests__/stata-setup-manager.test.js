@@ -526,7 +526,7 @@ test('external run mode skips Console validation for an auto-detected installati
 
 test('Stata-triggered setup revalidates Console without changing external run mode', async () => {
     const installation = createWindowsInstallation();
-    const { calls, manager, settings } = loadSetupManager({
+    const { calls, manager, settings, setupOptions } = loadSetupManager({
         runMode: 'externalApp',
         resolvedInstallation: {
             platform: 'win32',
@@ -537,6 +537,7 @@ test('Stata-triggered setup revalidates Console without changing external run mo
     });
     try {
         const result = await manager.ensureStataSetup(createContext(), {
+            ...setupOptions,
             forceNotice: true,
             signalReceived: true,
             validateConsole: true

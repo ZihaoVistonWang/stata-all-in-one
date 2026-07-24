@@ -17,14 +17,22 @@ function run(argv) {
 }
 `.trim();
 
-function runTextCommand(execFile, command, args) {
+function runTextCommand(execFile, command, args, options = {}) {
     return new Promise(resolve => {
         execFile(command, args, {
-            encoding: 'utf8',
+            encoding: options.encoding || 'utf8',
             timeout: 2000,
             windowsHide: true
         }, (error, stdout) => {
-            resolve(error ? '' : String(stdout || '').trim());
+            if (error) {
+                resolve('');
+                return;
+            }
+            if (Buffer.isBuffer(stdout)) {
+                resolve(stdout.toString(options.bufferEncoding || 'utf8').trim());
+                return;
+            }
+            resolve(String(stdout || '').trim());
         });
     });
 }
@@ -52,7 +60,8 @@ async function windowsDefaultApplicationName(filePath, options = {}) {
     const association = await runTextCommand(
         execFile,
         command,
-        ['/d', '/c', `assoc ${extension}`]
+        ['/d', '/u', '/c', `assoc ${extension}`],
+        { encoding: 'buffer', bufferEncoding: 'utf16le' }
     );
     const prefix = `${extension}=`;
     const associationLine = association
@@ -68,7 +77,8 @@ async function windowsDefaultApplicationName(filePath, options = {}) {
     const fileType = await runTextCommand(
         execFile,
         command,
-        ['/d', '/c', `ftype ${programId}`]
+        ['/d', '/u', '/c', `ftype ${programId}`],
+        { encoding: 'buffer', bufferEncoding: 'utf16le' }
     );
     const equalsIndex = fileType.indexOf('=');
     return executableApplicationName(

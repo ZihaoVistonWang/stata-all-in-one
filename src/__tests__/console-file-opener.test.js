@@ -49,6 +49,7 @@ function harness(overrides = {}) {
             context: {},
             stat: async () => ({ isFile: () => true }),
             openDtaFile: async (_context, uri) => calls.push(['openDta', uri.fsPath]),
+            platform: 'linux',
             showInfo: value => calls.push(['info', value]),
             showWarn: value => calls.push(['warn', value]),
             showError: value => calls.push(['error', value]),
@@ -182,6 +183,29 @@ test('falls back to the localized default app name when resolution fails', async
         ['info', 'opening:system default application'],
         ['openExternal', filePath]
     ]);
+});
+
+test('does not wait for the VS Code notification to close before opening', async () => {
+    const { calls, options } = harness({
+        showInfo: () => new Promise(() => {})
+    });
+    const filePath = path.resolve('/tmp/result.pdf');
+
+    assert.equal(await openConsoleFile({ ...options, filePath }), 'system');
+    assert.deepEqual(calls, [['openExternal', filePath]]);
+});
+
+test('continues opening when the VS Code notification fails', async () => {
+    for (const showInfo of [
+        () => { throw new Error('notification unavailable'); },
+        async () => { throw new Error('notification rejected'); }
+    ]) {
+        const { calls, options } = harness({ showInfo });
+        const filePath = path.resolve('/tmp/result.pdf');
+
+        assert.equal(await openConsoleFile({ ...options, filePath }), 'system');
+        assert.deepEqual(calls, [['openExternal', filePath]]);
+    }
 });
 
 test('reports missing and rejected files with localized messages', async () => {

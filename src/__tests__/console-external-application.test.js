@@ -43,6 +43,8 @@ test('resolves the Windows default application through assoc and ftype', async (
         }
     ), 'Acrobat');
     assert.equal(calls.length, 2);
+    assert.ok(calls.every(call => call[1].includes('/u')));
+    assert.ok(calls.every(call => call[2].encoding === 'buffer'));
     assert.deepEqual(calls.map(call => call[1].at(-1)), [
         'assoc .pdf',
         'ftype AcroExch.Document.DC'

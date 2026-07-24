@@ -65,7 +65,7 @@ test('rejects ordinary strings, wildcards, and unexpanded Stata macros', () => {
 });
 
 test('resolves each command link against the cwd active for that command', () => {
-    const start = path.join(path.sep, 'project');
+    const start = path.resolve(path.sep, 'project');
     const result = decorateCommandEntries([
         entry('. use "before.dta"'),
         entry('. cd "results"'),
@@ -116,15 +116,15 @@ test('tracks echoed cd output before resolving later relative paths', () => {
     const result = decorateOutputEntries([
         entry('. cd "exports"', 'default'),
         entry('file model.csv saved', 'default')
-    ], path.join(path.sep, 'project'));
+    ], path.resolve(path.sep, 'project'));
     assert.equal(
         links(result)[0].fileLink.path,
-        path.join(path.sep, 'project', 'exports', 'model.csv')
+        path.resolve(path.sep, 'project', 'exports', 'model.csv')
     );
 });
 
 test('recognizes file lines emitted by a real Stata session', () => {
-    const cwd = path.join(path.sep, 'private', 'tmp', 'stata-console-links');
+    const cwd = path.resolve(path.sep, 'private', 'tmp', 'stata-console-links');
     const result = decorateOutputEntries([
         entry('(file panel data.dta not found)', 'default'),
         entry('file panel data.dta saved', 'default'),

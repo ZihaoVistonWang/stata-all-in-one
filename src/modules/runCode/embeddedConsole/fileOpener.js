@@ -54,9 +54,13 @@ async function showExternalOpenNotice(filePath, options) {
     } catch (_error) {
         appName = '';
     }
-    showInfo(message('consoleOpeningWithExternalApplication', {
-        appName: appName || message('consoleSystemDefaultApplication')
-    }));
+    try {
+        Promise.resolve(showInfo(message('consoleOpeningWithExternalApplication', {
+            appName: appName || message('consoleSystemDefaultApplication')
+        }))).catch(() => {});
+    } catch (_error) {
+        // A failed VS Code notification must never block the file open request.
+    }
 }
 
 async function openConsoleFile(options) {
