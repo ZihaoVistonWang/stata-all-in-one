@@ -6,6 +6,7 @@ const {
     isStataFilePath,
     isTextFilePath
 } = require('./fileLinks');
+const { defaultApplicationName } = require('./externalApplication');
 
 function openWithSystemDefault(filePath, uri, vscode, options = {}) {
     const platform = options.platform || process.platform;
@@ -34,6 +35,30 @@ function isAbsoluteFilePath(filePath, platform) {
         : path.isAbsolute(filePath);
 }
 
+async function showExternalOpenNotice(filePath, options) {
+    const {
+        platform,
+        execFile,
+        comSpec,
+        message,
+        showInfo,
+        resolveExternalApplicationName
+    } = options;
+    let appName = '';
+    try {
+        appName = await resolveExternalApplicationName(filePath, {
+            platform,
+            execFile,
+            comSpec
+        });
+    } catch (_error) {
+        appName = '';
+    }
+    showInfo(message('consoleOpeningWithExternalApplication', {
+        appName: appName || message('consoleSystemDefaultApplication')
+    }));
+}
+
 async function openConsoleFile(options) {
     const {
         filePath,
@@ -41,11 +66,15 @@ async function openConsoleFile(options) {
         context,
         showWarn,
         showError,
+        showInfo = () => {},
         message,
         stat = fs.promises.stat,
         openDtaFile,
         platform = process.platform,
-        spawn = childProcess.spawn
+        spawn = childProcess.spawn,
+        execFile = childProcess.execFile,
+        comSpec,
+        resolveExternalApplicationName = defaultApplicationName
     } = options;
     const targetPath = String(filePath || '').trim();
     if (!targetPath || !isAbsoluteFilePath(targetPath, platform)) {
@@ -68,6 +97,14 @@ async function openConsoleFile(options) {
             return 'data-viewer';
         }
         if (isStataFilePath(targetPath)) {
+            await showExternalOpenNotice(targetPath, {
+                platform,
+                execFile,
+                comSpec,
+                message,
+                showInfo,
+                resolveExternalApplicationName
+            });
             const opened = await openWithSystemDefault(targetPath, uri, vscode, {
                 platform,
                 spawn
@@ -93,6 +130,14 @@ async function openConsoleFile(options) {
             return 'editor';
         }
 
+        await showExternalOpenNotice(targetPath, {
+            platform,
+            execFile,
+            comSpec,
+            message,
+            showInfo,
+            resolveExternalApplicationName
+        });
         const opened = await openWithSystemDefault(targetPath, uri, vscode, {
             platform,
             spawn
@@ -117,5 +162,6 @@ async function openConsoleFile(options) {
 module.exports = {
     isAbsoluteFilePath,
     openConsoleFile,
-    openWithSystemDefault
+    openWithSystemDefault,
+    showExternalOpenNotice
 };

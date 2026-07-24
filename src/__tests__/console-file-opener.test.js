@@ -49,9 +49,19 @@ function harness(overrides = {}) {
             context: {},
             stat: async () => ({ isFile: () => true }),
             openDtaFile: async (_context, uri) => calls.push(['openDta', uri.fsPath]),
+            showInfo: value => calls.push(['info', value]),
             showWarn: value => calls.push(['warn', value]),
             showError: value => calls.push(['error', value]),
-            message: (key, values = {}) => `${key}:${values.filePath || ''}:${values.error || ''}`,
+            message: (key, values = {}) => {
+                if (key === 'consoleSystemDefaultApplication') {
+                    return 'system default application';
+                }
+                if (key === 'consoleOpeningWithExternalApplication') {
+                    return `opening:${values.appName}`;
+                }
+                return `${key}:${values.filePath || ''}:${values.error || ''}`;
+            },
+            resolveExternalApplicationName: async () => 'External App',
             ...overrides
         }
     };
@@ -91,7 +101,10 @@ test('opens .smcl through the Stata file association', async () => {
     const { calls, options } = harness();
     const filePath = path.resolve('/tmp/analysis output.smcl');
     assert.equal(await openConsoleFile({ ...options, filePath }), 'stata');
-    assert.deepEqual(calls, [['openExternal', filePath]]);
+    assert.deepEqual(calls, [
+        ['info', 'opening:External App'],
+        ['openExternal', filePath]
+    ]);
 });
 
 test('uses explorer.exe for Windows system file associations', async () => {
@@ -106,6 +119,7 @@ test('uses explorer.exe for Windows system file associations', async () => {
         spawn
     }), 'system');
     assert.deepEqual(calls, [
+        ['info', 'opening:External App'],
         ['spawn', 'explorer.exe', [filePath], {
             detached: true,
             stdio: 'ignore',
@@ -148,8 +162,26 @@ test('opens office and other files with the system application', async () => {
         const { calls, options } = harness();
         const filePath = path.resolve(`/tmp/result.${extension}`);
         assert.equal(await openConsoleFile({ ...options, filePath }), 'system');
-        assert.deepEqual(calls, [['openExternal', filePath]]);
+        assert.deepEqual(calls, [
+            ['info', 'opening:External App'],
+            ['openExternal', filePath]
+        ]);
     }
+});
+
+test('falls back to the localized default app name when resolution fails', async () => {
+    const { calls, options } = harness({
+        resolveExternalApplicationName: async () => {
+            throw new Error('lookup failed');
+        }
+    });
+    const filePath = path.resolve('/tmp/result.pdf');
+
+    assert.equal(await openConsoleFile({ ...options, filePath }), 'system');
+    assert.deepEqual(calls, [
+        ['info', 'opening:system default application'],
+        ['openExternal', filePath]
+    ]);
 });
 
 test('reports missing and rejected files with localized messages', async () => {
@@ -167,5 +199,5 @@ test('reports missing and rejected files with localized messages', async () => {
     const rejected = harness();
     rejected.options.vscode.env.openExternal = async () => false;
     assert.equal(await openConsoleFile({ ...rejected.options, filePath }), 'error');
-    assert.equal(rejected.calls[0][0], 'error');
+    assert.equal(rejected.calls.at(-1)[0], 'error');
 });

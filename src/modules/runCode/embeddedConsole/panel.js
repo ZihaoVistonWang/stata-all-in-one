@@ -81,6 +81,7 @@ async function openConsoleFile(filePath) {
         filePath,
         vscode,
         context: _context,
+        showInfo,
         showWarn,
         showError,
         message: msg
