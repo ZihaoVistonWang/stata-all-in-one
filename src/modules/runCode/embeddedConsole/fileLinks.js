@@ -1,3 +1,4 @@
+const fs = require('fs');
 const path = require('path');
 
 const FILE_EXTENSIONS = new Set([
@@ -75,6 +76,10 @@ function isExplicitPath(value) {
     return path.posix.isAbsolute(value)
         || isWindowsAbsolute(value)
         || /^\.{1,2}[\\/]/.test(value);
+}
+
+function isVerifiedWebTarget(value) {
+    return /^https?:\/\//i.test(String(value || '').trim());
 }
 
 function pathApiFor(value, cwd) {
@@ -247,13 +252,107 @@ function outputFileCandidates(text) {
     });
 }
 
-function decorateSegments(segments, candidates, cwd) {
+function verifiedLocalLink(value, cwd, options = {}) {
+    const raw = String(value || '').trim().replace(/""/g, '"');
+    if (isUnsafePathToken(raw)) return null;
+    const api = pathApiFor(raw, cwd);
+    const primaryPath = api.isAbsolute(raw)
+        ? api.normalize(raw)
+        : (cwd ? api.resolve(cwd, raw) : null);
+    if (!primaryPath) return null;
+
+    const candidates = [primaryPath];
+    if (!api.isAbsolute(raw) && cwd) {
+        const normalizedRaw = api.normalize(raw);
+        const firstPart = normalizedRaw.split(api.sep)[0];
+        const cwdBase = api.basename(api.normalize(cwd));
+        const sameDirectory = api === path.win32
+            ? firstPart.toLowerCase() === cwdBase.toLowerCase()
+            : firstPart === cwdBase;
+        if (sameDirectory && firstPart && firstPart !== '.' && firstPart !== '..') {
+            const deduplicatedPath = api.resolve(api.dirname(cwd), normalizedRaw);
+            if (deduplicatedPath !== primaryPath) candidates.push(deduplicatedPath);
+        }
+    }
+
+    const statSync = options.statSync || fs.statSync;
+    const verified = [];
+    for (const resolvedPath of candidates) {
+        try {
+            const stat = statSync(resolvedPath);
+            if (stat.isFile()) {
+                verified.push({
+                    kind: 'file',
+                    target: resolvedPath,
+                    source: options.source || 'extension-fallback',
+                    verified: true
+                });
+            } else if (stat.isDirectory()) {
+                verified.push({
+                    kind: 'directory',
+                    target: resolvedPath,
+                    source: options.source || 'smcl-explicit',
+                    verified: true
+                });
+            }
+        } catch (_error) {
+            // A missing candidate is expected while checking the conservative
+            // cwd-directory overlap fallback.
+        }
+    }
+    return verified.length === 1 ? verified[0] : null;
+}
+
+async function verifiedLocalLinkAsync(value, cwd, options = {}) {
+    const raw = String(value || '').trim().replace(/""/g, '"');
+    if (isUnsafePathToken(raw)) return null;
+    const api = pathApiFor(raw, cwd);
+    const primaryPath = api.isAbsolute(raw)
+        ? api.normalize(raw)
+        : (cwd ? api.resolve(cwd, raw) : null);
+    if (!primaryPath) return null;
+
+    const candidates = [primaryPath];
+    if (!api.isAbsolute(raw) && cwd) {
+        const normalizedRaw = api.normalize(raw);
+        const firstPart = normalizedRaw.split(api.sep)[0];
+        const cwdBase = api.basename(api.normalize(cwd));
+        const sameDirectory = api === path.win32
+            ? firstPart.toLowerCase() === cwdBase.toLowerCase()
+            : firstPart === cwdBase;
+        if (sameDirectory && firstPart && firstPart !== '.' && firstPart !== '..') {
+            const deduplicatedPath = api.resolve(api.dirname(cwd), normalizedRaw);
+            if (deduplicatedPath !== primaryPath) candidates.push(deduplicatedPath);
+        }
+    }
+
+    const stat = options.stat || fs.promises.stat;
+    const checked = await Promise.all(candidates.map(async target => {
+        try {
+            const valueStat = await stat(target);
+            if (valueStat.isFile()) return { kind: 'file', target };
+            if (valueStat.isDirectory()) return { kind: 'directory', target };
+        } catch (_error) {}
+        return null;
+    }));
+    const verified = checked.filter(Boolean);
+    if (verified.length !== 1) return null;
+    return {
+        ...verified[0],
+        source: options.source || (verified[0].kind === 'file'
+            ? 'extension-fallback'
+            : 'smcl-explicit'),
+        verified: true
+    };
+}
+
+function decorateSegments(segments, candidates, cwd, options = {}) {
     const ranges = candidates
         .map(candidate => ({
             ...candidate,
-            resolvedPath: resolveFilePath(candidate.value, cwd)
+            link: verifiedLocalLink(candidate.value, cwd, options)
         }))
-        .filter(candidate => candidate.resolvedPath);
+        .filter(candidate => candidate.link && candidate.link.kind === 'file');
     if (!ranges.length) return segments;
 
     const result = [];
@@ -288,8 +387,9 @@ function decorateSegments(segments, candidates, cwd) {
                         ...(segment && segment.style ? segment.style : {}),
                         color: null
                     },
+                    consoleLink: range.link,
                     fileLink: {
-                        path: range.resolvedPath,
+                        path: range.link.target,
                         source: range.value
                     }
                 } : {})
@@ -300,27 +400,9 @@ function decorateSegments(segments, candidates, cwd) {
     return result;
 }
 
-function parseCdTarget(text) {
-    const stripped = stripPrompt(text).trim();
-    const quoted = stripped.match(/^(?:capture\s+|quietly\s+|qui\s+)?cd\s+"((?:[^"]|"")*)"$/i);
-    if (quoted) return quoted[1].replace(/""/g, '"');
-    const bare = stripped.match(/^(?:capture\s+|quietly\s+|qui\s+)?cd\s+(.+)$/i);
-    return bare ? bare[1].trim() : null;
-}
-
-function resolveWorkingDirectory(target, cwd) {
-    if (!target || isUnsafePathToken(target)) return cwd || null;
-    const api = pathApiFor(target, cwd);
-    return api.isAbsolute(target)
-        ? api.normalize(target)
-        : api.resolve(cwd || '.', target);
-}
-
 function decorateCommandEntries(entries, cwd) {
-    let currentCwd = cwd || null;
     const decorated = (Array.isArray(entries) ? entries : []).map(entry => {
-        const text = entryText(entry);
-        const next = {
+        return {
             ...entry,
             segments: (Array.isArray(entry.segments) ? entry.segments : [])
                 .map(segment => {
@@ -329,15 +411,11 @@ function decorateCommandEntries(entries, cwd) {
                     return plainSegment;
                 })
         };
-        const cdTarget = parseCdTarget(text);
-        if (cdTarget) currentCwd = resolveWorkingDirectory(cdTarget, currentCwd);
-        return next;
     });
-    return { entries: decorated, cwd: currentCwd };
+    return { entries: decorated, cwd: cwd || null };
 }
 
-function decorateOutputEntries(entries, cwd) {
-    let currentCwd = cwd || null;
+function decorateOutputEntries(entries, cwd, options = {}) {
     const decorated = (Array.isArray(entries) ? entries : []).map(entry => {
         const text = entryText(entry);
         const isCommand = ['command', 'comment-command'].includes(
@@ -355,14 +433,313 @@ function decorateOutputEntries(entries, cwd) {
                 : decorateSegments(
                     Array.isArray(entry.segments) ? entry.segments : [],
                     outputFileCandidates(text),
-                    currentCwd
+                    cwd,
+                    options
                 )
         };
-        const cdTarget = parseCdTarget(text);
-        if (cdTarget) currentCwd = resolveWorkingDirectory(cdTarget, currentCwd);
         return next;
     });
-    return { entries: decorated, cwd: currentCwd };
+    return {
+        entries: decorateWrappedOutputPaths(decorated, cwd, options),
+        cwd: cwd || null
+    };
+}
+
+function entryCharacterMap(entries) {
+    const text = [];
+    const map = [];
+    const list = Array.isArray(entries) ? entries : [];
+    let previousOutput = false;
+    for (let entryIndex = 0; entryIndex < list.length; entryIndex += 1) {
+        const entry = list[entryIndex];
+        const kind = String(entry && entry.kind || '');
+        const isCommand = ['command', 'comment-command', 'raw-progress', 'raw-prompt'].includes(kind);
+        const value = entryText(entry);
+        if (isCommand) {
+            previousOutput = false;
+            continue;
+        }
+        const continuation = previousOutput && /^>\s?/.test(value);
+        if (previousOutput && !continuation) {
+            text.push('\n');
+            map.push(null);
+        }
+        const skipped = continuation ? (value.match(/^>\s?/) || [''])[0].length : 0;
+        for (let charIndex = skipped; charIndex < value.length; charIndex += 1) {
+            text.push(value[charIndex]);
+            map.push({ entryIndex, charIndex });
+        }
+        previousOutput = true;
+    }
+    return { text: text.join(''), map };
+}
+
+async function collectVerifiedOutputLinks(entries, cwd, options = {}) {
+    const list = Array.isArray(entries) ? entries : [];
+    const candidates = [];
+    for (const entry of list) {
+        const text = entryText(entry);
+        const isCommand = ['command', 'comment-command'].includes(
+            String(entry && entry.kind || '')
+        ) || /^[.>]\s/.test(text);
+        if (!isCommand) candidates.push(...outputFileCandidates(text));
+    }
+
+    const flattened = entryCharacterMap(list);
+    for (const candidate of outputFileCandidates(flattened.text)) {
+        const coveredEntries = new Set(
+            flattened.map
+                .slice(candidate.start, candidate.end)
+                .filter(Boolean)
+                .map(point => point.entryIndex)
+        );
+        if (coveredEntries.size >= 2) candidates.push(candidate);
+    }
+
+    const links = [];
+    const seen = new Set();
+    for (const candidate of candidates) {
+        const key = candidate.value;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const link = await verifiedLocalLinkAsync(candidate.value, cwd, {
+            ...options,
+            source: 'extension-fallback'
+        });
+        if (!link || link.kind !== 'file') continue;
+        links.push({
+            kind: 'path',
+            target: link.target,
+            label: candidate.value,
+            source: 'extension-fallback',
+            verifiedLink: link
+        });
+    }
+    return links;
+}
+
+async function validateSemanticLinks(links, cwd, options = {}) {
+    const validated = [];
+    for (const semantic of Array.isArray(links) ? links : []) {
+        if (semantic.kind === 'url') {
+            if (/^https?:\/\//i.test(String(semantic.target || ''))) {
+                validated.push({
+                    ...semantic,
+                    verifiedLink: {
+                        kind: 'url',
+                        target: String(semantic.target),
+                        source: semantic.source || 'smcl-explicit',
+                        verified: true
+                    }
+                });
+            }
+            continue;
+        }
+        const link = await verifiedLocalLinkAsync(semantic.target, cwd, {
+            ...options,
+            source: semantic.source || 'smcl-output'
+        });
+        if (!link) continue;
+        if (semantic.kind === 'directory' && link.kind !== 'directory') continue;
+        validated.push({ ...semantic, verifiedLink: link });
+    }
+    return validated;
+}
+
+function addRange(rangesByEntry, entryIndex, start, end, link) {
+    if (end <= start) return;
+    if (!rangesByEntry.has(entryIndex)) rangesByEntry.set(entryIndex, []);
+    rangesByEntry.get(entryIndex).push({ start, end, link });
+}
+
+function mapCanonicalRange(map, start, end, link, rangesByEntry) {
+    let active = null;
+    for (let index = start; index < end; index += 1) {
+        const point = map[index];
+        if (!point) continue;
+        if (!active
+            || active.entryIndex !== point.entryIndex
+            || active.end !== point.charIndex) {
+            if (active) {
+                addRange(
+                    rangesByEntry,
+                    active.entryIndex,
+                    active.start,
+                    active.end,
+                    link
+                );
+            }
+            active = {
+                entryIndex: point.entryIndex,
+                start: point.charIndex,
+                end: point.charIndex + 1
+            };
+        } else {
+            active.end = point.charIndex + 1;
+        }
+    }
+    if (active) {
+        addRange(rangesByEntry, active.entryIndex, active.start, active.end, link);
+    }
+}
+
+function decorateSegmentsWithLinks(segments, ranges) {
+    if (!Array.isArray(ranges) || !ranges.length) return segments;
+    const result = [];
+    let offset = 0;
+    for (const segment of Array.isArray(segments) ? segments : []) {
+        const text = String(segment && segment.text || '');
+        const boundaries = new Set([0, text.length]);
+        for (const range of ranges) {
+            if (range.start < offset + text.length && range.end > offset) {
+                boundaries.add(Math.max(0, range.start - offset));
+                boundaries.add(Math.min(text.length, range.end - offset));
+            }
+        }
+        const points = [...boundaries].sort((a, b) => a - b);
+        for (let index = 0; index < points.length - 1; index += 1) {
+            const start = points[index];
+            const end = points[index + 1];
+            const range = ranges.find(item =>
+                offset + start >= item.start && offset + start < item.end
+            );
+            result.push({
+                ...segment,
+                text: text.slice(start, end),
+                ...(range ? {
+                    tokenType: 'string',
+                    className: 'tok tok-string',
+                    style: {
+                        ...(segment && segment.style ? segment.style : {}),
+                        color: null
+                    },
+                    consoleLink: range.link,
+                    ...(range.link.kind === 'file' ? {
+                        fileLink: {
+                            path: range.link.target,
+                            source: range.link.source
+                        }
+                    } : {})
+                } : {})
+            });
+        }
+        offset += text.length;
+    }
+    return result;
+}
+
+function decorateWrappedOutputPaths(entries, cwd, options = {}) {
+    const flattened = entryCharacterMap(entries);
+    if (!flattened.text) return entries;
+
+    const rangesByEntry = new Map();
+    for (const candidate of outputFileCandidates(flattened.text)) {
+        const coveredEntries = new Set(
+            flattened.map
+                .slice(candidate.start, candidate.end)
+                .filter(Boolean)
+                .map(point => point.entryIndex)
+        );
+        if (coveredEntries.size < 2) continue;
+
+        const link = verifiedLocalLink(candidate.value, cwd, options);
+        if (!link || link.kind !== 'file') continue;
+        mapCanonicalRange(
+            flattened.map,
+            candidate.start,
+            candidate.end,
+            link,
+            rangesByEntry
+        );
+    }
+
+    if (!rangesByEntry.size) return entries;
+    return entries.map((entry, entryIndex) => {
+        const ranges = rangesByEntry.get(entryIndex);
+        if (!ranges) return entry;
+        return {
+            ...entry,
+            segments: decorateSegmentsWithLinks(entry.segments, ranges)
+        };
+    });
+}
+
+function applySmclLinksToEntries(entries, smclLinks, cwd, options = {}) {
+    const list = (Array.isArray(entries) ? entries : []).map(entry => ({
+        ...entry,
+        segments: (Array.isArray(entry && entry.segments) ? entry.segments : [])
+            .map(segment => ({ ...segment }))
+    }));
+    if (!list.length || !Array.isArray(smclLinks) || !smclLinks.length) {
+        return { entries: list, applied: 0 };
+    }
+
+    const flattened = entryCharacterMap(list);
+    const rangesByEntry = new Map();
+    let applied = 0;
+    for (const semantic of smclLinks) {
+        let link;
+        if (semantic.verifiedLink && semantic.verifiedLink.verified) {
+            link = semantic.verifiedLink;
+        } else if (semantic.kind === 'url') {
+            if (!isVerifiedWebTarget(semantic.target)) continue;
+            link = {
+                kind: 'url',
+                target: String(semantic.target),
+                source: semantic.source || 'smcl-explicit',
+                verified: true
+            };
+        } else {
+            link = verifiedLocalLink(semantic.target, cwd, {
+                ...options,
+                source: semantic.source || 'smcl-output'
+            });
+            if (!link) continue;
+            if (semantic.kind === 'directory' && link.kind !== 'directory') continue;
+        }
+
+        const target = String(semantic.target || '');
+        const label = String(semantic.label || '');
+        const exactValues = [target];
+        if (semantic.source === 'smcl-explicit' || semantic.source === 'extension-fallback') {
+            exactValues.push(label);
+            if (link.kind === 'file') exactValues.push(pathApiFor(link.target, cwd).basename(link.target));
+        }
+        let matchIndex = -1;
+        let matchValue = '';
+        if (link.kind === 'directory' && /^dir$/i.test(label)) {
+            const directoryLabel = /(^|\n)(dir)(?=\s*:)/im.exec(flattened.text);
+            if (directoryLabel) {
+                matchIndex = directoryLabel.index + directoryLabel[1].length;
+                matchValue = directoryLabel[2];
+            }
+        }
+        for (const value of [...new Set(exactValues.filter(Boolean))].sort((a, b) => b.length - a.length)) {
+            if (matchIndex >= 0) break;
+            matchIndex = flattened.text.indexOf(value);
+            if (matchIndex >= 0) {
+                matchValue = value;
+                break;
+            }
+        }
+        if (matchIndex < 0) continue;
+        mapCanonicalRange(
+            flattened.map,
+            matchIndex,
+            matchIndex + matchValue.length,
+            link,
+            rangesByEntry
+        );
+        applied += 1;
+    }
+
+    for (const [entryIndex, ranges] of rangesByEntry.entries()) {
+        list[entryIndex].segments = decorateSegmentsWithLinks(
+            list[entryIndex].segments,
+            ranges
+        );
+    }
+    return { entries: list, applied };
 }
 
 function isTextFilePath(filePath) {
@@ -379,14 +756,19 @@ function isStataFilePath(filePath) {
 
 module.exports = {
     commandFileCandidates,
+    collectVerifiedOutputLinks,
     decorateCommandEntries,
     decorateOutputEntries,
+    applySmclLinksToEntries,
     entryText,
+    hasFileExtension,
     isImageFilePath,
     isStataFilePath,
     isTextFilePath,
+    isVerifiedWebTarget,
     outputFileCandidates,
-    parseCdTarget,
     resolveFilePath,
-    resolveWorkingDirectory
+    validateSemanticLinks,
+    verifiedLocalLinkAsync,
+    verifiedLocalLink
 };

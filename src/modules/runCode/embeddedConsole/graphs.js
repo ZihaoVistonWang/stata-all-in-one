@@ -1,6 +1,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { readSilentStataValue } = require('./silentStataValue');
 
 const GRAPH_FORMATS = ['svg'];
 const BITMAP_EXPORT_FORMATS = new Set(['png', 'jpg', 'jpeg']);
@@ -334,12 +335,15 @@ async function getCapturedGraphNames(consoleSession) {
             return [];
         }
 
-        const result = await consoleSession.execute('display "`r(_grlist)\'"', false);
-        if (!result || !result.success || !result.output) {
+        const value = await readSilentStataValue(
+            consoleSession,
+            '"`r(_grlist)\'"'
+        );
+        if (!value) {
             return [];
         }
 
-        return parseGraphNames(result.output);
+        return parseGraphNames(value);
     } catch (error) {
         console.error('Stata All in One: Failed to list captured graphs:', error.message);
         return [];

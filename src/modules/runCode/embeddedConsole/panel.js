@@ -4,10 +4,15 @@ const path = require('path');
 const { StataTerminalRenderer, getWebviewThemeVariables } = require('./renderer');
 const { msg, showInfo, showWarn, showError } = require('../../../utils/common');
 const {
+    applySmclLinksToEntries,
+    collectVerifiedOutputLinks,
     decorateCommandEntries,
-    decorateOutputEntries
+    validateSemanticLinks
 } = require('./fileLinks');
-const { openConsoleFile: openConsoleFilePath } = require('./fileOpener');
+const {
+    openConsoleFile: openConsoleFilePath,
+    openConsoleLink: openConsoleLinkTarget
+} = require('./fileOpener');
 
 let _context = null;
 const CONSOLE_OPEN_STATE_KEY = 'embeddedConsolePanelOpen';
@@ -80,6 +85,18 @@ function getPanelIconPath() {
 async function openConsoleFile(filePath) {
     return openConsoleFilePath({
         filePath,
+        vscode,
+        context: _context,
+        showInfo,
+        showWarn,
+        showError,
+        message: msg
+    });
+}
+
+async function openConsoleLink(link) {
+    return openConsoleLinkTarget({
+        link,
         vscode,
         context: _context,
         showInfo,
@@ -219,7 +236,11 @@ function attachPanel(panel) {
         } else if (message && message.type === 'saveGraph') {
             await saveGraphAs(message.filePath, message.graphName, message.format);
         } else if (message && message.type === 'openConsoleFile') {
-            await openConsoleFile(message.filePath);
+            if (message.link) {
+                await openConsoleLink(message.link);
+            } else {
+                await openConsoleFile(message.filePath);
+            }
         } else if (message && message.type === 'copyGraphCopied') {
             showInfo(msg('graphCopyPngSuccess'));
         } else if (message && message.type === 'copyGraphFailed') {
@@ -641,12 +662,21 @@ class WebviewTerminalSink {
         this._renderer = new StataTerminalRenderer();
         this._width = 88;
         this._workingDirectory = null;
+        this._runHistoryStart = 0;
+        this._runToken = 0;
+        this._linkQueueTimer = null;
+        this._pendingLinkBatches = [];
+        this._pendingSemanticLinks = [];
+        this._linkQueuePromise = Promise.resolve();
     }
 
     async prepareForExecution() {
+        await this.flushPendingLinkQueue();
         _lastRunFailed = false;
         setWorkingDetail(null);
         await revealPanel(true);
+        this._runToken += 1;
+        this._runHistoryStart = _history.length;
         setStatus('running');
     }
 
@@ -665,31 +695,17 @@ class WebviewTerminalSink {
 
     writeOutputChunk(text) {
         const rendered = this._renderer.renderOutputChunkSegments(text, this._width);
-        if (rendered.length) {
-            const decorated = decorateOutputEntries(rendered, this._workingDirectory);
-            this._workingDirectory = decorated.cwd;
-            appendEntries(decorated.entries);
-        }
+        this._appendOutputEntries(rendered);
     }
 
     writeError(text) {
         _lastRunFailed = true;
         setStatus('error');
-        const decorated = decorateOutputEntries(
-            this._renderer.renderErrorSegments(text),
-            this._workingDirectory
-        );
-        this._workingDirectory = decorated.cwd;
-        appendEntries(decorated.entries);
+        this._appendOutputEntries(this._renderer.renderErrorSegments(text));
     }
 
     writeWarningMessage(text) {
-        const decorated = decorateOutputEntries(
-            this._renderer.renderWarningBlockSegments(text),
-            this._workingDirectory
-        );
-        this._workingDirectory = decorated.cwd;
-        appendEntries(decorated.entries);
+        this._appendOutputEntries(this._renderer.renderWarningBlockSegments(text));
     }
 
     setStatus(status) {
@@ -745,9 +761,82 @@ class WebviewTerminalSink {
                 }]
                 : []
         }));
-        const decorated = decorateOutputEntries(rendered, this._workingDirectory);
-        this._workingDirectory = decorated.cwd;
-        appendEntries(decorated.entries);
+        this._appendOutputEntries(rendered);
+    }
+
+    _appendOutputEntries(entries) {
+        const normalized = Array.isArray(entries) ? entries.filter(Boolean) : [];
+        if (!normalized.length) return;
+        const start = _history.length;
+        appendEntries(normalized);
+        this._pendingLinkBatches.push({
+            start,
+            end: _history.length,
+            cwd: this._workingDirectory,
+            runToken: this._runToken
+        });
+        this._scheduleLinkQueue();
+    }
+
+    enqueueSemanticLinks(links) {
+        if (!Array.isArray(links) || !links.length) return;
+        this._pendingSemanticLinks.push({
+            links,
+            cwd: this._workingDirectory,
+            runToken: this._runToken,
+            runHistoryStart: this._runHistoryStart,
+            runHistoryEnd: _history.length
+        });
+        this._scheduleLinkQueue();
+    }
+
+    _scheduleLinkQueue() {
+        if (this._linkQueueTimer) return;
+        this._linkQueueTimer = setTimeout(() => {
+            this._linkQueueTimer = null;
+            this._linkQueuePromise = this._linkQueuePromise
+                .then(() => this._drainLinkQueue())
+                .catch(error => {
+                    console.error('Stata All in One: asynchronous link parsing failed:', error.message);
+                });
+        }, 200);
+    }
+
+    async _drainLinkQueue() {
+        const batches = this._pendingLinkBatches.splice(0);
+        const semanticBatches = this._pendingSemanticLinks.splice(0);
+        for (const batch of batches) {
+            if (batch.runToken !== this._runToken) continue;
+            const start = Math.max(this._runHistoryStart, batch.start - 4);
+            const end = Math.min(batch.end, _history.length);
+            const links = await collectVerifiedOutputLinks(
+                _history.slice(start, end),
+                batch.cwd
+            );
+            if (batch.runToken === this._runToken && links.length) {
+                this.applySemanticLinks(links, start, end);
+            }
+        }
+        for (const batch of semanticBatches) {
+            if (batch.runToken !== this._runToken) continue;
+            const links = await validateSemanticLinks(batch.links, batch.cwd);
+            if (batch.runToken === this._runToken && links.length) {
+                this.applySemanticLinks(
+                    links,
+                    batch.runHistoryStart,
+                    Math.min(batch.runHistoryEnd, _history.length)
+                );
+            }
+        }
+    }
+
+    async flushPendingLinkQueue() {
+        if (this._linkQueueTimer) {
+            clearTimeout(this._linkQueueTimer);
+            this._linkQueueTimer = null;
+        }
+        this._linkQueuePromise = this._linkQueuePromise.then(() => this._drainLinkQueue());
+        await this._linkQueuePromise;
     }
 
     writeGraphEntries(graphs) {
@@ -765,13 +854,66 @@ class WebviewTerminalSink {
         appendEntries(entries);
     }
 
+    applySemanticLinks(
+        links,
+        runHistoryStart = this._runHistoryStart,
+        runHistoryEnd = _history.length
+    ) {
+        const start = Math.max(0, Math.min(runHistoryStart, _history.length));
+        const end = Math.max(start, Math.min(runHistoryEnd, _history.length));
+        const current = _history.slice(start, end);
+        const result = applySmclLinksToEntries(
+            current,
+            links,
+            this._workingDirectory
+        );
+        if (!result.applied) return 0;
+        _history.splice(start, current.length, ...result.entries);
+        if (_panel) {
+            _panel.webview.postMessage({
+                type: 'replaceRecent',
+                start,
+                deleteCount: current.length,
+                entries: hydrateEntriesForWebview(result.entries)
+            });
+        }
+        return result.applied;
+    }
+
+    async applySemanticLinksWithRetry(links) {
+        const semanticLinks = Array.isArray(links) ? links : [];
+        if (!semanticLinks.length) return;
+        await this.flushPendingLinkQueue();
+        const verifiedLinks = await validateSemanticLinks(
+            semanticLinks,
+            this._workingDirectory
+        );
+        if (!verifiedLinks.length) return;
+        const runHistoryStart = this._runHistoryStart;
+        const runHistoryEnd = _history.length;
+        const retry = delay => {
+            setTimeout(() => {
+                this.applySemanticLinks(
+                    verifiedLinks,
+                    runHistoryStart,
+                    runHistoryEnd
+                );
+            }, delay);
+        };
+        const applied = this.applySemanticLinks(
+            verifiedLinks,
+            runHistoryStart,
+            runHistoryEnd
+        );
+        if (applied < verifiedLinks.length) {
+            retry(150);
+            retry(500);
+        }
+    }
+
     flushOutput() {
         const flushed = this._renderer.flushPendingOutputSegments(this._width);
-        if (flushed.length) {
-            const decorated = decorateOutputEntries(flushed, this._workingDirectory);
-            this._workingDirectory = decorated.cwd;
-            appendEntries(decorated.entries);
-        }
+        this._appendOutputEntries(flushed);
     }
 
     discardBufferedOutput() {
@@ -2336,17 +2478,29 @@ function getWebviewHtml(webview) {
 
             const segments = Array.isArray(entry && entry.segments) ? entry.segments : [];
             for (const segment of segments) {
-                const isFileLink = Boolean(segment && segment.fileLink && segment.fileLink.path);
+                const consoleLink = segment && segment.consoleLink
+                    ? segment.consoleLink
+                    : (segment && segment.fileLink && segment.fileLink.path ? {
+                        kind: 'file',
+                        target: segment.fileLink.path,
+                        source: segment.fileLink.source || 'extension-fallback',
+                        verified: true
+                    } : null);
+                const isFileLink = Boolean(consoleLink && consoleLink.target);
                 const span = document.createElement('span');
                 if (isFileLink) {
                     span.setAttribute('role', 'link');
                     span.tabIndex = 0;
                     span.classList.add('console-file-link');
-                    span.title = '${escapeHtml(msg('consoleOpenFile'))}: ' + String(segment.fileLink.path);
+                    span.title = '${escapeHtml(msg('consoleOpenFile'))}: ' + String(consoleLink.target);
                     const openLinkedFile = () => {
                         vscode.postMessage({
                             type: 'openConsoleFile',
-                            filePath: String(segment.fileLink.path)
+                            link: {
+                                kind: String(consoleLink.kind || 'file'),
+                                target: String(consoleLink.target),
+                                source: String(consoleLink.source || '')
+                            }
                         });
                     };
                     span.addEventListener('click', openLinkedFile);
@@ -2955,6 +3109,22 @@ function getWebviewHtml(webview) {
                 if (Array.isArray(message.composerTips) && message.composerTips.length) {
                     composerTips = message.composerTips;
                     startComposerTipCarousel();
+                }
+            } else if (message.type === 'replaceRecent') {
+                const start = Math.max(0, Math.min(
+                    Number(message.start) || 0,
+                    renderedEntries.length
+                ));
+                const shouldStick = output.scrollTop + output.clientHeight >= output.scrollHeight - 24;
+                renderedEntries.splice(
+                    start,
+                    Math.max(0, Number(message.deleteCount) || 0),
+                    ...(Array.isArray(message.entries) ? message.entries : [])
+                );
+                renderAllEntries();
+                updateExportButtonState();
+                if (shouldStick) {
+                    output.scrollTop = output.scrollHeight;
                 }
             } else if (message.type === 'workingDetail') {
                 currentWorkingDetail = message.detail || null;

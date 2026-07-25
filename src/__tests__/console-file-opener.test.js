@@ -5,6 +5,7 @@ const EventEmitter = require('node:events');
 
 const {
     isAbsoluteFilePath,
+    openConsoleLink,
     openConsoleFile
 } = require('../modules/runCode/embeddedConsole/fileOpener');
 
@@ -17,6 +18,9 @@ function harness(overrides = {}) {
         Uri: {
             file(filePath) {
                 return { fsPath: filePath };
+            },
+            parse(value) {
+                return { value };
             }
         },
         workspace: {
@@ -32,7 +36,7 @@ function harness(overrides = {}) {
         },
         env: {
             async openExternal(uri) {
-                calls.push(['openExternal', uri.fsPath]);
+                calls.push(['openExternal', uri.fsPath || uri.value]);
                 return true;
             }
         },
@@ -224,4 +228,38 @@ test('reports missing and rejected files with localized messages', async () => {
     rejected.options.vscode.env.openExternal = async () => false;
     assert.equal(await openConsoleFile({ ...rejected.options, filePath }), 'error');
     assert.equal(rejected.calls.at(-1)[0], 'error');
+});
+
+test('opens verified directory and HTTP links by kind', async () => {
+    const directory = harness({
+        stat: async () => ({
+            isFile: () => false,
+            isDirectory: () => true
+        })
+    });
+    const directoryPath = path.resolve('/tmp/results');
+    assert.equal(await openConsoleLink({
+        ...directory.options,
+        link: { kind: 'directory', target: directoryPath }
+    }), 'directory');
+    assert.deepEqual(directory.calls, [['openExternal', directoryPath]]);
+
+    const web = harness();
+    assert.equal(await openConsoleLink({
+        ...web.options,
+        link: { kind: 'url', target: 'https://www.stata.com' }
+    }), 'url');
+    assert.deepEqual(web.calls, [['openExternal', 'https://www.stata.com']]);
+});
+
+test('rejects unsupported URL schemes', async () => {
+    const { calls, options } = harness();
+    assert.equal(await openConsoleLink({
+        ...options,
+        link: { kind: 'url', target: 'stata://summarize' }
+    }), 'missing');
+    assert.deepEqual(calls, [[
+        'warn',
+        'consoleFileNotFound:stata://summarize:'
+    ]]);
 });

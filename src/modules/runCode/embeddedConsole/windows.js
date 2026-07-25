@@ -11,12 +11,16 @@ const path = require('path');
 const session = require('./session');
 const { getTempFilePath, cleanupTempFile } = require('../execute/tempfile');
 const config = require('../../../utils/config');
-const { ensureSessionWorkingDirectory } = require('./workingDirectory');
+const {
+    ensureSessionWorkingDirectory,
+    syncSessionWorkingDirectory
+} = require('./workingDirectory');
 const { showInfo, showError, msg } = require('../../../utils/common');
 const { getInstallationSignals } = require('../stataDiscovery');
 const { ensureStataConfigured } = require('../stataInstallationResolver');
 const { getWebviewTerminalSink, setGraphResourceRoot, convertGraphSvgToBitmap } = require('./panel');
 const { beginGraphCapture, endGraphCapture, executeBitmapGraphExport, exportCapturedGraphs, getGraphCacheDir } = require('./graphs');
+const { startSmclSidecar } = require('./smclLinks');
 
 let _activeOutputSink = null;
 
@@ -426,6 +430,7 @@ async function runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir = null
     let runStartTime = null;
     let graphCaptureState = null;
     let graphDir = null;
+    let smclSidecar = null;
     const outputSink = getOutputSink();
 
     try {
@@ -472,6 +477,7 @@ async function runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir = null
         if (typeof outputSink.setWorkingDirectory === 'function') {
             outputSink.setWorkingDirectory(consoleSession.getWorkingDirectory());
         }
+        smclSidecar = await startSmclSidecar(consoleSession);
         graphCaptureState = await beginGraphCapture(consoleSession);
         executionPlan = createExecutionPlan(execCode, consoleSession.getWorkingDirectory());
         lastRealChunkAt = Date.now();
@@ -527,6 +533,11 @@ async function runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir = null
                     outputSink.setWorkingDetail(null);
                 }
             }
+            if (smclSidecar && typeof outputSink.enqueueSemanticLinks === 'function') {
+                smclSidecar.drain()
+                    .then(links => outputSink.enqueueSemanticLinks(links))
+                    .catch(() => {});
+            }
         };
 
         if (typeof outputSink.writeCommand === 'function') {
@@ -550,13 +561,13 @@ async function runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir = null
                 await writeChangedGraphs(consoleSession, graphDir, graphCaptureState, outputSink, true);
                 const cmdElapsed = Date.now() - cmdStart;
                 console.log(`Stata All in One: [${ci + 1}/${executionPlan.commands.length}] Done in ${cmdElapsed}ms, success=${result.success}, rc=${result.returnCode}`);
+                await syncSessionWorkingDirectory(consoleSession);
+                if (typeof outputSink.setWorkingDirectory === 'function') {
+                    outputSink.setWorkingDirectory(consoleSession.getWorkingDirectory());
+                }
                 if (!result.success) {
                     console.error(`Stata All in One: Command failed: ${result.error}`);
                     break;
-                }
-                updateWorkingDirectoryFromCode(consoleSession, command);
-                if (typeof outputSink.setWorkingDirectory === 'function') {
-                    outputSink.setWorkingDirectory(consoleSession.getWorkingDirectory());
                 }
             }
         } else {
@@ -564,11 +575,9 @@ async function runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir = null
             console.log(`Stata All in One: Executing single command via do-file: ${executionPlan.command.substring(0, 100)}`);
             // writeCommand already shows the code; echo:false avoids duplicate
             result = await executeConsoleCommand(consoleSession, graphDir, executionPlan.command, onExecutionChunk);
-            if (result.success && !executionPlan.tempFilePath) {
-                updateWorkingDirectoryFromCode(consoleSession, executionPlan.command);
-                if (typeof outputSink.setWorkingDirectory === 'function') {
-                    outputSink.setWorkingDirectory(consoleSession.getWorkingDirectory());
-                }
+            await syncSessionWorkingDirectory(consoleSession);
+            if (typeof outputSink.setWorkingDirectory === 'function') {
+                outputSink.setWorkingDirectory(consoleSession.getWorkingDirectory());
             }
             console.log(`Stata All in One: Do-file execution done in ${Date.now() - cmdStart}ms, success=${result.success}`);
         }
@@ -606,7 +615,6 @@ async function runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir = null
             };
         }
 
-        updateWorkingDirectoryFromCode(consoleSession, normalizedCode);
         if (typeof outputSink.setWorkingDirectory === 'function') {
             outputSink.setWorkingDirectory(consoleSession.getWorkingDirectory());
         }
@@ -629,6 +637,14 @@ async function runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir = null
         };
     } finally {
         outputSink.flushOutput();
+        if (smclSidecar) {
+            const links = await smclSidecar.finish();
+            if (typeof outputSink.applySemanticLinksWithRetry === 'function') {
+                await outputSink.applySemanticLinksWithRetry(links);
+            } else if (typeof outputSink.applySemanticLinks === 'function') {
+                outputSink.applySemanticLinks(links);
+            }
+        }
         const activeSession = session.getActiveSession();
         if (activeSession) {
             await endGraphCapture(activeSession, graphCaptureState);
@@ -723,33 +739,6 @@ async function ensureWebviewBootstrap(consoleSession) {
     consoleSession.setBootstrapped(true);
 }
 
-function updateWorkingDirectoryFromCode(consoleSession, codeToRun) {
-    const nextWorkingDirectory = extractLastCdTarget(codeToRun, consoleSession.getWorkingDirectory());
-    if (nextWorkingDirectory) {
-        consoleSession.setWorkingDirectory(nextWorkingDirectory);
-    }
-}
-
-function extractLastCdTarget(codeToRun, currentWorkingDirectory) {
-    const lines = String(codeToRun || '')
-        .replace(/\r\n/g, '\n')
-        .split('\n')
-        .map(line => line.trim())
-        .filter(Boolean);
-
-    let workingDirectory = currentWorkingDirectory || null;
-    for (const line of lines) {
-        const cdTarget = parseCdCommand(line);
-        if (!cdTarget) {
-            continue;
-        }
-
-        workingDirectory = resolveWorkingDirectory(cdTarget, workingDirectory);
-    }
-
-    return workingDirectory;
-}
-
 function parseCdCommand(line) {
     const quotedMatch = line.match(/^cd\s+"((?:[^"]|"")*)"$/i);
     if (quotedMatch) {
@@ -762,22 +751,6 @@ function parseCdCommand(line) {
     }
 
     return null;
-}
-
-function resolveWorkingDirectory(targetPath, currentWorkingDirectory) {
-    if (!targetPath) {
-        return currentWorkingDirectory || null;
-    }
-
-    if (path.isAbsolute(targetPath)) {
-        return path.normalize(targetPath);
-    }
-
-    if (currentWorkingDirectory) {
-        return path.resolve(currentWorkingDirectory, targetPath);
-    }
-
-    return path.resolve(targetPath);
 }
 
 function createExecutionPlan(codeToRun, workingDirectory) {

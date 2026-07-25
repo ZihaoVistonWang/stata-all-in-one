@@ -1,19 +1,16 @@
-const PWD_BEGIN_MARKER = '__SAIO_PWD_BEGIN__';
-const PWD_END_MARKER = '__SAIO_PWD_END__';
+const { readSilentStataValue } = require('./silentStataValue');
 
-function parseStataWorkingDirectory(output) {
-    const text = String(output || '');
-    const start = text.indexOf(PWD_BEGIN_MARKER);
-    const end = text.indexOf(PWD_END_MARKER, start + PWD_BEGIN_MARKER.length);
-    if (start < 0 || end < 0) {
-        return null;
+async function querySessionWorkingDirectory(consoleSession) {
+    return readSilentStataValue(consoleSession, '(c(pwd))');
+}
+
+async function syncSessionWorkingDirectory(consoleSession) {
+    const workingDirectory = await querySessionWorkingDirectory(consoleSession);
+    if (workingDirectory) {
+        consoleSession.setWorkingDirectory(workingDirectory);
+        return workingDirectory;
     }
-
-    const value = text
-        .slice(start + PWD_BEGIN_MARKER.length, end)
-        .replace(/\r?\n/g, '')
-        .trim();
-    return value || null;
+    return consoleSession.getWorkingDirectory() || null;
 }
 
 async function ensureSessionWorkingDirectory(consoleSession, docDir, cdToDoFileDir) {
@@ -32,15 +29,7 @@ async function ensureSessionWorkingDirectory(consoleSession, docDir, cdToDoFileD
         return docDir;
     }
 
-    const result = await consoleSession.execute(
-        `display "${PWD_BEGIN_MARKER}" c(pwd) "${PWD_END_MARKER}"`,
-        false
-    );
-    if (!result.success) {
-        throw new Error(result.error || 'Failed to read the Stata working directory.');
-    }
-
-    const workingDirectory = parseStataWorkingDirectory(result.output);
+    const workingDirectory = await querySessionWorkingDirectory(consoleSession);
     if (!workingDirectory) {
         throw new Error('Stata returned an invalid working directory.');
     }
@@ -50,5 +39,6 @@ async function ensureSessionWorkingDirectory(consoleSession, docDir, cdToDoFileD
 
 module.exports = {
     ensureSessionWorkingDirectory,
-    parseStataWorkingDirectory
+    querySessionWorkingDirectory,
+    syncSessionWorkingDirectory
 };

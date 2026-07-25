@@ -4,7 +4,8 @@ const childProcess = require('child_process');
 const {
     isImageFilePath,
     isStataFilePath,
-    isTextFilePath
+    isTextFilePath,
+    isVerifiedWebTarget
 } = require('./fileLinks');
 const { defaultApplicationName } = require('./externalApplication');
 
@@ -163,8 +164,56 @@ async function openConsoleFile(options) {
     }
 }
 
+async function openConsoleLink(options) {
+    const link = options && options.link || {};
+    const kind = String(link.kind || 'file');
+    const target = String(link.target || '').trim();
+    if (kind === 'url') {
+        if (!isVerifiedWebTarget(target)) {
+            options.showWarn(options.message('consoleFileNotFound', { filePath: target }));
+            return 'missing';
+        }
+        const opened = await options.vscode.env.openExternal(options.vscode.Uri.parse(target));
+        return opened ? 'url' : 'error';
+    }
+    if (kind === 'directory') {
+        try {
+            const stat = await (options.stat || fs.promises.stat)(target);
+            if (!stat.isDirectory()) {
+                options.showWarn(options.message('consoleFileNotFound', { filePath: target }));
+                return 'missing';
+            }
+            const opened = await openWithSystemDefault(
+                target,
+                options.vscode.Uri.file(target),
+                options.vscode,
+                {
+                    platform: options.platform || process.platform,
+                    spawn: options.spawn || childProcess.spawn
+                }
+            );
+            return opened ? 'directory' : 'error';
+        } catch (error) {
+            if (error && error.code === 'ENOENT') {
+                options.showWarn(options.message('consoleFileNotFound', { filePath: target }));
+                return 'missing';
+            }
+            options.showError(options.message('consoleFileOpenFailed', {
+                filePath: target,
+                error: error && error.message ? error.message : String(error)
+            }));
+            return 'error';
+        }
+    }
+    return openConsoleFile({
+        ...options,
+        filePath: target
+    });
+}
+
 module.exports = {
     isAbsoluteFilePath,
+    openConsoleLink,
     openConsoleFile,
     openWithSystemDefault,
     showExternalOpenNotice

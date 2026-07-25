@@ -11,11 +11,15 @@ const childProcess = require('child_process');
 const session = require('./session');
 const { getTempFilePath, cleanupTempFile } = require('../execute/tempfile');
 const config = require('../../../utils/config');
-const { ensureSessionWorkingDirectory } = require('./workingDirectory');
+const {
+    ensureSessionWorkingDirectory,
+    syncSessionWorkingDirectory
+} = require('./workingDirectory');
 const { showInfo, showError, msg } = require('../../../utils/common');
 const { ensureStataConfigured } = require('../stataInstallationResolver');
 const { getWebviewTerminalSink, setGraphResourceRoot, convertGraphSvgToBitmap } = require('./panel');
 const { beginGraphCapture, endGraphCapture, executeBitmapGraphExport, exportCapturedGraphs, getGraphCacheDir } = require('./graphs');
+const { startSmclSidecar } = require('./smclLinks');
 
 let _activeOutputSink = null;
 
@@ -542,6 +546,7 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
     let runStartTime = null;
     let graphCaptureState = null;
     let graphDir = null;
+    let smclSidecar = null;
     const outputSink = getOutputSink();
 
     try {
@@ -588,6 +593,7 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
         if (typeof outputSink.setWorkingDirectory === 'function') {
             outputSink.setWorkingDirectory(consoleSession.getWorkingDirectory());
         }
+        smclSidecar = await startSmclSidecar(consoleSession);
         graphCaptureState = await beginGraphCapture(consoleSession);
         executionPlan = createExecutionPlan(execCode, consoleSession.getWorkingDirectory());
         lastRealChunkAt = Date.now();
@@ -640,6 +646,11 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
                     outputSink.setWorkingDetail(null);
                 }
             }
+            if (smclSidecar && typeof outputSink.enqueueSemanticLinks === 'function') {
+                smclSidecar.drain()
+                    .then(links => outputSink.enqueueSemanticLinks(links))
+                    .catch(() => {});
+            }
         };
 
         if (typeof outputSink.writeCommand === 'function') {
@@ -657,22 +668,20 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
                 }
                 result = await executeConsoleCommand(consoleSession, graphDir, command, onExecutionChunk);
                 await writeChangedGraphs(consoleSession, graphDir, graphCaptureState, outputSink, true);
-                if (!result.success) {
-                    break;
-                }
-                updateWorkingDirectoryFromCode(consoleSession, command);
+                await syncSessionWorkingDirectory(consoleSession);
                 if (typeof outputSink.setWorkingDirectory === 'function') {
                     outputSink.setWorkingDirectory(consoleSession.getWorkingDirectory());
+                }
+                if (!result.success) {
+                    break;
                 }
             }
         } else {
             // writeCommand already shows the code; echo:false avoids duplicate
             result = await executeConsoleCommand(consoleSession, graphDir, executionPlan.command, onExecutionChunk);
-            if (result.success && !executionPlan.tempFilePath) {
-                updateWorkingDirectoryFromCode(consoleSession, executionPlan.command);
-                if (typeof outputSink.setWorkingDirectory === 'function') {
-                    outputSink.setWorkingDirectory(consoleSession.getWorkingDirectory());
-                }
+            await syncSessionWorkingDirectory(consoleSession);
+            if (typeof outputSink.setWorkingDirectory === 'function') {
+                outputSink.setWorkingDirectory(consoleSession.getWorkingDirectory());
             }
         }
 
@@ -709,7 +718,6 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
             };
         }
 
-        updateWorkingDirectoryFromCode(consoleSession, normalizedCode);
         if (typeof outputSink.setWorkingDirectory === 'function') {
             outputSink.setWorkingDirectory(consoleSession.getWorkingDirectory());
         }
@@ -732,6 +740,14 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
         };
     } finally {
         outputSink.flushOutput();
+        if (smclSidecar) {
+            const links = await smclSidecar.finish();
+            if (typeof outputSink.applySemanticLinksWithRetry === 'function') {
+                await outputSink.applySemanticLinksWithRetry(links);
+            } else if (typeof outputSink.applySemanticLinks === 'function') {
+                outputSink.applySemanticLinks(links);
+            }
+        }
         const activeSession = session.getActiveSession();
         if (activeSession) {
             await endGraphCapture(activeSession, graphCaptureState);
@@ -822,33 +838,6 @@ async function ensureWebviewBootstrap(consoleSession) {
     consoleSession.setBootstrapped(true);
 }
 
-function updateWorkingDirectoryFromCode(consoleSession, codeToRun) {
-    const nextWorkingDirectory = extractLastCdTarget(codeToRun, consoleSession.getWorkingDirectory());
-    if (nextWorkingDirectory) {
-        consoleSession.setWorkingDirectory(nextWorkingDirectory);
-    }
-}
-
-function extractLastCdTarget(codeToRun, currentWorkingDirectory) {
-    const lines = String(codeToRun || '')
-        .replace(/\r\n/g, '\n')
-        .split('\n')
-        .map(line => line.trim())
-        .filter(Boolean);
-
-    let workingDirectory = currentWorkingDirectory || null;
-    for (const line of lines) {
-        const cdTarget = parseCdCommand(line);
-        if (!cdTarget) {
-            continue;
-        }
-
-        workingDirectory = resolveWorkingDirectory(cdTarget, workingDirectory);
-    }
-
-    return workingDirectory;
-}
-
 function parseCdCommand(line) {
     const quotedMatch = line.match(/^cd\s+"((?:[^"]|"")*)"$/i);
     if (quotedMatch) {
@@ -861,22 +850,6 @@ function parseCdCommand(line) {
     }
 
     return null;
-}
-
-function resolveWorkingDirectory(targetPath, currentWorkingDirectory) {
-    if (!targetPath) {
-        return currentWorkingDirectory || null;
-    }
-
-    if (path.isAbsolute(targetPath)) {
-        return path.normalize(targetPath);
-    }
-
-    if (currentWorkingDirectory) {
-        return path.resolve(currentWorkingDirectory, targetPath);
-    }
-
-    return path.resolve(targetPath);
 }
 
 function createExecutionPlan(codeToRun, workingDirectory) {

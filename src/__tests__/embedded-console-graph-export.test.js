@@ -131,23 +131,30 @@ test('reset capture windows preserve repeated identical graphs without probing o
         const executedCommands = [];
         const consoleSession = {
             async execute(command) {
-                executedCommands.push(command);
-                if (command === 'quietly _gr_list on') {
+                const runMatch = String(command).match(/^run "([^"]+)"$/);
+                const executed = runMatch
+                    ? fs.readFileSync(runMatch[1], 'utf8')
+                    : command;
+                executedCommands.push(executed);
+                if (executed === 'quietly _gr_list on') {
                     return { success: true, returnCode: 0, output: '' };
                 }
-                if (command === 'quietly _gr_list off') {
+                if (executed === 'quietly _gr_list off') {
                     graphNames = [];
                     return { success: true, returnCode: 0, output: '' };
                 }
-                if (command === 'quietly _gr_list list') {
+                if (executed === 'quietly _gr_list list') {
                     return { success: true, returnCode: 0, output: '' };
                 }
-                if (command === 'display "`r(_grlist)\'"') {
-                    return { success: true, returnCode: 0, output: graphNames.join(' ') };
+                const valueFile = String(executed).match(/file open \S+ using "([^"]+)"/);
+                if (valueFile) {
+                    assert.doesNotMatch(executed, /\bdisplay\b/);
+                    fs.writeFileSync(valueFile[1], graphNames.join(' '), 'utf8');
+                    return { success: true, returnCode: 0, output: '' };
                 }
 
-                const match = String(command).match(/graph export "((?:[^"]|"")+)"/i);
-                assert.ok(match, `unexpected command: ${command}`);
+                const match = String(executed).match(/graph export "((?:[^"]|"")+)"/i);
+                assert.ok(match, `unexpected command: ${executed}`);
                 fs.writeFileSync(match[1].replace(/""/g, '"'), TEST_SVG);
                 return { success: true, returnCode: 0, output: '' };
             }
