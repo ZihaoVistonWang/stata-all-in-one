@@ -18,6 +18,7 @@ const config = require('../../../utils/config');
 const capability = require('../../capability');
 const { hasOpenStataSourceTab } = require('./editorRestorePolicy');
 const { createExportFilename, serializeConsoleExport } = require('./consoleExport');
+const { appendConsoleHistory } = require('./consoleHistory');
 
 const _renderer = new StataTerminalRenderer();
 
@@ -430,10 +431,7 @@ function appendEntries(entries) {
         return;
     }
 
-    _history.push(...normalized);
-    if (_history.length > 1200) {
-        _history = _history.slice(-1200);
-    }
+    _history = appendConsoleHistory(_history, normalized);
 
     if (_panel) {
         _panel.webview.postMessage({
