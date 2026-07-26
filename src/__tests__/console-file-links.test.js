@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 
 const {
+    applySmclLinksToEntries,
     commandFileCandidates,
     collectVerifiedOutputLinks,
     decorateCommandEntries,
@@ -331,6 +332,35 @@ test('asynchronous fallback emits suggestions only for verified existing files',
         'D:\\results\\existing.docx'
     ]);
     assert.ok(links.every(link => link.verifiedLink.verified));
+});
+
+test('applies one verified path to every independently detected output occurrence', async () => {
+    const entries = [
+        entry('statistics.xls', 'default'),
+        entry(
+            'Fix applied: Converted XLS to UTF-8 encoding for statistics.xls!',
+            'default'
+        )
+    ];
+    let statCalls = 0;
+    const suggestions = await collectVerifiedOutputLinks(entries, '/project', {
+        stat: async value => {
+            statCalls += 1;
+            assert.equal(value, '/project/statistics.xls');
+            return {
+                isFile: () => true,
+                isDirectory: () => false
+            };
+        }
+    });
+    const result = applySmclLinksToEntries(entries, suggestions, '/project');
+
+    assert.equal(statCalls, 1);
+    assert.equal(suggestions.length, 1);
+    assert.deepEqual(
+        links(result).map(segment => segment.text),
+        ['statistics.xls', 'statistics.xls']
+    );
 });
 
 test('asynchronous SMCL validation drops missing local targets', async () => {

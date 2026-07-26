@@ -477,12 +477,22 @@ function entryCharacterMap(entries) {
 async function collectVerifiedOutputLinks(entries, cwd, options = {}) {
     const list = Array.isArray(entries) ? entries : [];
     const candidates = [];
-    for (const entry of list) {
+    for (let entryIndex = 0; entryIndex < list.length; entryIndex += 1) {
+        const entry = list[entryIndex];
         const text = entryText(entry);
         const isCommand = ['command', 'comment-command'].includes(
             String(entry && entry.kind || '')
         ) || /^[.>]\s/.test(text);
-        if (!isCommand) candidates.push(...outputFileCandidates(text));
+        if (!isCommand) {
+            candidates.push(...outputFileCandidates(text).map(candidate => ({
+                ...candidate,
+                occurrences: [{
+                    entryIndex,
+                    start: candidate.start,
+                    end: candidate.end
+                }]
+            })));
+        }
     }
 
     const flattened = entryCharacterMap(list);
@@ -493,15 +503,32 @@ async function collectVerifiedOutputLinks(entries, cwd, options = {}) {
                 .filter(Boolean)
                 .map(point => point.entryIndex)
         );
-        if (coveredEntries.size >= 2) candidates.push(candidate);
+        if (coveredEntries.size >= 2) {
+            candidates.push({
+                ...candidate,
+                occurrences: [{
+                    canonicalStart: candidate.start,
+                    canonicalEnd: candidate.end
+                }]
+            });
+        }
+    }
+
+    const groupedCandidates = new Map();
+    for (const candidate of candidates) {
+        if (!groupedCandidates.has(candidate.value)) {
+            groupedCandidates.set(candidate.value, {
+                value: candidate.value,
+                occurrences: []
+            });
+        }
+        groupedCandidates.get(candidate.value).occurrences.push(
+            ...(candidate.occurrences || [])
+        );
     }
 
     const links = [];
-    const seen = new Set();
-    for (const candidate of candidates) {
-        const key = candidate.value;
-        if (seen.has(key)) continue;
-        seen.add(key);
+    for (const candidate of groupedCandidates.values()) {
         const link = await verifiedLocalLinkAsync(candidate.value, cwd, {
             ...options,
             source: 'extension-fallback'
@@ -512,7 +539,8 @@ async function collectVerifiedOutputLinks(entries, cwd, options = {}) {
             target: link.target,
             label: candidate.value,
             source: 'extension-fallback',
-            verifiedLink: link
+            verifiedLink: link,
+            occurrences: candidate.occurrences
         });
     }
     return links;
@@ -700,6 +728,48 @@ function applySmclLinksToEntries(entries, smclLinks, cwd, options = {}) {
 
         const target = String(semantic.target || '');
         const label = String(semantic.label || '');
+        if (semantic.source === 'extension-fallback'
+            && Array.isArray(semantic.occurrences)
+            && semantic.occurrences.length) {
+            let occurrenceApplied = false;
+            for (const occurrence of semantic.occurrences) {
+                if (Number.isInteger(occurrence.entryIndex)) {
+                    const entryIndex = occurrence.entryIndex;
+                    if (entryIndex < 0 || entryIndex >= list.length) continue;
+                    const text = entryText(list[entryIndex]);
+                    if (text.slice(occurrence.start, occurrence.end) !== label) continue;
+                    addRange(
+                        rangesByEntry,
+                        entryIndex,
+                        occurrence.start,
+                        occurrence.end,
+                        link
+                    );
+                    occurrenceApplied = true;
+                    continue;
+                }
+                if (Number.isInteger(occurrence.canonicalStart)
+                    && Number.isInteger(occurrence.canonicalEnd)
+                    && flattened.text.slice(
+                        occurrence.canonicalStart,
+                        occurrence.canonicalEnd
+                    ) === label) {
+                    mapCanonicalRange(
+                        flattened.map,
+                        occurrence.canonicalStart,
+                        occurrence.canonicalEnd,
+                        link,
+                        rangesByEntry
+                    );
+                    occurrenceApplied = true;
+                }
+            }
+            if (occurrenceApplied) {
+                applied += 1;
+                continue;
+            }
+        }
+
         const exactValues = [target];
         if (semantic.source === 'smcl-explicit' || semantic.source === 'extension-fallback') {
             exactValues.push(label);
