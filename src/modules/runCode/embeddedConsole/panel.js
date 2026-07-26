@@ -448,6 +448,9 @@ function postHistoryPage(message) {
     if (!_panel) {
         return;
     }
+    if (message && message.force && message.mode === 'tail') {
+        discardPendingWebviewAppends();
+    }
     const requestedRevision = Number(message && message.historyRevision);
     if (Number.isFinite(requestedRevision) && requestedRevision !== _historyRevision) {
         postState();
@@ -1441,6 +1444,48 @@ function getWebviewHtml(webview) {
             color: #f14c4c66;
             transition: color 120ms ease;
         }
+        #jump-bottom-button {
+            position: fixed;
+            right: 18px;
+            bottom: 106px;
+            z-index: 4;
+            width: 30px;
+            height: 30px;
+            padding: 0;
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: 999px;
+            background: color-mix(in srgb, var(--vscode-editor-background) 88%, var(--vscode-sideBar-background));
+            color: var(--vscode-foreground);
+            box-shadow: 0 3px 12px color-mix(in srgb, #000 24%, transparent);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transform: translateY(5px);
+            transition: opacity 120ms ease, transform 120ms ease, visibility 120ms ease, background-color 120ms ease;
+        }
+        #jump-bottom-button.visible {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+            transform: translateY(0);
+        }
+        #jump-bottom-button:hover {
+            background: var(--vscode-toolbar-hoverBackground);
+        }
+        #jump-bottom-button:focus-visible {
+            outline: 1px solid var(--vscode-focusBorder);
+            outline-offset: 2px;
+        }
+        #jump-bottom-button svg {
+            width: 16px;
+            height: 16px;
+            fill: currentColor;
+            pointer-events: none;
+        }
         body[data-status="running"] #stop-button,
         body[data-status="stopping"] #stop-button {
             color: #f14c4c;
@@ -2013,6 +2058,11 @@ function getWebviewHtml(webview) {
             <span class="working-meta">(<span id="working-seconds">0s</span><span id="working-detail-shell" hidden> • <span id="working-detail"></span></span> • esc to interrupt)</span>
         </div>
     </div>
+    <button id="jump-bottom-button" type="button" title="${escapeHtml(msg('webviewJumpToBottom'))}" aria-label="${escapeHtml(msg('webviewJumpToBottom'))}">
+        <svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" fill="currentColor" aria-hidden="true">
+            <path d="M12.1464 7.14645C12.3417 6.95119 12.6583 6.95119 12.8536 7.14645C13.0488 7.34171 13.0488 7.65829 12.8536 7.85355L8.35355 12.3536C8.15829 12.5488 7.84171 12.5488 7.64645 12.3536L3.14645 7.85355C2.95118 7.65829 2.95118 7.34171 3.14645 7.14645C3.34171 6.95118 3.65829 6.95118 3.85355 7.14645L8 11.2929L12.1464 7.14645ZM12.1464 3.14645C12.3417 2.95119 12.6583 2.95119 12.8536 3.14645C13.0488 3.34171 13.0488 3.65829 12.8536 3.85355L8.35355 8.35355C8.15829 8.54882 7.84171 8.54882 7.64645 8.35355L3.14645 3.85355C2.95118 3.65829 2.95118 3.34171 3.14645 3.14645C3.34171 2.95118 3.65829 2.95118 3.85355 3.14645L8 7.29289L12.1464 3.14645Z"></path>
+        </svg>
+    </button>
     <div id="resize-handle" title="${escapeHtml(msg('webviewDragResizeTip'))}"></div>
     <div id="graph-fullscreen" class="graph-fullscreen" hidden>
         <button id="graph-fullscreen-close" class="graph-action graph-fullscreen-close codicon-close" type="button" title="${escapeHtml(msg('graphClose'))}" aria-label="${escapeHtml(msg('graphClose'))}"></button>
@@ -2048,6 +2098,7 @@ function getWebviewHtml(webview) {
         const clearButton = document.getElementById('clear-button');
         const dataButton = document.getElementById('data-button');
         const exportButton = document.getElementById('export-button');
+        const jumpBottomButton = document.getElementById('jump-bottom-button');
         const graphFullscreen = document.getElementById('graph-fullscreen');
         const graphFullscreenImage = document.getElementById('graph-fullscreen-image');
         const graphFullscreenClose = document.getElementById('graph-fullscreen-close');
@@ -2642,8 +2693,8 @@ function getWebviewHtml(webview) {
             });
         }
 
-        function requestHistoryPage(start, limit, mode) {
-            if (pendingHistoryRequestId) {
+        function requestHistoryPage(start, limit, mode, force) {
+            if (pendingHistoryRequestId && !force) {
                 return;
             }
             historyRequestSequence += 1;
@@ -2652,17 +2703,19 @@ function getWebviewHtml(webview) {
                 type: 'requestHistoryPage',
                 requestId: pendingHistoryRequestId,
                 mode: mode || '',
+                force: Boolean(force),
                 historyRevision,
                 start: Math.max(0, Number(start) || 0),
                 limit: Math.max(1, Number(limit) || HISTORY_PAGE_SIZE)
             });
         }
 
-        function requestHistoryTail() {
+        function requestHistoryTail(force) {
             requestHistoryPage(
                 Math.max(0, totalHistoryEntries - HISTORY_WINDOW_SIZE),
                 HISTORY_WINDOW_SIZE,
-                'tail'
+                'tail',
+                Boolean(force)
             );
         }
 
@@ -2832,6 +2885,23 @@ function getWebviewHtml(webview) {
         function updateExportButtonState() {
             const status = document.body.dataset.status;
             exportButton.disabled = status === 'running' || status === 'restarting' || totalHistoryEntries === 0;
+            updateJumpToBottomButtonState();
+        }
+
+        function positionJumpToBottomButton() {
+            const composerTop = composer.getBoundingClientRect().top;
+            const bottomOffset = Math.max(12, window.innerHeight - composerTop + 12);
+            jumpBottomButton.style.bottom = bottomOffset + 'px';
+        }
+
+        function updateJumpToBottomButtonState() {
+            const windowEnd = renderedWindowStart + renderedEntries.length;
+            const isAtLatestBottom = windowEnd >= totalHistoryEntries && isOutputAtBottom();
+            jumpBottomButton.classList.toggle(
+                'visible',
+                totalHistoryEntries > 0 && !isAtLatestBottom
+            );
+            positionJumpToBottomButton();
         }
 
         function renderAllEntries() {
@@ -2849,6 +2919,7 @@ function getWebviewHtml(webview) {
         let historyScrollFrame = 0;
         output.addEventListener('scroll', () => {
             followOutputTail = isOutputAtBottom();
+            updateJumpToBottomButtonState();
             if (historyScrollFrame) {
                 return;
             }
@@ -3471,6 +3542,7 @@ function getWebviewHtml(webview) {
             const maxHeight = document.body.offsetHeight - 60;
             newHeight = Math.min(maxHeight, newHeight);
             composer.style.height = newHeight + 'px';
+            positionJumpToBottomButton();
         });
 
         document.addEventListener('mouseup', () => {
@@ -3483,6 +3555,17 @@ function getWebviewHtml(webview) {
 
         stopButton.addEventListener('click', () => {
             vscode.postMessage({ type: 'stopExecution' });
+        });
+
+        jumpBottomButton.addEventListener('click', () => {
+            followOutputTail = true;
+            const windowEnd = renderedWindowStart + renderedEntries.length;
+            if (windowEnd < totalHistoryEntries) {
+                requestHistoryTail(true);
+            } else {
+                scrollOutputToBottom();
+            }
+            updateJumpToBottomButtonState();
         });
 
         clearButton.addEventListener('click', () => {
@@ -3532,6 +3615,7 @@ function getWebviewHtml(webview) {
         });
         window.addEventListener('focus', refreshWorkingIndicatorAfterResume);
         window.addEventListener('pageshow', refreshWorkingIndicatorAfterResume);
+        window.addEventListener('resize', positionJumpToBottomButton);
 
         window.addEventListener('keydown', (event) => {
             if (event.key === 'Escape' && graphFullscreen.classList.contains('visible')) {
