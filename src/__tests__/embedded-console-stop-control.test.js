@@ -34,6 +34,10 @@ test('keeps Stop and Escape active while Stata is stopping without rewriting use
     assert.equal(panelSource.includes('followOutputTail = true;'), true);
     assert.equal(panelSource.includes('const shouldStick = followOutputTail || isOutputAtBottom();'), true);
     assert.equal(panelSource.includes('id="jump-bottom-button"'), true);
+    assert.match(
+        panelSource,
+        /#jump-bottom-button\s*\{[\s\S]*?right:\s*40px;[\s\S]*?border:\s*1px solid var\(--vscode-focusBorder\);[\s\S]*?border-radius:\s*6px;/
+    );
     assert.equal(panelSource.includes('requestHistoryTail(true);'), true);
     assert.equal(extensionSource.includes("setWebviewTerminalStatus('stopping')"), true);
     assert.equal(macSource.includes('instrumentStataLoops'), false);

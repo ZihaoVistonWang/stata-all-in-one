@@ -1447,14 +1447,14 @@ function getWebviewHtml(webview) {
         }
         #jump-bottom-button {
             position: fixed;
-            right: 18px;
+            right: 40px;
             bottom: 106px;
             z-index: 4;
             width: 30px;
             height: 30px;
             padding: 0;
-            border: 1px solid var(--vscode-panel-border);
-            border-radius: 999px;
+            border: 1px solid var(--vscode-focusBorder);
+            border-radius: 6px;
             background: color-mix(in srgb, var(--vscode-editor-background) 88%, var(--vscode-sideBar-background));
             color: var(--vscode-foreground);
             box-shadow: 0 3px 12px color-mix(in srgb, #000 24%, transparent);
