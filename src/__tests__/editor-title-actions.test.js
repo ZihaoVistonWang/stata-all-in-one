@@ -34,3 +34,23 @@ test('AI editor-title button uses the full Stata AI Skill label', () => {
     assert.equal(englishMessages['command.showAISkillDialog.title'], 'Stata AI Skill');
     assert.equal(chineseMessages['command.showAISkillDialog.title'], 'Stata AI Skill');
 });
+
+test('run button and shortcut switch together with the Shift setting', () => {
+    const defaultCommand = 'stata-all-in-one.runSection';
+    const shiftCommand = 'stata-all-in-one.runSectionWithShiftShortcut';
+    const defaultBinding = packageJson.contributes.keybindings.find(
+        item => item.command === defaultCommand
+    );
+    const shiftBinding = packageJson.contributes.keybindings.find(
+        item => item.command === shiftCommand
+    );
+    const defaultButton = getEditorTitleItem(defaultCommand);
+    const shiftButton = getEditorTitleItem(shiftCommand);
+
+    assert.equal(defaultBinding.mac, 'cmd+d');
+    assert.equal(shiftBinding.mac, 'cmd+shift+d');
+    assert.match(defaultBinding.when, /!config\.stata-all-in-one\.enableCtrlShiftD/);
+    assert.match(shiftBinding.when, /config\.stata-all-in-one\.enableCtrlShiftD/);
+    assert.match(defaultButton.when, /!config\.stata-all-in-one\.enableCtrlShiftD/);
+    assert.match(shiftButton.when, /config\.stata-all-in-one\.enableCtrlShiftD/);
+});

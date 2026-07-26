@@ -264,6 +264,11 @@
         "icon": "$(play)"
       },
       {
+        "command": "stata-all-in-one.runSectionWithShiftShortcut",
+        "title": "%command.runSection.title%",
+        "icon": "$(play)"
+      },
+      {
         "command": "stata-all-in-one.openSettings",
         "title": "%command.openSettings.title%",
         "icon": "$(settings-gear)"
@@ -361,16 +366,16 @@
     ],
     "keybindings": [
       {
+        "command": "stata-all-in-one.runSectionWithShiftShortcut",
+        "key": "ctrl+shift+d",
+        "mac": "cmd+shift+d",
+        "when": "editorTextFocus && editorLangId == stata && config.stata-all-in-one.enableCtrlShiftD"
+      },
+      {
         "command": "stata-all-in-one.runSection",
         "key": "ctrl+d",
         "mac": "cmd+d",
         "when": "editorTextFocus && editorLangId == stata && !config.stata-all-in-one.enableCtrlShiftD"
-      },
-      {
-        "command": "stata-all-in-one.runSection",
-        "key": "ctrl+shift+d",
-        "mac": "cmd+shift+d",
-        "when": "editorTextFocus && editorLangId == stata && config.stata-all-in-one.enableCtrlShiftD"
       },
       {
         "command": "stata-all-in-one.insertSeparatorDash",
@@ -483,7 +488,12 @@
         },
         {
           "command": "stata-all-in-one.runSection",
-          "when": "editorLangId == stata",
+          "when": "editorLangId == stata && !config.stata-all-in-one.enableCtrlShiftD",
+          "group": "navigation@2"
+        },
+        {
+          "command": "stata-all-in-one.runSectionWithShiftShortcut",
+          "when": "editorLangId == stata && config.stata-all-in-one.enableCtrlShiftD",
           "group": "navigation@2"
         },
         {
@@ -495,8 +505,19 @@
       "view/title": [
         {
           "command": "stata-all-in-one.runSection",
-          "when": "view == outline && resourceLangId == stata",
+          "when": "view == outline && resourceLangId == stata && !config.stata-all-in-one.enableCtrlShiftD",
           "group": "navigation"
+        },
+        {
+          "command": "stata-all-in-one.runSectionWithShiftShortcut",
+          "when": "view == outline && resourceLangId == stata && config.stata-all-in-one.enableCtrlShiftD",
+          "group": "navigation"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "stata-all-in-one.runSectionWithShiftShortcut",
+          "when": "false"
         }
       ]
     }

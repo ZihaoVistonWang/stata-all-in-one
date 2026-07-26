@@ -20,6 +20,7 @@ const { ensureStataConfigured } = require('../stataInstallationResolver');
 const { getWebviewTerminalSink, setGraphResourceRoot, convertGraphSvgToBitmap } = require('./panel');
 const { beginGraphCapture, endGraphCapture, executeBitmapGraphExport, exportCapturedGraphs, getGraphCacheDir } = require('./graphs');
 const { startSmclSidecar } = require('./smclLinks');
+const { normalizeStandaloneCdCommand } = require('./commandParsing');
 
 let _activeOutputSink = null;
 
@@ -838,20 +839,6 @@ async function ensureWebviewBootstrap(consoleSession) {
     consoleSession.setBootstrapped(true);
 }
 
-function parseCdCommand(line) {
-    const quotedMatch = line.match(/^cd\s+"((?:[^"]|"")*)"$/i);
-    if (quotedMatch) {
-        return quotedMatch[1].replace(/""/g, '"');
-    }
-
-    const bareMatch = line.match(/^cd\s+(.+)$/i);
-    if (bareMatch) {
-        return bareMatch[1].trim();
-    }
-
-    return null;
-}
-
 function createExecutionPlan(codeToRun, workingDirectory) {
     const lines = String(codeToRun || '')
         .replace(/\r\n/g, '\n')
@@ -867,9 +854,12 @@ function createExecutionPlan(codeToRun, workingDirectory) {
         };
     }
 
-    if (lines.length === 1 && isStandaloneCdCommand(lines[0])) {
+    const standaloneCdCommand = lines.length === 1
+        ? normalizeStandaloneCdCommand(lines[0])
+        : null;
+    if (standaloneCdCommand) {
         return {
-            command: lines[0],
+            command: standaloneCdCommand,
             commands: null,
             displayCode: lines.join('\n'),
             tempFilePath: null
@@ -1010,10 +1000,6 @@ function stripTrailingLineComment(line) {
         }
     }
     return line;
-}
-
-function isStandaloneCdCommand(line) {
-    return parseCdCommand(String(line || '').trim()) !== null;
 }
 
 function shouldUseDoFileForSingleLine(line) {

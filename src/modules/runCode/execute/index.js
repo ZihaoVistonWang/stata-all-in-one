@@ -502,18 +502,21 @@ async function maybeOfferGuiFallback(codeToRun, tmpFilePath, docDir, context, re
 
 /**
  * 注册执行命令
- * 将 'stata-all-in-one.runSection' 命令绑定到调度函数
+ * 将两种快捷键对应的运行命令绑定到同一调度函数
  * 
  * @param {vscode.ExtensionContext} context - VS Code 扩展上下文
  */
 function registerExecuteCommand(context) {
-    const disposable = vscode.commands.registerCommand(
+    const runHandler = async () => {
+        await runCurrentSection(context);
+    };
+    const commands = [
         'stata-all-in-one.runSection',
-        async () => {
-            await runCurrentSection(context);
-        }
+        'stata-all-in-one.runSectionWithShiftShortcut'
+    ];
+    context.subscriptions.push(
+        ...commands.map(command => vscode.commands.registerCommand(command, runHandler))
     );
-    context.subscriptions.push(disposable);
 }
 
 // 导出接口
