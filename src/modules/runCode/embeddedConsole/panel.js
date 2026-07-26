@@ -24,6 +24,14 @@ const capability = require('../../capability');
 const { hasOpenStataSourceTab } = require('./editorRestorePolicy');
 const { createExportFilename, serializeConsoleExport } = require('./consoleExport');
 const { appendConsoleHistory } = require('./consoleHistory');
+const {
+    DEFAULT_HISTORY_PAGE_SIZE,
+    DEFAULT_HISTORY_WINDOW_SIZE,
+    INITIAL_HISTORY_WINDOW_SIZE,
+    calculateWindowReplacement,
+    createHistoryPage,
+    createTailHistoryPage
+} = require('./historyWindow');
 const { formatWorkingElapsedSeconds } = require('./workingTimer');
 
 const _renderer = new StataTerminalRenderer();
@@ -44,6 +52,13 @@ let _workingStartedAt = 0;
 let _graphResourceRoot = null;
 let _graphSaveRequestSeq = 0;
 const _pendingGraphSaveRequests = new Map();
+let _historyRevision = 0;
+let _pendingWebviewAppendStart = 0;
+let _pendingWebviewAppendEntries = [];
+let _pendingWebviewAppendTimer = null;
+let _webviewAppendInFlightId = '';
+let _webviewAppendSequence = 0;
+let _webviewNeedsTailSync = false;
 let _consoleFontOptions = {
     fontMode: 'online',
     editorFontFamily: '',
@@ -55,6 +70,8 @@ const CODICON_RESOURCE_ROOT = vscode.Uri.joinPath(vscode.Uri.file(vscode.env.app
 const ONLINE_CJK_FONT_CSS_URL = 'https://fontsapi.zeoseven.com/442/main/result.css';
 const ONLINE_LATIN_FONT_WOFF2_URL = 'https://cdn.jsdelivr.net/fontsource/fonts/maple-mono@latest/latin-400-normal.woff2';
 const ONLINE_LATIN_FONT_WOFF_URL = 'https://cdn.jsdelivr.net/fontsource/fonts/maple-mono@latest/latin-400-normal.woff';
+const WEBVIEW_APPEND_BATCH_DELAY_MS = 50;
+const WEBVIEW_APPEND_BATCH_SIZE = 250;
 
 function getCodiconFontUri(webview) {
     return webview.asWebviewUri(vscode.Uri.joinPath(vscode.Uri.file(vscode.env.appRoot), 'out', 'media', 'codicon.ttf'));
@@ -173,8 +190,10 @@ function attachPanel(panel) {
     _panel.onDidDispose(async () => {
         if (_panel === panel) {
             _panel = null;
+            discardPendingWebviewAppends();
             // Clear all state — fresh console on next open
             _history = [];
+            _historyRevision += 1;
             _status = 'idle';
             _workingDetail = null;
             _workingStartedAt = 0;
@@ -198,6 +217,10 @@ function attachPanel(panel) {
         if (message && message.type === 'ready') {
             postState();
             postVariables();
+        } else if (message && message.type === 'historyBatchRendered') {
+            acknowledgeWebviewHistoryBatch(message);
+        } else if (message && message.type === 'requestHistoryPage') {
+            postHistoryPage(message);
         } else if (message && message.type === 'requestVariables') {
             postVariables();
         } else if (message && message.type === 'executeInput' && typeof _commandHandler === 'function') {
@@ -396,6 +419,7 @@ function postState() {
     if (!_panel) {
         return;
     }
+    discardPendingWebviewAppends();
 
     // Base tips from i18n
     let tips = [...msg('composerTips')];
@@ -405,14 +429,48 @@ function postState() {
         tips.push(msg('consoleAvailSuggestSwitchBack'));
     }
 
+    const page = createTailHistoryPage(_history, INITIAL_HISTORY_WINDOW_SIZE);
     _panel.webview.postMessage({
         type: 'reset',
         status: _status,
         workingStartedAt: _workingStartedAt,
-        entries: hydrateEntriesForWebview(_history),
+        historyRevision: _historyRevision,
+        totalEntries: page.total,
+        windowStart: page.start,
+        entries: hydrateEntriesForWebview(page.entries),
         overflowNoticeSuppressed: _overflowNoticeSuppressed,
         workingDetail: _workingDetail,
         composerTips: tips
+    });
+}
+
+function postHistoryPage(message) {
+    if (!_panel) {
+        return;
+    }
+    const requestedRevision = Number(message && message.historyRevision);
+    if (Number.isFinite(requestedRevision) && requestedRevision !== _historyRevision) {
+        postState();
+        return;
+    }
+
+    const requestedLimit = Math.min(
+        DEFAULT_HISTORY_WINDOW_SIZE,
+        Math.max(1, Number(message && message.limit) || DEFAULT_HISTORY_PAGE_SIZE)
+    );
+    const page = createHistoryPage(
+        _history,
+        Number(message && message.start) || 0,
+        requestedLimit
+    );
+    _panel.webview.postMessage({
+        type: 'historyPage',
+        requestId: String(message && message.requestId || ''),
+        mode: String(message && message.mode || ''),
+        historyRevision: _historyRevision,
+        start: page.start,
+        totalEntries: page.total,
+        entries: hydrateEntriesForWebview(page.entries)
     });
 }
 
@@ -463,14 +521,119 @@ function appendEntries(entries) {
         return;
     }
 
+    const appendStart = _history.length;
     _history = appendConsoleHistory(_history, normalized);
 
     if (_panel) {
-        _panel.webview.postMessage({
-            type: 'append',
-            entries: hydrateEntriesForWebview(normalized)
-        });
+        queueWebviewAppend(appendStart, normalized);
     }
+}
+
+function queueWebviewAppend(start, entries) {
+    if (!_panel || !Array.isArray(entries) || !entries.length) {
+        return;
+    }
+    if (_webviewNeedsTailSync) {
+        return;
+    }
+    if (!_pendingWebviewAppendEntries.length) {
+        _pendingWebviewAppendStart = start;
+    } else if (_pendingWebviewAppendStart + _pendingWebviewAppendEntries.length !== start) {
+        flushPendingWebviewAppends();
+        _pendingWebviewAppendStart = start;
+    }
+    _pendingWebviewAppendEntries.push(...entries);
+    if (_pendingWebviewAppendEntries.length > DEFAULT_HISTORY_WINDOW_SIZE) {
+        _pendingWebviewAppendEntries = [];
+        _pendingWebviewAppendStart = _history.length;
+        _webviewNeedsTailSync = true;
+        if (_pendingWebviewAppendTimer) {
+            clearTimeout(_pendingWebviewAppendTimer);
+            _pendingWebviewAppendTimer = null;
+        }
+        if (!_webviewAppendInFlightId) {
+            flushPendingWebviewAppends();
+        }
+        return;
+    }
+    if (_pendingWebviewAppendEntries.length >= WEBVIEW_APPEND_BATCH_SIZE) {
+        flushPendingWebviewAppends();
+        return;
+    }
+    if (!_pendingWebviewAppendTimer) {
+        _pendingWebviewAppendTimer = setTimeout(
+            flushPendingWebviewAppends,
+            WEBVIEW_APPEND_BATCH_DELAY_MS
+        );
+    }
+}
+
+function flushPendingWebviewAppends() {
+    if (_pendingWebviewAppendTimer) {
+        clearTimeout(_pendingWebviewAppendTimer);
+        _pendingWebviewAppendTimer = null;
+    }
+    if (!_panel) {
+        _pendingWebviewAppendEntries = [];
+        return;
+    }
+    if (_webviewAppendInFlightId) {
+        return;
+    }
+
+    _webviewAppendSequence += 1;
+    _webviewAppendInFlightId = String(_webviewAppendSequence);
+    if (_webviewNeedsTailSync) {
+        const page = createTailHistoryPage(_history, INITIAL_HISTORY_WINDOW_SIZE);
+        _webviewNeedsTailSync = false;
+        _panel.webview.postMessage({
+            type: 'syncHistoryTail',
+            batchId: _webviewAppendInFlightId,
+            historyRevision: _historyRevision,
+            start: page.start,
+            totalEntries: page.total,
+            entries: hydrateEntriesForWebview(page.entries)
+        });
+        return;
+    }
+    if (!_pendingWebviewAppendEntries.length) {
+        _webviewAppendInFlightId = '';
+        return;
+    }
+
+    const entries = _pendingWebviewAppendEntries.splice(0, WEBVIEW_APPEND_BATCH_SIZE);
+    const start = _pendingWebviewAppendStart;
+    _pendingWebviewAppendStart += entries.length;
+    _panel.webview.postMessage({
+        type: 'append',
+        batchId: _webviewAppendInFlightId,
+        historyRevision: _historyRevision,
+        start,
+        totalEntries: start + entries.length,
+        entries: hydrateEntriesForWebview(entries)
+    });
+
+}
+
+function acknowledgeWebviewHistoryBatch(message) {
+    if (String(message && message.batchId || '') !== _webviewAppendInFlightId) {
+        return;
+    }
+    _webviewAppendInFlightId = '';
+    if (_webviewNeedsTailSync || _pendingWebviewAppendEntries.length) {
+        _pendingWebviewAppendTimer = setTimeout(flushPendingWebviewAppends, 0);
+    }
+}
+
+function discardPendingWebviewAppends() {
+    if (_pendingWebviewAppendTimer) {
+        clearTimeout(_pendingWebviewAppendTimer);
+        _pendingWebviewAppendTimer = null;
+    }
+    _pendingWebviewAppendEntries = [];
+    _pendingWebviewAppendStart = 0;
+    _webviewAppendInFlightId = '';
+    _webviewNeedsTailSync = false;
 }
 
 function hydrateEntriesForWebview(entries) {
@@ -653,14 +816,17 @@ function getGraphBitmapMimeType(format) {
 }
 
 function clearPanel() {
+    discardPendingWebviewAppends();
     _history = [];
+    _historyRevision += 1;
     _lastRunFailed = false;
     _status = 'idle';
     _workingDetail = null;
     _workingStartedAt = 0;
     if (_panel) {
         _panel.webview.postMessage({
-            type: 'clear'
+            type: 'clear',
+            historyRevision: _historyRevision
         });
         _panel.webview.postMessage({
             type: 'status',
@@ -882,9 +1048,24 @@ class WebviewTerminalSink {
         );
         if (!result.applied) return 0;
         _history.splice(start, current.length, ...result.entries);
+        const pendingReplacement = calculateWindowReplacement(
+            _pendingWebviewAppendStart,
+            _pendingWebviewAppendEntries.length,
+            start,
+            current.length,
+            result.entries
+        );
+        if (pendingReplacement) {
+            _pendingWebviewAppendEntries.splice(
+                pendingReplacement.localStart,
+                pendingReplacement.deleteCount,
+                ...pendingReplacement.entries
+            );
+        }
         if (_panel) {
             _panel.webview.postMessage({
                 type: 'replaceRecent',
+                historyRevision: _historyRevision,
                 start,
                 deleteCount: current.length,
                 entries: hydrateEntriesForWebview(result.entries)
@@ -1910,6 +2091,12 @@ function getWebviewHtml(webview) {
         let overflowNoticeSuppressed = false;
         let overflowNoticeDismissedForCurrentView = false;
         let renderedEntries = [];
+        let renderedWindowStart = 0;
+        let totalHistoryEntries = 0;
+        let historyRevision = 0;
+        let historyRequestSequence = 0;
+        let pendingHistoryRequestId = '';
+        let followOutputTail = true;
         let activeResultBlock = null;
         let runningStartedAt = 0;
         let workingTimer = null;
@@ -1920,6 +2107,10 @@ function getWebviewHtml(webview) {
         let pendingFocus = false;
         let wasRunning = false;
         const graphImageCache = new Map();
+        const HISTORY_PAGE_SIZE = ${DEFAULT_HISTORY_PAGE_SIZE};
+        const HISTORY_WINDOW_SIZE = ${DEFAULT_HISTORY_WINDOW_SIZE};
+        const HISTORY_RENDER_LIMIT = HISTORY_WINDOW_SIZE + HISTORY_PAGE_SIZE;
+        const calculateWindowReplacement = ${calculateWindowReplacement.toString()};
 
         const STATUS_LABELS = {
             idle: ${JSON.stringify(msg('webviewIdle'))},
@@ -2359,6 +2550,7 @@ function getWebviewHtml(webview) {
         }
 
         function scrollOutputToBottom() {
+            followOutputTail = true;
             output.scrollTop = output.scrollHeight;
         }
 
@@ -2372,6 +2564,7 @@ function getWebviewHtml(webview) {
             clearButton.disabled = executionActive || status === 'restarting';
             if (status === 'running') {
                 wasRunning = true;
+                followOutputTail = true;
                 startWorkingIndicator(workingStartedAt);
                 requestAnimationFrame(scrollOutputToBottom);
             } else {
@@ -2415,14 +2608,128 @@ function getWebviewHtml(webview) {
             vscode.postMessage({ type: 'showOverflowNotice' });
         }
 
-        function appendEntries(entries) {
+        function isOutputAtBottom() {
+            return output.scrollTop + output.clientHeight >= output.scrollHeight - 24;
+        }
+
+        function captureScrollAnchor() {
+            const outputRect = output.getBoundingClientRect();
+            const nodes = outputShell.querySelectorAll('[data-history-index]');
+            for (const node of nodes) {
+                const rect = node.getBoundingClientRect();
+                if (rect.bottom >= outputRect.top) {
+                    return {
+                        index: Number(node.dataset.historyIndex),
+                        offset: rect.top - outputRect.top
+                    };
+                }
+            }
+            return null;
+        }
+
+        function restoreScrollAnchor(anchor) {
+            if (!anchor || !Number.isFinite(anchor.index)) {
+                return;
+            }
+            requestAnimationFrame(() => {
+                const node = outputShell.querySelector('[data-history-index="' + anchor.index + '"]');
+                if (!node) {
+                    return;
+                }
+                const outputRect = output.getBoundingClientRect();
+                const rect = node.getBoundingClientRect();
+                output.scrollTop += rect.top - outputRect.top - anchor.offset;
+            });
+        }
+
+        function requestHistoryPage(start, limit, mode) {
+            if (pendingHistoryRequestId) {
+                return;
+            }
+            historyRequestSequence += 1;
+            pendingHistoryRequestId = String(historyRequestSequence);
+            vscode.postMessage({
+                type: 'requestHistoryPage',
+                requestId: pendingHistoryRequestId,
+                mode: mode || '',
+                historyRevision,
+                start: Math.max(0, Number(start) || 0),
+                limit: Math.max(1, Number(limit) || HISTORY_PAGE_SIZE)
+            });
+        }
+
+        function requestHistoryTail() {
+            requestHistoryPage(
+                Math.max(0, totalHistoryEntries - HISTORY_WINDOW_SIZE),
+                HISTORY_WINDOW_SIZE,
+                'tail'
+            );
+        }
+
+        function maybeRequestAdjacentHistory() {
+            if (pendingHistoryRequestId || !renderedEntries.length) {
+                return;
+            }
+            const windowEnd = renderedWindowStart + renderedEntries.length;
+            if (output.scrollTop <= 180 && renderedWindowStart > 0) {
+                const start = Math.max(0, renderedWindowStart - HISTORY_PAGE_SIZE);
+                requestHistoryPage(start, renderedWindowStart - start, 'before');
+            } else if (isOutputAtBottom() && windowEnd < totalHistoryEntries) {
+                requestHistoryPage(
+                    windowEnd,
+                    Math.min(HISTORY_PAGE_SIZE, totalHistoryEntries - windowEnd),
+                    'after'
+                );
+            }
+        }
+
+        function appendEntries(entries, start, totalEntries, revision) {
             if (!Array.isArray(entries) || entries.length === 0) {
                 return;
             }
 
-            const shouldStick = output.scrollTop + output.clientHeight >= output.scrollHeight - 24;
-            renderedEntries = renderedEntries.concat(entries);
-            appendRenderedEntries(entries);
+            if (Number(revision) !== historyRevision) {
+                return;
+            }
+            const shouldStick = followOutputTail || isOutputAtBottom();
+            const appendStart = Math.max(0, Number(start) || 0);
+            const windowEnd = renderedWindowStart + renderedEntries.length;
+            totalHistoryEntries = Math.max(
+                totalHistoryEntries,
+                Number(totalEntries) || 0,
+                appendStart + entries.length
+            );
+
+            if (appendStart !== windowEnd) {
+                if (shouldStick) {
+                    requestHistoryTail();
+                }
+                updateExportButtonState();
+                return;
+            }
+
+            if (!shouldStick && renderedEntries.length >= HISTORY_WINDOW_SIZE) {
+                updateExportButtonState();
+                return;
+            }
+
+            const available = shouldStick
+                ? entries.length
+                : Math.max(0, HISTORY_WINDOW_SIZE - renderedEntries.length);
+            const additions = entries.slice(0, available);
+            if (!additions.length) {
+                updateExportButtonState();
+                return;
+            }
+            renderedEntries = renderedEntries.concat(additions);
+            if (renderedEntries.length > HISTORY_RENDER_LIMIT) {
+                const removeCount = renderedEntries.length - HISTORY_WINDOW_SIZE;
+                renderedEntries.splice(0, removeCount);
+                renderedWindowStart += removeCount;
+                renderAllEntries();
+            } else {
+                appendRenderedEntries(additions, appendStart);
+            }
             ensurePlaceholderVisibility();
             updateExportButtonState();
             if (shouldStick) {
@@ -2431,17 +2738,100 @@ function getWebviewHtml(webview) {
             requestAnimationFrame(updateOverflowNotice);
         }
 
-        function resetOutput(entries) {
+        function resetOutput(entries, start, totalEntries, revision) {
             renderedEntries = Array.isArray(entries) ? entries.slice() : [];
+            renderedWindowStart = Math.max(0, Number(start) || 0);
+            totalHistoryEntries = Math.max(
+                renderedWindowStart + renderedEntries.length,
+                Number(totalEntries) || 0
+            );
+            if (Number.isFinite(Number(revision))) {
+                historyRevision = Number(revision);
+            }
+            pendingHistoryRequestId = '';
             overflowNoticeDismissedForCurrentView = false;
             renderAllEntries();
             updateExportButtonState();
             requestAnimationFrame(updateOverflowNotice);
         }
 
+        function applyHistoryPage(message) {
+            const requestId = String(message.requestId || '');
+            if (requestId && requestId !== pendingHistoryRequestId) {
+                return;
+            }
+            pendingHistoryRequestId = '';
+            if (Number(message.historyRevision) !== historyRevision) {
+                return;
+            }
+
+            const entries = Array.isArray(message.entries) ? message.entries : [];
+            const pageStart = Math.max(0, Number(message.start) || 0);
+            const mode = String(message.mode || '');
+            totalHistoryEntries = Math.max(
+                pageStart + entries.length,
+                Number(message.totalEntries) || 0
+            );
+
+            if (mode === 'tail') {
+                renderedEntries = entries.slice(-HISTORY_WINDOW_SIZE);
+                renderedWindowStart = pageStart + Math.max(0, entries.length - renderedEntries.length);
+                renderAllEntries();
+                updateExportButtonState();
+                requestAnimationFrame(scrollOutputToBottom);
+                return;
+            }
+
+            const anchor = captureScrollAnchor();
+            const windowEnd = renderedWindowStart + renderedEntries.length;
+            if (mode === 'before' && pageStart + entries.length <= renderedWindowStart) {
+                renderedEntries = entries.concat(renderedEntries);
+                renderedWindowStart = pageStart;
+                if (renderedEntries.length > HISTORY_WINDOW_SIZE) {
+                    renderedEntries.splice(HISTORY_WINDOW_SIZE);
+                }
+            } else if (mode === 'after' && pageStart >= windowEnd) {
+                renderedEntries = renderedEntries.concat(entries);
+                if (renderedEntries.length > HISTORY_WINDOW_SIZE) {
+                    const removeCount = renderedEntries.length - HISTORY_WINDOW_SIZE;
+                    renderedEntries.splice(0, removeCount);
+                    renderedWindowStart += removeCount;
+                }
+            } else {
+                renderedEntries = entries.slice(0, HISTORY_WINDOW_SIZE);
+                renderedWindowStart = pageStart;
+            }
+
+            activeResultBlock = null;
+            renderAllEntries();
+            restoreScrollAnchor(anchor);
+            updateExportButtonState();
+            requestAnimationFrame(updateOverflowNotice);
+        }
+
+        function syncHistoryTail(message) {
+            if (Number(message.historyRevision) !== historyRevision) {
+                return;
+            }
+            const entries = Array.isArray(message.entries) ? message.entries : [];
+            const start = Math.max(0, Number(message.start) || 0);
+            totalHistoryEntries = Math.max(
+                start + entries.length,
+                Number(message.totalEntries) || 0
+            );
+            if (!renderedEntries.length || followOutputTail || isOutputAtBottom()) {
+                renderedEntries = entries.slice(-HISTORY_WINDOW_SIZE);
+                renderedWindowStart = start + Math.max(0, entries.length - renderedEntries.length);
+                renderAllEntries();
+                requestAnimationFrame(scrollOutputToBottom);
+                requestAnimationFrame(updateOverflowNotice);
+            }
+            updateExportButtonState();
+        }
+
         function updateExportButtonState() {
             const status = document.body.dataset.status;
-            exportButton.disabled = status === 'running' || status === 'restarting' || renderedEntries.length === 0;
+            exportButton.disabled = status === 'running' || status === 'restarting' || totalHistoryEntries === 0;
         }
 
         function renderAllEntries() {
@@ -2451,27 +2841,40 @@ function getWebviewHtml(webview) {
             outputShell.appendChild(placeholder);
             activeResultBlock = null;
             if (renderedEntries.length) {
-                appendRenderedEntries(renderedEntries);
+                appendRenderedEntries(renderedEntries, renderedWindowStart);
             }
             ensurePlaceholderVisibility();
         }
 
-        function appendRenderedEntries(entries) {
+        let historyScrollFrame = 0;
+        output.addEventListener('scroll', () => {
+            followOutputTail = isOutputAtBottom();
+            if (historyScrollFrame) {
+                return;
+            }
+            historyScrollFrame = requestAnimationFrame(() => {
+                historyScrollFrame = 0;
+                maybeRequestAdjacentHistory();
+            });
+        }, { passive: true });
+
+        function appendRenderedEntries(entries, absoluteStart) {
             const fragment = document.createDocumentFragment();
             let currentResultBlock = activeResultBlock;
 
             for (let index = 0; index < entries.length; index += 1) {
                 const entry = entries[index];
+                const historyIndex = Math.max(0, Number(absoluteStart) || 0) + index;
 
                 if (isCommandEntry(entry)) {
                     currentResultBlock = null;
-                    fragment.appendChild(renderEntry(entry, entries[index + 1] || null));
+                    fragment.appendChild(renderEntry(entry, entries[index + 1] || null, historyIndex));
                     continue;
                 }
 
                 if (entry && entry.kind === 'graph') {
                     currentResultBlock = null;
-                    fragment.appendChild(renderEntry(entry, entries[index + 1] || null));
+                    fragment.appendChild(renderEntry(entry, entries[index + 1] || null, historyIndex));
                     continue;
                 }
 
@@ -2484,7 +2887,7 @@ function getWebviewHtml(webview) {
                     currentResultBlock.className = 'result-block-scroll';
                 }
 
-                currentResultBlock.appendChild(renderEntry(entry, entries[index + 1] || null));
+                currentResultBlock.appendChild(renderEntry(entry, entries[index + 1] || null, historyIndex));
             }
 
             outputShell.appendChild(fragment);
@@ -2501,12 +2904,15 @@ function getWebviewHtml(webview) {
             return kind === 'command' || kind === 'comment-command' || kind === 'raw-progress' || kind === 'raw-prompt';
         }
 
-        function renderEntry(entry, nextEntry) {
+        function renderEntry(entry, nextEntry, historyIndex) {
             if (entry && entry.kind === 'graph') {
-                return renderGraphEntry(entry);
+                const graph = renderGraphEntry(entry);
+                graph.dataset.historyIndex = String(historyIndex);
+                return graph;
             }
 
             const line = document.createElement('div');
+            line.dataset.historyIndex = String(historyIndex);
             const kind = String((entry && entry.kind) || 'default');
             line.className = 'line line-' + kind;
             if ((kind === 'command' || kind === 'comment-command') && (!nextEntry || !['command', 'comment-command'].includes(String(nextEntry.kind || '')))) {
@@ -3144,15 +3550,30 @@ function getWebviewHtml(webview) {
         window.addEventListener('message', event => {
             const message = event.data || {};
             if (message.type === 'append') {
-                appendEntries(message.entries || []);
+                appendEntries(
+                    message.entries || [],
+                    message.start,
+                    message.totalEntries,
+                    message.historyRevision
+                );
+                vscode.postMessage({
+                    type: 'historyBatchRendered',
+                    batchId: String(message.batchId || '')
+                });
                 if (workingIndicator.style.display === 'flex') {
                     keepWorkingIndicatorAtOutputEnd();
                     updateWorkingMeta();
                 }
+            } else if (message.type === 'syncHistoryTail') {
+                syncHistoryTail(message);
+                vscode.postMessage({
+                    type: 'historyBatchRendered',
+                    batchId: String(message.batchId || '')
+                });
             } else if (message.type === 'status') {
                 setStatus(message.status, message.workingStartedAt);
             } else if (message.type === 'clear') {
-                resetOutput([]);
+                resetOutput([], 0, 0, message.historyRevision);
             } else if (message.type === 'reset') {
                 setStatus(message.status, message.workingStartedAt);
                 overflowNoticeSuppressed = Boolean(message.overflowNoticeSuppressed);
@@ -3161,27 +3582,45 @@ function getWebviewHtml(webview) {
                 updateEstimatedFinishTime();
                 refreshDisplayedRemainingSeconds();
                 updateWorkingMeta();
-                resetOutput(message.entries || []);
+                resetOutput(
+                    message.entries || [],
+                    message.windowStart,
+                    message.totalEntries,
+                    message.historyRevision
+                );
+                requestAnimationFrame(scrollOutputToBottom);
                 // Start tip carousel
                 if (Array.isArray(message.composerTips) && message.composerTips.length) {
                     composerTips = message.composerTips;
                     startComposerTipCarousel();
                 }
+            } else if (message.type === 'historyPage') {
+                applyHistoryPage(message);
             } else if (message.type === 'replaceRecent') {
-                const start = Math.max(0, Math.min(
-                    Number(message.start) || 0,
-                    renderedEntries.length
-                ));
-                const shouldStick = output.scrollTop + output.clientHeight >= output.scrollHeight - 24;
-                renderedEntries.splice(
-                    start,
-                    Math.max(0, Number(message.deleteCount) || 0),
-                    ...(Array.isArray(message.entries) ? message.entries : [])
-                );
-                renderAllEntries();
-                updateExportButtonState();
-                if (shouldStick) {
-                    output.scrollTop = output.scrollHeight;
+                if (Number(message.historyRevision) === historyRevision) {
+                    const replacement = calculateWindowReplacement(
+                        renderedWindowStart,
+                        renderedEntries.length,
+                        message.start,
+                        message.deleteCount,
+                        message.entries
+                    );
+                    if (replacement) {
+                        const shouldStick = followOutputTail || isOutputAtBottom();
+                        const anchor = shouldStick ? null : captureScrollAnchor();
+                        renderedEntries.splice(
+                            replacement.localStart,
+                            replacement.deleteCount,
+                            ...replacement.entries
+                        );
+                        renderAllEntries();
+                        updateExportButtonState();
+                        if (shouldStick) {
+                            output.scrollTop = output.scrollHeight;
+                        } else {
+                            restoreScrollAnchor(anchor);
+                        }
+                    }
                 }
             } else if (message.type === 'workingDetail') {
                 currentWorkingDetail = message.detail || null;
