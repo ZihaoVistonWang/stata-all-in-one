@@ -81,6 +81,26 @@ test('groups console history into runs and removes Stata prompts from code', () 
     assert.equal(runs[1].footer, 'Worked for 250ms');
 });
 
+test('keeps native numbered do-file continuation lines in exported input', () => {
+    const runs = groupConsoleHistory([
+        line('command', '. forvalues i = 1/2 {'),
+        line('command', "  2.     display `i'"),
+        line('command', '  3. }'),
+        line('default', '1'),
+        line('default', '2'),
+        line('footer', 'Worked for 10ms')
+    ]);
+
+    assert.equal(runs.length, 1);
+    assert.equal(runs[0].code, "forvalues i = 1/2 {\n    display `i'\n}");
+    assert.deepEqual(
+        runs[0].outputEntries.map(entry =>
+            entry.segments.map(segment => segment.text).join('')
+        ),
+        ['1', '2']
+    );
+});
+
 test('creates timestamped export filenames', () => {
     const date = new Date(2026, 6, 17, 9, 8, 7);
     assert.equal(createExportFilename(date, 'md'), 'stata-all-in-one-export-20260717-090807.md');

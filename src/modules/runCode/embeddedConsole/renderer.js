@@ -511,14 +511,36 @@ class StataTerminalRenderer {
         this._lastRenderedLineKind = null;
         this._describeMode = false;
         this._plainOutputMode = false;
+        this._outputBlockCommentDepth = 0;
+        this._outputContinuationPromptActive = false;
+        this._outputContinuationBraceDepth = 0;
+        this._outputContinuationEndsWithEnd = false;
+    }
+
+    beginExecution() {
+        this._lastRenderedLineKind = null;
+        this._describeMode = false;
+        this._plainOutputMode = false;
+        this._outputBlockCommentDepth = 0;
+        this._outputContinuationPromptActive = false;
+        this._outputContinuationBraceDepth = 0;
+        this._outputContinuationEndsWithEnd = false;
     }
 
     renderCommand(command, width) {
         const normalized = String(command || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
         this._plainOutputMode = /^\s*which\s+\S[^\n]*$/i.test(normalized);
         const lines = normalized.split('\n');
+        let blockCommentDepth = 0;
         return lines
-            .map((line, index) => this._renderCommandLine(`${index === 0 ? '. ' : '> '}${line}`, width))
+            .map((line, index) => {
+                const promptedLine = `${index === 0 ? '. ' : '> '}${line}`;
+                const blockComment = this._analyzeBlockCommentCommandLine(promptedLine, blockCommentDepth);
+                blockCommentDepth = blockComment.nextDepth;
+                return blockComment.isComment
+                    ? this._renderCommentCommandLine(promptedLine)
+                    : this._renderCommandLine(promptedLine, width);
+            })
             .join('\n') + '\n';
     }
 
@@ -526,9 +548,15 @@ class StataTerminalRenderer {
         const normalized = String(command || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
         this._plainOutputMode = /^\s*which\s+\S[^\n]*$/i.test(normalized);
         const lines = normalized.split('\n');
-        return lines.map((line, index) =>
-            this._segmentCommandLine(`${index === 0 ? '. ' : '> '}${line}`, width)
-        );
+        let blockCommentDepth = 0;
+        return lines.map((line, index) => {
+            const promptedLine = `${index === 0 ? '. ' : '> '}${line}`;
+            const blockComment = this._analyzeBlockCommentCommandLine(promptedLine, blockCommentDepth);
+            blockCommentDepth = blockComment.nextDepth;
+            return blockComment.isComment
+                ? this._segmentCommentCommandLine(promptedLine)
+                : this._segmentCommandLine(promptedLine, width);
+        });
     }
 
     renderOutputChunk(text, width) {
@@ -613,6 +641,10 @@ class StataTerminalRenderer {
         this._pendingLine = '';
         this._lastRenderedLineKind = null;
         this._describeMode = false;
+        this._outputBlockCommentDepth = 0;
+        this._outputContinuationPromptActive = false;
+        this._outputContinuationBraceDepth = 0;
+        this._outputContinuationEndsWithEnd = false;
     }
 
     renderError(text) {
@@ -942,6 +974,25 @@ class StataTerminalRenderer {
     _segmentOutputLine(line, width) {
         let lineKind = 'default';
 
+        const blockComment = this._analyzeBlockCommentCommandLine(line, this._outputBlockCommentDepth);
+        this._outputBlockCommentDepth = blockComment.nextDepth;
+        if (blockComment.isComment) {
+            this._describeMode = false;
+            lineKind = 'comment-command';
+            const rendered = this._segmentCommentCommandLine(line);
+            this._lastRenderedLineKind = lineKind;
+            return rendered;
+        }
+
+        if (this._outputContinuationPromptActive && /^\s*\d+\.\s/.test(line)) {
+            this._describeMode = false;
+            lineKind = 'command';
+            this._trackNativeContinuationPrompt(line);
+            const rendered = this._segmentCommandLine(line, width);
+            this._lastRenderedLineKind = lineKind;
+            return rendered;
+        }
+
         if (/^[.>]\s+\*{2,}#/.test(line) || /^[.>]\s+\*{2,}\s+/.test(line)) {
             this._describeMode = false;
             lineKind = 'comment-command';
@@ -975,6 +1026,7 @@ class StataTerminalRenderer {
         if (/^[.>]\s/.test(line)) {
             this._describeMode = false;
             lineKind = 'command';
+            this._trackNativeContinuationPrompt(line);
             const rendered = this._segmentCommandLine(line, width);
             this._lastRenderedLineKind = lineKind;
             return rendered;
@@ -1221,6 +1273,25 @@ class StataTerminalRenderer {
     _renderOutputLine(line, width) {
         let lineKind = 'default';
 
+        const blockComment = this._analyzeBlockCommentCommandLine(line, this._outputBlockCommentDepth);
+        this._outputBlockCommentDepth = blockComment.nextDepth;
+        if (blockComment.isComment) {
+            this._describeMode = false;
+            lineKind = 'comment-command';
+            const rendered = this._renderCommentCommandLine(line);
+            this._lastRenderedLineKind = lineKind;
+            return rendered;
+        }
+
+        if (this._outputContinuationPromptActive && /^\s*\d+\.\s/.test(line)) {
+            this._describeMode = false;
+            lineKind = 'command';
+            this._trackNativeContinuationPrompt(line);
+            const rendered = this._renderCommandLine(line, width);
+            this._lastRenderedLineKind = lineKind;
+            return rendered;
+        }
+
         if (/^[.>]\s+\*{2,}#/.test(line) || /^[.>]\s+\*{2,}\s+/.test(line)) {
             this._describeMode = false;
             lineKind = 'comment-command';
@@ -1248,6 +1319,7 @@ class StataTerminalRenderer {
         if (/^[.>]\s/.test(line)) {
             this._describeMode = false;
             lineKind = 'command';
+            this._trackNativeContinuationPrompt(line);
             const rendered = this._renderCommandLine(line, width);
             this._lastRenderedLineKind = lineKind;
             return rendered;
@@ -1404,12 +1476,20 @@ class StataTerminalRenderer {
             return this._renderCommentCommandLine(line);
         }
 
-        const prompt = (line.startsWith('. ') || line.startsWith('> ')) ? line.slice(0, 2) : '';
-        const body = prompt ? line.slice(2) : line;
+        const promptMatch = line.match(/^([.>]\s|\s*\d+\.\s)/);
+        const prompt = promptMatch ? promptMatch[1] : '';
+        const body = prompt ? line.slice(prompt.length) : line;
         const grammarTokens = this._tokenizeCommandBodyWithCommentFallback(body);
         if (!grammarTokens) {
-            const fallbackTokens = this._tokenizeCommandLine(line);
+            const fallbackTokens = this._tokenizeCommandLine(prompt ? `. ${body}` : line)
+                .filter((token, index) => !(prompt && index === 0 && token.type === 'prompt'));
             let fallbackRendered = '';
+            if (prompt) {
+                fallbackRendered += paint(prompt, {
+                    fg: this._foregroundForCommandToken('prompt'),
+                    bold: true
+                });
+            }
             for (const token of fallbackTokens) {
                 fallbackRendered += paint(token.value, {
                     fg: this._foregroundForCommandToken(token.type),
@@ -1643,8 +1723,9 @@ class StataTerminalRenderer {
             return this._segmentCommentCommandLine(line);
         }
 
-        const prompt = (line.startsWith('. ') || line.startsWith('> ')) ? line.slice(0, 2) : '';
-        const body = prompt ? line.slice(2) : line;
+        const promptMatch = line.match(/^([.>]\s|\s*\d+\.\s)/);
+        const prompt = promptMatch ? promptMatch[1] : '';
+        const body = prompt ? line.slice(prompt.length) : line;
         const segments = [];
 
         if (prompt) {
@@ -1652,7 +1733,8 @@ class StataTerminalRenderer {
         }
 
         const grammarTokens = this._tokenizeCommandBodyWithCommentFallback(body);
-        const tokens = grammarTokens || this._tokenizeCommandLine(line).filter((token, index) => !(index === 0 && token.type === 'prompt'));
+        const tokens = grammarTokens || this._tokenizeCommandLine(prompt ? `. ${body}` : line)
+            .filter((token, index) => !(prompt && index === 0 && token.type === 'prompt'));
         for (const token of tokens) {
             const type = token.type === 'plain' ? 'plain' : token.type;
             segments.push(this._segment(token.value, this._styleForTokenType(
@@ -1671,6 +1753,70 @@ class StataTerminalRenderer {
             kind: 'command',
             segments
         };
+    }
+
+    _analyzeBlockCommentCommandLine(line, currentDepth) {
+        const hasPrompt = line.startsWith('. ') || line.startsWith('> ');
+        if (!hasPrompt) {
+            return {
+                isComment: false,
+                nextDepth: currentDepth
+            };
+        }
+
+        const body = line.slice(2);
+        const startsBlockComment = /^\s*\/\*/.test(body);
+        if (currentDepth <= 0 && !startsBlockComment) {
+            return {
+                isComment: false,
+                nextDepth: 0
+            };
+        }
+
+        let nextDepth = Math.max(0, currentDepth);
+        for (const marker of body.matchAll(/\/\*|\*\//g)) {
+            if (marker[0] === '/*') {
+                nextDepth += 1;
+            } else {
+                nextDepth = Math.max(0, nextDepth - 1);
+            }
+        }
+
+        return {
+            isComment: true,
+            nextDepth
+        };
+    }
+
+    _trackNativeContinuationPrompt(line) {
+        const promptMatch = line.match(/^(?:[.>]\s|\s*\d+\.\s)/);
+        if (!promptMatch) {
+            return;
+        }
+
+        const body = line.slice(promptMatch[0].length);
+        const trimmed = body.trim();
+        const openBraces = (body.match(/\{/g) || []).length;
+        const closeBraces = (body.match(/\}/g) || []).length;
+
+        if (!this._outputContinuationPromptActive) {
+            this._outputContinuationBraceDepth = Math.max(0, openBraces - closeBraces);
+            this._outputContinuationEndsWithEnd = /^(?:program\s+define|mata|python)\b/i.test(trimmed);
+            this._outputContinuationPromptActive = this._outputContinuationBraceDepth > 0
+                || this._outputContinuationEndsWithEnd;
+            return;
+        }
+
+        this._outputContinuationBraceDepth = Math.max(
+            0,
+            this._outputContinuationBraceDepth + openBraces - closeBraces
+        );
+        if (this._outputContinuationEndsWithEnd && /^end\b/i.test(trimmed)) {
+            this._outputContinuationEndsWithEnd = false;
+        }
+        if (this._outputContinuationBraceDepth === 0 && !this._outputContinuationEndsWithEnd) {
+            this._outputContinuationPromptActive = false;
+        }
     }
 
     _segmentCommentCommandLine(line) {

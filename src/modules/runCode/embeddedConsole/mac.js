@@ -655,7 +655,7 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
             }
         };
 
-        if (typeof outputSink.writeCommand === 'function') {
+        if (!executionPlan.tempFilePath && typeof outputSink.writeCommand === 'function') {
             outputSink.writeCommand(executionPlan.displayCode || normalizedCode);
         }
 
@@ -697,7 +697,7 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
                 }
             }
         } else {
-            // writeCommand already shows the code; echo:false avoids duplicate
+            // Temporary do-files rely on Stata's native echo so the input is shown only once.
             result = await executeConsoleCommand(consoleSession, graphDir, executionPlan.command, onExecutionChunk);
             await syncSessionWorkingDirectory(consoleSession);
             if (typeof outputSink.setWorkingDirectory === 'function') {

@@ -31,7 +31,7 @@ function trimBlankEntries(entries) {
 }
 
 function stripCommandPrompt(text) {
-    return String(text || '').replace(/^[.>]\s?/, '');
+    return String(text || '').replace(/^(?:[.>]\s?|\s*\d+\.\s)/, '');
 }
 
 function createRun(entries, footer) {

@@ -857,6 +857,7 @@ class WebviewTerminalSink {
         _lastRunFailed = false;
         setWorkingDetail(null);
         await revealPanel(true);
+        this._renderer.beginExecution();
         this._runToken += 1;
         this._runHistoryStart = _history.length;
         setStatus('running');

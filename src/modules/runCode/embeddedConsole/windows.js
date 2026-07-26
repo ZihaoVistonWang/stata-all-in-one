@@ -542,7 +542,7 @@ async function runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir = null
             }
         };
 
-        if (typeof outputSink.writeCommand === 'function') {
+        if (!executionPlan.tempFilePath && typeof outputSink.writeCommand === 'function') {
             outputSink.writeCommand(executionPlan.displayCode || normalizedCode);
         }
 
@@ -593,7 +593,7 @@ async function runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir = null
         } else {
             const cmdStart = Date.now();
             console.log(`Stata All in One: Executing single command via do-file: ${executionPlan.command.substring(0, 100)}`);
-            // writeCommand already shows the code; echo:false avoids duplicate
+            // Temporary do-files rely on Stata's native echo so the input is shown only once.
             result = await executeConsoleCommand(consoleSession, graphDir, executionPlan.command, onExecutionChunk);
             await syncSessionWorkingDirectory(consoleSession);
             if (typeof outputSink.setWorkingDirectory === 'function') {

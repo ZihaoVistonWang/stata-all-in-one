@@ -69,3 +69,79 @@ test('keeps comma options in their positional option role after file strings', (
         assert.match(positionalTokens[0].className, /\btok-option\b/, command);
     }
 });
+
+test('keeps every line of a block comment in the comment style', () => {
+    const renderer = new StataTerminalRenderer();
+    const entries = renderer.renderCommandSegments(
+        [
+            '/*',
+            'Expected:',
+            '- Stop ends the loop.',
+            '*/',
+            'clear all'
+        ].join('\n'),
+        88
+    );
+
+    assert.deepEqual(entries.map(entry => entry.kind), [
+        'comment-command',
+        'comment-command',
+        'comment-command',
+        'comment-command',
+        'command'
+    ]);
+    for (const entry of entries.slice(0, 4)) {
+        assert.ok(entry.segments.some(segment => segment.tokenType === 'comment'));
+    }
+    assert.ok(entries[4].segments.some(segment => segment.tokenType === 'command'));
+});
+
+test('keeps native do-file block comments styled across output chunks', () => {
+    const renderer = new StataTerminalRenderer();
+    renderer.beginExecution();
+
+    const firstChunk = renderer.renderOutputChunkSegments('. /*\n> Expected:\n', 88);
+    const secondChunk = renderer.renderOutputChunkSegments('> - Stop ends the loop.\n> */\n. clear all\n', 88);
+    const entries = [...firstChunk, ...secondChunk];
+
+    assert.deepEqual(entries.map(entry => entry.kind), [
+        'comment-command',
+        'comment-command',
+        'comment-command',
+        'comment-command',
+        'command'
+    ]);
+    for (const entry of entries.slice(0, 4)) {
+        assert.ok(entry.segments.some(segment => segment.tokenType === 'comment'));
+    }
+    assert.ok(entries[4].segments.some(segment => segment.tokenType === 'command'));
+});
+
+test('recognizes native numbered continuation prompts as command input', () => {
+    const renderer = new StataTerminalRenderer();
+    renderer.beginExecution();
+
+    const entries = renderer.renderOutputChunkSegments(
+        ". forvalues i = 1/2 {\n  2.     display `i'\n  3. }\nresult 1\n",
+        88
+    );
+
+    assert.deepEqual(entries.map(entry => entry.kind), [
+        'command',
+        'command',
+        'command',
+        'default'
+    ]);
+    assert.equal(entries[1].segments[0].tokenType, 'prompt');
+    assert.equal(entries[1].segments[0].text, '  2. ');
+    assert.ok(entries[1].segments.some(segment => segment.tokenType === 'command'));
+});
+
+test('does not treat numbered result text as a continuation prompt', () => {
+    const renderer = new StataTerminalRenderer();
+    renderer.beginExecution();
+
+    const entries = renderer.renderOutputChunkSegments('. display "done"\n  2. report.xlsx\n', 88);
+
+    assert.deepEqual(entries.map(entry => entry.kind), ['command', 'default']);
+});
