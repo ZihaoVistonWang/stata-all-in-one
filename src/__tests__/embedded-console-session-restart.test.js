@@ -1,10 +1,11 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const nativePath = require.resolve('../modules/runCode/embeddedConsole/native/stata_session');
+const nativePath = require.resolve('../modules/runCode/embeddedConsole/native/stata_process');
 let resolveExecution;
 let initialized = false;
 let shutdownCalls = 0;
+let breakCalls = 0;
 let executeImpl = () => new Promise((resolve) => {
     resolveExecution = resolve;
 });
@@ -28,7 +29,10 @@ require.cache[nativePath] = {
             initialized = false;
         },
         clearOutput() {},
-        setBreak() {}
+        setBreak() {
+            breakCalls += 1;
+            return true;
+        }
     }
 };
 
@@ -107,4 +111,24 @@ test('restarts by clearing Stata state and replacing the JS session wrapper', as
     assert.match(commands.at(-1), /^cd "/);
 
     sessionManager.forceShutdownConsoleSession();
+});
+
+test('persists a manual stop request until the active execution scope ends', async () => {
+    const context = createContext();
+    const session = sessionManager.getConsoleSession(context);
+
+    try {
+        const initResult = await session.init('/Applications/StataNow/libstata-mp.dylib');
+        assert.equal(initResult.success, true);
+
+        session.beginManualStopScope();
+        assert.equal(session.stop(), true);
+        assert.equal(session.isStopRequested(), true);
+        assert.equal(breakCalls, 1);
+
+        session.clearManualStopScope();
+        assert.equal(session.isStopRequested(), false);
+    } finally {
+        sessionManager.forceShutdownConsoleSession();
+    }
 });

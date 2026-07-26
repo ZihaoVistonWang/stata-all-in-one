@@ -183,18 +183,19 @@ function clearOutput() {
 function setBreak() {
     if (!isNativeLoaded()) {
         console.warn('Native module not loaded. Cannot set break.');
-        return;
+        return false;
     }
 
     if (!sessionInitialized) {
         console.warn('Session not initialized. Cannot set break.');
-        return;
+        return false;
     }
 
     try {
-        nativeModule.setBreak();
+        return nativeModule.setBreak() !== false;
     } catch (error) {
         console.error('Error setting break: ' + error.message);
+        return false;
     }
 }
 

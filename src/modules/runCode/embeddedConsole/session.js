@@ -6,7 +6,7 @@
  * Provides singleton session management, wrapping the native module's async API.
  */
 
-const native = require('./native/stata_session');
+const native = require('./native/stata_process');
 const fs = require('fs');
 const nodePath = require('path');
 const os = require('os');
@@ -72,6 +72,8 @@ class StataConsoleSession {
         this._bootstrapped = false;
         this._activeExecutions = 0;
         this._idleWaiters = [];
+        this._stopRequested = false;
+        this._generation = 0;
 
         // Restore state from previous session if available
         this._restoreState();
@@ -188,6 +190,12 @@ class StataConsoleSession {
             return { success: false, error: 'Native module not loaded.', failCode: 'NATIVE_NOT_LOADED' };
         }
 
+        if (this._initialized && !native.isInitialized()) {
+            this._initialized = false;
+            this._bootstrapped = false;
+            this._workingDirectory = null;
+        }
+
         if (this._initialized) {
             if (this._libraryPath === libraryPath) {
                 return { success: true, error: '' };
@@ -202,6 +210,7 @@ class StataConsoleSession {
             console.log('Stata All in One: Reconnecting to existing native session');
             this._initialized = true;
             this._libraryPath = libraryPath;
+            this._generation += 1;
             this._saveState();
             return { success: true, error: '' };
         }
@@ -216,6 +225,7 @@ class StataConsoleSession {
             if (result) {
                 this._initialized = true;
                 this._libraryPath = libraryPath;
+                this._generation += 1;
                 this._saveState();
                 return { success: true, error: '' };
             }
@@ -261,14 +271,18 @@ class StataConsoleSession {
                 success: result.success,
                 returnCode: result.returnCode,
                 output: result.output || '',
-                error: result.error || undefined
+                error: result.error || undefined,
+                interrupted: Boolean(result.interrupted),
+                forced: Boolean(result.forced)
             };
         } catch (error) {
             return {
                 success: false,
                 returnCode: -1,
                 output: '',
-                error: error.message || 'Unknown execution error'
+                error: error.message || 'Unknown execution error',
+                interrupted: this._stopRequested,
+                forced: false
             };
         } finally {
             this._activeExecutions = Math.max(0, this._activeExecutions - 1);
@@ -297,6 +311,10 @@ class StataConsoleSession {
 
     isBusy() {
         return this._activeExecutions > 0;
+    }
+
+    getGeneration() {
+        return this._generation;
     }
 
     /**
@@ -347,12 +365,25 @@ class StataConsoleSession {
         }
 
         try {
-            native.setBreak();
-            return true;
+            this._stopRequested = true;
+            const breakRequested = native.setBreak();
+            return breakRequested !== false;
         } catch (error) {
             console.error('Stata All in One: Failed to set break:', error.message);
             return false;
         }
+    }
+
+    beginManualStopScope() {
+        this._stopRequested = false;
+    }
+
+    clearManualStopScope() {
+        this._stopRequested = false;
+    }
+
+    isStopRequested() {
+        return this._stopRequested;
     }
 
     /**

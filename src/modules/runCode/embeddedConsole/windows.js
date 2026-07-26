@@ -466,6 +466,7 @@ async function runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir = null
             console.error('Stata All in One: Failed to initialize graph cache:', error.message);
         }
         await outputSink.prepareForExecution();
+        consoleSession.beginManualStopScope();
 
         const normalizedCode = normalizeCodeToRun(codeToRun);
         const hasExecOverride = options && options.execCode !== undefined;
@@ -553,12 +554,30 @@ async function runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir = null
             console.log(`Stata All in One: Executing ${executionPlan.commands.length} command(s) line-by-line`);
             for (let ci = 0; ci < executionPlan.commands.length; ci++) {
                 const command = executionPlan.commands[ci];
+                if (consoleSession.isStopRequested()) {
+                    result = {
+                        success: false,
+                        returnCode: 1,
+                        output: '',
+                        error: 'Execution interrupted by user.'
+                    };
+                    break;
+                }
                 if (typeof outputSink.setWorkingDirectory === 'function') {
                     outputSink.setWorkingDirectory(consoleSession.getWorkingDirectory());
                 }
                 const cmdStart = Date.now();
                 console.log(`Stata All in One: [${ci + 1}/${executionPlan.commands.length}] Executing: ${command.substring(0, 100)}`);
                 result = await executeConsoleCommand(consoleSession, graphDir, command, onExecutionChunk);
+                if (consoleSession.isStopRequested()) {
+                    result = {
+                        ...result,
+                        success: false,
+                        returnCode: 1,
+                        error: 'Execution interrupted by user.'
+                    };
+                    break;
+                }
                 await writeChangedGraphs(consoleSession, graphDir, graphCaptureState, outputSink, true);
                 const cmdElapsed = Date.now() - cmdStart;
                 console.log(`Stata All in One: [${ci + 1}/${executionPlan.commands.length}] Done in ${cmdElapsed}ms, success=${result.success}, rc=${result.returnCode}`);
@@ -604,7 +623,15 @@ async function runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir = null
 
         if (!result.success) {
             console.error('Stata All in One: Execution failed:', result.error);
-            if (!result.output) {
+            if (result.forced && typeof outputSink.writeWarningMessage === 'function') {
+                outputSink.writeWarningMessage(msg('consoleForceStopped'));
+            }
+            if (consoleSession.isStopRequested()
+                && !/--break--/i.test(`${streamedOutput}\n${result.output || ''}`)
+                && typeof outputSink.writeBreak === 'function') {
+                outputSink.writeBreak();
+            }
+            if (!result.output && !consoleSession.isStopRequested()) {
                 outputSink.writeError(result.error || `Execution failed (${result.returnCode})`);
             }
             return {
@@ -648,6 +675,7 @@ async function runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir = null
         }
         const activeSession = session.getActiveSession();
         if (activeSession) {
+            activeSession.clearManualStopScope();
             await endGraphCapture(activeSession, graphCaptureState);
         }
         if (runStartTime !== null && !options.suppressRunFooter) {
@@ -953,7 +981,7 @@ async function stopEmbeddedConsoleExecution(context) {
 
         if (_activeOutputSink) {
             if (typeof _activeOutputSink.setStatus === 'function') {
-                _activeOutputSink.setStatus('idle');
+                _activeOutputSink.setStatus('stopping');
             }
         }
 

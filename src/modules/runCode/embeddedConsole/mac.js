@@ -582,6 +582,7 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
             console.error('Stata All in One: Failed to initialize graph cache:', error.message);
         }
         await outputSink.prepareForExecution();
+        consoleSession.beginManualStopScope();
 
         const normalizedCode = normalizeCodeToRun(codeToRun);
         const hasExecOverride = options && options.execCode !== undefined;
@@ -664,10 +665,28 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
             result = { success: true, returnCode: 0, output: '' };
         } else if (Array.isArray(executionPlan.commands) && executionPlan.commands.length) {
             for (const command of executionPlan.commands) {
+                if (consoleSession.isStopRequested()) {
+                    result = {
+                        success: false,
+                        returnCode: 1,
+                        output: '',
+                        error: 'Execution interrupted by user.'
+                    };
+                    break;
+                }
                 if (typeof outputSink.setWorkingDirectory === 'function') {
                     outputSink.setWorkingDirectory(consoleSession.getWorkingDirectory());
                 }
                 result = await executeConsoleCommand(consoleSession, graphDir, command, onExecutionChunk);
+                if (consoleSession.isStopRequested()) {
+                    result = {
+                        ...result,
+                        success: false,
+                        returnCode: 1,
+                        error: 'Execution interrupted by user.'
+                    };
+                    break;
+                }
                 await writeChangedGraphs(consoleSession, graphDir, graphCaptureState, outputSink, true);
                 await syncSessionWorkingDirectory(consoleSession);
                 if (typeof outputSink.setWorkingDirectory === 'function') {
@@ -707,7 +726,15 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
 
         if (!result.success) {
             console.error('Stata All in One: 执行失败:', result.error);
-            if (!result.output) {
+            if (result.forced && typeof outputSink.writeWarningMessage === 'function') {
+                outputSink.writeWarningMessage(msg('consoleForceStopped'));
+            }
+            if (consoleSession.isStopRequested()
+                && !/--break--/i.test(`${streamedOutput}\n${result.output || ''}`)
+                && typeof outputSink.writeBreak === 'function') {
+                outputSink.writeBreak();
+            }
+            if (!result.output && !consoleSession.isStopRequested()) {
                 outputSink.writeError(result.error || `Execution failed (${result.returnCode})`);
             }
             return {
@@ -751,6 +778,7 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
         }
         const activeSession = session.getActiveSession();
         if (activeSession) {
+            activeSession.clearManualStopScope();
             await endGraphCapture(activeSession, graphCaptureState);
         }
         if (runStartTime !== null && !options.suppressRunFooter) {
@@ -1048,7 +1076,7 @@ async function stopConsoleExecution(context) {
 
         if (_activeOutputSink) {
             if (typeof _activeOutputSink.setStatus === 'function') {
-                _activeOutputSink.setStatus('idle');
+                _activeOutputSink.setStatus('stopping');
             }
         }
 

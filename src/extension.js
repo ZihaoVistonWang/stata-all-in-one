@@ -9,7 +9,8 @@ const { registerSeparatorCommands } = require('./modules/separator');
 const { registerCommentCommand, toggleComment } = require('./modules/comment');
 const { registerExecuteCommand } = require('./modules/runCode/execute');
 const { runArbitraryCode } = require('./modules/runCode/execute');
-const { stopConsoleExecution, forceShutdownConsoleSession } = require('./modules/runCode/embeddedConsole/mac');
+const { forceShutdownConsoleSession } = require('./modules/runCode/embeddedConsole/mac');
+const embeddedConsoleSession = require('./modules/runCode/embeddedConsole/session');
 const { setWebviewCommandHandler, setWebviewActionHandler, setOverflowNoticeSuppressed, registerWebviewPanelSerializer, clearWebviewTerminalPanel, setWebviewTerminalStatus, setConsoleFontOptions } = require('./modules/runCode/embeddedConsole/panel');
 const { registerCustomCommandHighlight } = require('./modules/customCommandHighlight');
 const { registerCompletionProvider } = require('./modules/completionProvider');
@@ -78,6 +79,21 @@ const DEPRECATED_CONFIG_KEYS = [
 ];
 
 const EMBEDDED_CONSOLE_OVERFLOW_NOTICE_SUPPRESSED_KEY = 'stata-all-in-one.embeddedConsoleOverflowNoticeSuppressed';
+
+function stopConsoleExecution(context) {
+    if (!embeddedConsoleSession.hasActiveConsoleSession()) {
+        return false;
+    }
+    const consoleSession = embeddedConsoleSession.getConsoleSession(context);
+    if (!consoleSession.isBusy()) {
+        return false;
+    }
+    const requested = consoleSession.stop();
+    if (requested) {
+        setWebviewTerminalStatus('stopping');
+    }
+    return requested;
+}
 
 function getUserLanguage() {
     const lang = (vscode.env.language || '').toLowerCase();

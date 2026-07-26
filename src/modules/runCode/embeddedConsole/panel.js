@@ -201,7 +201,7 @@ function attachPanel(panel) {
         } else if (message && message.type === 'requestVariables') {
             postVariables();
         } else if (message && message.type === 'executeInput' && typeof _commandHandler === 'function') {
-            if (_status === 'running' || _status === 'restarting') {
+            if (_status === 'running' || _status === 'stopping' || _status === 'restarting') {
                 showWarn(msg('consoleBusyAction'));
                 return;
             }
@@ -1156,6 +1156,10 @@ function getWebviewHtml(webview) {
             background: #d7ba7d;
             animation: status-pulse 1.1s ease-in-out infinite;
         }
+        .dot.stopping {
+            background: #f14c4c;
+            animation: status-pulse 0.7s ease-in-out infinite;
+        }
         .dot.restarting {
             background: #d7ba7d;
             animation: status-pulse 1.1s ease-in-out infinite;
@@ -1256,7 +1260,8 @@ function getWebviewHtml(webview) {
             color: #f14c4c66;
             transition: color 120ms ease;
         }
-        body[data-status="running"] #stop-button {
+        body[data-status="running"] #stop-button,
+        body[data-status="stopping"] #stop-button {
             color: #f14c4c;
         }
         #output {
@@ -1920,6 +1925,7 @@ function getWebviewHtml(webview) {
             idle: ${JSON.stringify(msg('webviewIdle'))},
             success: ${JSON.stringify(msg('webviewIdle'))},
             running: ${JSON.stringify(msg('webviewRunning'))},
+            stopping: ${JSON.stringify(msg('webviewStopping'))},
             restarting: ${JSON.stringify(msg('webviewRestarting'))},
             error: ${JSON.stringify(msg('webviewError'))}
         };
@@ -2357,12 +2363,13 @@ function getWebviewHtml(webview) {
         }
 
         function setStatus(status, workingStartedAt) {
+            const executionActive = status === 'running' || status === 'stopping';
             document.body.dataset.status = status || 'idle';
             dot.className = 'dot ' + (status || 'idle');
             label.textContent = STATUS_LABELS[status] || STATUS_LABELS.idle;
-            input.disabled = status === 'running' || status === 'restarting';
-            stopButton.disabled = status !== 'running';
-            clearButton.disabled = status === 'running' || status === 'restarting';
+            input.disabled = executionActive || status === 'restarting';
+            stopButton.disabled = !executionActive;
+            clearButton.disabled = executionActive || status === 'restarting';
             if (status === 'running') {
                 wasRunning = true;
                 startWorkingIndicator(workingStartedAt);
@@ -3126,7 +3133,9 @@ function getWebviewHtml(webview) {
                 hideGraphFullscreen();
                 return;
             }
-            if (event.key === 'Escape' && document.body.dataset.status === 'running') {
+            if (event.key === 'Escape'
+                && (document.body.dataset.status === 'running'
+                    || document.body.dataset.status === 'stopping')) {
                 event.preventDefault();
                 vscode.postMessage({ type: 'stopExecution' });
             }

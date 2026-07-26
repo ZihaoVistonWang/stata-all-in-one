@@ -1,12 +1,12 @@
 const path = require('path');
-const native = require('../native/stata_session');
+const native = require('../native/stata_process');
 const { getActiveSession } = require('../session');
 const { msg } = require('../../../../utils/common');
 
 const UNIT_SEPARATOR = String.fromCharCode(31);
 const META_BEGIN = '__SAIO_META_BEGIN__';
 const META_END = '__SAIO_META_END__';
-let loadedSessions = new WeakSet();
+let loadedSessions = new WeakMap();
 
 function pluginPath() {
     const fileName = process.platform === 'win32'
@@ -130,28 +130,31 @@ async function capture() {
     if (!metadata.headers.length || !metadata.nobs) {
         return { meta: { ...metadata, nobs: metadata.nobs || 0 }, columns: {}, missing: {} };
     }
-    const pointer = native.beginDatasetCapture();
+    const pointer = await native.beginDatasetCapture();
     try {
-        if (!loadedSessions.has(session)) {
+        const generation = typeof session.getGeneration === 'function'
+            ? session.getGeneration()
+            : 0;
+        if (loadedSessions.get(session) !== generation) {
             await session.execute('capture program drop __saio_data_bridge', false);
             const loadResult = await session.execute(
                 `program __saio_data_bridge, plugin using("${quoteStataPath(pluginPath())}")`,
                 false
             );
             if (!loadResult.success) throw new Error(msg('dataViewerPluginLoadFailed'));
-            loadedSessions.add(session);
+            loadedSessions.set(session, generation);
         }
         const result = await session.execute(`plugin call __saio_data_bridge _all, ${pointer}`, false);
         if (!result.success) throw new Error(msg('dataViewerDirectReadFailed'));
-        return parseCapture(native.finishDatasetCapture(), metadata);
+        return parseCapture(await native.finishDatasetCapture(), metadata);
     } catch (error) {
-        native.cancelDatasetCapture();
+        await native.cancelDatasetCapture();
         throw error;
     }
 }
 
 function resetSessionCache() {
-    loadedSessions = new WeakSet();
+    loadedSessions = new WeakMap();
 }
 
 module.exports = { capture, pluginPath, parseCapture, parseMetadataOutput, resetSessionCache };
