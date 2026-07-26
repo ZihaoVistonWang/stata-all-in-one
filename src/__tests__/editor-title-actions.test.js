@@ -35,22 +35,51 @@ test('AI editor-title button uses the full Stata AI Skill label', () => {
     assert.equal(chineseMessages['command.showAISkillDialog.title'], 'Stata AI Skill');
 });
 
-test('run button and shortcut switch together with the Shift setting', () => {
-    const defaultCommand = 'stata-all-in-one.runSection';
-    const shiftCommand = 'stata-all-in-one.runSectionWithShiftShortcut';
-    const defaultBinding = packageJson.contributes.keybindings.find(
-        item => item.command === defaultCommand
-    );
-    const shiftBinding = packageJson.contributes.keybindings.find(
-        item => item.command === shiftCommand
-    );
-    const defaultButton = getEditorTitleItem(defaultCommand);
-    const shiftButton = getEditorTitleItem(shiftCommand);
+test('run button title and shortcut switch together for every execution target', () => {
+    const targets = [
+        {
+            target: 'section',
+            defaultCommand: 'stata-all-in-one.runSection',
+            shiftCommand: 'stata-all-in-one.runSectionWithShiftShortcut'
+        },
+        {
+            target: 'line',
+            defaultCommand: 'stata-all-in-one.runLine',
+            shiftCommand: 'stata-all-in-one.runLineWithShiftShortcut'
+        },
+        {
+            target: 'selection',
+            defaultCommand: 'stata-all-in-one.runSelection',
+            shiftCommand: 'stata-all-in-one.runSelectionWithShiftShortcut'
+        }
+    ];
 
-    assert.equal(defaultBinding.mac, 'cmd+d');
-    assert.equal(shiftBinding.mac, 'cmd+shift+d');
-    assert.match(defaultBinding.when, /!config\.stata-all-in-one\.enableCtrlShiftD/);
-    assert.match(shiftBinding.when, /config\.stata-all-in-one\.enableCtrlShiftD/);
-    assert.match(defaultButton.when, /!config\.stata-all-in-one\.enableCtrlShiftD/);
-    assert.match(shiftButton.when, /config\.stata-all-in-one\.enableCtrlShiftD/);
+    for (const item of targets) {
+        const defaultBinding = packageJson.contributes.keybindings.find(
+            binding => binding.command === item.defaultCommand
+        );
+        const shiftBinding = packageJson.contributes.keybindings.find(
+            binding => binding.command === item.shiftCommand
+        );
+        const defaultButton = getEditorTitleItem(item.defaultCommand);
+        const shiftButton = getEditorTitleItem(item.shiftCommand);
+
+        assert.equal(defaultBinding.mac, 'cmd+d');
+        assert.equal(shiftBinding.mac, 'cmd+shift+d');
+        assert.match(defaultBinding.when, /!config\.stata-all-in-one\.enableCtrlShiftD/);
+        assert.match(shiftBinding.when, /config\.stata-all-in-one\.enableCtrlShiftD/);
+        assert.match(defaultButton.when, /!config\.stata-all-in-one\.enableCtrlShiftD/);
+        assert.match(shiftButton.when, /config\.stata-all-in-one\.enableCtrlShiftD/);
+        assert.match(defaultButton.when, new RegExp(`runTarget == ${item.target}`));
+        assert.match(shiftButton.when, new RegExp(`runTarget == ${item.target}`));
+    }
+});
+
+test('run target titles have English and Chinese localization', () => {
+    assert.equal(englishMessages['command.runSection.title'], 'Stata All in One: Run Current Section');
+    assert.equal(englishMessages['command.runLine.title'], 'Stata All in One: Run Current Line');
+    assert.equal(englishMessages['command.runSelection.title'], 'Stata All in One: Run Selected Lines');
+    assert.equal(chineseMessages['command.runSection.title'], 'Stata All in One：运行当前章节');
+    assert.equal(chineseMessages['command.runLine.title'], 'Stata All in One：运行当前行');
+    assert.equal(chineseMessages['command.runSelection.title'], 'Stata All in One：运行选中行');
 });

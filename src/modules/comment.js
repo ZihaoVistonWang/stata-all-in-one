@@ -6,6 +6,14 @@
 
 const vscode = require('vscode');
 const config = require('../utils/config');
+const { getCommentStyleMenuValue } = require('./commentStyle');
+
+const COMMENT_STYLE_CONTEXT_KEY = 'stata-all-in-one.commentStyleMenu';
+const QUICK_COMMENT_COMMANDS = [
+    'stata-all-in-one.quickCommentSlash',
+    'stata-all-in-one.quickCommentStar',
+    'stata-all-in-one.quickCommentBlock'
+];
 
 /**
  * Toggle comment for selected lines
@@ -63,8 +71,26 @@ function toggleComment() {
  * Register comment toggle command
  */
 function registerCommentCommand(context) {
-    const disposable = vscode.commands.registerCommand('stata-all-in-one.toggleComment', toggleComment);
-    context.subscriptions.push(disposable);
+    const updateCommentStyleContext = () => {
+        Promise.resolve(
+            vscode.commands.executeCommand(
+                'setContext',
+                COMMENT_STYLE_CONTEXT_KEY,
+                getCommentStyleMenuValue(config.getCommentStyle())
+            )
+        ).catch(() => {});
+    };
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('stata-all-in-one.toggleComment', toggleComment),
+        ...QUICK_COMMENT_COMMANDS.map(command => vscode.commands.registerCommand(command, toggleComment)),
+        vscode.workspace.onDidChangeConfiguration(event => {
+            if (event.affectsConfiguration('stata-all-in-one.commentStyle')) {
+                updateCommentStyleContext();
+            }
+        })
+    );
+    updateCommentStyleContext();
 }
 
 module.exports = {

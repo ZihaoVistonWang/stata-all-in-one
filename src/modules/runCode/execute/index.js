@@ -29,6 +29,18 @@ const { containsSaioCommand } = require('../saioCommandGuard');
 
 // 临时文件处理
 const { cleanupTempFile } = require('./tempfile');
+const { getRunTarget, isCursorOnHeading, isSectionHeaderLine } = require('./runTarget');
+
+const RUN_TARGET_CONTEXT_KEY = 'stata-all-in-one.runTarget';
+const CURSOR_ON_HEADING_CONTEXT_KEY = 'stata-all-in-one.cursorOnHeading';
+const RUN_COMMANDS = [
+    'stata-all-in-one.runSection',
+    'stata-all-in-one.runLine',
+    'stata-all-in-one.runSelection',
+    'stata-all-in-one.runSectionWithShiftShortcut',
+    'stata-all-in-one.runLineWithShiftShortcut',
+    'stata-all-in-one.runSelectionWithShiftShortcut'
+];
 
 async function invalidateConsoleDataViewer() {
     try {
@@ -62,9 +74,7 @@ function getCodeToRun(editor) {
         // 未选中：检查当前行是否是标题行
         const currentLine = editor.selection.active.line;
         const lineText = document.lineAt(currentLine).text;
-        const headerRegex = /^\*{1,2}\s*#+/;
-        
-        if (headerRegex.test(lineText)) {
+        if (isSectionHeaderLine(lineText)) {
             // 当前行是标题：运行当前节
             const regex = /^\*{1,2}\s*(#+)\s?(.*)$/;
             
@@ -510,13 +520,37 @@ function registerExecuteCommand(context) {
     const runHandler = async () => {
         await runCurrentSection(context);
     };
-    const commands = [
-        'stata-all-in-one.runSection',
-        'stata-all-in-one.runSectionWithShiftShortcut'
-    ];
+    const updateRunTarget = (editor = vscode.window.activeTextEditor) => {
+        Promise.all([
+            vscode.commands.executeCommand(
+                'setContext',
+                RUN_TARGET_CONTEXT_KEY,
+                getRunTarget(editor)
+            ),
+            vscode.commands.executeCommand(
+                'setContext',
+                CURSOR_ON_HEADING_CONTEXT_KEY,
+                isCursorOnHeading(editor)
+            )
+        ]).catch(() => {});
+    };
+
     context.subscriptions.push(
-        ...commands.map(command => vscode.commands.registerCommand(command, runHandler))
+        ...RUN_COMMANDS.map(command => vscode.commands.registerCommand(command, runHandler)),
+        vscode.window.onDidChangeActiveTextEditor(editor => updateRunTarget(editor)),
+        vscode.window.onDidChangeTextEditorSelection(event => {
+            if (event.textEditor === vscode.window.activeTextEditor) {
+                updateRunTarget(event.textEditor);
+            }
+        }),
+        vscode.workspace.onDidChangeTextDocument(event => {
+            const activeEditor = vscode.window.activeTextEditor;
+            if (activeEditor && event.document === activeEditor.document) {
+                updateRunTarget(activeEditor);
+            }
+        })
     );
+    updateRunTarget();
 }
 
 // 导出接口

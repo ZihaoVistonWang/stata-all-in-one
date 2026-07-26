@@ -410,7 +410,14 @@ async function activate(context) {
         { id: 'stata-all-in-one.setLevel4', level: 4 },
         { id: 'stata-all-in-one.setLevel5', level: 5 },
         { id: 'stata-all-in-one.setLevel6', level: 6 },
-        { id: 'stata-all-in-one.clearHeading', level: 0 }
+        { id: 'stata-all-in-one.clearHeading', level: 0 },
+        { id: 'stata-all-in-one.contextSetLevel1', level: 1 },
+        { id: 'stata-all-in-one.contextSetLevel2', level: 2 },
+        { id: 'stata-all-in-one.contextSetLevel3', level: 3 },
+        { id: 'stata-all-in-one.contextSetLevel4', level: 4 },
+        { id: 'stata-all-in-one.contextSetLevel5', level: 5 },
+        { id: 'stata-all-in-one.contextSetLevel6', level: 6 },
+        { id: 'stata-all-in-one.contextClearHeading', level: 0 }
     ];
 
     headingCommands.forEach(cmd => {
@@ -813,11 +820,16 @@ async function activate(context) {
     // ========== AI Skill ==========
 
     // Register AI Skill dialog command (editor title button)
-    const showAISkillDialogCommand = vscode.commands.registerCommand(
-        'stata-all-in-one.showAISkillDialog',
-        () => showAISkillDialog()
+    context.subscriptions.push(
+        vscode.commands.registerCommand(
+            'stata-all-in-one.showAISkillDialog',
+            () => showAISkillDialog()
+        ),
+        vscode.commands.registerCommand(
+            'stata-all-in-one.contextShowAISkillDialog',
+            () => showAISkillDialog()
+        )
     );
-    context.subscriptions.push(showAISkillDialogCommand);
 
     // Do not complete activation while the initialization modal is awaiting an
     // explicit choice. This keeps the startup setup state machine authoritative

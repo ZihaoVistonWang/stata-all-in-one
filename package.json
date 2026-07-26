@@ -264,8 +264,28 @@
         "icon": "$(play)"
       },
       {
+        "command": "stata-all-in-one.runLine",
+        "title": "%command.runLine.title%",
+        "icon": "$(play)"
+      },
+      {
+        "command": "stata-all-in-one.runSelection",
+        "title": "%command.runSelection.title%",
+        "icon": "$(play)"
+      },
+      {
         "command": "stata-all-in-one.runSectionWithShiftShortcut",
         "title": "%command.runSection.title%",
+        "icon": "$(play)"
+      },
+      {
+        "command": "stata-all-in-one.runLineWithShiftShortcut",
+        "title": "%command.runLine.title%",
+        "icon": "$(play)"
+      },
+      {
+        "command": "stata-all-in-one.runSelectionWithShiftShortcut",
+        "title": "%command.runSelection.title%",
         "icon": "$(play)"
       },
       {
@@ -362,6 +382,80 @@
       {
         "command": "stata-all-in-one.showAISkillDialog",
         "title": "%command.showAISkillDialog.title%"
+      },
+      {
+        "command": "stata-all-in-one.contextSetLevel1",
+        "title": "%menu.heading.level1%"
+      },
+      {
+        "command": "stata-all-in-one.contextSetLevel2",
+        "title": "%menu.heading.level2%"
+      },
+      {
+        "command": "stata-all-in-one.contextSetLevel3",
+        "title": "%menu.heading.level3%"
+      },
+      {
+        "command": "stata-all-in-one.contextSetLevel4",
+        "title": "%menu.heading.level4%"
+      },
+      {
+        "command": "stata-all-in-one.contextSetLevel5",
+        "title": "%menu.heading.level5%"
+      },
+      {
+        "command": "stata-all-in-one.contextSetLevel6",
+        "title": "%menu.heading.level6%"
+      },
+      {
+        "command": "stata-all-in-one.contextClearHeading",
+        "title": "%menu.heading.normal%"
+      },
+      {
+        "command": "stata-all-in-one.contextInsertSeparatorDash",
+        "title": "%menu.separator.dash%"
+      },
+      {
+        "command": "stata-all-in-one.contextInsertSeparatorEqual",
+        "title": "%menu.separator.equal%"
+      },
+      {
+        "command": "stata-all-in-one.contextInsertSeparatorStar",
+        "title": "%menu.separator.star%"
+      },
+      {
+        "command": "stata-all-in-one.contextInsertCustomSeparator",
+        "title": "%menu.separator.custom%"
+      },
+      {
+        "command": "stata-all-in-one.centerHeadingText",
+        "title": "%command.centerHeadingText.title%"
+      },
+      {
+        "command": "stata-all-in-one.quickCommentSlash",
+        "title": "%command.quickCommentSlash.title%"
+      },
+      {
+        "command": "stata-all-in-one.quickCommentStar",
+        "title": "%command.quickCommentStar.title%"
+      },
+      {
+        "command": "stata-all-in-one.quickCommentBlock",
+        "title": "%command.quickCommentBlock.title%"
+      },
+      {
+        "command": "stata-all-in-one.contextShowAISkillDialog",
+        "title": "%command.contextShowAISkillDialog.title%"
+      }
+    ],
+    "submenus": [
+      {
+        "id": "stata-all-in-one.headingMenu",
+        "label": "%menu.heading.label%"
+      },
+      {
+        "id": "stata-all-in-one.separatorMenu",
+        "label": "%menu.separator.label%"
       }
     ],
     "keybindings": [
@@ -369,13 +463,37 @@
         "command": "stata-all-in-one.runSectionWithShiftShortcut",
         "key": "ctrl+shift+d",
         "mac": "cmd+shift+d",
-        "when": "editorTextFocus && editorLangId == stata && config.stata-all-in-one.enableCtrlShiftD"
+        "when": "editorTextFocus && editorLangId == stata && config.stata-all-in-one.enableCtrlShiftD && stata-all-in-one.runTarget == section"
+      },
+      {
+        "command": "stata-all-in-one.runLineWithShiftShortcut",
+        "key": "ctrl+shift+d",
+        "mac": "cmd+shift+d",
+        "when": "editorTextFocus && editorLangId == stata && config.stata-all-in-one.enableCtrlShiftD && stata-all-in-one.runTarget == line"
+      },
+      {
+        "command": "stata-all-in-one.runSelectionWithShiftShortcut",
+        "key": "ctrl+shift+d",
+        "mac": "cmd+shift+d",
+        "when": "editorTextFocus && editorLangId == stata && config.stata-all-in-one.enableCtrlShiftD && stata-all-in-one.runTarget == selection"
       },
       {
         "command": "stata-all-in-one.runSection",
         "key": "ctrl+d",
         "mac": "cmd+d",
-        "when": "editorTextFocus && editorLangId == stata && !config.stata-all-in-one.enableCtrlShiftD"
+        "when": "editorTextFocus && editorLangId == stata && !config.stata-all-in-one.enableCtrlShiftD && stata-all-in-one.runTarget == section"
+      },
+      {
+        "command": "stata-all-in-one.runLine",
+        "key": "ctrl+d",
+        "mac": "cmd+d",
+        "when": "editorTextFocus && editorLangId == stata && !config.stata-all-in-one.enableCtrlShiftD && stata-all-in-one.runTarget == line"
+      },
+      {
+        "command": "stata-all-in-one.runSelection",
+        "key": "ctrl+d",
+        "mac": "cmd+d",
+        "when": "editorTextFocus && editorLangId == stata && !config.stata-all-in-one.enableCtrlShiftD && stata-all-in-one.runTarget == selection"
       },
       {
         "command": "stata-all-in-one.insertSeparatorDash",
@@ -450,6 +568,90 @@
         "when": "editorTextFocus && editorLangId == stata"
       },
       {
+        "command": "stata-all-in-one.contextInsertSeparatorDash",
+        "key": "ctrl+-",
+        "mac": "cmd+-",
+        "when": "editorTextFocus && editorLangId == stata"
+      },
+      {
+        "command": "stata-all-in-one.contextInsertSeparatorEqual",
+        "key": "ctrl+=",
+        "mac": "cmd+=",
+        "when": "editorTextFocus && editorLangId == stata"
+      },
+      {
+        "command": "stata-all-in-one.contextInsertSeparatorStar",
+        "key": "ctrl+shift+8",
+        "mac": "cmd+shift+8",
+        "when": "editorTextFocus && editorLangId == stata"
+      },
+      {
+        "command": "stata-all-in-one.contextInsertCustomSeparator",
+        "key": "ctrl+alt+s",
+        "mac": "ctrl+cmd+s",
+        "when": "editorTextFocus && editorLangId == stata"
+      },
+      {
+        "command": "stata-all-in-one.contextSetLevel1",
+        "key": "ctrl+1",
+        "mac": "cmd+1",
+        "when": "editorTextFocus && editorLangId == stata"
+      },
+      {
+        "command": "stata-all-in-one.contextSetLevel2",
+        "key": "ctrl+2",
+        "mac": "cmd+2",
+        "when": "editorTextFocus && editorLangId == stata"
+      },
+      {
+        "command": "stata-all-in-one.contextSetLevel3",
+        "key": "ctrl+3",
+        "mac": "cmd+3",
+        "when": "editorTextFocus && editorLangId == stata"
+      },
+      {
+        "command": "stata-all-in-one.contextSetLevel4",
+        "key": "ctrl+4",
+        "mac": "cmd+4",
+        "when": "editorTextFocus && editorLangId == stata"
+      },
+      {
+        "command": "stata-all-in-one.contextSetLevel5",
+        "key": "ctrl+5",
+        "mac": "cmd+5",
+        "when": "editorTextFocus && editorLangId == stata"
+      },
+      {
+        "command": "stata-all-in-one.contextSetLevel6",
+        "key": "ctrl+6",
+        "mac": "cmd+6",
+        "when": "editorTextFocus && editorLangId == stata"
+      },
+      {
+        "command": "stata-all-in-one.contextClearHeading",
+        "key": "ctrl+0",
+        "mac": "cmd+0",
+        "when": "editorTextFocus && editorLangId == stata"
+      },
+      {
+        "command": "stata-all-in-one.quickCommentSlash",
+        "key": "ctrl+/",
+        "mac": "cmd+/",
+        "when": "editorTextFocus && editorLangId == stata && stata-all-in-one.commentStyleMenu == slash"
+      },
+      {
+        "command": "stata-all-in-one.quickCommentStar",
+        "key": "ctrl+/",
+        "mac": "cmd+/",
+        "when": "editorTextFocus && editorLangId == stata && stata-all-in-one.commentStyleMenu == star"
+      },
+      {
+        "command": "stata-all-in-one.quickCommentBlock",
+        "key": "ctrl+/",
+        "mac": "cmd+/",
+        "when": "editorTextFocus && editorLangId == stata && stata-all-in-one.commentStyleMenu == block"
+      },
+      {
         "command": "stata-all-in-one.showHelp",
         "key": "ctrl+shift+h",
         "mac": "cmd+shift+h",
@@ -488,12 +690,32 @@
         },
         {
           "command": "stata-all-in-one.runSection",
-          "when": "editorLangId == stata && !config.stata-all-in-one.enableCtrlShiftD",
+          "when": "editorLangId == stata && !config.stata-all-in-one.enableCtrlShiftD && stata-all-in-one.runTarget == section",
+          "group": "navigation@2"
+        },
+        {
+          "command": "stata-all-in-one.runLine",
+          "when": "editorLangId == stata && !config.stata-all-in-one.enableCtrlShiftD && stata-all-in-one.runTarget == line",
+          "group": "navigation@2"
+        },
+        {
+          "command": "stata-all-in-one.runSelection",
+          "when": "editorLangId == stata && !config.stata-all-in-one.enableCtrlShiftD && stata-all-in-one.runTarget == selection",
           "group": "navigation@2"
         },
         {
           "command": "stata-all-in-one.runSectionWithShiftShortcut",
-          "when": "editorLangId == stata && config.stata-all-in-one.enableCtrlShiftD",
+          "when": "editorLangId == stata && config.stata-all-in-one.enableCtrlShiftD && stata-all-in-one.runTarget == section",
+          "group": "navigation@2"
+        },
+        {
+          "command": "stata-all-in-one.runLineWithShiftShortcut",
+          "when": "editorLangId == stata && config.stata-all-in-one.enableCtrlShiftD && stata-all-in-one.runTarget == line",
+          "group": "navigation@2"
+        },
+        {
+          "command": "stata-all-in-one.runSelectionWithShiftShortcut",
+          "when": "editorLangId == stata && config.stata-all-in-one.enableCtrlShiftD && stata-all-in-one.runTarget == selection",
           "group": "navigation@2"
         },
         {
@@ -502,21 +724,236 @@
           "group": "navigation@3"
         }
       ],
+      "editor/context": [
+        {
+          "command": "stata-all-in-one.runSection",
+          "when": "editorLangId == stata && !config.stata-all-in-one.enableCtrlShiftD && stata-all-in-one.runTarget == section",
+          "group": "stataAllInOne@1"
+        },
+        {
+          "command": "stata-all-in-one.runLine",
+          "when": "editorLangId == stata && !config.stata-all-in-one.enableCtrlShiftD && stata-all-in-one.runTarget == line",
+          "group": "stataAllInOne@1"
+        },
+        {
+          "command": "stata-all-in-one.runSelection",
+          "when": "editorLangId == stata && !config.stata-all-in-one.enableCtrlShiftD && stata-all-in-one.runTarget == selection",
+          "group": "stataAllInOne@1"
+        },
+        {
+          "command": "stata-all-in-one.runSectionWithShiftShortcut",
+          "when": "editorLangId == stata && config.stata-all-in-one.enableCtrlShiftD && stata-all-in-one.runTarget == section",
+          "group": "stataAllInOne@1"
+        },
+        {
+          "command": "stata-all-in-one.runLineWithShiftShortcut",
+          "when": "editorLangId == stata && config.stata-all-in-one.enableCtrlShiftD && stata-all-in-one.runTarget == line",
+          "group": "stataAllInOne@1"
+        },
+        {
+          "command": "stata-all-in-one.runSelectionWithShiftShortcut",
+          "when": "editorLangId == stata && config.stata-all-in-one.enableCtrlShiftD && stata-all-in-one.runTarget == selection",
+          "group": "stataAllInOne@1"
+        },
+        {
+          "submenu": "stata-all-in-one.headingMenu",
+          "when": "editorLangId == stata",
+          "group": "stataAllInOne@2"
+        },
+        {
+          "submenu": "stata-all-in-one.separatorMenu",
+          "when": "editorLangId == stata",
+          "group": "stataAllInOne@3"
+        },
+        {
+          "command": "stata-all-in-one.centerHeadingText",
+          "when": "editorLangId == stata && stata-all-in-one.cursorOnHeading",
+          "group": "stataAllInOne@4"
+        },
+        {
+          "command": "stata-all-in-one.quickCommentSlash",
+          "when": "editorLangId == stata && stata-all-in-one.commentStyleMenu == slash",
+          "group": "stataAllInOne@5"
+        },
+        {
+          "command": "stata-all-in-one.quickCommentStar",
+          "when": "editorLangId == stata && stata-all-in-one.commentStyleMenu == star",
+          "group": "stataAllInOne@5"
+        },
+        {
+          "command": "stata-all-in-one.quickCommentBlock",
+          "when": "editorLangId == stata && stata-all-in-one.commentStyleMenu == block",
+          "group": "stataAllInOne@5"
+        },
+        {
+          "command": "stata-all-in-one.contextShowAISkillDialog",
+          "when": "editorLangId == stata && stata-all-in-one.licenseAvailable",
+          "group": "stataAllInOne@6"
+        }
+      ],
+      "stata-all-in-one.headingMenu": [
+        {
+          "command": "stata-all-in-one.contextSetLevel1",
+          "group": "navigation@1"
+        },
+        {
+          "command": "stata-all-in-one.contextSetLevel2",
+          "group": "navigation@2"
+        },
+        {
+          "command": "stata-all-in-one.contextSetLevel3",
+          "group": "navigation@3"
+        },
+        {
+          "command": "stata-all-in-one.contextSetLevel4",
+          "group": "navigation@4"
+        },
+        {
+          "command": "stata-all-in-one.contextSetLevel5",
+          "group": "navigation@5"
+        },
+        {
+          "command": "stata-all-in-one.contextSetLevel6",
+          "group": "navigation@6"
+        },
+        {
+          "command": "stata-all-in-one.contextClearHeading",
+          "group": "navigation@7"
+        }
+      ],
+      "stata-all-in-one.separatorMenu": [
+        {
+          "command": "stata-all-in-one.contextInsertSeparatorDash",
+          "group": "navigation@1"
+        },
+        {
+          "command": "stata-all-in-one.contextInsertSeparatorEqual",
+          "group": "navigation@2"
+        },
+        {
+          "command": "stata-all-in-one.contextInsertSeparatorStar",
+          "group": "navigation@3"
+        },
+        {
+          "command": "stata-all-in-one.contextInsertCustomSeparator",
+          "group": "navigation@4"
+        }
+      ],
       "view/title": [
         {
           "command": "stata-all-in-one.runSection",
-          "when": "view == outline && resourceLangId == stata && !config.stata-all-in-one.enableCtrlShiftD",
+          "when": "view == outline && resourceLangId == stata && !config.stata-all-in-one.enableCtrlShiftD && stata-all-in-one.runTarget == section",
+          "group": "navigation"
+        },
+        {
+          "command": "stata-all-in-one.runLine",
+          "when": "view == outline && resourceLangId == stata && !config.stata-all-in-one.enableCtrlShiftD && stata-all-in-one.runTarget == line",
+          "group": "navigation"
+        },
+        {
+          "command": "stata-all-in-one.runSelection",
+          "when": "view == outline && resourceLangId == stata && !config.stata-all-in-one.enableCtrlShiftD && stata-all-in-one.runTarget == selection",
           "group": "navigation"
         },
         {
           "command": "stata-all-in-one.runSectionWithShiftShortcut",
-          "when": "view == outline && resourceLangId == stata && config.stata-all-in-one.enableCtrlShiftD",
+          "when": "view == outline && resourceLangId == stata && config.stata-all-in-one.enableCtrlShiftD && stata-all-in-one.runTarget == section",
+          "group": "navigation"
+        },
+        {
+          "command": "stata-all-in-one.runLineWithShiftShortcut",
+          "when": "view == outline && resourceLangId == stata && config.stata-all-in-one.enableCtrlShiftD && stata-all-in-one.runTarget == line",
+          "group": "navigation"
+        },
+        {
+          "command": "stata-all-in-one.runSelectionWithShiftShortcut",
+          "when": "view == outline && resourceLangId == stata && config.stata-all-in-one.enableCtrlShiftD && stata-all-in-one.runTarget == selection",
           "group": "navigation"
         }
       ],
       "commandPalette": [
         {
+          "command": "stata-all-in-one.runLine",
+          "when": "false"
+        },
+        {
+          "command": "stata-all-in-one.runSelection",
+          "when": "false"
+        },
+        {
           "command": "stata-all-in-one.runSectionWithShiftShortcut",
+          "when": "false"
+        },
+        {
+          "command": "stata-all-in-one.runLineWithShiftShortcut",
+          "when": "false"
+        },
+        {
+          "command": "stata-all-in-one.runSelectionWithShiftShortcut",
+          "when": "false"
+        },
+        {
+          "command": "stata-all-in-one.contextSetLevel1",
+          "when": "false"
+        },
+        {
+          "command": "stata-all-in-one.contextSetLevel2",
+          "when": "false"
+        },
+        {
+          "command": "stata-all-in-one.contextSetLevel3",
+          "when": "false"
+        },
+        {
+          "command": "stata-all-in-one.contextSetLevel4",
+          "when": "false"
+        },
+        {
+          "command": "stata-all-in-one.contextSetLevel5",
+          "when": "false"
+        },
+        {
+          "command": "stata-all-in-one.contextSetLevel6",
+          "when": "false"
+        },
+        {
+          "command": "stata-all-in-one.contextClearHeading",
+          "when": "false"
+        },
+        {
+          "command": "stata-all-in-one.contextInsertSeparatorDash",
+          "when": "false"
+        },
+        {
+          "command": "stata-all-in-one.contextInsertSeparatorEqual",
+          "when": "false"
+        },
+        {
+          "command": "stata-all-in-one.contextInsertSeparatorStar",
+          "when": "false"
+        },
+        {
+          "command": "stata-all-in-one.contextInsertCustomSeparator",
+          "when": "false"
+        },
+        {
+          "command": "stata-all-in-one.centerHeadingText",
+          "when": "false"
+        },
+        {
+          "command": "stata-all-in-one.quickCommentSlash",
+          "when": "false"
+        },
+        {
+          "command": "stata-all-in-one.quickCommentStar",
+          "when": "false"
+        },
+        {
+          "command": "stata-all-in-one.quickCommentBlock",
+          "when": "false"
+        },
+        {
+          "command": "stata-all-in-one.contextShowAISkillDialog",
           "when": "false"
         }
       ]

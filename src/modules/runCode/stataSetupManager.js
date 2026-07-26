@@ -16,10 +16,22 @@ const {
 const SETUP_NOTICE_STATE_KEY = 'stata-all-in-one.stataSetupNoticeState';
 const SETUP_DIALOG_TITLE = `✨ Stata All in One (${extensionVersion})`;
 const STATA_DEALER_URL = 'http://xhslink.com/o/QYWdYfrEhy';
+const LICENSE_AVAILABLE_CONTEXT_KEY = 'stata-all-in-one.licenseAvailable';
 
 let startupPromise = null;
 let startupCompleted = false;
 let setupPromise = null;
+
+async function updateLicenseAvailableContext(licenseAvailable) {
+    if (!vscode.commands || typeof vscode.commands.executeCommand !== 'function') {
+        return;
+    }
+    await vscode.commands.executeCommand(
+        'setContext',
+        LICENSE_AVAILABLE_CONTEXT_KEY,
+        Boolean(licenseAvailable)
+    );
+}
 
 function isFile(filePath) {
     try {
@@ -461,6 +473,7 @@ async function performSetup(context, options = {}) {
 
     while (true) {
         if (resolvedInstallation && resolvedInstallation.source === 'stata-command-pending') {
+            await updateLicenseAvailableContext(false);
             await capability.setCapabilityState(context, 'unverified');
             return {
                 ...resolvedInstallation,
@@ -472,6 +485,7 @@ async function performSetup(context, options = {}) {
             };
         }
         const report = await inspectInstallation(context, resolvedInstallation);
+        await updateLicenseAvailableContext(report.licenseAvailable);
         if (report.installationAvailable) {
             // External App is an explicit execution preference. Keep locating
             // and validating the Stata application, but do not initialize or
@@ -617,6 +631,7 @@ async function resetStataSetupState(context) {
 }
 
 module.exports = {
+    LICENSE_AVAILABLE_CONTEXT_KEY,
     SETUP_DIALOG_TITLE,
     SETUP_NOTICE_STATE_KEY,
     buildSetupSignature,
@@ -626,5 +641,6 @@ module.exports = {
     resetStataSetupState,
     showDebugLicenseFailureDialog,
     startStartupStataSetup,
+    updateLicenseAvailableContext,
     withStataSignalPrefix
 };

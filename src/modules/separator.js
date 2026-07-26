@@ -195,6 +195,85 @@ function updateAllSeparators() {
 }
 
 /**
+ * Build a balanced decorated heading while preserving the `**#` outline prefix.
+ */
+function buildDecoratedHeadingLine(lineText, char, totalLength, symmetric) {
+    const headingMatch = /^\*\*\s*(#+)\s*(.*)$/.exec(String(lineText || '').trim());
+    if (!headingMatch) {
+        return { matched: false, text: null };
+    }
+
+    const effectiveTotalLength = hasNonAsciiCodePoint(char) ? Math.max(10, Math.floor(totalLength * 2 / 3)) : totalLength;
+    const level = headingMatch[1];
+    const titleText = removeSeparators(headingMatch[2].trim());
+    const prefixLength = 2 + level.length + 1;
+    const titleLength = Array.from(titleText).length;
+    const remaining = effectiveTotalLength - prefixLength - titleLength;
+
+    if (remaining < 4) {
+        return { matched: true, text: null };
+    }
+
+    const sepTotal = remaining - 2;
+    const leftSepLen = Math.floor(sepTotal / 2);
+    const rightSepLen = sepTotal - leftSepLen;
+    const leftSep = buildSeparatorSegment(char, leftSepLen);
+    const rightSep = buildSeparatorSegment(char, rightSepLen);
+    const suffix = symmetric ? ' **' : '';
+
+    return {
+        matched: true,
+        text: `**${level} ${leftSep} ${titleText} ${rightSep}${suffix}`
+    };
+}
+
+function replaceHeadingDecoration(editor, lineNumber, char) {
+    const line = editor.document.lineAt(lineNumber);
+    const result = buildDecoratedHeadingLine(
+        line.text,
+        char,
+        config.getSeparatorLength(),
+        config.getSeparatorSymmetric()
+    );
+    if (!result.matched) {
+        return false;
+    }
+    if (!result.text) {
+        showWarn(msg('lineTooLong'));
+        return true;
+    }
+
+    editor.edit(editBuilder => {
+        editBuilder.replace(line.range, result.text);
+    });
+    return true;
+}
+
+/**
+ * Center the title text with spaces while preserving outline recognition.
+ */
+function centerHeadingText() {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) {
+        return;
+    }
+    replaceHeadingDecoration(editor, editor.selection.active.line, ' ');
+}
+
+function buildStandaloneSeparatorLine(char, totalLength, symmetric) {
+    const effectiveTotalLength = hasNonAsciiCodePoint(char)
+        ? Math.max(10, Math.floor(totalLength * 2 / 3))
+        : totalLength;
+    const suffix = symmetric ? ' **' : '';
+    const prefix = '** ';
+    const separatorBody = buildSeparatorSegment(
+        char,
+        effectiveTotalLength - prefix.length - suffix.length
+    );
+    return `${prefix}${separatorBody}${suffix}`;
+}
+
+/**
  * Insert a separator line
  */
 function insertSeparator(char) {
@@ -206,49 +285,20 @@ function insertSeparator(char) {
     const document = editor.document;
     const selection = editor.selection;
     const totalLength = config.getSeparatorLength();
-    const effectiveTotalLength = hasNonAsciiCodePoint(char) ? Math.max(10, Math.floor(totalLength * 2 / 3)) : totalLength;
 
     // Check if selection is within a single heading line AND has selected text
     if (selection.start.line === selection.end.line && !selection.isEmpty) {
-        const line = document.lineAt(selection.start.line);
-        const text = line.text;
-        const headingMatch = /^\*\*\s*(#+)\s*(.*)$/.exec(text.trim());
-        if (headingMatch) {
-            const level = headingMatch[1];
-            const titleText = removeSeparators(headingMatch[2].trim());
-            
-            const prefixLength = 2 + level.length + 1;
-            const titleLength = Array.from(titleText).length;
-            const remaining = effectiveTotalLength - prefixLength - titleLength;
-            
-            if (remaining < 4) {
-                showWarn(msg('lineTooLong'));
-                return;
-            }
-            
-            const sepTotal = remaining - 2;
-            const leftSepLen = Math.floor(sepTotal / 2);
-            const rightSepLen = sepTotal - leftSepLen;
-            
-            const leftSep = buildSeparatorSegment(char, leftSepLen);
-            const rightSep = buildSeparatorSegment(char, rightSepLen);
-            
-            const suffix = config.getSeparatorSymmetric() ? ' **' : '';
-            const newLine = `**${level} ${leftSep} ${titleText} ${rightSep}${suffix}`;
-            
-            editor.edit(editBuilder => {
-                const range = line.range;
-                editBuilder.replace(range, newLine);
-            });
+        if (replaceHeadingDecoration(editor, selection.start.line, char)) {
             return;
         }
     }
 
     // Insert standalone separator line
-    const suffix = config.getSeparatorSymmetric() ? ' **' : '';
-    const suffixLength = suffix.length;
-    const separatorBody = buildSeparatorSegment(char, effectiveTotalLength - 3 - suffixLength);
-    const separatorLine = `** ${separatorBody}${suffix}`;
+    const separatorLine = buildStandaloneSeparatorLine(
+        char,
+        totalLength,
+        config.getSeparatorSymmetric()
+    );
     
     let targetLine = selection.start.line;
     const currentLineText = document.lineAt(targetLine).text;
@@ -332,7 +382,10 @@ function registerSeparatorCommands(context) {
     const separatorCommands = [
         { id: 'stata-all-in-one.insertSeparatorDash', char: '-' },
         { id: 'stata-all-in-one.insertSeparatorEqual', char: '=' },
-        { id: 'stata-all-in-one.insertSeparatorStar', char: '*' }
+        { id: 'stata-all-in-one.insertSeparatorStar', char: '*' },
+        { id: 'stata-all-in-one.contextInsertSeparatorDash', char: '-' },
+        { id: 'stata-all-in-one.contextInsertSeparatorEqual', char: '=' },
+        { id: 'stata-all-in-one.contextInsertSeparatorStar', char: '*' }
     ];
 
     separatorCommands.forEach(cmd => {
@@ -351,13 +404,15 @@ function registerSeparatorCommands(context) {
     // Register auto-update on document open
     registerAutoUpdate(context);
 
-    // Register custom separator command
-    const customSeparatorCommand = vscode.commands.registerCommand('stata-all-in-one.insertCustomSeparator', async () => {
+    const insertCustomSeparator = async () => {
         const input = await vscode.window.showInputBox({
             prompt: msg('customSepPrompt'),
             placeHolder: msg('customSepPlaceholder')
         });
 
+        if (input === undefined) {
+            return;
+        }
         if (input) {
             const cps = Array.from(input);
             if (cps.length > 1) {
@@ -370,13 +425,21 @@ function registerSeparatorCommands(context) {
             }
         }
 
-        const char = (input && input.length > 0) ? input : '=';
+        const char = input.length > 0 ? input : ' ';
         insertSeparator(char);
-    });
-    context.subscriptions.push(customSeparatorCommand);
+    };
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('stata-all-in-one.insertCustomSeparator', insertCustomSeparator),
+        vscode.commands.registerCommand('stata-all-in-one.contextInsertCustomSeparator', insertCustomSeparator),
+        vscode.commands.registerCommand('stata-all-in-one.centerHeadingText', centerHeadingText)
+    );
 }
 
 module.exports = {
+    buildDecoratedHeadingLine,
+    buildStandaloneSeparatorLine,
+    centerHeadingText,
     insertSeparator,
     updateAllSeparators,
     registerSeparatorCommands
