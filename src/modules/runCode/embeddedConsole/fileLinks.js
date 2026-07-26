@@ -252,6 +252,48 @@ function outputFileCandidates(text) {
     });
 }
 
+function outputExtensionCandidates(text) {
+    const quoted = findQuotedCandidates(text);
+    return uniqueCandidates([
+        ...outputFileCandidates(text),
+        ...findUnquotedCandidates(text, quoted)
+    ]);
+}
+
+function backwardCandidateVariants(text, candidate, maxWords = 5) {
+    const source = String(text || '');
+    const base = {
+        start: candidate.start,
+        end: candidate.end,
+        value: candidate.value
+    };
+    const currentWords = String(candidate.value || '').trim().split(/\s+/).filter(Boolean);
+    const isQuoted = source[base.start - 1] === '"' && source[base.end] === '"';
+    if (isQuoted
+        || isExplicitPath(base.value)
+        || currentWords.length !== 1
+        || maxWords <= 1) {
+        return [base];
+    }
+
+    const variants = [base];
+    let start = base.start;
+    let wordCount = 1;
+    while (wordCount < maxWords && start > 0) {
+        const prefix = source.slice(0, start);
+        const match = /(\S+)\s*$/.exec(prefix);
+        if (!match) break;
+        start = match.index;
+        variants.push({
+            start,
+            end: base.end,
+            value: source.slice(start, base.end).trim()
+        });
+        wordCount += 1;
+    }
+    return variants;
+}
+
 function verifiedLocalLink(value, cwd, options = {}) {
     const raw = String(value || '').trim().replace(/""/g, '"');
     if (isUnsafePathToken(raw)) return null;
@@ -484,8 +526,9 @@ async function collectVerifiedOutputLinks(entries, cwd, options = {}) {
             String(entry && entry.kind || '')
         ) || /^[.>]\s/.test(text);
         if (!isCommand) {
-            candidates.push(...outputFileCandidates(text).map(candidate => ({
+            candidates.push(...outputExtensionCandidates(text).map(candidate => ({
                 ...candidate,
+                sourceText: text,
                 occurrences: [{
                     entryIndex,
                     start: candidate.start,
@@ -514,32 +557,73 @@ async function collectVerifiedOutputLinks(entries, cwd, options = {}) {
         }
     }
 
-    const groupedCandidates = new Map();
+    const stat = options.stat || fs.promises.stat;
+    const statCache = new Map();
+    const cachedStat = target => {
+        if (!statCache.has(target)) {
+            statCache.set(target, Promise.resolve().then(() => stat(target)));
+        }
+        return statCache.get(target);
+    };
+    const selectedCandidates = [];
     for (const candidate of candidates) {
-        if (!groupedCandidates.has(candidate.value)) {
-            groupedCandidates.set(candidate.value, {
+        const variants = candidate.sourceText
+            ? backwardCandidateVariants(candidate.sourceText, candidate, 10)
+            : [{
+                start: candidate.start,
+                end: candidate.end,
+                value: candidate.value
+            }];
+        let selected = null;
+        for (const variant of variants) {
+            const link = await verifiedLocalLinkAsync(variant.value, cwd, {
+                ...options,
+                stat: cachedStat,
+                source: 'extension-fallback'
+            });
+            if (link && link.kind === 'file') {
+                selected = { variant, link };
+                break;
+            }
+        }
+        if (!selected) continue;
+        selectedCandidates.push({
+            value: selected.variant.value,
+            link: selected.link,
+            occurrences: candidate.occurrences.map(occurrence => {
+                if (!Number.isInteger(occurrence.entryIndex)) return occurrence;
+                return {
+                    entryIndex: occurrence.entryIndex,
+                    start: selected.variant.start,
+                    end: selected.variant.end
+                };
+            })
+        });
+    }
+
+    const groupedCandidates = new Map();
+    for (const candidate of selectedCandidates) {
+        const key = `${candidate.value}\u0000${candidate.link.target}`;
+        if (!groupedCandidates.has(key)) {
+            groupedCandidates.set(key, {
                 value: candidate.value,
+                link: candidate.link,
                 occurrences: []
             });
         }
-        groupedCandidates.get(candidate.value).occurrences.push(
+        groupedCandidates.get(key).occurrences.push(
             ...(candidate.occurrences || [])
         );
     }
 
     const links = [];
     for (const candidate of groupedCandidates.values()) {
-        const link = await verifiedLocalLinkAsync(candidate.value, cwd, {
-            ...options,
-            source: 'extension-fallback'
-        });
-        if (!link || link.kind !== 'file') continue;
         links.push({
             kind: 'path',
-            target: link.target,
+            target: candidate.link.target,
             label: candidate.value,
             source: 'extension-fallback',
-            verifiedLink: link,
+            verifiedLink: candidate.link,
             occurrences: candidate.occurrences
         });
     }

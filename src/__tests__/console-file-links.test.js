@@ -346,11 +346,15 @@ test('applies one verified path to every independently detected output occurrenc
     const suggestions = await collectVerifiedOutputLinks(entries, '/project', {
         stat: async value => {
             statCalls += 1;
-            assert.equal(value, '/project/statistics.xls');
-            return {
-                isFile: () => true,
-                isDirectory: () => false
-            };
+            if (value === '/project/statistics.xls') {
+                return {
+                    isFile: () => true,
+                    isDirectory: () => false
+                };
+            }
+            const error = new Error('missing');
+            error.code = 'ENOENT';
+            throw error;
         }
     });
     const result = applySmclLinksToEntries(entries, suggestions, '/project');
@@ -361,6 +365,96 @@ test('applies one verified path to every independently detected output occurrenc
         links(result).map(segment => segment.text),
         ['statistics.xls', 'statistics.xls']
     );
+});
+
+test('verifies and links a spaced filename after the repairCN for context', async () => {
+    const cwd = 'E:\\OneDrive\\开发\\stata-outline';
+    const target = `${cwd}\\statis tics.xls`;
+    const entries = [
+        entry(
+            'Fix applied: Converted XLS to UTF-8 encoding for statis tics.xls!',
+            'default'
+        )
+    ];
+    const suggestions = await collectVerifiedOutputLinks(entries, cwd, {
+        stat: async value => {
+            assert.equal(value, target);
+            return {
+                isFile: () => true,
+                isDirectory: () => false
+            };
+        }
+    });
+    const result = applySmclLinksToEntries(entries, suggestions, cwd);
+
+    assert.deepEqual(suggestions.map(link => link.label), ['statis tics.xls']);
+    assert.deepEqual(
+        links(result).map(segment => segment.text),
+        ['statis tics.xls']
+    );
+});
+
+test('checks backward word groups without keywords and stops at the first existing path', async () => {
+    const cwd = 'D:\\results';
+    const target = `${cwd}\\西 地 e 爱抚 g.docx`;
+    const checked = [];
+    const entries = [
+        entry('a b 西 地 e 爱抚 g.docx', 'default')
+    ];
+    const suggestions = await collectVerifiedOutputLinks(entries, cwd, {
+        stat: async value => {
+            checked.push(value);
+            if (value === target) {
+                return {
+                    isFile: () => true,
+                    isDirectory: () => false
+                };
+            }
+            const error = new Error('missing');
+            error.code = 'ENOENT';
+            throw error;
+        }
+    });
+    const result = applySmclLinksToEntries(entries, suggestions, cwd);
+
+    assert.deepEqual(checked, [
+        `${cwd}\\g.docx`,
+        `${cwd}\\爱抚 g.docx`,
+        `${cwd}\\e 爱抚 g.docx`,
+        `${cwd}\\地 e 爱抚 g.docx`,
+        target
+    ]);
+    assert.deepEqual(suggestions.map(link => link.label), ['西 地 e 爱抚 g.docx']);
+    assert.deepEqual(
+        links(result).map(segment => segment.text),
+        ['西 地 e 爱抚 g.docx']
+    );
+});
+
+test('stops after ten backward word groups when no candidate exists', async () => {
+    const cwd = 'D:\\results';
+    const checked = [];
+    const entries = [
+        entry(
+            'one two three four five six seven eight nine ten report.docx',
+            'default'
+        )
+    ];
+    const suggestions = await collectVerifiedOutputLinks(entries, cwd, {
+        stat: async value => {
+            checked.push(value);
+            const error = new Error('missing');
+            error.code = 'ENOENT';
+            throw error;
+        }
+    });
+
+    assert.equal(checked.length, 10);
+    assert.equal(
+        checked[9],
+        `${cwd}\\two three four five six seven eight nine ten report.docx`
+    );
+    assert.deepEqual(suggestions, []);
 });
 
 test('asynchronous SMCL validation drops missing local targets', async () => {
