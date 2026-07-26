@@ -28,10 +28,10 @@ const { getChangelog, showUpdateInfo } = require('../modules/updateNotification'
 Module._load = originalLoad;
 
 test('shows update notices with exactly one extension label', async () => {
-    const message = getChangelog('0.3.7', 'en').ver_info;
+    const message = getChangelog('0.3.8', 'en').ver_info;
     await showUpdateInfo(message, 'OK');
 
-    assert.match(message, /^✨ Stata All in One \(0\.3\.7\):/);
+    assert.match(message, /^✨ Stata All in One \(0\.3\.8\):/);
     assert.equal(shownArgs[0], message);
     assert.doesNotMatch(shownArgs[0], /Stata All in One.*Stata All in One/);
 });

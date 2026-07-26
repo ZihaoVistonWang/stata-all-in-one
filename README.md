@@ -13,7 +13,7 @@ Stata All in One
 </p>
 
 <p align="center">
-   | <b>Version:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.3.7</a> | <b>Author:</b> <a href="https://zihaowang.cn">Zihao Viston Wang</a> | <b>Translate:</b>
+   | <b>Version:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.3.8</a> | <b>Author:</b> <a href="https://zihaowang.cn">Zihao Viston Wang</a> | <b>Translate:</b>
   <a href="https://gitee.com/ZihaoVistonWang/stata-all-in-one">中文版本</a> |
 </p>
 
@@ -56,20 +56,19 @@ Stata All in One
 ### 1. AI Skill (Experimental) 🛠️
 
 - **Let AI Agents Run Stata Code**: Install the standalone native `stata-ai-skill` so AI coding tools (Claude Code, Cursor, Codex CLI, Open Code, OpenClaw, etc.) can run Stata through a Rust background service.
-- **Native Local Service**: Once installed, the AI Skill runs through its native executable and local service.
+- **Native Local Service**: Once installed, the AI Skill runs through its native executable and local service, with no third-party environment such as Python required.
 - **Leave the setup to AI**: Click the `AI` button in the editor toolbar, copy the prompt, and paste it into your AI tool. The prompt links to the online `installation.md` through Gitee and GitHub.
-- **Lightweight Extension**: AI Skill executables are installed only when needed and are no longer bundled with this extension.
 
 ### 2. Code Execution (Stata Interaction)
 
 - **Platform Support**: Seamlessly integrates with Stata on both **macOS** and **Windows** without requiring additional extensions.
 - **Two Run Modes**:
-  - **Embedded Console** (default) 🛠️: Run and display Stata output directly within VS Code! Including *command results*, *error messages*, *command window output*, and *graph output* — a true all-in-one IDE experience. Click any file path shown in the Console output to open it.
+  - **Embedded Console** (default) 🛠️: Run and display Stata output directly within VS Code, including *command results*, *error messages*, *command window output*, and *graph output*. Click any file path shown in the Console output to open it.
   - **External App**: Continue using the traditional approach of sending code to the Stata GUI, for users who prefer Stata's native interface. Windows now uses [Stata COM Automation](https://www.stata.com/automation/), delivering significantly better performance than the previous PowerShell-based implementation.
 - **Multi-Scenario Execution Strategies**:
-  - **Section Execution**: When the cursor is on a header line (e.g., `** # Title`), click the ▶️ button or press `Ctrl/Cmd + D` to execute all code from that header to the next same-level or higher-level header (i.e., the entire section).
-  - **Single Line Execution**: When the cursor is on a regular code line (no selection), click the ▶️ button or press `Ctrl/Cmd + D` to execute only that specific line.
-  - **Selected Code Execution**: When multiple lines are selected, click the ▶️ button or press `Ctrl/Cmd + D` to execute the selected lines. Supports **fuzzy selection** — no need to precisely select the *first* or *last* line of a code segment; the system automatically captures and runs all lines covered by the selection.
+  - **Section Execution**: When the cursor is on a header line (e.g., `** # Title`), click the ▶️ button or press `Ctrl / ⌘ + D` to execute all code from that header to the next same-level or higher-level header (i.e., the entire section).
+  - **Single Line Execution**: When the cursor is on a regular code line (no selection), click the ▶️ button or press `Ctrl / ⌘ + D` to execute only that specific line.
+  - **Selected Code Execution**: When multiple lines are selected, click the ▶️ button or press `Ctrl / ⌘ + D` to execute the selected lines. Supports **fuzzy selection** — no need to precisely select the *first* or *last* line of a code segment; the system automatically captures and runs all lines covered by the selection.
 
 ### 3. Enhanced Syntax Highlighting & Code Completion
 
@@ -101,7 +100,7 @@ Stata All in One
 - **View After Run**: After running code, instantly view results in the `Data Viewer` within the `Console` panel.
 - **Data Filtering**: Provides Stata-style filtering for quickly locating subsets of data.
 - **Handy Extras**:
-  - **Built-in `br` / `browse`**: In Embedded Console mode, run `br` or `browse` from either the code editor or Console input to open the built-in Data Viewer.
+  - **Built-in `br` / `browse`**: In Embedded Console mode, run `br` / `browse` with Stata filtering expressions from either the code editor or Console input to open the built-in Data Viewer.
   - **View Long Text**: If a cell contains more text than it can display, hover over the cell to view the full content.
   - **Double-click to Copy**: Double-click a cell to copy its full content to the clipboard.
 
@@ -133,6 +132,14 @@ Stata All in One
    - **Custom Font**:
      - **Online (Default)**: Load Maple Mono for Latin text and Maple Mono NF CN for Chinese text.
      - **Font Settings**: Use `stata-all-in-one.consoleFontMode` and `stata-all-in-one.consoleCustomFontFamily` to customize the console font for a better reading experience.
+   - **Large Output & Run Control**
+     - **Responsive Browsing**: Page large output while preserving complete history, and use the jump-to-bottom button to return to the latest results.
+     - **Reliable Stop**: Stop or Esc first attempts a soft interrupt, then force-terminates and automatically rebuilds an unresponsive Stata session.
+     - **Stable Status**: Keep elapsed time accurate across view changes and avoid duplicate temporary do-file input.
+   - **Result Management**
+     - **Complete Exports**: Preserve the entire Console history when exporting results to HTML, Markdown, or Notebook.
+     - **HTML Navigation**: Export HTML with code previews, syntax highlighting, and continuous navigation for quickly locating each run.
+     - **Reliable File Links**: Recognize and validate file and directory paths in results, including Chinese, multi-line, and repeated paths, and open them with one click.
 
 2. Enhanced Comments
    - **Toggle Comments**: Quickly toggle line comments using `Ctrl/Cmd + /`.
@@ -148,18 +155,23 @@ Stata All in One
    - **One-Key Line Break**: Use `Shift+Enter` to insert Stata line continuation symbol `///` at the cursor position.
    - **Smart Indentation**: Automatically indent by 4 spaces
 
-5. Safe Rename Mode
+5. Convenient Editor Context Menus
+   - **Smart Run Actions**: Show “Run Current Section,” “Run Current Line,” or “Run Selected Lines” based on the cursor and selection, with the matching shortcut hint.
+   - **Quick Editing**: Right-click to set heading levels, insert separators, center heading text, or quickly comment using the configured style.
+   - **AI Skill**: Open Stata AI Skill from the context menu when a usable Stata license is detected.
+
+6. Safe Rename Mode
    - **Rename Variable**: Select a variable and press `F2` to rename all occurrences in the current document.
    - **Smart Validation**: Automatically validates the new name to ensure it follows Stata naming rules and does not conflict with built-in commands or keywords.
    - **Command Protection**: Intelligently prevents renaming Stata commands (e.g., `reghdfe`, `outreg2`) and their options (e.g., `absorb`, `ctitle`).
 
 <a id="cd-to-do-file-dir"></a>
 
-6. Auto `cd` to Do File Directory
+7. Auto `cd` to Do File Directory
    - **Auto Working Directory**: When enabled, automatically sets Stata's working directory to the do file's location on first launch.
    <!-- - **Disabled by default**: This feature is off by default to avoid unexpected behavior for users who manually write `cd` at the top of their do files. Enable via setting `stata-all-in-one.cdToDoFileDir`. -->
 
-7. Quick Settings
+8. Quick Settings
    - **Settings Button**: Click the gear icon in the editor title bar to quickly access Stata All in One settings.
 
 ---
@@ -196,14 +208,7 @@ Click the `AI` button in the Stata editor toolbar to copy a prompt containing Gi
 
 ### Configure from Stata
 
-If automatic discovery cannot find Stata, choose **Stata not found? Configure it directly from Stata**. The extension provides two commands to copy and run in a separately opened Stata application outside VS Code:
-
-```stata
-net install saio, from("<extension>/stata/saio") replace
-saio setup
-```
-
-The `saio` package supports Stata 13 and later without Java, Python, curl, or third-party dependencies. It connects only to the extension's persistent local service on `127.0.0.1:16886–16895`, prints the existing configuration first, and asks before replacing an existing setup. Use `saio status` for a read-only check or `saio setup, force` for unattended reconfiguration. VS Code blocks `saio` in the editor and Embedded Console because an already usable VS Code Stata session does not need this setup command.
+If automatic discovery cannot find Stata, choose `Stata not found? Configure it directly from Stata`. Follow the extension's two prompted steps and run each command in Stata to complete the setup.
 
 ### Code Execution
 
@@ -211,36 +216,36 @@ The `saio` package supports Stata 13 and later without Java, Python, curl, or th
    - `embeddedConsole` (default): Run code in the built-in **Console | Stata All in One** panel within VS Code, with direct output viewing and interaction.
    - `externalApp`: Send code to the system-installed Stata application for execution.
 
-4. **Stata Version on macOS** (`stata-all-in-one.stataVersionOnMacOS`)
+2. **Stata Version on macOS** (`stata-all-in-one.stataVersionOnMacOS`)
    - Stata runtime version. When empty, the extension detects installed versions at startup for up to 3 seconds, preferring the highest numeric version and then `StataMP`, `StataSE`, `StataBE`, and `StataIC`. If detection fails, configure directly from the running Stata instance. The initializer then verifies the exact `.app`, Console dylib, and `stata.lic`, initializes the Embedded Console when possible, and reports the result once in a central dialog.
 
-5. **Stata Path on Windows** (`stata-all-in-one.stataPathOnWindows`)
+3. **Stata Path on Windows** (`stata-all-in-one.stataPathOnWindows`)
    - Path to Stata executable file (e.g., `C:\Program Files\Stata17\StataMP-64.exe`). When empty, the extension runs the bundled `scripts/discover_stata_windows.bat` registry probe at startup for up to 5 seconds. The same BAT can be run independently to generate `stata-discovery-report.json` for troubleshooting. If detection fails, configure directly from the running Stata instance. The initializer then verifies the EXE, Console DLL, and `stata.lic`, initializes the Embedded Console when possible, and reports the result once in a central dialog.
 
-6. **Close Stata Other Windows Before Sending Code (Windows)** (`stata-all-in-one.closeStataOtherWindowsBeforeSendingCode`)
+4. **Close Stata Other Windows Before Sending Code (Windows)** (`stata-all-in-one.closeStataOtherWindowsBeforeSendingCode`)
    - `true`: Close Stata helper windows (such as Viewer/Data Editor) before sending run commands.
    - `false` (default): Keep those windows open and send code directly.
 
-7. **Auto cd to Do File Directory** (`stata-all-in-one.cdToDoFileDir`)
+5. **Auto cd to Do File Directory** (`stata-all-in-one.cdToDoFileDir`)
    - `true` (default): Automatically set Stata's working directory to the do file's location on first launch.
    - `false`: Stata's working directory is not changed on startup.
 
-8. **Show Action Buttons** (`stata-all-in-one.showActionButtons`)
+6. **Show Action Buttons** (`stata-all-in-one.showActionButtons`)
    - `true` (default): Show the "Bug Report" and "Stata AI Skill" buttons in the editor title bar.
    - `false`: Hide both buttons.
 
-9. **Show Sponsor Button** (`stata-all-in-one.showSponsorButton`)
+7. **Show Sponsor Button** (`stata-all-in-one.showSponsorButton`)
    - `true`: Show the "Sponsor" button in the Stata editor title bar.
    - `false` (default): Hide the button.
 
-10. **Enable Ctrl+Shift+D for Run Shortcut** (`stata-all-in-one.enableCtrlShiftD`)
+8. **Enable Ctrl+Shift+D for Run Shortcut** (`stata-all-in-one.enableCtrlShiftD`)
     - `true`: Use `Ctrl/Cmd+Shift+D` as the run code shortcut.
     - `false` (default): Use the default `Ctrl/Cmd+D` shortcut.
 
 ### Embedded Console
 
 11. **Console Font Mode** (`stata-all-in-one.consoleFontMode`)
-    - `online` (default): Load Maple Mono for Latin text and Maple Mono NF CN for CJK text. [^3]
+    - `online` (default): Load Maple Mono for Latin text and Maple Mono NF CN for Chinese text. [^3]
     - `editor`: Follow the editor font, falling back to the system monospace font.
     - `system`: Use the system monospace font directly.
     - `custom`: Use the custom font specified below.
@@ -313,6 +318,7 @@ If this extension has been helpful to you, feel free to scan the **Alipay** (lef
 
 | Version | Changes                                                                                                              | Release Date |
 | ------- | -------------------------------------------------------------------------------------------------------------------- | ------------ |
+| 0.3.8  | Added Stata editor context menus and an Embedded Console jump-to-bottom button; fixed file-path opening and execution stopping, and improved large-output responsiveness and result exports. | 2026-07-26   |
 | 0.3.7  | Fixed standalone file-path detection in Embedded Console and corrected the duplicated Update Notice prefix. | 2026-07-24   |
 | 0.3.6  | Added one-click file opening from Embedded Console output, improved Data Viewer interactions, and fixed graph ordering and Console reset behavior. | 2026-07-24   |
 | 0.3.5  | Moved Stata AI Skill online, reducing the Stata All in One extension package to 2.48 MB; fixed Tab recognition between code tokens. | 2026-07-22   |

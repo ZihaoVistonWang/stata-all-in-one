@@ -3,6 +3,17 @@
 All notable changes to the Stata All in One extension will be documented in this file.
 本文件记录 Stata All in One 扩展的所有重要更改。
 
+## 0.3.8 (2026-07-26)
+
+- **Feat**: Added context-aware Stata editor menus for running and editing common actions, plus a responsive jump-to-bottom button for navigating to the latest Embedded Console output.
+- **Fixed**: Improved clickable result paths in the Embedded Console by validating actual files and directories, including Chinese, multi-line, repeated, and context-free filenames, while keeping commands, comments, and invalid paths non-clickable.
+- **Fixed**: Kept the Embedded Console responsive during large output, made Stop and Esc able to force-terminate and rebuild an unresponsive Stata session, stabilized the working timer, and removed duplicate temporary do-file input.
+- **Improved**: Preserved complete Console history across exports and enhanced exported HTML with code previews and continuous navigation; also accepted trailing `//` comments on standalone `cd` commands and synchronized run-button shortcut hints.
+- **新增**：新增情境感知的 Stata 编辑器右键菜单，并在嵌入式控制台中加入“跳转到底部”按钮，便于快速回到最新输出。
+- **修复**：增强嵌入式控制台结果中的文件路径点击跳转，支持验证中文、跨行、重复及无提示词的真实文件与目录，同时保持命令、注释和无效路径不可点击。
+- **修复**：大输出时控制台保持流畅；Stop 和 Esc 可在软中断无响应时强制终止并重建 Stata 会话；同时稳定运行计时并去除临时 do 文件的重复输入。
+- **优化**：导出时保留完整控制台历史，并增强 HTML 的代码预览与连续导航；独立 `cd` 命令现支持行末 `//` 注释，运行按钮提示也会与快捷键设置同步。
+
 ## 0.3.7 (2026-07-24)
 
 - **Fixed**: Recognized standalone, quoted, and explicit relative file paths in Embedded Console results, including filenames emitted by commands such as `outreg2`, while avoiding ordinary-text false positives.
