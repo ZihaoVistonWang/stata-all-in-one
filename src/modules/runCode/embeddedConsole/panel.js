@@ -24,6 +24,7 @@ const capability = require('../../capability');
 const { hasOpenStataSourceTab } = require('./editorRestorePolicy');
 const { createExportFilename, serializeConsoleExport } = require('./consoleExport');
 const { appendConsoleHistory } = require('./consoleHistory');
+const { formatWorkingElapsedSeconds } = require('./workingTimer');
 
 const _renderer = new StataTerminalRenderer();
 
@@ -39,6 +40,7 @@ let _lastRunFailed = false;
 let _overflowNoticeSuppressed = false;
 let _extensionUri = null;
 let _workingDetail = null;
+let _workingStartedAt = 0;
 let _graphResourceRoot = null;
 let _graphSaveRequestSeq = 0;
 const _pendingGraphSaveRequests = new Map();
@@ -175,6 +177,7 @@ function attachPanel(panel) {
             _history = [];
             _status = 'idle';
             _workingDetail = null;
+            _workingStartedAt = 0;
             _lastRunFailed = false;
             // Remember panel is closed
             if (_context) {
@@ -405,6 +408,7 @@ function postState() {
     _panel.webview.postMessage({
         type: 'reset',
         status: _status,
+        workingStartedAt: _workingStartedAt,
         entries: hydrateEntriesForWebview(_history),
         overflowNoticeSuppressed: _overflowNoticeSuppressed,
         workingDetail: _workingDetail,
@@ -434,14 +438,21 @@ async function revealPanel(preserveFocus = true) {
 }
 
 function setStatus(status) {
+    const previousStatus = _status;
     _status = status;
-    if (status !== 'running') {
+    if (status === 'running') {
+        if (previousStatus !== 'running' || !_workingStartedAt) {
+            _workingStartedAt = Date.now();
+        }
+    } else {
         _workingDetail = null;
+        _workingStartedAt = 0;
     }
     if (_panel) {
         _panel.webview.postMessage({
             type: 'status',
-            status
+            status,
+            workingStartedAt: _workingStartedAt
         });
     }
 }
@@ -646,13 +657,15 @@ function clearPanel() {
     _lastRunFailed = false;
     _status = 'idle';
     _workingDetail = null;
+    _workingStartedAt = 0;
     if (_panel) {
         _panel.webview.postMessage({
             type: 'clear'
         });
         _panel.webview.postMessage({
             type: 'status',
-            status: 'idle'
+            status: 'idle',
+            workingStartedAt: 0
         });
     }
 }
@@ -1928,6 +1941,7 @@ function getWebviewHtml(webview) {
             pngReadFailed: ${JSON.stringify(msg('graphPngReadFailed'))}
         };
         const FONT_BOOTSTRAP = ${JSON.stringify(fontOptions)};
+        const formatWorkingElapsedSeconds = ${formatWorkingElapsedSeconds.toString()};
         var autocompleteActiveIndex = -1;
         var autocompleteVisible = false;
         var autocompleteRequestId = 0;
@@ -2281,7 +2295,7 @@ function getWebviewHtml(webview) {
                 workingSeconds.textContent = '0s';
             } else {
                 const elapsedSeconds = Math.max(0, Math.floor((Date.now() - runningStartedAt) / 1000));
-                workingSeconds.textContent = elapsedSeconds + 's';
+                workingSeconds.textContent = formatWorkingElapsedSeconds(elapsedSeconds);
             }
             workingDetail.textContent = getWorkingDetailDisplay();
             workingDetailShell.hidden = !workingDetail.textContent;
@@ -2295,25 +2309,41 @@ function getWebviewHtml(webview) {
             workingIndicator.style.paddingRight = '';
         }
 
-        function startWorkingIndicator() {
-            runningStartedAt = Date.now();
+        function scheduleWorkingIndicatorTick() {
+            if (workingTimer) {
+                clearTimeout(workingTimer);
+                workingTimer = null;
+            }
+            if (document.body.dataset.status !== 'running') {
+                return;
+            }
+
+            const elapsedMs = Math.max(0, Date.now() - runningStartedAt);
+            const delay = Math.max(50, 1010 - (elapsedMs % 1000));
+            workingTimer = setTimeout(() => {
+                workingTimer = null;
+                refreshDisplayedRemainingSeconds();
+                updateWorkingMeta();
+                scheduleWorkingIndicatorTick();
+            }, delay);
+        }
+
+        function startWorkingIndicator(startedAt) {
+            const authoritativeStartedAt = Number(startedAt);
+            runningStartedAt = Number.isFinite(authoritativeStartedAt) && authoritativeStartedAt > 0
+                ? authoritativeStartedAt
+                : Date.now();
             keepWorkingIndicatorAtOutputEnd();
             workingIndicator.style.display = 'flex';
             refreshDisplayedRemainingSeconds();
             updateWorkingMeta();
-            if (workingTimer) {
-                clearInterval(workingTimer);
-            }
-            workingTimer = setInterval(() => {
-                refreshDisplayedRemainingSeconds();
-                updateWorkingMeta();
-            }, 1000);
+            scheduleWorkingIndicatorTick();
         }
 
         function stopWorkingIndicator() {
             runningStartedAt = 0;
             if (workingTimer) {
-                clearInterval(workingTimer);
+                clearTimeout(workingTimer);
                 workingTimer = null;
             }
             displayedRemainingSeconds = 0;
@@ -2326,7 +2356,7 @@ function getWebviewHtml(webview) {
             output.scrollTop = output.scrollHeight;
         }
 
-        function setStatus(status) {
+        function setStatus(status, workingStartedAt) {
             document.body.dataset.status = status || 'idle';
             dot.className = 'dot ' + (status || 'idle');
             label.textContent = STATUS_LABELS[status] || STATUS_LABELS.idle;
@@ -2335,7 +2365,7 @@ function getWebviewHtml(webview) {
             clearButton.disabled = status === 'running' || status === 'restarting';
             if (status === 'running') {
                 wasRunning = true;
-                startWorkingIndicator();
+                startWorkingIndicator(workingStartedAt);
                 requestAnimationFrame(scrollOutputToBottom);
             } else {
                 currentWorkingDetail = null;
@@ -3073,6 +3103,23 @@ function getWebviewHtml(webview) {
             updateOverflowNotice();
         });
 
+        function refreshWorkingIndicatorAfterResume() {
+            if (document.body.dataset.status !== 'running') {
+                return;
+            }
+            refreshDisplayedRemainingSeconds();
+            updateWorkingMeta();
+            scheduleWorkingIndicatorTick();
+        }
+
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                refreshWorkingIndicatorAfterResume();
+            }
+        });
+        window.addEventListener('focus', refreshWorkingIndicatorAfterResume);
+        window.addEventListener('pageshow', refreshWorkingIndicatorAfterResume);
+
         window.addEventListener('keydown', (event) => {
             if (event.key === 'Escape' && graphFullscreen.classList.contains('visible')) {
                 event.preventDefault();
@@ -3091,13 +3138,14 @@ function getWebviewHtml(webview) {
                 appendEntries(message.entries || []);
                 if (workingIndicator.style.display === 'flex') {
                     keepWorkingIndicatorAtOutputEnd();
+                    updateWorkingMeta();
                 }
             } else if (message.type === 'status') {
-                setStatus(message.status);
+                setStatus(message.status, message.workingStartedAt);
             } else if (message.type === 'clear') {
                 resetOutput([]);
             } else if (message.type === 'reset') {
-                setStatus(message.status);
+                setStatus(message.status, message.workingStartedAt);
                 overflowNoticeSuppressed = Boolean(message.overflowNoticeSuppressed);
                 overflowNoticeDismissedForCurrentView = false;
                 currentWorkingDetail = message.workingDetail || null;
