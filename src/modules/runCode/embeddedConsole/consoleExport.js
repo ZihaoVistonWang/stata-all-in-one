@@ -6,6 +6,7 @@ const EXPORT_BASENAME = 'stata-all-in-one-export';
 const ONLINE_CJK_FONT_CSS_URL = 'https://fontsapi.zeoseven.com/442/main/result.css';
 const ONLINE_LATIN_FONT_WOFF2_URL = 'https://cdn.jsdelivr.net/fontsource/fonts/maple-mono@latest/latin-400-normal.woff2';
 const ONLINE_LATIN_FONT_WOFF_URL = 'https://cdn.jsdelivr.net/fontsource/fonts/maple-mono@latest/latin-400-normal.woff';
+const HTML_TAB_ICON_PATH = path.resolve(__dirname, '../../../../img/tab-icon.svg');
 
 function entryText(entry) {
     return (Array.isArray(entry && entry.segments) ? entry.segments : [])
@@ -135,6 +136,17 @@ async function prepareRuns(entries, options) {
     return { runs, missingGraphs };
 }
 
+async function loadHtmlTabIcon(options) {
+    const readFile = options.readTabIcon || fs.promises.readFile;
+    try {
+        const buffer = await readFile(HTML_TAB_ICON_PATH);
+        if (!buffer || !buffer.length) return '';
+        return `data:image/svg+xml;base64,${Buffer.from(buffer).toString('base64')}`;
+    } catch (_error) {
+        return '';
+    }
+}
+
 function sourceParts(options) {
     return {
         before: String(options.sourceBefore || 'This result file was exported by '),
@@ -259,8 +271,35 @@ function renderHtmlCommand(run) {
     return run.commandEntries.map(entry => renderHtmlSegments(entry, true)).join('\n');
 }
 
-function firstInputLine(code) {
-    return String(code || '').split('\n')[0].trim() || '(empty input)';
+function inputPreview(code) {
+    return String(code || '')
+        .replace(/\r\n?/g, '\n')
+        .split('\n')
+        .slice(0, 3)
+        .join('\n')
+        .trim() || '(empty input)';
+}
+
+function hasMoreInputLines(code) {
+    return String(code || '').replace(/\r\n?/g, '\n').split('\n').length > 3;
+}
+
+function renderHtmlCommandPreview(run) {
+    const ellipsis = hasMoreInputLines(run.code)
+        ? '<div class="nav-preview-ellipsis">...</div>'
+        : '';
+    if (run.commandEntries.length) {
+        const lines = run.commandEntries
+            .slice(0, 3)
+            .map(entry => `<div class="nav-preview-line">${renderHtmlSegments(entry, true) || '&nbsp;'}</div>`)
+            .join('');
+        return `${lines}${ellipsis}`;
+    }
+    const lines = inputPreview(run.code)
+        .split('\n')
+        .map(line => `<div class="nav-preview-line">${escapeHtml(line) || '&nbsp;'}</div>`)
+        .join('');
+    return `${lines}${ellipsis}`;
 }
 
 function htmlUiLabels(lang) {
@@ -284,9 +323,10 @@ function renderHtmlNavigation(runViews, label) {
     const markers = runViews
         .filter(view => view.inputNumber)
         .map(view => {
-            const preview = firstInputLine(view.run.code);
-            const tooltip = `[${view.inputNumber}] ${preview}`;
-            return `<a class="nav-marker" href="#input-${view.inputNumber}" data-target="input-${view.inputNumber}" data-tooltip="${escapeHtml(tooltip)}" aria-label="${escapeHtml(tooltip)}"></a>`;
+            const preview = inputPreview(view.run.code);
+            const tooltip = `[${view.inputNumber}] ${preview}${hasMoreInputLines(view.run.code) ? '\n...' : ''}`;
+            const code = renderHtmlCommandPreview(view.run);
+            return `<a class="nav-marker" href="#input-${view.inputNumber}" data-target="input-${view.inputNumber}" data-tooltip="${escapeHtml(tooltip)}" aria-label="${escapeHtml(tooltip)}"><template class="nav-preview"><div class="nav-tooltip-count">[${view.inputNumber}]:</div><div class="nav-tooltip-code">${code}</div></template></a>`;
         })
         .join('\n');
     return markers ? `<nav class="input-nav" aria-label="${escapeHtml(label)}">${markers}</nav>` : '';
@@ -332,6 +372,7 @@ function serializeInteractiveHtml(prepared, options) {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Stata All in One Export</title>
+${options.tabIconDataUrl ? `<link rel="icon" type="image/svg+xml" href="${options.tabIconDataUrl}">` : ''}
 <link rel="preload" href="${ONLINE_CJK_FONT_CSS_URL}" as="style" crossorigin>
 <link rel="stylesheet" href="${ONLINE_CJK_FONT_CSS_URL}" crossorigin>
 <script>(function(){try{var saved=localStorage.getItem('stata-all-in-one-export-theme');var theme=saved||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');document.documentElement.dataset.theme=theme}catch(_error){}})();</script>
@@ -434,6 +475,7 @@ body {
     left: 26px;
     top: 50%;
     display: flex;
+    width: 46px;
     max-height: 70vh;
     transform: translateY(-50%);
     flex-direction: column;
@@ -443,6 +485,7 @@ body {
     overflow-y: auto;
     overflow-x: hidden;
     scrollbar-width: none;
+    cursor: pointer;
 }
 .input-nav::-webkit-scrollbar { display: none; }
 .nav-marker {
@@ -455,27 +498,44 @@ body {
     opacity: 0.75;
     transition: width 0.15s ease, background-color 0.15s ease, opacity 0.15s ease;
 }
-.nav-marker:hover, .nav-marker.active { width: 17px; background: var(--nav-active); opacity: 1; }
+.nav-marker:hover, .nav-marker.active, .nav-marker.previewing { width: 17px; background: var(--nav-active); opacity: 1; }
 .nav-tooltip {
     position: fixed;
     z-index: 30;
-    width: max-content;
-    max-width: min(520px, 70vw);
-    padding: 6px 9px;
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr);
+    align-items: start;
+    width: min(340px, calc(100vw - 80px));
     transform: translate(4px, -50%);
-    border: 1px solid var(--borderColor-default);
-    border-radius: 6px;
-    background: var(--bgColor-overlay);
     color: var(--fgColor-default);
-    box-shadow: var(--shadow);
-    font: 12px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    font: 12px/1.5 var(--export-mono-font);
     opacity: 0;
     visibility: hidden;
     pointer-events: none;
     transition: opacity 0.12s ease, transform 0.12s ease;
+}
+.nav-tooltip-count {
+    padding: 9px 8px 0 0;
+    color: var(--fgColor-accent);
+    font-weight: 600;
+    text-align: right;
+}
+.nav-tooltip-code {
+    min-width: 0;
+    padding: 9px 11px;
+    border: 1px solid var(--borderColor-default);
+    border-radius: 6px;
+    background: var(--bgColor-muted);
+    box-shadow: var(--shadow);
+}
+.nav-preview-line {
+    min-width: 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+.nav-preview-ellipsis {
+    color: var(--fgColor-muted);
+    letter-spacing: 0.12em;
 }
 .nav-tooltip.visible { opacity: 1; visibility: visible; transform: translate(0, -50%); }
 .run { margin: 0; }
@@ -488,10 +548,10 @@ body {
     border: 1px solid var(--borderColor-default);
     border-radius: 6px;
     background: var(--bgColor-muted);
-    white-space: pre;
-    overflow-x: auto;
+    white-space: pre-wrap;
+    overflow-x: hidden;
     overflow-y: hidden;
-    overflow-wrap: normal;
+    overflow-wrap: anywhere;
     font-family: var(--export-mono-font);
     font-size: inherit;
     line-height: inherit;
@@ -518,8 +578,8 @@ body {
     tab-size: 4;
     overflow-wrap: normal;
 }
-.command::-webkit-scrollbar, .run-output::-webkit-scrollbar { height: 10px; }
-.command::-webkit-scrollbar-thumb, .run-output::-webkit-scrollbar-thumb { border: 3px solid transparent; border-radius: 8px; background: var(--borderColor-default); background-clip: padding-box; }
+.run-output::-webkit-scrollbar { height: 10px; }
+.run-output::-webkit-scrollbar-thumb { border: 3px solid transparent; border-radius: 8px; background: var(--borderColor-default); background-clip: padding-box; }
 .token { color: var(--fgColor-default); }
 .token-prompt { color: var(--fgColor-muted); }
 .token-command, .token-function, .token-header { color: var(--syntax-entity); font-weight: 600; }
@@ -577,25 +637,57 @@ ${runs}
     button.addEventListener('click', function() { applyTheme(root.dataset.theme === 'dark' ? 'light' : 'dark'); });
 
     var markers = Array.from(document.querySelectorAll('.nav-marker'));
+    var inputNav = document.querySelector('.input-nav');
     var navTooltip = document.getElementById('nav-tooltip');
+    var previewingMarker = null;
     function setActive(id) {
         markers.forEach(function(marker) { marker.classList.toggle('active', marker.dataset.target === id); });
     }
     function showNavTooltip(marker) {
         var rect = marker.getBoundingClientRect();
-        navTooltip.textContent = marker.dataset.tooltip || '';
+        navTooltip.textContent = '';
+        var preview = marker.querySelector('.nav-preview');
+        if (preview) navTooltip.appendChild(preview.content.cloneNode(true));
         navTooltip.style.left = (rect.right + 12) + 'px';
         navTooltip.style.top = (rect.top + rect.height / 2) + 'px';
         navTooltip.classList.add('visible');
     }
     function hideNavTooltip() { navTooltip.classList.remove('visible'); }
+    function findNearestMarker(clientY) {
+        return markers.reduce(function(nearest, marker) {
+            var markerY = marker.getBoundingClientRect().top + marker.getBoundingClientRect().height / 2;
+            var distance = Math.abs(markerY - clientY);
+            return !nearest || distance < nearest.distance ? { marker: marker, distance: distance } : nearest;
+        }, null);
+    }
+    function previewMarker(marker) {
+        if (!marker || marker === previewingMarker) return;
+        if (previewingMarker) previewingMarker.classList.remove('previewing');
+        previewingMarker = marker;
+        previewingMarker.classList.add('previewing');
+        showNavTooltip(previewingMarker);
+    }
+    function clearMarkerPreview() {
+        if (previewingMarker) previewingMarker.classList.remove('previewing');
+        previewingMarker = null;
+        hideNavTooltip();
+    }
     if (markers.length) {
         setActive(markers[0].dataset.target);
         markers.forEach(function(marker) {
-            marker.addEventListener('mouseenter', function() { showNavTooltip(marker); });
-            marker.addEventListener('mouseleave', hideNavTooltip);
-            marker.addEventListener('focus', function() { showNavTooltip(marker); });
-            marker.addEventListener('blur', hideNavTooltip);
+            marker.addEventListener('focus', function() { previewMarker(marker); });
+            marker.addEventListener('blur', clearMarkerPreview);
+        });
+        inputNav.addEventListener('mousemove', function(event) {
+            var nearest = findNearestMarker(event.clientY);
+            if (nearest) previewMarker(nearest.marker);
+        });
+        inputNav.addEventListener('mouseleave', clearMarkerPreview);
+        inputNav.addEventListener('click', function(event) {
+            if (event.target !== inputNav || !previewingMarker) return;
+            event.preventDefault();
+            var target = document.getElementById(previewingMarker.dataset.target);
+            if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
         });
         if ('IntersectionObserver' in window) {
             var observer = new IntersectionObserver(function(entries) {
@@ -677,7 +769,10 @@ function serializeNotebook(prepared, options) {
 async function serializeConsoleExport(entries, format, options = {}) {
     const prepared = await prepareRuns(entries, options);
     let content;
-    if (format === 'html') content = serializeHtml(prepared, options);
+    if (format === 'html') {
+        const tabIconDataUrl = await loadHtmlTabIcon(options);
+        content = serializeHtml(prepared, { ...options, tabIconDataUrl });
+    }
     else if (format === 'md') content = serializeMarkdown(prepared, options);
     else if (format === 'ipynb') content = serializeNotebook(prepared, options);
     else throw new Error(`Unsupported console export format: ${format}`);

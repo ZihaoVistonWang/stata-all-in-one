@@ -103,6 +103,9 @@ test('exports standalone HTML with escaped output, source link, styles, and embe
     const result = await serializeConsoleExport(sampleHistory(), 'html', SOURCE_OPTIONS);
     assert.match(result.content, /^<!DOCTYPE html>/);
     assert.match(result.content, new RegExp(`href="${MARKETPLACE_URL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`));
+    const tabIcon = result.content.match(/<link rel="icon" type="image\/svg\+xml" href="data:image\/svg\+xml;base64,([^"]+)">/);
+    assert.ok(tabIcon);
+    assert.match(Buffer.from(tabIcon[1], 'base64').toString('utf8'), /<svg width="16" height="16"/);
     assert.match(result.content, /error: intentional &lt;error&gt;/);
     assert.match(result.content, /font-weight:700/);
     assert.match(result.content, /class="execution-count">\[1\]:/);
@@ -114,7 +117,19 @@ test('exports standalone HTML with escaped output, source link, styles, and embe
     assert.match(result.content, /data-target="input-2"/);
     assert.match(result.content, /aria-label="\[2\] display/);
     assert.match(result.content, /data-tooltip="\[2\] display/);
+    assert.match(result.content, /data-tooltip="\[1\] sysuse auto\nsummarize price"/);
     assert.match(result.content, /id="nav-tooltip" class="nav-tooltip"/);
+    assert.match(result.content, /width: min\(340px, calc\(100vw - 80px\)\);/);
+    assert.match(result.content, /class="nav-tooltip-count">\[1\]:/);
+    assert.match(result.content, /class="nav-tooltip-code"/);
+    assert.match(result.content, /class="nav-preview-line"><span class="token token-plain">sysuse auto<\/span>/);
+    assert.match(result.content, /\.nav-preview-line \{[\s\S]*white-space: pre-wrap;[\s\S]*overflow-wrap: anywhere;/);
+    assert.match(result.content, /preview\.content\.cloneNode\(true\)/);
+    assert.match(result.content, /\.input-nav \{[\s\S]*width: 46px;/);
+    assert.match(result.content, /function findNearestMarker\(clientY\)/);
+    assert.match(result.content, /inputNav\.addEventListener\('mousemove'/);
+    assert.match(result.content, /inputNav\.addEventListener\('click'/);
+    assert.match(result.content, /target\.scrollIntoView\(\{ behavior: 'smooth', block: 'start' \}\)/);
     assert.match(result.content, /id="theme-toggle"/);
     assert.match(result.content, /data-theme="dark"/);
     assert.match(result.content, /IntersectionObserver/);
@@ -124,13 +139,29 @@ test('exports standalone HTML with escaped output, source link, styles, and embe
     assert.match(result.content, /--export-mono-font: "Maple Mono", "Maple Mono NF CN"/);
     assert.match(result.content, /\.command \{[\s\S]*font-family: var\(--export-mono-font\);/);
     assert.match(result.content, /\.output-line \{[\s\S]*font-family: var\(--export-mono-font\);/);
-    assert.match(result.content, /\.command \{[\s\S]*white-space: pre;[\s\S]*overflow-x: auto;/);
-    assert.match(result.content, /\.run-output \{[\s\S]*overflow-x: auto;/);
+    assert.match(result.content, /\.command \{[\s\S]*white-space: pre-wrap;[\s\S]*overflow-x: hidden;[\s\S]*overflow-wrap: anywhere;/);
+    assert.match(result.content, /\.run-output \{[\s\S]*overflow-x: auto;[\s\S]*overflow-y: hidden;/);
     assert.match(result.content, /\.output-line \{[\s\S]*width: max-content;[\s\S]*white-space: pre;/);
-    assert.equal(result.content.includes('white-space: pre-wrap'), false);
+    assert.match(result.content, /\.run-output::-webkit-scrollbar \{ height: 10px; \}/);
     assert.match(result.content, /src="data:image\/svg\+xml;base64,/);
     assert.match(result.content, /src="data:image\/png;base64,/);
     assert.equal(result.content.includes('/tmp/chart.'), false);
+});
+
+test('limits HTML navigation input previews to the first three lines', async () => {
+    const history = [
+        line('command', '. first'),
+        line('command', '> second'),
+        line('comment-command', '> third'),
+        line('command', '> fourth'),
+        line('footer', 'Done')
+    ];
+    const result = await serializeConsoleExport(history, 'html', SOURCE_OPTIONS);
+    const tooltip = result.content.match(/data-tooltip="([^"]+)"/);
+
+    assert.ok(tooltip);
+    assert.equal(tooltip[1], '[1] first\nsecond\nthird\n...');
+    assert.match(result.content, /<div class="nav-preview-ellipsis">\.\.\.<\/div>/);
 });
 
 test('exports an nbstata notebook with source Markdown cell, code cells, stream output, and inline images but no footers', async () => {
