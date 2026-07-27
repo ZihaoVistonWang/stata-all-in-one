@@ -482,6 +482,13 @@ async function runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir = null
         smclSidecar = await startSmclSidecar(consoleSession);
         graphCaptureState = await beginGraphCapture(consoleSession);
         executionPlan = createExecutionPlan(execCode, consoleSession.getWorkingDirectory());
+        if (typeof outputSink.writeSubmission === 'function' && normalizedCode) {
+            outputSink.writeSubmission(normalizedCode);
+        }
+        if (executionPlan.tempFilePath
+            && typeof outputSink.beginTemporaryDoFileOutput === 'function') {
+            outputSink.beginTemporaryDoFileOutput(executionPlan.tempFilePath);
+        }
         lastRealChunkAt = Date.now();
         runStartTime = lastRealChunkAt;
 
@@ -542,10 +549,6 @@ async function runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir = null
             }
         };
 
-        if (!executionPlan.tempFilePath && typeof outputSink.writeCommand === 'function') {
-            outputSink.writeCommand(executionPlan.displayCode || normalizedCode);
-        }
-
         let result = null;
         if (!execCode.trim()) {
             console.log('Stata All in One: No executable Stata code to run');
@@ -565,6 +568,9 @@ async function runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir = null
                 }
                 if (typeof outputSink.setWorkingDirectory === 'function') {
                     outputSink.setWorkingDirectory(consoleSession.getWorkingDirectory());
+                }
+                if (typeof outputSink.writeCommand === 'function') {
+                    outputSink.writeCommand(command);
                 }
                 const cmdStart = Date.now();
                 console.log(`Stata All in One: [${ci + 1}/${executionPlan.commands.length}] Executing: ${command.substring(0, 100)}`);
@@ -593,7 +599,10 @@ async function runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir = null
         } else {
             const cmdStart = Date.now();
             console.log(`Stata All in One: Executing single command via do-file: ${executionPlan.command.substring(0, 100)}`);
-            // Temporary do-files rely on Stata's native echo so the input is shown only once.
+            if (!executionPlan.tempFilePath && typeof outputSink.writeCommand === 'function') {
+                outputSink.writeCommand(executionPlan.displayCode || normalizedCode);
+            }
+            // Temporary do-files rely on Stata's native echo for their internal commands.
             result = await executeConsoleCommand(consoleSession, graphDir, executionPlan.command, onExecutionChunk);
             await syncSessionWorkingDirectory(consoleSession);
             if (typeof outputSink.setWorkingDirectory === 'function') {
@@ -617,12 +626,18 @@ async function runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir = null
                 streamedOutput += tailChunk;
             }
         }
+        if (typeof outputSink.finishTemporaryDoFileOutput === 'function') {
+            outputSink.finishTemporaryDoFileOutput();
+        }
 
         outputSink.flushOutput();
         await writeChangedGraphs(consoleSession, graphDir, graphCaptureState, outputSink);
 
         if (!result.success) {
             console.error('Stata All in One: Execution failed:', result.error);
+            if (typeof outputSink.markRunFailed === 'function') {
+                outputSink.markRunFailed();
+            }
             if (result.forced && typeof outputSink.writeWarningMessage === 'function') {
                 outputSink.writeWarningMessage(msg('consoleForceStopped'));
             }
@@ -664,6 +679,9 @@ async function runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir = null
             failCode: 'UNKNOWN_ERROR'
         };
     } finally {
+        if (typeof outputSink.finishTemporaryDoFileOutput === 'function') {
+            outputSink.finishTemporaryDoFileOutput();
+        }
         outputSink.flushOutput();
         if (smclSidecar) {
             const links = await smclSidecar.finish();

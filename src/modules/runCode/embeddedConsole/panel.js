@@ -33,6 +33,7 @@ const {
     createTailHistoryPage
 } = require('./historyWindow');
 const { formatWorkingElapsedSeconds } = require('./workingTimer');
+const { TemporaryDoFileOutputFilter } = require('./temporaryDoFileOutput');
 
 const _renderer = new StataTerminalRenderer();
 
@@ -850,6 +851,10 @@ class WebviewTerminalSink {
         this._pendingLinkBatches = [];
         this._pendingSemanticLinks = [];
         this._linkQueuePromise = Promise.resolve();
+        this._submissionHistoryIndex = -1;
+        this._temporaryDoFileOutputFilter = null;
+        this._primaryEchoCount = 0;
+        this._lastEchoEntryWasBlank = false;
     }
 
     async prepareForExecution() {
@@ -858,6 +863,8 @@ class WebviewTerminalSink {
         setWorkingDetail(null);
         await revealPanel(true);
         this._renderer.beginExecution();
+        this._primaryEchoCount = 0;
+        this._lastEchoEntryWasBlank = false;
         this._runToken += 1;
         this._runHistoryStart = _history.length;
         setStatus('running');
@@ -873,11 +880,51 @@ class WebviewTerminalSink {
 
     writeCommand(command) {
         const rendered = this._renderer.renderCommandSegments(command, this._width);
-        appendEntries(decorateCommandEntries(rendered, this._workingDirectory).entries);
+        const spaced = this._insertPrimaryEchoSpacing(rendered);
+        appendEntries(decorateCommandEntries(spaced, this._workingDirectory).entries);
+    }
+
+    writeSubmission(code) {
+        const normalized = String(code || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        this._primaryEchoCount = 0;
+        this._lastEchoEntryWasBlank = false;
+        const executionNumber = _history.reduce(
+            (count, entry) => count + (String(entry && entry.kind || '') === 'submission' ? 1 : 0),
+            0
+        ) + 1;
+        this._submissionHistoryIndex = _history.length;
+        appendEntries([{
+            kind: 'submission',
+            code: normalized,
+            executionNumber,
+            status: 'running',
+            lines: this._renderer.renderSubmissionLines(normalized)
+        }]);
+    }
+
+    beginTemporaryDoFileOutput(tempFilePath) {
+        this._temporaryDoFileOutputFilter = tempFilePath
+            ? new TemporaryDoFileOutputFilter(tempFilePath)
+            : null;
+    }
+
+    finishTemporaryDoFileOutput() {
+        if (!this._temporaryDoFileOutputFilter) {
+            return;
+        }
+        const trailing = this._temporaryDoFileOutputFilter.finish();
+        this._temporaryDoFileOutputFilter = null;
+        if (trailing) {
+            const rendered = this._renderer.renderOutputChunkSegments(trailing, this._width);
+            this._appendOutputEntries(rendered);
+        }
     }
 
     writeOutputChunk(text) {
-        const rendered = this._renderer.renderOutputChunkSegments(text, this._width);
+        const visibleText = this._temporaryDoFileOutputFilter
+            ? this._temporaryDoFileOutputFilter.push(text)
+            : text;
+        const rendered = this._renderer.renderOutputChunkSegments(visibleText, this._width);
         this._appendOutputEntries(rendered);
     }
 
@@ -892,7 +939,15 @@ class WebviewTerminalSink {
     }
 
     setStatus(status) {
+        if (status === 'error') {
+            _lastRunFailed = true;
+        }
         setStatus(status);
+    }
+
+    markRunFailed() {
+        _lastRunFailed = true;
+        this._updateSubmissionStatus('error');
     }
 
     setWorkingDetail(detail) {
@@ -948,7 +1003,7 @@ class WebviewTerminalSink {
     }
 
     _appendOutputEntries(entries) {
-        const normalized = Array.isArray(entries) ? entries.filter(Boolean) : [];
+        const normalized = this._insertPrimaryEchoSpacing(entries);
         if (!normalized.length) return;
         const start = _history.length;
         appendEntries(normalized);
@@ -959,6 +1014,29 @@ class WebviewTerminalSink {
             runToken: this._runToken
         });
         this._scheduleLinkQueue();
+    }
+
+    _insertPrimaryEchoSpacing(entries) {
+        const normalized = Array.isArray(entries) ? entries.filter(Boolean) : [];
+        const spaced = [];
+        for (const entry of normalized) {
+            const kind = String(entry && entry.kind || '');
+            const text = Array.isArray(entry && entry.segments)
+                ? entry.segments.map(segment => String(segment && segment.text || '')).join('')
+                : '';
+            const isPrimaryEcho = (kind === 'command' || kind === 'comment-command')
+                && text.startsWith('. ');
+            if (isPrimaryEcho) {
+                if (this._primaryEchoCount > 0 && !this._lastEchoEntryWasBlank) {
+                    spaced.push({ kind: 'blank', segments: [] });
+                    this._lastEchoEntryWasBlank = true;
+                }
+                this._primaryEchoCount += 1;
+            }
+            spaced.push(entry);
+            this._lastEchoEntryWasBlank = kind === 'blank';
+        }
+        return spaced;
     }
 
     enqueueSemanticLinks(links) {
@@ -1120,8 +1198,41 @@ class WebviewTerminalSink {
 
     writeRunFooter(durationMs) {
         this.flushOutput();
+        this._updateSubmissionStatus(_lastRunFailed ? 'error' : 'success');
         appendEntries(this._renderer.renderRunFooterSegments(durationMs, this._width));
         setStatus(_lastRunFailed ? 'error' : 'success');
+    }
+
+    _updateSubmissionStatus(status) {
+        const index = this._submissionHistoryIndex;
+        if (index < 0 || index >= _history.length || _history[index].kind !== 'submission') {
+            return;
+        }
+        const replacement = { ..._history[index], status };
+        _history[index] = replacement;
+        const pendingReplacement = calculateWindowReplacement(
+            _pendingWebviewAppendStart,
+            _pendingWebviewAppendEntries.length,
+            index,
+            1,
+            [replacement]
+        );
+        if (pendingReplacement) {
+            _pendingWebviewAppendEntries.splice(
+                pendingReplacement.localStart,
+                pendingReplacement.deleteCount,
+                ...pendingReplacement.entries
+            );
+        }
+        if (_panel) {
+            _panel.webview.postMessage({
+                type: 'replaceRecent',
+                historyRevision: _historyRevision,
+                start: index,
+                deleteCount: 1,
+                entries: hydrateEntriesForWebview([replacement])
+            });
+        }
     }
 
     dispose() {}
@@ -1296,6 +1407,16 @@ function getWebviewHtml(webview) {
             --console-system-fallback-family: ${escapeHtml(fontOptions.systemFallbackFamily)};
             --console-online-font-family: "Maple Mono", "Maple Mono NF CN", var(--console-system-fallback-family);
             --console-active-font-family: var(--console-online-font-family);
+            --console-run-gutter: 26px;
+            --console-cell-background: var(
+                --vscode-notebook-cellEditorBackground,
+                var(
+                    --vscode-textCodeBlock-background,
+                    var(--vscode-editorWidget-background, var(--vscode-editor-background))
+                )
+            );
+            --console-nav-marker: color-mix(in srgb, var(--vscode-descriptionForeground) 86%, transparent);
+            --console-nav-active: var(--vscode-editor-foreground);
         }
         html, body {
             height: 100%;
@@ -1447,7 +1568,7 @@ function getWebviewHtml(webview) {
         }
         #jump-bottom-button {
             position: fixed;
-            right: 40px;
+            right: 12px;
             bottom: 106px;
             z-index: 4;
             width: 30px;
@@ -1495,7 +1616,8 @@ function getWebviewHtml(webview) {
             flex: 1;
             overflow-y: auto;
             overflow-x: hidden;
-            padding: 16px 18px 22px 6px;
+            scrollbar-gutter: stable;
+            padding: 12px 18px 18px 0;
             font-family: var(--console-active-font-family);
             font-synthesis: weight style;
             font-size: var(--vscode-editor-font-size, 13px);
@@ -1505,7 +1627,7 @@ function getWebviewHtml(webview) {
         }
         #output-shell {
             max-width: 100%;
-            padding-left: 4px;
+            padding-left: 0;
             min-height: 100%;
             display: flex;
             flex-direction: column;
@@ -1550,7 +1672,7 @@ function getWebviewHtml(webview) {
         .line {
             min-height: 1.5em;
             margin: 0;
-            padding-left: 0.9rem;
+            padding-left: var(--console-run-gutter);
             white-space: pre-wrap;
             tab-size: 4;
             word-break: break-word;
@@ -1559,13 +1681,100 @@ function getWebviewHtml(webview) {
         .line-comment-command,
         .line-raw-progress,
         .line-raw-prompt {
-            padding-left: 0;
+            padding-left: var(--console-run-gutter);
             white-space: pre-wrap;
             word-break: break-word;
         }
+        .submission-cell {
+            display: grid;
+            grid-template-columns: var(--console-run-gutter) minmax(0, 1fr);
+            align-items: start;
+            margin: 0 0 0.85rem;
+            scroll-margin-top: 18px;
+        }
+        .submission-count {
+            min-height: 1.5em;
+            padding: 10px 1ch 0 0;
+            color: var(--stata-comment);
+            font-size: 0.82em;
+            font-weight: 600;
+            line-height: 1.5;
+            text-align: right;
+            white-space: nowrap;
+            user-select: none;
+        }
+        .submission-frame {
+            --submission-background: var(--console-cell-background);
+            position: relative;
+            min-width: 0;
+            border: 1px solid var(--vscode-focusBorder);
+            border-radius: 7px;
+            background: var(--submission-background);
+            overflow: hidden;
+        }
+        .submission-code {
+            max-height: 7.5em;
+            margin: 0;
+            padding: 10px 12px;
+            overflow: hidden;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+            word-break: normal;
+            tab-size: 4;
+            font: inherit;
+        }
+        .submission-frame.is-expanded .submission-code {
+            max-height: none;
+            padding-bottom: 36px;
+        }
+        .submission-line {
+            min-height: 1.5em;
+        }
+        .submission-frame.is-collapsible:not(.is-expanded)::after {
+            content: '';
+            position: absolute;
+            right: 0;
+            bottom: 0;
+            left: 0;
+            height: 2.7em;
+            pointer-events: none;
+            background: linear-gradient(
+                to bottom,
+                transparent,
+                var(--submission-background)
+            );
+        }
+        .submission-toggle {
+            position: absolute;
+            right: 7px;
+            bottom: 5px;
+            z-index: 1;
+            display: none;
+            min-height: 24px;
+            padding: 2px 7px;
+            border: 0;
+            border-radius: 5px;
+            background: color-mix(in srgb, var(--submission-background) 90%, transparent);
+            color: var(--vscode-descriptionForeground);
+            font: 600 11px/1.3 var(--vscode-font-family);
+            cursor: pointer;
+        }
+        .submission-frame.is-collapsible .submission-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .submission-toggle:hover {
+            background: var(--vscode-toolbar-hoverBackground);
+            color: var(--vscode-foreground);
+        }
+        .submission-toggle:focus-visible {
+            outline: 1px solid var(--vscode-focusBorder);
+            outline-offset: 1px;
+        }
         .line-command,
         .line-comment-command {
-            padding-left: 2ch;
+            padding-left: var(--console-run-gutter);
             text-indent: -2ch;
         }
         .tok {
@@ -1659,7 +1868,7 @@ function getWebviewHtml(webview) {
         }
         .line-footer {
             margin-top: 0.35rem;
-            padding-left: 2ch;
+            padding-left: var(--console-run-gutter);
             padding-right: 2ch;
             display: flex;
             align-items: center;
@@ -1691,7 +1900,7 @@ function getWebviewHtml(webview) {
             display: none;
             align-items: center;
             gap: 10px;
-            padding: 0 2ch 0 calc(2ch + 4px);
+            padding: 0 2ch 0 var(--console-run-gutter);
             min-height: 1.5em;
             color: var(--vscode-descriptionForeground);
         }
@@ -1814,7 +2023,7 @@ function getWebviewHtml(webview) {
             height: 100%;
             box-sizing: border-box;
             border: 1px solid transparent;
-            border-radius: 8px;
+            border-radius: 7px;
             padding: 10px 12px;
             margin: 0;
             font-family: var(--console-active-font-family);
@@ -1825,7 +2034,7 @@ function getWebviewHtml(webview) {
             white-space: pre-wrap;
             word-wrap: break-word;
             overflow-y: auto;
-            background: var(--vscode-input-background);
+            background: var(--console-cell-background);
             pointer-events: none;
             z-index: 0;
         }
@@ -1835,11 +2044,11 @@ function getWebviewHtml(webview) {
             height: 100%;
             resize: none;
             box-sizing: border-box;
-            border: 1px solid var(--vscode-panel-border);
+            border: 1px solid var(--vscode-focusBorder);
             background: transparent;
             color: transparent;
             caret-color: var(--vscode-input-foreground);
-            border-radius: 8px;
+            border-radius: 7px;
             padding: 10px 12px;
             outline: none;
             font-family: var(--console-active-font-family);
@@ -1907,19 +2116,153 @@ function getWebviewHtml(webview) {
         .autocomplete-icon.var-icon { color: var(--vscode-symbolIcon-variableForeground, var(--stata-variable)); }
         .autocomplete-icon.cmd-icon { color: var(--vscode-symbolIcon-keywordForeground, var(--stata-keyword)); }
         .autocomplete-icon.fn-icon  { color: var(--vscode-symbolIcon-methodForeground, var(--stata-function)); }
+        .result-block-shell {
+            position: relative;
+            min-width: 0;
+            margin: 0.15rem 0 0.35rem;
+        }
+        .result-block-shell::before,
+        .result-block-shell::after {
+            content: '';
+            position: absolute;
+            z-index: 2;
+            top: 0;
+            bottom: 14px;
+            width: 30px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 140ms ease;
+        }
+        .result-block-shell::before {
+            left: 0;
+            background: linear-gradient(
+                to right,
+                var(--vscode-editor-background),
+                transparent
+            );
+        }
+        .result-block-shell::after {
+            right: 0;
+            background: linear-gradient(
+                to left,
+                var(--vscode-editor-background),
+                transparent
+            );
+        }
+        .result-block-shell.has-hidden-left::before,
+        .result-block-shell.has-hidden-right::after {
+            opacity: 1;
+        }
         .result-block-scroll {
             overflow-x: auto;
             overflow-y: hidden;
-            margin: 0.15rem 0 0.35rem;
             padding-bottom: 2px;
+        }
+        .result-block-scroll.has-horizontal-overflow {
+            padding-bottom: 14px;
         }
         .result-block-scroll .line {
             min-width: max-content;
             white-space: pre;
             word-break: normal;
         }
+        #run-nav {
+            position: fixed;
+            z-index: 4;
+            top: 50%;
+            right: 15px;
+            display: none;
+            width: 25px;
+            max-height: 62vh;
+            padding: 9px 4px;
+            transform: translateY(-50%);
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 8px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            scrollbar-width: none;
+            pointer-events: none;
+            opacity: 1;
+            visibility: visible;
+            transition: opacity 180ms ease, transform 180ms ease, visibility 180ms ease;
+        }
+        #run-nav.has-runs {
+            display: flex;
+        }
+        #run-nav.has-runs.scrollbar-active {
+            opacity: 0;
+            visibility: hidden;
+            transform: translate(5px, -50%);
+        }
+        #run-nav::-webkit-scrollbar {
+            display: none;
+        }
+        .run-nav-marker {
+            flex: 0 0 auto;
+            width: 6px;
+            height: 2px;
+            padding: 0;
+            border: 0;
+            border-radius: 2px;
+            background: var(--console-nav-marker);
+            opacity: 0.78;
+            pointer-events: auto;
+            cursor: pointer;
+            transition: width 120ms ease, opacity 120ms ease, background-color 120ms ease;
+        }
+        .run-nav-marker:hover,
+        .run-nav-marker.active,
+        .run-nav-marker.previewing {
+            width: 11px;
+            background: var(--console-nav-active);
+            opacity: 1;
+        }
+        #run-nav-tooltip {
+            position: fixed;
+            z-index: 8;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr);
+            align-items: start;
+            width: min(280px, calc(100vw - 48px));
+            color: var(--vscode-editor-foreground);
+            font: 11px/1.45 var(--console-active-font-family);
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transform: translate(4px, -50%);
+            transition: opacity 100ms ease, transform 100ms ease, visibility 100ms ease;
+        }
+        #run-nav-tooltip.visible {
+            opacity: 1;
+            visibility: visible;
+            transform: translate(0, -50%);
+        }
+        .run-nav-tooltip-code {
+            min-width: 0;
+            padding: 8px 10px;
+            border: 1px solid var(--vscode-focusBorder);
+            border-radius: 7px;
+            background: var(--console-cell-background);
+        }
+        .run-nav-preview-line {
+            min-width: 0;
+            padding-left: 1.5ch;
+            text-indent: -1.5ch;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+            word-break: break-all;
+        }
+        .run-nav-preview-line > .tok {
+            overflow-wrap: anywhere;
+            word-break: break-all;
+        }
+        .run-nav-preview-ellipsis {
+            color: var(--vscode-descriptionForeground);
+            letter-spacing: 0.12em;
+        }
         .graph-entry {
-            padding: 0.55rem 2ch 0.75rem;
+            padding: 0.55rem 2ch 0.75rem var(--console-run-gutter);
             margin: 0.2rem 0 0.45rem;
             overflow-x: auto;
         }
@@ -2059,6 +2402,8 @@ function getWebviewHtml(webview) {
             <span class="working-meta">(<span id="working-seconds">0s</span><span id="working-detail-shell" hidden> • <span id="working-detail"></span></span> • esc to interrupt)</span>
         </div>
     </div>
+    <nav id="run-nav" aria-label="${escapeHtml(msg('consoleRunNavigation'))}"></nav>
+    <div id="run-nav-tooltip" role="tooltip"></div>
     <button id="jump-bottom-button" type="button" title="${escapeHtml(msg('webviewJumpToBottom'))}" aria-label="${escapeHtml(msg('webviewJumpToBottom'))}">
         <svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" fill="currentColor" aria-hidden="true">
             <path d="M12.1464 7.14645C12.3417 6.95119 12.6583 6.95119 12.8536 7.14645C13.0488 7.34171 13.0488 7.65829 12.8536 7.85355L8.35355 12.3536C8.15829 12.5488 7.84171 12.5488 7.64645 12.3536L3.14645 7.85355C2.95118 7.65829 2.95118 7.34171 3.14645 7.14645C3.34171 6.95118 3.65829 6.95118 3.85355 7.14645L8 11.2929L12.1464 7.14645ZM12.1464 3.14645C12.3417 2.95119 12.6583 2.95119 12.8536 3.14645C13.0488 3.34171 13.0488 3.65829 12.8536 3.85355L8.35355 8.35355C8.15829 8.54882 7.84171 8.54882 7.64645 8.35355L3.14645 3.85355C2.95118 3.65829 2.95118 3.34171 3.14645 3.14645C3.34171 2.95118 3.65829 2.95118 3.85355 3.14645L8 7.29289L12.1464 3.14645Z"></path>
@@ -2100,6 +2445,8 @@ function getWebviewHtml(webview) {
         const dataButton = document.getElementById('data-button');
         const exportButton = document.getElementById('export-button');
         const jumpBottomButton = document.getElementById('jump-bottom-button');
+        const runNav = document.getElementById('run-nav');
+        const runNavTooltip = document.getElementById('run-nav-tooltip');
         const graphFullscreen = document.getElementById('graph-fullscreen');
         const graphFullscreenImage = document.getElementById('graph-fullscreen-image');
         const graphFullscreenClose = document.getElementById('graph-fullscreen-close');
@@ -2162,6 +2509,7 @@ function getWebviewHtml(webview) {
         const HISTORY_PAGE_SIZE = ${DEFAULT_HISTORY_PAGE_SIZE};
         const HISTORY_WINDOW_SIZE = ${DEFAULT_HISTORY_WINDOW_SIZE};
         const HISTORY_RENDER_LIMIT = HISTORY_WINDOW_SIZE + HISTORY_PAGE_SIZE;
+        const RUN_NAV_ENABLED = true;
         const calculateWindowReplacement = ${calculateWindowReplacement.toString()};
 
         const STATUS_LABELS = {
@@ -2171,6 +2519,10 @@ function getWebviewHtml(webview) {
             stopping: ${JSON.stringify(msg('webviewStopping'))},
             restarting: ${JSON.stringify(msg('webviewRestarting'))},
             error: ${JSON.stringify(msg('webviewError'))}
+        };
+        const SUBMISSION_LABELS = {
+            expand: ${JSON.stringify(msg('consoleExpandInput'))},
+            collapse: ${JSON.stringify(msg('consoleCollapseInput'))}
         };
         const GRAPH_LABELS = {
             copy: ${JSON.stringify(msg('graphCopyImage'))},
@@ -2892,7 +3244,13 @@ function getWebviewHtml(webview) {
         function positionJumpToBottomButton() {
             const composerTop = composer.getBoundingClientRect().top;
             const bottomOffset = Math.max(12, window.innerHeight - composerTop + 12);
+            const rightAnchor = outputShell.querySelector('.submission-frame') || input;
+            const rightOffset = Math.max(
+                0,
+                window.innerWidth - rightAnchor.getBoundingClientRect().right
+            );
             jumpBottomButton.style.bottom = bottomOffset + 'px';
+            jumpBottomButton.style.right = rightOffset + 'px';
         }
 
         function updateJumpToBottomButtonState() {
@@ -2906,6 +3264,12 @@ function getWebviewHtml(webview) {
         }
 
         function renderAllEntries() {
+            const expandedSubmissionIds = new Set(
+                Array.from(outputShell.querySelectorAll('.submission-frame.is-expanded'))
+                    .map(frame => frame.closest('.submission-cell'))
+                    .filter(Boolean)
+                    .map(cell => cell.id)
+            );
             while (outputShell.firstChild) {
                 outputShell.removeChild(outputShell.firstChild);
             }
@@ -2914,13 +3278,57 @@ function getWebviewHtml(webview) {
             if (renderedEntries.length) {
                 appendRenderedEntries(renderedEntries, renderedWindowStart);
             }
+            expandedSubmissionIds.forEach(id => {
+                const cell = document.getElementById(id);
+                const frame = cell && cell.querySelector('.submission-frame');
+                if (frame) {
+                    frame.classList.add('is-expanded');
+                    updateSubmissionToggle(frame);
+                }
+            });
             ensurePlaceholderVisibility();
+            rebuildRunNavigation();
         }
 
         let historyScrollFrame = 0;
+        let runNavRestoreTimer = null;
+
+        function hasVerticalOutputOverflow() {
+            return output.scrollHeight > output.clientHeight + 1;
+        }
+
+        function setRunNavScrollbarActive(active) {
+            const shouldHide = Boolean(active && hasVerticalOutputOverflow());
+            runNav.classList.toggle('scrollbar-active', shouldHide);
+            if (shouldHide) {
+                clearRunMarkerPreview();
+            }
+        }
+
+        function scheduleRunNavRestore() {
+            if (runNavRestoreTimer) {
+                clearTimeout(runNavRestoreTimer);
+            }
+            runNavRestoreTimer = setTimeout(() => {
+                runNavRestoreTimer = null;
+                setRunNavScrollbarActive(false);
+            }, 1000);
+        }
+
+        function noteVerticalScrollbarActivity() {
+            if (!hasVerticalOutputOverflow()) {
+                setRunNavScrollbarActive(false);
+                return;
+            }
+            setRunNavScrollbarActive(true);
+            scheduleRunNavRestore();
+        }
+
         output.addEventListener('scroll', () => {
+            noteVerticalScrollbarActivity();
             followOutputTail = isOutputAtBottom();
             updateJumpToBottomButtonState();
+            updateActiveRunMarker();
             if (historyScrollFrame) {
                 return;
             }
@@ -2938,6 +3346,12 @@ function getWebviewHtml(webview) {
                 const entry = entries[index];
                 const historyIndex = Math.max(0, Number(absoluteStart) || 0) + index;
 
+                if (entry && entry.kind === 'submission') {
+                    currentResultBlock = null;
+                    fragment.appendChild(renderSubmissionEntry(entry, historyIndex));
+                    continue;
+                }
+
                 if (isCommandEntry(entry)) {
                     currentResultBlock = null;
                     fragment.appendChild(renderEntry(entry, entries[index + 1] || null, historyIndex));
@@ -2951,12 +3365,12 @@ function getWebviewHtml(webview) {
                 }
 
                 if (!currentResultBlock) {
+                    const resultBlockShell = document.createElement('div');
+                    resultBlockShell.className = 'result-block-shell';
                     currentResultBlock = document.createElement('div');
-                    fragment.appendChild(currentResultBlock);
-                }
-
-                if (isTableEntry(entry)) {
                     currentResultBlock.className = 'result-block-scroll';
+                    resultBlockShell.appendChild(currentResultBlock);
+                    fragment.appendChild(resultBlockShell);
                 }
 
                 currentResultBlock.appendChild(renderEntry(entry, entries[index + 1] || null, historyIndex));
@@ -2964,11 +3378,125 @@ function getWebviewHtml(webview) {
 
             outputShell.appendChild(fragment);
             activeResultBlock = currentResultBlock;
+            requestAnimationFrame(() => {
+                configureSubmissionCollapsing();
+                configureResultScrollHints();
+                rebuildRunNavigation();
+            });
         }
 
-        function isTableEntry(entry) {
-            const kind = String((entry && entry.kind) || '');
-            return kind === 'separator' || kind === 'table-header' || kind === 'table-data';
+        function updateResultScrollHints(block) {
+            const shell = block.closest('.result-block-shell');
+            if (!shell) {
+                return;
+            }
+            const maxScrollLeft = Math.max(0, block.scrollWidth - block.clientWidth);
+            block.classList.toggle('has-horizontal-overflow', maxScrollLeft > 1);
+            shell.classList.toggle('has-hidden-left', block.scrollLeft > 1);
+            shell.classList.toggle(
+                'has-hidden-right',
+                maxScrollLeft > 1 && block.scrollLeft < maxScrollLeft - 1
+            );
+        }
+
+        function configureResultScrollHints() {
+            outputShell.querySelectorAll('.result-block-scroll').forEach(block => {
+                if (block.dataset.scrollHintsReady !== '1') {
+                    block.dataset.scrollHintsReady = '1';
+                    block.addEventListener(
+                        'scroll',
+                        () => updateResultScrollHints(block),
+                        { passive: true }
+                    );
+                }
+                updateResultScrollHints(block);
+            });
+        }
+
+        function renderSubmissionEntry(entry, historyIndex) {
+            const cell = document.createElement('section');
+            const code = String(entry && entry.code || '');
+            cell.id = 'console-input-' + historyIndex;
+            cell.className = 'submission-cell';
+            cell.dataset.historyIndex = String(historyIndex);
+            cell.dataset.runStatus = String(entry && entry.status || 'success');
+            cell.dataset.previewCode = code;
+
+            const count = document.createElement('div');
+            count.className = 'submission-count';
+            count.textContent = '[' + String(entry && entry.executionNumber || '') + ']';
+            cell.appendChild(count);
+
+            const frame = document.createElement('div');
+            frame.className = 'submission-frame';
+
+            const codeBlock = document.createElement('div');
+            codeBlock.className = 'submission-code';
+            const lines = Array.isArray(entry && entry.lines) && entry.lines.length
+                ? entry.lines
+                : code.split('\\n').map(text => ({
+                    segments: [{ text, className: 'tok tok-plain', style: {} }]
+                }));
+            lines.forEach(lineEntry => {
+                const line = document.createElement('div');
+                line.className = 'submission-line';
+                const segments = Array.isArray(lineEntry && lineEntry.segments)
+                    ? lineEntry.segments
+                    : [];
+                segments.forEach(segment => {
+                    const span = document.createElement('span');
+                    const className = String(segment && segment.className || '').trim();
+                    if (className) {
+                        span.classList.add(...className.split(/\\s+/).filter(Boolean));
+                    }
+                    const style = segment && segment.style || {};
+                    if (style.color) span.style.color = style.color;
+                    if (style.backgroundColor) span.style.backgroundColor = style.backgroundColor;
+                    span.textContent = String(segment && segment.text || '');
+                    line.appendChild(span);
+                });
+                codeBlock.appendChild(line);
+            });
+            frame.appendChild(codeBlock);
+
+            const toggle = document.createElement('button');
+            toggle.type = 'button';
+            toggle.className = 'submission-toggle';
+            toggle.addEventListener('click', () => {
+                const beforeTop = cell.getBoundingClientRect().top;
+                frame.classList.toggle('is-expanded');
+                updateSubmissionToggle(frame);
+                requestAnimationFrame(() => {
+                    output.scrollTop += cell.getBoundingClientRect().top - beforeTop;
+                    updateActiveRunMarker();
+                });
+            });
+            frame.appendChild(toggle);
+            cell.appendChild(frame);
+            return cell;
+        }
+
+        function updateSubmissionToggle(frame) {
+            const toggle = frame && frame.querySelector('.submission-toggle');
+            if (!toggle) return;
+            const expanded = frame.classList.contains('is-expanded');
+            toggle.textContent = expanded
+                ? SUBMISSION_LABELS.collapse
+                : SUBMISSION_LABELS.expand;
+            toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+        }
+
+        function configureSubmissionCollapsing() {
+            outputShell.querySelectorAll('.submission-frame').forEach(frame => {
+                const codeBlock = frame.querySelector('.submission-code');
+                if (!codeBlock) return;
+                const expanded = frame.classList.contains('is-expanded');
+                frame.classList.remove('is-expanded');
+                const overflows = codeBlock.scrollHeight > codeBlock.clientHeight + 1;
+                frame.classList.toggle('is-collapsible', overflows);
+                if (expanded && overflows) frame.classList.add('is-expanded');
+                updateSubmissionToggle(frame);
+            });
         }
 
         function isCommandEntry(entry) {
@@ -3043,6 +3571,128 @@ function getWebviewHtml(webview) {
 
             return line;
         }
+
+        let previewingRunMarker = null;
+
+        function showRunNavTooltip(marker) {
+            if (!marker) return;
+            const target = document.getElementById(String(marker.dataset.target || ''));
+            if (!target) return;
+            const previewLines = Array.from(target.querySelectorAll('.submission-line'));
+            const fallbackLines = String(target.dataset.previewCode || '').split('\\n');
+            const rect = marker.getBoundingClientRect();
+            const navRect = runNav.getBoundingClientRect();
+            runNavTooltip.textContent = '';
+
+            const code = document.createElement('div');
+            code.className = 'run-nav-tooltip-code';
+            const visibleLines = previewLines.length
+                ? previewLines.slice(0, 3)
+                : fallbackLines.slice(0, 3);
+            visibleLines.forEach(value => {
+                const line = document.createElement('div');
+                line.className = 'run-nav-preview-line';
+                if (value instanceof Element) {
+                    line.append(...Array.from(value.childNodes).map(node => node.cloneNode(true)));
+                } else {
+                    line.textContent = value || ' ';
+                }
+                code.appendChild(line);
+            });
+            if ((previewLines.length || fallbackLines.length) > 3) {
+                const ellipsis = document.createElement('div');
+                ellipsis.className = 'run-nav-preview-ellipsis';
+                ellipsis.textContent = '...';
+                code.appendChild(ellipsis);
+            }
+            runNavTooltip.append(code);
+            runNavTooltip.style.right = (window.innerWidth - navRect.left + 8) + 'px';
+            runNavTooltip.style.left = 'auto';
+            runNavTooltip.style.top = (rect.top + rect.height / 2) + 'px';
+            runNavTooltip.classList.add('visible');
+        }
+
+        function previewRunMarker(marker) {
+            if (!marker || marker === previewingRunMarker) return;
+            if (previewingRunMarker) previewingRunMarker.classList.remove('previewing');
+            previewingRunMarker = marker;
+            previewingRunMarker.classList.add('previewing');
+            showRunNavTooltip(marker);
+        }
+
+        function clearRunMarkerPreview() {
+            if (previewingRunMarker) previewingRunMarker.classList.remove('previewing');
+            previewingRunMarker = null;
+            runNavTooltip.classList.remove('visible');
+        }
+
+        function nearestRunMarker(clientY) {
+            return Array.from(runNav.querySelectorAll('.run-nav-marker')).reduce((nearest, marker) => {
+                const rect = marker.getBoundingClientRect();
+                const distance = Math.abs(rect.top + rect.height / 2 - clientY);
+                return !nearest || distance < nearest.distance
+                    ? { marker, distance }
+                    : nearest;
+            }, null);
+        }
+
+        function updateActiveRunMarker() {
+            const cells = Array.from(outputShell.querySelectorAll('.submission-cell'));
+            if (!cells.length) return;
+            const outputRect = output.getBoundingClientRect();
+            const anchorY = outputRect.top + Math.min(90, outputRect.height * 0.25);
+            let activeCell = cells[0];
+            for (const cell of cells) {
+                if (cell.getBoundingClientRect().top <= anchorY) activeCell = cell;
+            }
+            runNav.querySelectorAll('.run-nav-marker').forEach(marker => {
+                marker.classList.toggle('active', marker.dataset.target === activeCell.id);
+            });
+        }
+
+        function rebuildRunNavigation() {
+            if (!RUN_NAV_ENABLED) {
+                runNav.textContent = '';
+                runNav.classList.remove('has-runs');
+                clearRunMarkerPreview();
+                return;
+            }
+            const cells = Array.from(outputShell.querySelectorAll('.submission-cell'));
+            const activeTarget = runNav.querySelector('.run-nav-marker.active');
+            const activeId = activeTarget ? activeTarget.dataset.target : '';
+            runNav.textContent = '';
+            runNav.classList.toggle('has-runs', cells.length > 0);
+            cells.forEach(cell => {
+                const marker = document.createElement('button');
+                const count = cell.querySelector('.submission-count');
+                marker.type = 'button';
+                marker.className = 'run-nav-marker';
+                marker.dataset.target = cell.id;
+                marker.dataset.count = count ? count.textContent : '';
+                marker.setAttribute('aria-label', marker.dataset.count + ' ' + String(cell.dataset.previewCode || '').split('\\n').slice(0, 3).join(' '));
+                if (cell.id === activeId) marker.classList.add('active');
+                marker.addEventListener('focus', () => previewRunMarker(marker));
+                marker.addEventListener('blur', clearRunMarkerPreview);
+                marker.addEventListener('click', event => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    cell.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                });
+                runNav.appendChild(marker);
+            });
+            updateActiveRunMarker();
+        }
+
+        runNav.addEventListener('mousemove', event => {
+            const nearest = nearestRunMarker(event.clientY);
+            if (nearest) previewRunMarker(nearest.marker);
+        });
+        runNav.addEventListener('mouseleave', clearRunMarkerPreview);
+        runNav.addEventListener('click', event => {
+            if (event.target !== runNav || !previewingRunMarker) return;
+            const target = document.getElementById(String(previewingRunMarker.dataset.target || ''));
+            if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
 
         function renderGraphEntry(entry) {
             const shell = document.createElement('div');
@@ -3598,6 +4248,10 @@ function getWebviewHtml(webview) {
 
         window.addEventListener('resize', () => {
             updateOverflowNotice();
+            configureResultScrollHints();
+            if (!hasVerticalOutputOverflow()) {
+                setRunNavScrollbarActive(false);
+            }
         });
 
         function refreshWorkingIndicatorAfterResume() {

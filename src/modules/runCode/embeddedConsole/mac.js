@@ -598,6 +598,13 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
         smclSidecar = await startSmclSidecar(consoleSession);
         graphCaptureState = await beginGraphCapture(consoleSession);
         executionPlan = createExecutionPlan(execCode, consoleSession.getWorkingDirectory());
+        if (typeof outputSink.writeSubmission === 'function' && normalizedCode) {
+            outputSink.writeSubmission(normalizedCode);
+        }
+        if (executionPlan.tempFilePath
+            && typeof outputSink.beginTemporaryDoFileOutput === 'function') {
+            outputSink.beginTemporaryDoFileOutput(executionPlan.tempFilePath);
+        }
         lastRealChunkAt = Date.now();
         runStartTime = lastRealChunkAt;
         const onExecutionChunk = (chunk) => {
@@ -655,10 +662,6 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
             }
         };
 
-        if (!executionPlan.tempFilePath && typeof outputSink.writeCommand === 'function') {
-            outputSink.writeCommand(executionPlan.displayCode || normalizedCode);
-        }
-
         let result = null;
         if (!execCode.trim()) {
             console.log('[mac.js] No executable Stata code to run');
@@ -676,6 +679,9 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
                 }
                 if (typeof outputSink.setWorkingDirectory === 'function') {
                     outputSink.setWorkingDirectory(consoleSession.getWorkingDirectory());
+                }
+                if (typeof outputSink.writeCommand === 'function') {
+                    outputSink.writeCommand(command);
                 }
                 result = await executeConsoleCommand(consoleSession, graphDir, command, onExecutionChunk);
                 if (consoleSession.isStopRequested()) {
@@ -697,7 +703,10 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
                 }
             }
         } else {
-            // Temporary do-files rely on Stata's native echo so the input is shown only once.
+            if (!executionPlan.tempFilePath && typeof outputSink.writeCommand === 'function') {
+                outputSink.writeCommand(executionPlan.displayCode || normalizedCode);
+            }
+            // Temporary do-files rely on Stata's native echo for their internal commands.
             result = await executeConsoleCommand(consoleSession, graphDir, executionPlan.command, onExecutionChunk);
             await syncSessionWorkingDirectory(consoleSession);
             if (typeof outputSink.setWorkingDirectory === 'function') {
@@ -720,12 +729,18 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
                 streamedOutput += tailChunk;
             }
         }
+        if (typeof outputSink.finishTemporaryDoFileOutput === 'function') {
+            outputSink.finishTemporaryDoFileOutput();
+        }
 
         outputSink.flushOutput();
         await writeChangedGraphs(consoleSession, graphDir, graphCaptureState, outputSink);
 
         if (!result.success) {
             console.error('Stata All in One: 执行失败:', result.error);
+            if (typeof outputSink.markRunFailed === 'function') {
+                outputSink.markRunFailed();
+            }
             if (result.forced && typeof outputSink.writeWarningMessage === 'function') {
                 outputSink.writeWarningMessage(msg('consoleForceStopped'));
             }
@@ -767,6 +782,9 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
             failCode: 'UNKNOWN_ERROR'
         };
     } finally {
+        if (typeof outputSink.finishTemporaryDoFileOutput === 'function') {
+            outputSink.finishTemporaryDoFileOutput();
+        }
         outputSink.flushOutput();
         if (smclSidecar) {
             const links = await smclSidecar.finish();

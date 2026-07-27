@@ -559,6 +559,18 @@ class StataTerminalRenderer {
         });
     }
 
+    renderSubmissionLines(command) {
+        const normalized = String(command || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        return normalized.split('\n').map(line => {
+            const rendered = this._segmentCommandLine(`. ${line}`);
+            const segments = rendered.segments.map(segment => ({ ...segment }));
+            if (segments.length && /^\.\s?$/.test(String(segments[0].text || ''))) {
+                segments.shift();
+            }
+            return { segments };
+        });
+    }
+
     renderOutputChunk(text, width) {
         const normalized = String(text || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
         if (!normalized) {
