@@ -113,6 +113,35 @@ test('uses the captured Console data for local filtering and paging', () => {
     ]);
 });
 
+test('opens a target row window and clamps it after the dataset shrinks', () => {
+    const ids = Array.from({ length: 20 }, (_value, index) => index + 1);
+    const data = {
+        meta: {
+            headers: ['id'],
+            types: ['long'],
+            formats: ['%9.0g'],
+            labels: [''],
+            nobs: ids.length
+        },
+        columns: { id: Int32Array.from(ids) },
+        missing: { id: new Uint8Array(ids.length) }
+    };
+
+    const middle = getSnapshotFromData(data, 'Stata memory', 5, '', 9);
+    assert.equal(middle.windowStart, 9);
+    assert.deepEqual(
+        middle.dataRows.map((row) => row.rowNum),
+        [10, 11, 12, 13, 14]
+    );
+
+    const clamped = getSnapshotFromData(data, 'Stata memory', 5, '', 99);
+    assert.equal(clamped.windowStart, 15);
+    assert.deepEqual(
+        clamped.dataRows.map((row) => row.rowNum),
+        [16, 17, 18, 19, 20]
+    );
+});
+
 test('finds the widest full-column value beyond the currently loaded page', () => {
     const data = {
         meta: {

@@ -113,26 +113,39 @@ function buildQuery(data, filterText) {
     return { filter, start, end, columns, spec };
 }
 
-async function getSnapshot(filePath, rowLimit = 500, filterText = '', force = false) {
+async function getSnapshot(filePath, rowLimit = 500, filterText = '', force = false, startObs = 0) {
     const data = await load(filePath, force);
-    return getSnapshotFromData(data, filePath, rowLimit, filterText);
+    return getSnapshotFromData(data, filePath, rowLimit, filterText, startObs);
 }
 
-function getSnapshotFromData(data, source, rowLimit = 500, filterText = '') {
-    const query = buildQuery(data, filterText);
-    const headers = query.columns;
-    const filter = query.filter;
+function collectWindow(data, query, startObs, rowLimit) {
     const rows = [];
-    const max = Math.min(Number(rowLimit) || 500, data.meta.nobs);
     let matched = 0;
     for (let row = query.start; row < query.end; row += 1) {
-        if (filter && !filter(row)) continue;
+        if (query.filter && !query.filter(row)) continue;
+        if (matched >= startObs && rows.length < rowLimit) {
+            rows.push({
+                rowNum: row + 1,
+                values: query.columns.map((name) => valueAt(data, name, row))
+            });
+        }
         matched += 1;
-        if (rows.length >= max) continue;
-        rows.push({ rowNum: row + 1, values: headers.map((name) => valueAt(data, name, row)) });
+    }
+    return { rows, matched };
+}
+
+function getSnapshotFromData(data, source, rowLimit = 500, filterText = '', startObs = 0) {
+    const query = buildQuery(data, filterText);
+    const headers = query.columns;
+    const max = Math.min(Number(rowLimit) || 500, data.meta.nobs);
+    let windowStart = Math.max(0, Math.floor(Number(startObs) || 0));
+    let window = collectWindow(data, query, windowStart, max);
+    if (window.matched > 0 && windowStart >= window.matched) {
+        windowStart = Math.max(0, window.matched - max);
+        window = collectWindow(data, query, windowStart, max);
     }
     return {
-        info: { observations: matched, variables: headers.length, source, sortedBy: null },
+        info: { observations: window.matched, variables: headers.length, source, sortedBy: null },
         vars: headers.map((name, index) => ({
             name,
             type: data.meta.types[data.meta.headers.indexOf(name)] || '',
@@ -142,8 +155,10 @@ function getSnapshotFromData(data, source, rowLimit = 500, filterText = '') {
         })),
         dataColumns: headers,
         allVarNames: headers,
-        dataRows: rows,
-        hasMore: rows.length < matched,
+        dataRows: window.rows,
+        windowStart,
+        hasMoreBefore: windowStart > 0,
+        hasMore: windowStart + window.rows.length < window.matched,
         filterText: String(filterText || '')
     };
 }

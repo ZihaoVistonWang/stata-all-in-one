@@ -3,23 +3,38 @@ const consoleDataReader = require('./consoleDataReader');
 
 let live = null;
 let loading = null;
+let generation = 0;
 
 async function getLiveData() {
-    if (live) return live;
-    if (!loading) {
-        loading = consoleDataReader.capture().then((data) => {
-            live = data;
-            return data;
-        }).finally(() => {
-            loading = null;
-        });
+    while (true) {
+        if (live) return live;
+        if (!loading) {
+            const captureGeneration = generation;
+            loading = consoleDataReader.capture().then((data) => {
+                if (captureGeneration === generation) {
+                    live = data;
+                }
+                return { data, generation: captureGeneration };
+            }).finally(() => {
+                loading = null;
+            });
+        }
+        const result = await loading;
+        if (result.generation === generation) {
+            return result.data;
+        }
     }
-    return loading;
 }
 
-async function getLiveSnapshot(filterText = '') {
+async function getLiveSnapshot(filterText = '', startObs = 0, count = 500) {
     const data = await getLiveData();
-    return directDtaStore.getSnapshotFromData(data, 'Stata memory', 500, filterText);
+    return directDtaStore.getSnapshotFromData(
+        data,
+        'Stata memory',
+        count,
+        filterText,
+        startObs
+    );
 }
 
 async function getLiveMore(startObs, count, filterText = '') {
@@ -32,11 +47,17 @@ async function getLiveColumnAutoFitValue(column, filterText = '') {
     return directDtaStore.getColumnAutoFitValueFromData(data, column, filterText);
 }
 
-async function captureSnapshot(filterText = '') {
+async function captureSnapshot(filterText = '', startObs = 0, count = 500) {
     const data = await consoleDataReader.capture();
     return {
         data,
-        view: directDtaStore.getSnapshotFromData(data, 'Stata memory', 500, filterText)
+        view: directDtaStore.getSnapshotFromData(
+            data,
+            'Stata memory',
+            count,
+            filterText,
+            startObs
+        )
     };
 }
 
@@ -52,15 +73,23 @@ async function getColumnAutoFitValue(entry, column, filterText = '') {
     );
 }
 
-async function getSnapshot(entry, filterText = '') {
-    return directDtaStore.getSnapshotFromData(entry.data, 'Stata memory', 500, filterText);
+async function getSnapshot(entry, filterText = '', startObs = 0, count = 500) {
+    return directDtaStore.getSnapshotFromData(
+        entry.data,
+        'Stata memory',
+        count,
+        filterText,
+        startObs
+    );
 }
 
 async function invalidateLive() {
+    generation += 1;
     live = null;
 }
 
 async function resetLive() {
+    generation += 1;
     if (loading) {
         try {
             await loading;

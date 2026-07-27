@@ -11,9 +11,14 @@ const PANEL_VIEW_TYPE = 'stata-all-in-one.dataViewer';
 const _panels = { console: null, file: null };
 const _ready = { console: false, file: false };
 const _pendingFilter = { console: '', file: '' };
+const _dirty = { console: true, file: false };
+const _nextActivationPreserve = { console: true, file: true };
+const _lastViewport = { console: null, file: null };
 const _consoleSnapshot = { pinned: false, data: null, entry: null };
 const _filePaths = new WeakMap();
 const _renderer = new StataTerminalRenderer();
+const VIEW_WINDOW_SIZE = 700;
+const VIEW_WINDOW_LEAD = 100;
 
 const CODICON_RESOURCE_ROOT = vscode.Uri.joinPath(vscode.Uri.file(vscode.env.appRoot), 'out', 'media');
 
@@ -560,6 +565,7 @@ function getDataViewerHtml(webview) {
     <div class="cell-overflow-tooltip" id="cell-overflow-tooltip" role="tooltip" aria-hidden="true"></div>
     <script nonce="${nonce}">
         const vscode = acquireVsCodeApi();
+        var webviewState = vscode.getState() || {};
         let currentTab = 'vars';
         const contentEl = document.getElementById('content');
         const filterInput = document.getElementById('filter-input');
@@ -581,7 +587,7 @@ function getDataViewerHtml(webview) {
 
         document.getElementById('refresh-btn').addEventListener('click', function () {
             resetColumnWidthsForRefresh();
-            requestRefresh();
+            requestRefresh(true);
         });
         document.getElementById('filter-btn').addEventListener('click', function () {
             document.body.classList.toggle('filter-open');
@@ -594,14 +600,14 @@ function getDataViewerHtml(webview) {
             syncFilterUi();
         });
         document.getElementById('filter-apply-btn').addEventListener('click', function () {
-            requestRefresh();
+            requestRefresh(false);
             filterInput.focus();
         });
         document.getElementById('filter-clear-btn').addEventListener('click', function () {
             filterInput.value = '';
             updateFilterHighlight();
             hideFilterAutocomplete();
-            requestRefresh();
+            requestRefresh(false);
             filterInput.focus();
         });
 
@@ -635,7 +641,7 @@ function getDataViewerHtml(webview) {
                     event.preventDefault();
                     filterInput.value = '';
                     updateFilterHighlight();
-                    requestRefresh();
+                    requestRefresh(false);
                 }
                 return;
             }
@@ -658,7 +664,7 @@ function getDataViewerHtml(webview) {
                     return;
                 }
                 event.preventDefault();
-                requestRefresh();
+                requestRefresh(false);
             }
         });
 
@@ -680,6 +686,8 @@ function getDataViewerHtml(webview) {
 
         function switchTab(name) {
             currentTab = name;
+            webviewState.currentTab = name;
+            vscode.setState(webviewState);
             document.querySelectorAll('.tab').forEach(function (t) { t.classList.remove('active'); });
             document.querySelectorAll('.tab-content').forEach(function (c) { c.classList.remove('active'); });
             document.getElementById('tab-' + name).classList.add('active');
@@ -698,10 +706,52 @@ function getDataViewerHtml(webview) {
             filterIcon.className = 'refresh-icon ' + (document.body.classList.contains('filter-open') ? 'codicon-filter-filled' : 'codicon-filter');
         }
 
-        function requestRefresh() {
-            loadedRows = 0;
-            hasMoreRows = true;
-            vscode.postMessage({ type: 'refresh', filterText: filterInput.value || '' });
+        function captureViewport() {
+            var rowIndex = Math.max(0, Math.floor(contentEl.scrollTop / virtualRowHeight));
+            var columnIndex = dataColumnsCache.length
+                ? getColumnAtX(Math.max(0, contentEl.scrollLeft))
+                : 0;
+            return {
+                rowIndex: rowIndex,
+                rowOffset: Math.max(0, contentEl.scrollTop - rowIndex * virtualRowHeight),
+                columnName: dataColumnsCache[columnIndex] || '',
+                columnIndex: columnIndex,
+                columnOffset: Math.max(0, contentEl.scrollLeft - getCumulWidth(columnIndex))
+            };
+        }
+
+        var viewportPersistQueued = false;
+        function persistViewport() {
+            if (currentTab !== 'data') return;
+            var viewport = captureViewport();
+            webviewState.viewport = viewport;
+            vscode.setState(webviewState);
+            vscode.postMessage({ type: 'viewportChanged', viewport: viewport });
+        }
+
+        function scheduleViewportPersist() {
+            if (viewportPersistQueued || currentTab !== 'data') return;
+            viewportPersistQueued = true;
+            requestAnimationFrame(function () {
+                viewportPersistQueued = false;
+                persistViewport();
+            });
+        }
+
+        function requestRefresh(preservePosition, requestedFilterText, savedViewport) {
+            var viewport = preservePosition
+                ? (savedViewport || captureViewport())
+                : null;
+            if (requestedFilterText !== undefined) {
+                filterInput.value = requestedFilterText || '';
+                document.body.classList.toggle('filter-open', !!filterInput.value);
+                updateFilterHighlight();
+            }
+            vscode.postMessage({
+                type: 'refresh',
+                filterText: filterInput.value || '',
+                viewport: viewport
+            });
         }
 
         function getCurrentFilterWord() {
@@ -948,8 +998,10 @@ function getDataViewerHtml(webview) {
         var lastVirtualEnd = -1;
         var lastVirtualColStart = -1;
         var lastVirtualColEnd = -1;
+        var pendingViewportRestore = null;
         var totalObs = 0;
         var loadedRows = 0;
+        var dataWindowStart = 0;
         var loadingMore = false;
         var hasMoreRows = true;
         var pageSize = 500;
@@ -1214,8 +1266,6 @@ function getDataViewerHtml(webview) {
             lastVirtualEnd = -1;
             lastVirtualColStart = -1;
             lastVirtualColEnd = -1;
-            contentEl.scrollTop = 0;
-            contentEl.scrollLeft = 0;
             columnWidths = [];
             columnNaturalWidths = [];
             columnManualWidths = [];
@@ -1229,6 +1279,7 @@ function getDataViewerHtml(webview) {
             updateDataTableWidth(table);
             renderVisibleDataHeader(0, Math.min(columns.length, getVisibleColumnCount()));
             loadedRows = 0;
+            dataWindowStart = 0;
             hasMoreRows = true;
             setLoadingMore(false);
         }
@@ -1238,13 +1289,10 @@ function getDataViewerHtml(webview) {
             dataTable.style.width = Math.max(contentEl.clientWidth, rowNumberColumnWidth + getCumulWidth(dataColumnsCache.length)) + 'px';
         }
 
-        function appendDataRows(rows) {
-            if (!Array.isArray(rows) || !rows.length) {
-                setLoadingMore(false);
-                return;
-            }
-            Array.prototype.push.apply(dataRowsCache, rows);
-            loadedRows += rows.length;
+        function replaceDataRows(rows, windowStart) {
+            dataRowsCache = Array.isArray(rows) ? rows.slice() : [];
+            dataWindowStart = Math.max(0, Number(windowStart) || 0);
+            loadedRows = dataRowsCache.length;
             autoSizeDataColumns(rows);
             setLoadingMore(false);
             scheduleDataRender(true);
@@ -1274,9 +1322,15 @@ function getDataViewerHtml(webview) {
                 tbody.innerHTML = '';
                 return;
             }
-            var firstVisible = Math.floor(contentEl.scrollTop / virtualRowHeight);
+            var firstVisible = pendingViewportRestore
+                ? pendingViewportRestore.rowIndex
+                : Math.floor(contentEl.scrollTop / virtualRowHeight);
             var visibleCount = Math.ceil(contentEl.clientHeight / virtualRowHeight) + virtualOverscan * 2;
-            var start = Math.max(0, firstVisible - virtualOverscan);
+            var firstVisibleLocal = firstVisible - dataWindowStart;
+            var start = Math.min(
+                dataRowsCache.length,
+                Math.max(0, firstVisibleLocal - virtualOverscan)
+            );
             var end = Math.min(dataRowsCache.length, start + visibleCount);
             var columnRange = getVisibleColumnRange();
             if (start === lastVirtualStart && end === lastVirtualEnd &&
@@ -1289,13 +1343,30 @@ function getDataViewerHtml(webview) {
             lastVirtualColEnd = columnRange.end;
             renderVisibleDataHeader(columnRange.start, columnRange.end);
             var fragment = document.createDocumentFragment();
-            appendSpacerRow(fragment, start * virtualRowHeight, columnRange.start, columnRange.end);
+            appendSpacerRow(
+                fragment,
+                (dataWindowStart + start) * virtualRowHeight,
+                columnRange.start,
+                columnRange.end
+            );
             for (var r = start; r < end; r++) {
                 fragment.appendChild(createDataRow(dataRowsCache[r], columnRange.start, columnRange.end));
             }
-            appendSpacerRow(fragment, Math.max(0, (dataRowsCache.length - end) * virtualRowHeight), columnRange.start, columnRange.end);
+            appendSpacerRow(
+                fragment,
+                Math.max(0, (totalObs - dataWindowStart - end) * virtualRowHeight),
+                columnRange.start,
+                columnRange.end
+            );
             tbody.innerHTML = '';
             tbody.appendChild(fragment);
+            if (pendingViewportRestore) {
+                var viewportRestore = pendingViewportRestore;
+                pendingViewportRestore = null;
+                contentEl.scrollTop = viewportRestore.rowIndex * virtualRowHeight
+                    + viewportRestore.rowOffset;
+                scheduleViewportPersist();
+            }
             scheduleOverflowTitleUpdate();
         }
 
@@ -1592,9 +1663,23 @@ function getDataViewerHtml(webview) {
         });
 
         function requestLoadMore() {
-            if (loadingMore || !hasMoreRows || (totalObs > 0 && loadedRows >= totalObs)) return;
+            if (loadingMore || totalObs <= 0 || loadedRows >= totalObs) return;
+            var firstVisibleRow = getFirstVisibleDataRow();
+            var requestedStart = Math.max(0, firstVisibleRow - preloadRowBuffer);
+            if (requestedStart === dataWindowStart
+                && dataWindowStart + loadedRows < totalObs) {
+                requestedStart = Math.max(
+                    0,
+                    Math.min(totalObs - 1, dataWindowStart + loadedRows - preloadRowBuffer)
+                );
+            }
             setLoadingMore(true);
-            vscode.postMessage({ type: 'loadMore', startObs: loadedRows, count: pageSize, filterText: filterInput.value || '' });
+            vscode.postMessage({
+                type: 'loadWindow',
+                startObs: requestedStart,
+                count: pageSize,
+                filterText: filterInput.value || ''
+            });
         }
 
         var autoLoadCheckQueued = false;
@@ -1609,25 +1694,35 @@ function getDataViewerHtml(webview) {
 
         function checkAutoLoad() {
             if (currentTab !== 'data') return;
-            if (loadingMore || !hasMoreRows || (totalObs > 0 && loadedRows >= totalObs)) return;
+            if (loadingMore || totalObs <= 0 || loadedRows >= totalObs) return;
             var firstVisibleRow = getFirstVisibleDataRow();
-            if (firstVisibleRow > 0 && firstVisibleRow >= loadedRows - preloadRowBuffer) {
-                requestLoadMore();
-                return;
-            }
-            var distanceToBottom = contentEl.scrollHeight - contentEl.scrollTop - contentEl.clientHeight;
-            if (distanceToBottom <= 300) {
-                requestLoadMore();
+            var windowEnd = dataWindowStart + loadedRows;
+            if (firstVisibleRow < dataWindowStart + preloadRowBuffer
+                || firstVisibleRow >= windowEnd - preloadRowBuffer) {
+                var requestedStart = Math.max(0, firstVisibleRow - preloadRowBuffer);
+                if (requestedStart !== dataWindowStart) {
+                    setLoadingMore(true);
+                    vscode.postMessage({
+                        type: 'loadWindow',
+                        startObs: requestedStart,
+                        count: pageSize,
+                        filterText: filterInput.value || ''
+                    });
+                }
             }
         }
 
         function getFirstVisibleDataRow() {
-            if (!dataRowsCache.length) return 0;
-            return Math.min(dataRowsCache.length, Math.max(1, Math.floor(contentEl.scrollTop / virtualRowHeight) + 1));
+            if (totalObs <= 0) return 0;
+            return Math.min(
+                totalObs - 1,
+                Math.max(0, Math.floor(contentEl.scrollTop / virtualRowHeight))
+            );
         }
         contentEl.addEventListener('scroll', function () {
             renderVisibleDataRows();
             scheduleAutoLoadCheck();
+            scheduleViewportPersist();
         }, { passive: true });
         contentEl.addEventListener('wheel', function () {
             renderVisibleDataRows();
@@ -1779,7 +1874,31 @@ function getDataViewerHtml(webview) {
             return String(value);
         }
 
-        function setData(data) {
+        function restoreViewport(viewport) {
+            if (!viewport) {
+                contentEl.scrollLeft = 0;
+                pendingViewportRestore = { rowIndex: 0, rowOffset: 0 };
+                scheduleDataRender(true);
+                return;
+            }
+            var rowIndex = totalObs > 0
+                ? Math.min(totalObs - 1, Math.max(0, Number(viewport.rowIndex) || 0))
+                : 0;
+            var rowOffset = Math.max(0, Number(viewport.rowOffset) || 0);
+            var columnIndex = dataColumnsCache.indexOf(String(viewport.columnName || ''));
+            if (columnIndex < 0) {
+                columnIndex = Math.min(
+                    Math.max(0, Number(viewport.columnIndex) || 0),
+                    Math.max(0, dataColumnsCache.length - 1)
+                );
+            }
+            contentEl.scrollLeft = getCumulWidth(columnIndex)
+                + Math.max(0, Number(viewport.columnOffset) || 0);
+            pendingViewportRestore = { rowIndex: rowIndex, rowOffset: rowOffset };
+            scheduleDataRender(true);
+        }
+
+        function setData(data, viewport) {
             document.body.classList.remove('loading');
             document.getElementById('loading-msg').style.display = 'none';
             if (data.filterText !== undefined) {
@@ -1805,9 +1924,11 @@ function getDataViewerHtml(webview) {
             updateFilterHighlight();
             renderDataHeader(data.dataColumns, getVarTypeMap(data.vars || []));
             totalObs = (data.info && data.info.observations) || 0;
-            appendDataRows(data.dataRows || []);
+            replaceDataRows(data.dataRows || [], data.windowStart || 0);
+            restoreViewport(viewport);
             setLoadingMore(false);
             renderInfo(data.info || {});
+            scheduleDataRender(true);
             scheduleAutoLoadCheck();
         }
 
@@ -1822,13 +1943,19 @@ function getDataViewerHtml(webview) {
         window.addEventListener('message', function (event) {
             var message = event.data || {};
             if (message.type === 'setData') {
-                setData(message.data || {});
-            } else if (message.type === 'appendRows') {
+                setData(message.data || {}, message.viewport || null);
+            } else if (message.type === 'setWindow') {
                 hasMoreRows = message.hasMore !== false;
-                appendDataRows(message.rows || []);
+                replaceDataRows(message.rows || [], message.windowStart || 0);
             } else if (message.type === 'loadMoreDone') {
                 hasMoreRows = message.hasMore !== false;
                 setLoadingMore(false);
+            } else if (message.type === 'requestRefresh') {
+                requestRefresh(
+                    message.preservePosition !== false,
+                    message.filterText,
+                    message.viewport || null
+                );
             } else if (message.type === 'filterHighlightResult') {
                 renderFilterHighlight(message.segments || []);
             } else if (message.type === 'setStatus') {
@@ -1859,8 +1986,14 @@ function getDataViewerHtml(webview) {
         });
 
         setTimeout(function () {
+            if (webviewState.currentTab === 'data') {
+                switchTab('data');
+            }
             syncFilterUi();
-            vscode.postMessage({ type: 'ready' });
+            vscode.postMessage({
+                type: 'ready',
+                viewport: webviewState.viewport || null
+            });
         }, 100);
     </script>
 </body>
@@ -1880,6 +2013,13 @@ function attachPanel(panel, mode) {
     };
     panel.webview.html = getDataViewerHtml(panel.webview);
 
+    panel.onDidChangeViewState(() => {
+        if (!panel.active || mode !== 'console' || !_dirty.console) return;
+        const preservePosition = _nextActivationPreserve.console;
+        _nextActivationPreserve.console = true;
+        requestPanelRefresh('console', _pendingFilter.console, preservePosition);
+    });
+
     panel.onDidDispose(() => {
         if (_panels[mode] === panel) {
             _panels[mode] = null;
@@ -1894,6 +2034,7 @@ function attachPanel(panel, mode) {
                 if (_consoleSnapshot.entry) consoleStore.dispose(_consoleSnapshot.entry).catch(() => {});
                 _consoleSnapshot.entry = null;
                 consoleStore.invalidateLive().catch(() => {});
+                _lastViewport.console = null;
             }
         }
     });
@@ -1903,21 +2044,33 @@ function attachPanel(panel, mode) {
 
         if (message.type === 'ready') {
             _ready[mode] = true;
-            await refreshDataViewer(mode, _pendingFilter[mode], panel);
+            if (message.viewport) {
+                _lastViewport[mode] = message.viewport;
+            }
+            const restoreViewport = mode !== 'console'
+                || _nextActivationPreserve.console;
+            await refreshDataViewer(mode, _pendingFilter[mode], panel, {
+                viewport: restoreViewport ? _lastViewport[mode] : null
+            });
+            _nextActivationPreserve[mode] = true;
         } else if (message.type === 'refresh') {
             const terminal = require('../panel');
             if (mode === 'console' && !(_consoleSnapshot.pinned) && terminal.isWebviewTerminalRunning && terminal.isWebviewTerminalRunning()) {
                 showInfo(msg('consoleBusyAction'));
                 return;
             }
-            await refreshDataViewer(mode, message.filterText || '', panel);
+            await refreshDataViewer(mode, message.filterText || '', panel, {
+                viewport: message.viewport || null
+            });
+        } else if (message.type === 'viewportChanged') {
+            _lastViewport[mode] = message.viewport || null;
         } else if (message.type === 'highlightFilter') {
             const p = _panels[mode];
             if (p) {
                 p.webview.postMessage({ type: 'filterHighlightResult', segments: highlightFilterText(message.text || '') });
             }
-        } else if (message.type === 'loadMore') {
-            await handleLoadMore(mode, message);
+        } else if (message.type === 'loadWindow') {
+            await handleLoadWindow(mode, message);
         } else if (message.type === 'copyCell') {
             const column = String(message.column || '');
             const value = String(message.text || '');
@@ -1964,7 +2117,7 @@ function attachPanel(panel, mode) {
 }
 
 // ── handle lazy-load more rows ─────────────────────────────────────────────────
-async function handleLoadMore(mode, message) {
+async function handleLoadWindow(mode, message) {
     const panel = _panels[mode];
     if (!panel) return;
 
@@ -1978,7 +2131,12 @@ async function handleLoadMore(mode, message) {
     if (mode === 'file') {
         try {
             const rows = await directDtaStore.getMore(_filePaths.get(panel), message.startObs || 0, message.count || 500, message.filterText || '');
-            panel.webview.postMessage({ type: rows.length ? 'appendRows' : 'loadMoreDone', rows, hasMore: rows.length >= (message.count || 500) });
+            panel.webview.postMessage({
+                type: rows.length ? 'setWindow' : 'loadMoreDone',
+                rows,
+                windowStart: message.startObs || 0,
+                hasMore: rows.length >= (message.count || 500)
+            });
         } catch (error) {
             panel.webview.postMessage({ type: 'loadMoreDone', hasMore: false });
             showError(error.message);
@@ -1987,7 +2145,7 @@ async function handleLoadMore(mode, message) {
     }
 
     // Console mode: fetch more rows from the active Stata session
-    const startObs = (message.startObs || 0) + 1;
+    const startObs = message.startObs || 0;
     const count = message.count || 500;
     try {
         const rows = _consoleSnapshot.pinned && _consoleSnapshot.entry
@@ -1995,7 +2153,12 @@ async function handleLoadMore(mode, message) {
             : await consoleStore.getLiveMore(startObs, count, message.filterText || '');
         if (_panels[mode]) {
             if (rows && rows.length > 0) {
-                _panels[mode].webview.postMessage({ type: 'appendRows', rows, hasMore: rows.length >= count });
+                _panels[mode].webview.postMessage({
+                    type: 'setWindow',
+                    rows,
+                    windowStart: startObs,
+                    hasMore: rows.length >= count
+                });
             } else {
                 _panels[mode].webview.postMessage({ type: 'loadMoreDone', hasMore: false });
             }
@@ -2023,6 +2186,21 @@ const variableSuggestionSubscription = variableSuggestions.onDidChangeVariables(
     postVariables();
 });
 
+function requestPanelRefresh(mode, filterText, preservePosition) {
+    const panel = _panels[mode];
+    if (!panel || !_ready[mode]) return false;
+    if (mode === 'console') {
+        _dirty.console = false;
+    }
+    panel.webview.postMessage({
+        type: 'requestRefresh',
+        filterText: filterText || '',
+        preservePosition: Boolean(preservePosition),
+        viewport: preservePosition ? _lastViewport[mode] : null
+    });
+    return true;
+}
+
 // ── get or create a panel for the given mode ───────────────────────────────────
 function ensurePanel(mode) {
     if (_panels[mode]) {
@@ -2035,7 +2213,7 @@ function ensurePanel(mode) {
         vscode.ViewColumn.Two,
         {
             enableScripts: true,
-            retainContextWhenHidden: false,
+            retainContextWhenHidden: true,
             enableServiceWorker: false,
             localResourceRoots: [CODICON_RESOURCE_ROOT]
         }
@@ -2044,31 +2222,57 @@ function ensurePanel(mode) {
 }
 
 // ── refresh data for a specific mode ───────────────────────────────────────────
-async function refreshDataViewer(mode, filterText, targetPanel) {
+async function refreshDataViewer(mode, filterText, targetPanel, options = {}) {
     const panel = targetPanel || _panels[mode];
     if (!panel || !_ready[mode]) return;
     _pendingFilter[mode] = filterText || '';
     panel.webview.postMessage({ type: 'setStatus', status: 'loading' });
+    const viewport = options.viewport || null;
+    const requestedRow = viewport
+        ? Math.max(0, Math.floor(Number(viewport.rowIndex) || 0))
+        : 0;
+    const windowStart = Math.max(0, requestedRow - VIEW_WINDOW_LEAD);
 
     try {
         let data;
         if (mode === 'file') {
-            data = await directDtaStore.getSnapshot(_filePaths.get(panel), 500, filterText || '');
+            data = await directDtaStore.getSnapshot(
+                _filePaths.get(panel),
+                VIEW_WINDOW_SIZE,
+                filterText || '',
+                false,
+                windowStart
+            );
         } else if (_consoleSnapshot.pinned && _consoleSnapshot.entry) {
-            data = await consoleStore.getSnapshot(_consoleSnapshot.entry, filterText || '');
+            data = await consoleStore.getSnapshot(
+                _consoleSnapshot.entry,
+                filterText || '',
+                windowStart,
+                VIEW_WINDOW_SIZE
+            );
         } else {
             // Console mode: capture once, then use the same local DTA engine
             // as external files for paging and filtering.
-            data = await consoleStore.getLiveSnapshot(filterText || '');
+            data = await consoleStore.getLiveSnapshot(
+                filterText || '',
+                windowStart,
+                VIEW_WINDOW_SIZE
+            );
             if (data && Array.isArray(data.allVarNames) && data.allVarNames.length) {
                 variableSuggestions.setMemoryVars(data.allVarNames);
             }
         }
         data.variableSuggestions = variableSuggestions.getActiveVariables();
-        panel.webview.postMessage({ type: 'setData', data });
+        panel.webview.postMessage({ type: 'setData', data, viewport });
+        if (mode === 'console') {
+            _dirty.console = false;
+        }
     } catch (e) {
         console.error('Stata All in One: refresh failed:', e.message);
         panel.webview.postMessage({ type: 'setData', data: { error: e.message } });
+        if (mode === 'console') {
+            _dirty.console = true;
+        }
     }
     panel.webview.postMessage({ type: 'setStatus', status: 'ready' });
 }
@@ -2080,7 +2284,12 @@ async function reveal(filterText, options = {}) {
         showInfo(msg('consoleBusyAction'));
         return null;
     }
-    _pendingFilter['console'] = filterText || '';
+    _pendingFilter.console = filterText || '';
+    const preservePosition = !_pendingFilter.console.trim();
+    if (!preservePosition) {
+        _lastViewport.console = null;
+    }
+    _dirty.console = true;
     if (!options.captureSnapshot) {
         _consoleSnapshot.pinned = false;
         _consoleSnapshot.data = null;
@@ -2100,13 +2309,10 @@ async function reveal(filterText, options = {}) {
         }
     }
     const panel = ensurePanel('console');
+    _nextActivationPreserve.console = preservePosition;
     panel.reveal(vscode.ViewColumn.Two, true);
-    if (_ready['console']) {
-        if (options.captureSnapshot) {
-            panel.webview.postMessage({ type: 'setData', data: _consoleSnapshot.data || { error: msg('dataViewerNoDataset') } });
-        } else {
-            await refreshDataViewer('console', _pendingFilter['console']);
-        }
+    if (_ready.console && _dirty.console) {
+        requestPanelRefresh('console', _pendingFilter.console, preservePosition);
     }
     return panel;
 }
@@ -2114,8 +2320,17 @@ async function reveal(filterText, options = {}) {
 // ── external update trigger (e.g., after running code in console) ──────────────
 async function updateData() {
     await consoleStore.invalidateLive();
-    if (_consoleSnapshot.pinned) return;
-    await refreshDataViewer('console', _pendingFilter['console']);
+    if (_consoleSnapshot.entry) {
+        await consoleStore.dispose(_consoleSnapshot.entry);
+    }
+    _consoleSnapshot.pinned = false;
+    _consoleSnapshot.data = null;
+    _consoleSnapshot.entry = null;
+    _dirty.console = true;
+    const panel = _panels.console;
+    if (panel && panel.active) {
+        requestPanelRefresh('console', _pendingFilter.console, true);
+    }
 }
 
 async function resetConsoleData() {
@@ -2127,6 +2342,8 @@ async function resetConsoleData() {
     _consoleSnapshot.data = null;
     _consoleSnapshot.entry = null;
     _pendingFilter.console = '';
+    _dirty.console = false;
+    _lastViewport.console = null;
 
     const panel = _panels.console;
     if (panel) {

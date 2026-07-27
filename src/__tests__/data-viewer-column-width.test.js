@@ -85,7 +85,7 @@ test('auto-fits a column to its measured maximum when its resize handle is doubl
 test('resets manual column widths before the refresh button reloads data', () => {
     assert.match(
         panelSource,
-        /getElementById\('refresh-btn'\)\.addEventListener\('click', function \(\) \{\s*resetColumnWidthsForRefresh\(\);\s*requestRefresh\(\);/
+        /getElementById\('refresh-btn'\)\.addEventListener\('click', function \(\) \{\s*resetColumnWidthsForRefresh\(\);\s*requestRefresh\(true\);/
     );
     assert.match(panelSource, /function resetColumnWidthsForRefresh\(\)/);
     assert.match(panelSource, /varsColumnManualWidths = \[false, false, false, false\];/);
