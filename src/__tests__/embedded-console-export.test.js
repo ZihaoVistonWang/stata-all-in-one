@@ -81,6 +81,37 @@ test('groups console history into runs and removes Stata prompts from code', () 
     assert.equal(runs[1].footer, 'Worked for 250ms');
 });
 
+test('uses submission code as exported input while keeping native command echoes in output', () => {
+    const runs = groupConsoleHistory([
+        {
+            kind: 'submission',
+            code: "forvalues i = 1/2 {\n    display `i'\n}",
+            executionNumber: 1,
+            status: 'success',
+            lines: [
+                line('command', 'forvalues i = 1/2 {'),
+                line('command', "    display `i'"),
+                line('command', '}')
+            ]
+        },
+        line('command', '. forvalues i = 1/2 {'),
+        line('command', "  2.     display `i'"),
+        line('command', '  3. }'),
+        line('default', '1'),
+        line('default', '2'),
+        line('footer', 'Worked for 10ms')
+    ]);
+
+    assert.equal(runs.length, 1);
+    assert.equal(runs[0].code, "forvalues i = 1/2 {\n    display `i'\n}");
+    assert.deepEqual(
+        runs[0].outputEntries.map(entry =>
+            entry.segments.map(segment => segment.text).join('')
+        ),
+        [". forvalues i = 1/2 {", "  2.     display `i'", '  3. }', '1', '2']
+    );
+});
+
 test('keeps native numbered do-file continuation lines in exported input', () => {
     const runs = groupConsoleHistory([
         line('command', '. forvalues i = 1/2 {'),
@@ -128,7 +159,9 @@ test('exports standalone HTML with escaped output, source link, styles, and embe
     assert.match(Buffer.from(tabIcon[1], 'base64').toString('utf8'), /<svg width="16" height="16"/);
     assert.match(result.content, /error: intentional &lt;error&gt;/);
     assert.match(result.content, /font-weight:700/);
-    assert.match(result.content, /class="execution-count">\[1\]:/);
+    assert.match(result.content, /class="execution-count">\[1\]<\/div>/);
+    assert.doesNotMatch(result.content, /class="execution-count">\[\d+\]:/);
+    assert.doesNotMatch(result.content, /class="nav-tooltip-count">\[\d+\]:/);
     assert.match(result.content, /class="token token-command"/);
     assert.match(result.content, /class="token token-string"/);
     assert.match(result.content, /class="token token-comment"/);
@@ -140,7 +173,7 @@ test('exports standalone HTML with escaped output, source link, styles, and embe
     assert.match(result.content, /data-tooltip="\[1\] sysuse auto\nsummarize price"/);
     assert.match(result.content, /id="nav-tooltip" class="nav-tooltip"/);
     assert.match(result.content, /width: min\(340px, calc\(100vw - 80px\)\);/);
-    assert.match(result.content, /class="nav-tooltip-count">\[1\]:/);
+    assert.match(result.content, /class="nav-tooltip-count">\[1\]<\/div>/);
     assert.match(result.content, /class="nav-tooltip-code"/);
     assert.match(result.content, /class="nav-preview-line"><span class="token token-plain">sysuse auto<\/span>/);
     assert.match(result.content, /\.nav-preview-line \{[\s\S]*white-space: pre-wrap;[\s\S]*overflow-wrap: anywhere;/);
@@ -160,7 +193,18 @@ test('exports standalone HTML with escaped output, source link, styles, and embe
     assert.match(result.content, /\.command \{[\s\S]*font-family: var\(--export-mono-font\);/);
     assert.match(result.content, /\.output-line \{[\s\S]*font-family: var\(--export-mono-font\);/);
     assert.match(result.content, /\.command \{[\s\S]*white-space: pre-wrap;[\s\S]*overflow-x: hidden;[\s\S]*overflow-wrap: anywhere;/);
+    assert.match(result.content, /--export-run-gutter:\s*40px/);
+    assert.match(result.content, /\.input-cell \{[\s\S]*grid-template-columns: var\(--export-run-gutter\) minmax\(0, 1fr\)/);
+    assert.match(result.content, /\.execution-count \{[\s\S]*padding: 14px 1ch 0 0;[\s\S]*text-align: right/);
+    assert.match(result.content, /\.output-line \{[\s\S]*padding-left: var\(--export-run-gutter\)/);
+    assert.match(result.content, /\.run-output:not\(\.output-only\) \.output-command,[\s\S]*text-indent: -2ch/);
     assert.match(result.content, /\.run-output \{[\s\S]*overflow-x: auto;[\s\S]*overflow-y: hidden;/);
+    assert.match(result.content, /class="run-output-shell"><div class="run-output/);
+    assert.match(result.content, /\.run-output-shell::before,[\s\S]*width: 30px;[\s\S]*transition: opacity 140ms ease/);
+    assert.match(result.content, /\.run-output\.has-horizontal-overflow \{[\s\S]*padding-bottom: 14px/);
+    assert.match(result.content, /shell\.classList\.toggle\('has-hidden-left', output\.scrollLeft > 1\)/);
+    assert.match(result.content, /shell\.classList\.toggle\([\s\S]*'has-hidden-right'/);
+    assert.match(result.content, /document\.fonts\.ready\.then\(configureRunOutputHints\)/);
     assert.match(result.content, /\.output-line \{[\s\S]*width: max-content;[\s\S]*white-space: pre;/);
     assert.match(result.content, /\.run-output::-webkit-scrollbar \{ height: 10px; \}/);
     assert.match(result.content, /src="data:image\/svg\+xml;base64,/);

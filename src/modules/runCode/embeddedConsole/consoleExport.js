@@ -36,6 +36,27 @@ function stripCommandPrompt(text) {
 
 function createRun(entries, footer) {
     const normalized = trimBlankEntries(entries);
+    const submissionIndex = normalized.findIndex(entry =>
+        String(entry && entry.kind || '') === 'submission'
+    );
+    if (submissionIndex !== -1) {
+        const submission = normalized[submissionIndex];
+        const commandEntries = Array.isArray(submission.lines)
+            ? submission.lines.map(line => ({
+                kind: 'command',
+                segments: Array.isArray(line && line.segments) ? line.segments : []
+            }))
+            : [];
+        return {
+            code: String(submission.code || ''),
+            commandEntries,
+            outputEntries: trimBlankEntries([
+                ...normalized.slice(0, submissionIndex),
+                ...normalized.slice(submissionIndex + 1)
+            ]),
+            footer: footer ? entryText(footer) : ''
+        };
+    }
     const commandEntries = [];
     let outputStarted = false;
     const outputEntries = [];
@@ -326,7 +347,7 @@ function renderHtmlNavigation(runViews, label) {
             const preview = inputPreview(view.run.code);
             const tooltip = `[${view.inputNumber}] ${preview}${hasMoreInputLines(view.run.code) ? '\n...' : ''}`;
             const code = renderHtmlCommandPreview(view.run);
-            return `<a class="nav-marker" href="#input-${view.inputNumber}" data-target="input-${view.inputNumber}" data-tooltip="${escapeHtml(tooltip)}" aria-label="${escapeHtml(tooltip)}"><template class="nav-preview"><div class="nav-tooltip-count">[${view.inputNumber}]:</div><div class="nav-tooltip-code">${code}</div></template></a>`;
+            return `<a class="nav-marker" href="#input-${view.inputNumber}" data-target="input-${view.inputNumber}" data-tooltip="${escapeHtml(tooltip)}" aria-label="${escapeHtml(tooltip)}"><template class="nav-preview"><div class="nav-tooltip-count">[${view.inputNumber}]</div><div class="nav-tooltip-code">${code}</div></template></a>`;
         })
         .join('\n');
     return markers ? `<nav class="input-nav" aria-label="${escapeHtml(label)}">${markers}</nav>` : '';
@@ -337,7 +358,7 @@ function renderHtmlRuns(runViews, options) {
         const { run, inputNumber } = view;
         const content = [];
         if (run.code) {
-            content.push(`<div class="input-cell" id="input-${inputNumber}" data-input-number="${inputNumber}"><div class="execution-count">[${inputNumber}]:</div><pre class="command"><code>${renderHtmlCommand(run)}</code></pre></div>`);
+            content.push(`<div class="input-cell" id="input-${inputNumber}" data-input-number="${inputNumber}"><div class="execution-count">[${inputNumber}]</div><pre class="command"><code>${renderHtmlCommand(run)}</code></pre></div>`);
         }
 
         const output = [];
@@ -352,7 +373,7 @@ function renderHtmlRuns(runViews, options) {
         }
         if (run.footer) output.push(`<div class="footer"><span>${escapeHtml(run.footer)}</span></div>`);
         if (output.length) {
-            content.push(`<div class="run-output${run.code ? '' : ' output-only'}">${output.join('\n')}</div>`);
+            content.push(`<div class="run-output-shell"><div class="run-output${run.code ? '' : ' output-only'}">${output.join('\n')}</div></div>`);
         }
         return `<section class="run">${content.join('\n')}</section>${index < runViews.length - 1 ? '<hr>' : ''}`;
     }).join('\n');
@@ -390,6 +411,8 @@ ${options.tabIconDataUrl ? `<link rel="icon" type="image/svg+xml" href="${option
 :root {
     color-scheme: light;
     --export-mono-font: "Maple Mono", "Maple Mono NF CN", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    --export-run-gutter: 40px;
+    --export-code-padding: 16px;
     --bgColor-default: #ffffff;
     --bgColor-muted: #f6f8fa;
     --bgColor-overlay: #ffffff;
@@ -539,8 +562,22 @@ body {
 }
 .nav-tooltip.visible { opacity: 1; visibility: visible; transform: translate(0, -50%); }
 .run { margin: 0; }
-.input-cell { display: grid; grid-template-columns: 62px minmax(0, 1fr); align-items: start; scroll-margin-top: 32px; }
-.execution-count { padding: 14px 13px 0 0; color: var(--fgColor-accent); font-weight: 600; text-align: right; user-select: none; }
+.input-cell {
+    display: grid;
+    grid-template-columns: var(--export-run-gutter) minmax(0, 1fr);
+    align-items: start;
+    min-width: 0;
+    scroll-margin-top: 32px;
+}
+.execution-count {
+    min-width: 0;
+    padding: 14px 1ch 0 0;
+    color: var(--fgColor-accent);
+    font-weight: 600;
+    text-align: right;
+    white-space: nowrap;
+    user-select: none;
+}
 .command {
     min-width: 0;
     margin: 0 0 14px;
@@ -559,24 +596,64 @@ body {
     scrollbar-color: var(--borderColor-default) transparent;
 }
 .command code { font: inherit; }
+.run-output-shell {
+    position: relative;
+    min-width: 0;
+}
+.run-output-shell::before,
+.run-output-shell::after {
+    content: "";
+    position: absolute;
+    z-index: 2;
+    top: 0;
+    bottom: 14px;
+    width: 30px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 140ms ease;
+}
+.run-output-shell::before {
+    left: 0;
+    background: linear-gradient(to right, var(--bgColor-default), transparent);
+}
+.run-output-shell::after {
+    right: 0;
+    background: linear-gradient(to left, var(--bgColor-default), transparent);
+}
+.run-output-shell.has-hidden-left::before,
+.run-output-shell.has-hidden-right::after {
+    opacity: 1;
+}
 .run-output {
     min-width: 0;
-    margin-left: 62px;
+    margin-left: 0;
     padding-bottom: 4px;
     overflow-x: auto;
     overflow-y: hidden;
     scrollbar-color: var(--borderColor-default) transparent;
+}
+.run-output.has-horizontal-overflow {
+    padding-bottom: 14px;
 }
 .run-output.output-only { margin-left: 0; }
 .output-line {
     width: max-content;
     min-width: 100%;
     min-height: 1.5em;
-    padding-left: 1rem;
+    padding-left: var(--export-run-gutter);
     white-space: pre;
     font-family: var(--export-mono-font);
     tab-size: 4;
     overflow-wrap: normal;
+}
+.run-output.output-only .output-line {
+    padding-left: var(--export-code-padding);
+}
+.run-output:not(.output-only) .output-command,
+.run-output:not(.output-only) .output-comment-command,
+.run-output:not(.output-only) .output-raw-progress,
+.run-output:not(.output-only) .output-raw-prompt {
+    text-indent: -2ch;
 }
 .run-output::-webkit-scrollbar { height: 10px; }
 .run-output::-webkit-scrollbar-thumb { border: 3px solid transparent; border-radius: 8px; background: var(--borderColor-default); background-clip: padding-box; }
@@ -600,11 +677,9 @@ figcaption { margin-top: 8px; color: var(--fgColor-muted); }
 .footer span { white-space: nowrap; }
 hr { margin: 30px 0; border: 0; border-top: 1px solid var(--borderColor-muted); }
 @media (max-width: 720px) {
+    :root { --export-run-gutter: 36px; }
     body { padding: 68px 18px 48px 48px; }
     .input-nav { left: 8px; }
-    .input-cell { grid-template-columns: 46px minmax(0, 1fr); }
-    .run-output { margin-left: 46px; }
-    .execution-count { font-size: 12px; }
     .theme-toggle { top: 14px; right: 14px; }
 }
 </style>
@@ -635,6 +710,30 @@ ${runs}
     }
     applyTheme(root.dataset.theme === 'dark' ? 'dark' : 'light');
     button.addEventListener('click', function() { applyTheme(root.dataset.theme === 'dark' ? 'light' : 'dark'); });
+
+    var runOutputs = Array.from(document.querySelectorAll('.run-output'));
+    function updateRunOutputHints(output) {
+        var shell = output.closest('.run-output-shell');
+        if (!shell) return;
+        var maxScrollLeft = Math.max(0, output.scrollWidth - output.clientWidth);
+        output.classList.toggle('has-horizontal-overflow', maxScrollLeft > 1);
+        shell.classList.toggle('has-hidden-left', output.scrollLeft > 1);
+        shell.classList.toggle(
+            'has-hidden-right',
+            maxScrollLeft > 1 && output.scrollLeft < maxScrollLeft - 1
+        );
+    }
+    function configureRunOutputHints() {
+        runOutputs.forEach(function(output) { updateRunOutputHints(output); });
+    }
+    runOutputs.forEach(function(output) {
+        output.addEventListener('scroll', function() { updateRunOutputHints(output); }, { passive: true });
+    });
+    configureRunOutputHints();
+    window.addEventListener('resize', configureRunOutputHints);
+    if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(configureRunOutputHints);
+    }
 
     var markers = Array.from(document.querySelectorAll('.nav-marker'));
     var inputNav = document.querySelector('.input-nav');
