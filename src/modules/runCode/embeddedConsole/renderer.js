@@ -561,8 +561,17 @@ class StataTerminalRenderer {
 
     renderSubmissionLines(command) {
         const normalized = String(command || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        let blockCommentDepth = 0;
         return normalized.split('\n').map(line => {
-            const rendered = this._segmentCommandLine(`. ${line}`);
+            const promptedLine = `. ${line}`;
+            const blockComment = this._analyzeBlockCommentCommandLine(
+                promptedLine,
+                blockCommentDepth
+            );
+            blockCommentDepth = blockComment.nextDepth;
+            const rendered = blockComment.isComment
+                ? this._segmentCommentCommandLine(promptedLine)
+                : this._segmentCommandLine(promptedLine);
             const segments = rendered.segments.map(segment => ({ ...segment }));
             if (segments.length && /^\.\s?$/.test(String(segments[0].text || ''))) {
                 segments.shift();

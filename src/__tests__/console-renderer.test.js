@@ -96,6 +96,34 @@ test('keeps every line of a block comment in the comment style', () => {
     assert.ok(entries[4].segments.some(segment => segment.tokenType === 'command'));
 });
 
+test('keeps every input-cell block comment line in the comment style', () => {
+    const renderer = new StataTerminalRenderer();
+    const lines = renderer.renderSubmissionLines(
+        [
+            '**# 1. Stop',
+            '',
+            '/*',
+            'Expected:',
+            '- Stop ends the loop.',
+            '*/',
+            '',
+            'clear all'
+        ].join('\n')
+    );
+
+    assert.ok(lines[0].segments.some(segment => segment.tokenType === 'comment'));
+    for (const line of lines.slice(2, 6)) {
+        assert.ok(line.segments.some(segment => segment.tokenType === 'comment'));
+        assert.equal(
+            line.segments.filter(segment => segment.text.trim()).every(
+                segment => segment.tokenType === 'comment'
+            ),
+            true
+        );
+    }
+    assert.ok(lines[7].segments.some(segment => segment.tokenType === 'command'));
+});
+
 test('keeps native do-file block comments styled across output chunks', () => {
     const renderer = new StataTerminalRenderer();
     renderer.beginExecution();
