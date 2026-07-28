@@ -1617,6 +1617,7 @@ function getWebviewHtml(webview) {
             overflow-y: auto;
             overflow-x: hidden;
             scrollbar-gutter: stable;
+            scrollbar-color: transparent transparent;
             padding: 12px 18px 18px 0;
             font-family: var(--console-active-font-family);
             font-synthesis: weight style;
@@ -1624,6 +1625,36 @@ function getWebviewHtml(webview) {
             line-height: 1.5;
             white-space: normal;
             word-break: normal;
+        }
+        #output.scrollbar-active {
+            scrollbar-color: var(--vscode-scrollbarSlider-background) transparent;
+        }
+        #output::-webkit-scrollbar {
+            width: 10px;
+        }
+        #output::-webkit-scrollbar-track,
+        #output::-webkit-scrollbar-corner {
+            background: transparent;
+        }
+        #output::-webkit-scrollbar-button {
+            display: none;
+        }
+        #output::-webkit-scrollbar-thumb {
+            min-height: 28px;
+            border: 2px solid transparent;
+            border-radius: 999px;
+            background-color: transparent;
+            background-clip: padding-box;
+            transition: background-color 180ms ease;
+        }
+        #output.scrollbar-active::-webkit-scrollbar-thumb {
+            background-color: var(--vscode-scrollbarSlider-background);
+        }
+        #output.scrollbar-active::-webkit-scrollbar-thumb:hover {
+            background-color: var(--vscode-scrollbarSlider-hoverBackground);
+        }
+        #output.scrollbar-active::-webkit-scrollbar-thumb:active {
+            background-color: var(--vscode-scrollbarSlider-activeBackground);
         }
         #output-shell {
             max-width: 100%;
@@ -3299,6 +3330,7 @@ function getWebviewHtml(webview) {
 
         function setRunNavScrollbarActive(active) {
             const shouldHide = Boolean(active && hasVerticalOutputOverflow());
+            output.classList.toggle('scrollbar-active', shouldHide);
             runNav.classList.toggle('scrollbar-active', shouldHide);
             if (shouldHide) {
                 clearRunMarkerPreview();

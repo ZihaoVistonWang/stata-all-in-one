@@ -75,7 +75,12 @@ test('shows compact run navigation on the right with transparent highlighted pre
     assert.equal(panelSource.includes("runNavTooltip.style.right = (window.innerWidth - navRect.left + 8) + 'px'"), true);
     assert.equal(panelSource.includes("runNavTooltip.style.right = (window.innerWidth - rect.left + 8) + 'px'"), false);
     assert.equal(panelSource.includes('function noteVerticalScrollbarActivity()'), true);
+    assert.equal(panelSource.includes("output.classList.toggle('scrollbar-active', shouldHide)"), true);
     assert.equal(panelSource.includes("runNav.classList.toggle('scrollbar-active', shouldHide)"), true);
+    assert.match(panelSource, /#output\s*\{[\s\S]*scrollbar-color:\s*transparent transparent/);
+    assert.match(panelSource, /#output\.scrollbar-active\s*\{[\s\S]*scrollbar-color:\s*var\(--vscode-scrollbarSlider-background\) transparent/);
+    assert.match(panelSource, /#output::-webkit-scrollbar-thumb\s*\{[\s\S]*background-color:\s*transparent/);
+    assert.match(panelSource, /#output\.scrollbar-active::-webkit-scrollbar-thumb\s*\{[\s\S]*background-color:\s*var\(--vscode-scrollbarSlider-background\)/);
     assert.equal(panelSource.includes("output.addEventListener('wheel', noteVerticalScrollbarActivity"), false);
     assert.equal(panelSource.includes('pointerInVerticalScrollbarRail'), false);
     assert.equal(panelSource.includes('}, 1000);'), true);
