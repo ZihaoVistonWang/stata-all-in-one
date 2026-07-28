@@ -2187,7 +2187,31 @@ function getWebviewHtml(webview) {
         .result-block-scroll {
             overflow-x: auto;
             overflow-y: hidden;
+            scrollbar-color: var(--vscode-scrollbarSlider-background) transparent;
             padding-bottom: 2px;
+        }
+        .result-block-scroll::-webkit-scrollbar {
+            height: 10px;
+        }
+        .result-block-scroll::-webkit-scrollbar-track,
+        .result-block-scroll::-webkit-scrollbar-corner {
+            background: transparent;
+        }
+        .result-block-scroll::-webkit-scrollbar-button {
+            display: none;
+        }
+        .result-block-scroll::-webkit-scrollbar-thumb {
+            min-width: 28px;
+            border: 2px solid transparent;
+            border-radius: 999px;
+            background-color: var(--vscode-scrollbarSlider-background);
+            background-clip: padding-box;
+        }
+        .result-block-scroll::-webkit-scrollbar-thumb:hover {
+            background-color: var(--vscode-scrollbarSlider-hoverBackground);
+        }
+        .result-block-scroll::-webkit-scrollbar-thumb:active {
+            background-color: var(--vscode-scrollbarSlider-activeBackground);
         }
         .result-block-scroll.has-horizontal-overflow {
             padding-bottom: 14px;

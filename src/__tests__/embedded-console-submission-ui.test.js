@@ -27,6 +27,9 @@ test('renders a five-line collapsible input cell with one shared content baselin
     assert.match(panelSource, /\.result-block-scroll \.line\s*\{[\s\S]*white-space:\s*pre/);
     assert.match(panelSource, /\.result-block-shell::before,[\s\S]*width:\s*30px;[\s\S]*transition:\s*opacity 140ms ease/);
     assert.match(panelSource, /\.result-block-scroll\.has-horizontal-overflow\s*\{[\s\S]*padding-bottom:\s*14px/);
+    assert.match(panelSource, /\.result-block-scroll\s*\{[\s\S]*scrollbar-color:\s*var\(--vscode-scrollbarSlider-background\) transparent/);
+    assert.match(panelSource, /\.result-block-scroll::-webkit-scrollbar\s*\{[\s\S]*height:\s*10px/);
+    assert.match(panelSource, /\.result-block-scroll::-webkit-scrollbar-thumb\s*\{[\s\S]*border:\s*2px solid transparent;[\s\S]*border-radius:\s*999px;[\s\S]*background-color:\s*var\(--vscode-scrollbarSlider-background\)/);
     assert.match(panelSource, /\.result-block-shell\.has-hidden-left::before,[\s\S]*\.result-block-shell\.has-hidden-right::after/);
     assert.equal(panelSource.includes("block.classList.toggle('has-horizontal-overflow', maxScrollLeft > 1)"), true);
     assert.equal(panelSource.includes("shell.classList.toggle('has-hidden-left', block.scrollLeft > 1)"), true);
