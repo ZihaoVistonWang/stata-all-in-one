@@ -11,8 +11,8 @@ const { getUserLanguage } = require('../utils/common');
 const CHANGELOG = {
     en: {
         '0.3.8': {
-            ver_info: '✨ Stata All in One (0.3.8): Added Stata editor context menus and an Embedded Console jump-to-bottom button; fixed file-path opening and execution stopping, and improved large-output responsiveness and result exports.',
-            more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#038-2026-07-26'
+            ver_info: '✨ Stata All in One (0.3.8): Added Stata editor context menus, redesigned Embedded Console runs and navigation, and improved Data Viewer refresh; fixed some file paths not opening, execution stopping, and large-output freezes.',
+            more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#038-2026-07-28'
         },
         '0.3.7': {
             ver_info: '✨ Stata All in One (0.3.7): Fixed standalone file-path detection in Embedded Console and corrected the duplicated Update Notice prefix.',
@@ -113,8 +113,8 @@ const CHANGELOG = {
     },
     zh: {
         '0.3.8': {
-            ver_info: '✨ Stata All in One (0.3.8)：新增 Stata 编辑器右键便捷菜单与嵌入式控制台“跳转到底部”；修复部分文件路径无法点击跳转和运行停止问题，并提升大输出响应与结果导出体验。',
-            more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#038-2026-07-26'
+            ver_info: '✨ Stata All in One (0.3.8)：新增 Stata 编辑器右键菜单，重构嵌入式控制台运行界面与导航并优化数据查看器刷新；修复部分文件路径无法点击跳转、运行停止及大输出卡顿问题。',
+            more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#038-2026-07-28'
         },
         '0.3.7': {
             ver_info: '✨ Stata All in One (0.3.7)：修复 Embedded Console 无法识别独立文件路径的问题，并修正 Update Notice 的重复前缀。',

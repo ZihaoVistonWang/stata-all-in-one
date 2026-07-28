@@ -3,16 +3,16 @@
 All notable changes to the Stata All in One extension will be documented in this file.
 本文件记录 Stata All in One 扩展的所有重要更改。
 
-## 0.3.8 (2026-07-26)
+## 0.3.8 (2026-07-28)
 
-- **Feat**: Added context-aware Stata editor menus for running and editing common actions, plus a responsive jump-to-bottom button for navigating to the latest Embedded Console output.
-- **Fixed**: Improved clickable result paths in the Embedded Console by validating actual files and directories, including Chinese, multi-line, repeated, and context-free filenames, while keeping commands, comments, and invalid paths non-clickable.
-- **Fixed**: Kept the Embedded Console responsive during large output, made Stop and Esc able to force-terminate and rebuild an unresponsive Stata session, stabilized the working timer, and removed duplicate temporary do-file input.
-- **Improved**: Preserved complete Console history across exports and enhanced exported HTML with code previews and continuous navigation; also accepted trailing `//` comments on standalone `cd` commands and synchronized run-button shortcut hints.
-- **新增**：新增情境感知的 Stata 编辑器右键菜单，并在嵌入式控制台中加入“跳转到底部”按钮，便于快速回到最新输出。
-- **修复**：增强嵌入式控制台结果中的文件路径点击跳转，支持验证中文、跨行、重复及无提示词的真实文件与目录，同时保持命令、注释和无效路径不可点击。
-- **修复**：大输出时控制台保持流畅；Stop 和 Esc 可在软中断无响应时强制终止并重建 Stata 会话；同时稳定运行计时并去除临时 do 文件的重复输入。
-- **优化**：导出时保留完整控制台历史，并增强 HTML 的代码预览与连续导航；独立 `cd` 命令现支持行末 `//` 注释，运行按钮提示也会与快捷键设置同步。
+- **Feat**: Added context-aware Stata editor menus and redesigned Embedded Console runs with collapsible input cells, grouped command and result output, hidden temporary do-file wrappers, right-side navigation, a jump-to-bottom button, and themed scrollbars. Long navigation lists now scroll with fade cues and keep the active run visible, while commands wrap at syntax boundaries and preserve multi-line block-comment highlighting.
+- **Fixed**: Improved clickable result paths for Chinese, multi-line, repeated, and context-free filenames; kept large output responsive; made Stop and Esc able to rebuild an unresponsive Stata session; and stabilized timing, temporary do-file echoes, `cd` comments, and shortcut hints.
+- **Improved**: Preserved complete Console history across exports and aligned HTML, Markdown, and Notebook command grouping; exported HTML now matches the interactive layout with code previews, continuous navigation, aligned numbering, and horizontal-scroll cues.
+- **Improved**: Added on-demand Data Viewer refresh with stale-cache protection and viewport preservation, while filtered `br` / `browse` commands reuse the current tab and reset to the new result origin.
+- **新增**：新增情境感知的 Stata 编辑器右键菜单，并重构嵌入式控制台运行界面，提供可折叠输入单元、命令与结果分组、临时 do 文件包装隐藏、右侧导航、“跳转到底部”及主题滚动条；长导航列表支持内部滚动、渐隐提示及当前项自动可见，命令可按语法边界自然换行并保持多行块注释高亮。
+- **修复**：增强中文、跨行、重复及无提示词文件路径的点击跳转；保持大输出流畅；Stop 和 Esc 可重建无响应的 Stata 会话；同时修复计时、临时 do 文件回显、`cd` 注释及快捷键提示问题。
+- **优化**：导出时保留完整控制台历史，统一 HTML、Markdown 和 Notebook 的命令分组；HTML 现与交互界面对齐，并提供代码预览、连续导航、编号对齐及横向滚动提示。
+- **优化**：数据查看器支持按需刷新、过期缓存保护和视口位置恢复；带条件的 `br` / `browse` 会复用当前页签并从新结果起点显示。
 
 ## 0.3.7 (2026-07-24)
 

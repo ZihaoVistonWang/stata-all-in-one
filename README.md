@@ -37,7 +37,7 @@ Stata All in One
 
 ## Acknowledgments
 
-- First, my thanks go to RedNote user **Rich\*\*d**, WeChat users **M\*k\***, **柿\*\*橙**, and the anonymous user who commented “功能强大且配置简单的插件，谢谢！”, and Buy Me a Coffee supporters **LB\*\*PG@gmail.com** and **ol\*\*\*ba@gmail.com** for their generous contributions and continued support of this project.
+- First, my thanks go to RedNote user **Rich\*\*d**, WeChat users **M\*k\***, **柿\*\*橙**, **X\*\*n**, and the anonymous user who commented “功能强大且配置简单的插件，谢谢！”, and Buy Me a Coffee supporters **LB\*\*PG@gmail.com** and **ol\*\*\*ba@gmail.com** for their generous contributions and continued support of this project.
 
 - Above all, I am deeply grateful to the **Agricultural Economics and Management Innovation Team** at Northwest A&F University for supporting my research, providing funding, and helping [promote and publicize](https://mp.weixin.qq.com/s/kxSfIF2nu1LuUzC2NvKWog) this project.
 
@@ -53,44 +53,42 @@ Stata All in One
 
 > ⚠️ Features marked with 🛠️ require **Stata 17 or later** and a `STATA.LIC` license file. Please support genuine Stata software to enjoy the full experience. You can contact Stata Corp, LLC's officially authorized partner [Beijing Uone Info&Tech Co.,Ltd (Uone-Tech)](http://xhslink.com/o/QYWdYfrEhy) to purchase genuine Stata software or request a trial.
 
-### 1. AI Skill (Experimental) 🛠️
+### 1. Stata AI Skill 🛠️
 
 - **Let AI Agents Run Stata Code**: Install the standalone native `stata-ai-skill` so AI coding tools (Claude Code, Cursor, Codex CLI, Open Code, OpenClaw, etc.) can run Stata through a Rust background service.
-- **Native Local Service**: Once installed, the AI Skill runs through its native executable and local service, with no third-party environment such as Python required.
+- **Native Local Service**: Once installed, the AI Skill runs through its native executable and local service, with no third-party environment such as Python or Node.js required.
 - **Leave the setup to AI**: Click the `AI` button in the editor toolbar, copy the prompt, and paste it into your AI tool. The prompt links to the online `installation.md` through Gitee and GitHub.
 
-### 2. Code Execution (Stata Interaction)
+### 2. Code Execution (Interacting with Stata)
 
-- **Platform Support**: Seamlessly integrates with Stata on both **macOS** and **Windows** without requiring additional extensions.
+- **Platform Support**: This extension natively supports seamless integration with Stata on both **macOS** and **Windows**.
 - **Two Run Modes**:
-  - **Embedded Console** (default) 🛠️: Run and display Stata output directly within VS Code, including *command results*, *error messages*, *command window output*, and *graph output*. Click any file path shown in the Console output to open it.
+  - **Embedded Console** (default) 🛠️: Run and display Stata output directly within VS Code, including *command results*, *error messages*, *command window output*, and *graph output*, for a true one-stop experience. Click any file path shown in the Console output to open it.
   - **External App**: Continue using the traditional approach of sending code to the Stata GUI, for users who prefer Stata's native interface. Windows now uses [Stata COM Automation](https://www.stata.com/automation/), delivering significantly better performance than the previous PowerShell-based implementation.
 - **Multi-Scenario Execution Strategies**:
   - **Section Execution**: When the cursor is on a header line (e.g., `** # Title`), click the ▶️ button or press `Ctrl / ⌘ + D` to execute all code from that header to the next same-level or higher-level header (i.e., the entire section).
-  - **Single Line Execution**: When the cursor is on a regular code line (no selection), click the ▶️ button or press `Ctrl / ⌘ + D` to execute only that specific line.
-  - **Selected Code Execution**: When multiple lines are selected, click the ▶️ button or press `Ctrl / ⌘ + D` to execute the selected lines. Supports **fuzzy selection** — no need to precisely select the *first* or *last* line of a code segment; the system automatically captures and runs all lines covered by the selection.
+  - **Single Line Execution**: When the cursor is anywhere on a regular code line, click the ▶️ button or press `Ctrl / ⌘ + D` to execute only the current line.
+  - **Selected Code Execution**: When one or multiple lines are selected, click the ▶️ button or press `Ctrl / ⌘ + D` to execute the selected lines. Supports **fuzzy selection** — no need to precisely select the *first* or *last* line of a code segment; the system automatically captures and runs all lines covered by the selection.
 
 ### 3. Enhanced Syntax Highlighting & Code Completion
 
 - **Full Syntax Highlighting and Code Completion Support**: Integrates [Stata Enhanced](https://github.com/kylebarron/language-stata) syntax engine[^1], providing precise syntax highlighting and code completion for `.do` files (under [MIT](https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/THIRD_PARTY_NOTICES.md) License).
 - **Custom Command Highlighting**: Supports highlighting for commonly used third-party commands (e.g., `reghdfe`, `ivreghdfe`, `gtools`), freely configurable in settings.
-- **Dataset Variable Autocompletion**: (After running code once) Provides intelligent autocomplete suggestions based on the current dataset when typing variable names in the editor and console, boosting coding efficiency.
+- **Dataset Variable Autocompletion**: (After running code that loads a dataset once) Provides intelligent autocomplete suggestions based on the current dataset when typing variable names in the editor and console, boosting coding efficiency.
 
 [^1]: [Stata Enhanced](https://github.com/kylebarron/language-stata) syntax engine was developed by Kyle Barron, providing comprehensive support for the Stata language. This extension follows the [MIT](https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/THIRD_PARTY_NOTICES.md) License. Thanks to Kyle Barron for his contribution!
 
 ### 4. Smart Outline & Structural Navigation
 
 - **Multi-level Outline Recognition**: Automatically detects comment lines from `**#` to `**######` as hierarchical headers, supporting up to _6 levels_.
-  - **Shortcuts**: `Ctrl/Cmd + 1-6` to quickly convert to the corresponding header level; `Ctrl/Cmd + 0` to revert to a standard code line.
+  - **Shortcuts**: `Ctrl / ⌘ + 1-6` to quickly convert to the corresponding header level; `Ctrl / ⌘ + 0` to revert to a standard code line.
 - **Cursor Auto-Follow**: The outline view automatically highlights and navigates to the corresponding section as the cursor moves in the editor.
   - _Setup: Click the "···" button in the top-right of the Outline view and check "Follow Cursor"._[^2]
 - **Multi-level Numbering**: Optional display of logical numbering (e.g., `1.1`, `1.2.1`) within the outline (must be enabled in settings).
 - **Auto-Sync Numbering**: When enabled, the extension automatically adds or removes numbering directly within the `.do` file based on the outline structure.
-- **`program define` Block Recognition**: Displays program names in the outline view for easy navigation and management of custom programs.
+- **`program define` Block Recognition**: Displays program names in the outline view for easy navigation and management of custom programs.<a id="code_execution"></a>
 
 [^2]: Sorry~ This is a VS Code GUI setting, I cannot control it through the extension.
-
-<a id="code_execution"></a>
 
 ### 5. Data Viewer 🛠️
 
@@ -107,10 +105,10 @@ Stata All in One
 ### 6. Efficient Separator Lines & Styling
 
 - **Quick Insertion**: Supports various symbols to significantly enhance code readability.
-  - **Standard Separators**: Use `Ctrl/Cmd + Symbol` to quickly insert separator lines:
-    - `Ctrl/Cmd + -` (Dash) | `Ctrl/Cmd + =` (Equal) | `Ctrl/Cmd + Shift + 8` (Asterisk)
+  - **Standard Separators**: Use `Ctrl / ⌘ + Symbol` to quickly insert separator lines:
+    - `Ctrl / ⌘ + -` (Dash) | `Ctrl / ⌘ + =` (Equal) | `Ctrl / ⌘ + Shift + 8` (Asterisk)
   - **Custom Separators**:
-    - `Ctrl + Alt + S` (Windows) | `Ctrl + Cmd + S` (macOS), where **S** stands for "**S**eparator".
+    - `Ctrl + Alt + S` (Windows) | `Ctrl + ⌘ + S` (macOS), where **S** stands for "**S**eparator".
     - After pressing the shortcut, simply input your desired character to generate the corresponding separator line.
 - **Intelligent Wrap Mode**:
   - **Blank Line Insertion**: Generates a full-width separator line (length adjustable in settings).
@@ -132,27 +130,30 @@ Stata All in One
    - **Custom Font**:
      - **Online (Default)**: Load Maple Mono for Latin text and Maple Mono NF CN for Chinese text.
      - **Font Settings**: Use `stata-all-in-one.consoleFontMode` and `stata-all-in-one.consoleCustomFontFamily` to customize the console font for a better reading experience.
+   - **Run Presentation**
+     - **Grouped Display**: Show each run as a collapsible input cell with clearly grouped command echoes and results.
+     - **Quick Navigation**: Quickly locate output using the Embedded Console's right-side navigation and jump-to-bottom button.
    - **Large Output & Run Control**
-     - **Responsive Browsing**: Page large output while preserving complete history, and use the jump-to-bottom button to return to the latest results.
+     - **Responsive Browsing**: Page large output while preserving complete history.
      - **Reliable Stop**: Stop or Esc first attempts a soft interrupt, then force-terminates and automatically rebuilds an unresponsive Stata session.
      - **Stable Status**: Keep elapsed time accurate across view changes and avoid duplicate temporary do-file input.
    - **Result Management**
      - **Complete Exports**: Preserve the entire Console history when exporting results to HTML, Markdown, or Notebook.
-     - **HTML Navigation**: Export HTML with code previews, syntax highlighting, and continuous navigation for quickly locating each run.
+     - **Consistent Layout**: Keep command grouping aligned across HTML, Markdown, and Notebook; HTML also provides code previews, continuous navigation, aligned numbering, and horizontal-scroll cues.
      - **Reliable File Links**: Recognize and validate file and directory paths in results, including Chinese, multi-line, and repeated paths, and open them with one click.
+   - **Data Viewer Integration**
+     - **On-demand Refresh**: After data changes, click the already-open Data Viewer tab again to refresh it and restore the previous viewport.
 
 2. Enhanced Comments
-   - **Toggle Comments**: Quickly toggle line comments using `Ctrl/Cmd + /`.
+   - **Toggle Comments**: Quickly toggle line comments using `Ctrl / ⌘ + /`.
    - **Optional Styles**: Defaults to `//`, with support for switching to other valid Stata comment delimiters in settings.
 
 3. Built-in Help
-   - **Show Help Text**: For example, select `regress` and press `Ctrl/Cmd + Shift + H`. In External App mode, this opens Stata's `regress` help page; in Embedded Console mode, the help text is displayed directly in the console.
    - **Hover Help**: Hover over a Stata command to see help information, with automatic filtering of non-practical commands like `#delimit`, `using`, etc.
-
-<a id="line-break"></a>
+   - **Show Help Text**: For example, select `regress` and press `Ctrl / ⌘ + Shift + H`. In External App mode, this opens Stata's `regress` help page; in Embedded Console mode, the help text is displayed directly in the console.<a id="line-break"></a>
 
 4. Smart Line Break
-   - **One-Key Line Break**: Use `Shift+Enter` to insert Stata line continuation symbol `///` at the cursor position.
+   - **One-Key Line Break**: Use `Shift + Enter` to insert Stata line continuation symbol `///` at the cursor position.
    - **Smart Indentation**: Automatically indent by 4 spaces
 
 5. Convenient Editor Context Menus
@@ -164,8 +165,6 @@ Stata All in One
    - **Rename Variable**: Select a variable and press `F2` to rename all occurrences in the current document.
    - **Smart Validation**: Automatically validates the new name to ensure it follows Stata naming rules and does not conflict with built-in commands or keywords.
    - **Command Protection**: Intelligently prevents renaming Stata commands (e.g., `reghdfe`, `outreg2`) and their options (e.g., `absorb`, `ctitle`).
-
-<a id="cd-to-do-file-dir"></a>
 
 7. Auto `cd` to Do File Directory
    - **Auto Working Directory**: When enabled, automatically sets Stata's working directory to the do file's location on first launch.
@@ -239,24 +238,24 @@ If automatic discovery cannot find Stata, choose `Stata not found? Configure it 
    - `false` (default): Hide the button.
 
 8. **Enable Ctrl+Shift+D for Run Shortcut** (`stata-all-in-one.enableCtrlShiftD`)
-    - `true`: Use `Ctrl/Cmd+Shift+D` as the run code shortcut.
-    - `false` (default): Use the default `Ctrl/Cmd+D` shortcut.
+    - `true`: Use `Ctrl / ⌘ + Shift + D` as the run code shortcut.
+    - `false` (default): Use the default `Ctrl / ⌘ + D` shortcut.
 
 ### Embedded Console
 
 11. **Console Font Mode** (`stata-all-in-one.consoleFontMode`)
-    - `online` (default): Load Maple Mono for Latin text and Maple Mono NF CN for Chinese text. [^3]
+    - `online` (default): Load Maple Mono for Latin text and Maple Mono NF CN for Chinese text.[^3]
     - `editor`: Follow the editor font, falling back to the system monospace font.
     - `system`: Use the system monospace font directly.
     - `custom`: Use the custom font specified below.
 
 [^3]: Font credits: [subframe7536/maple-font](https://github.com/subframe7536/maple-font), [fontsource](https://fontsource.org/fonts/maple-mono), and ZeoSeven Fonts ([443](https://fonts.zeoseven.com/items/443/), [442](https://fonts.zeoseven.com/items/442/)).
 
-12.  **Console Custom Font Family** (`stata-all-in-one.consoleCustomFontFamily`)
+12. **Console Custom Font Family** (`stata-all-in-one.consoleCustomFontFamily`)
     - When font mode is set to `custom`, the CSS `font-family` list used by the console.
     - Example: `"Maple Mono NF CN", Menlo, Monaco, monospace`
 
-13.  **Graph Export DPI** (`stata-all-in-one.graphPngDpi`)
+13. **Graph Export DPI** (`stata-all-in-one.graphPngDpi`)
     - DPI value for saving embedded console graphs as PNG. Default `600`, range 72–1200.
 
 ### Syntax Highlighting and Code Completion
@@ -318,7 +317,7 @@ If this extension has been helpful to you, feel free to scan the **Alipay** (lef
 
 | Version | Changes                                                                                                              | Release Date |
 | ------- | -------------------------------------------------------------------------------------------------------------------- | ------------ |
-| 0.3.8  | Added Stata editor context menus and an Embedded Console jump-to-bottom button; fixed file-path opening and execution stopping, and improved large-output responsiveness and result exports. | 2026-07-26   |
+| 0.3.8  | Added Stata editor context menus, redesigned Embedded Console runs and navigation, and improved Data Viewer refresh; fixed some file paths not opening, execution stopping, and large-output freezes. | 2026-07-28   |
 | 0.3.7  | Fixed standalone file-path detection in Embedded Console and corrected the duplicated Update Notice prefix. | 2026-07-24   |
 | 0.3.6  | Added one-click file opening from Embedded Console output, improved Data Viewer interactions, and fixed graph ordering and Console reset behavior. | 2026-07-24   |
 | 0.3.5  | Moved Stata AI Skill online, reducing the Stata All in One extension package to 2.48 MB; fixed Tab recognition between code tokens. | 2026-07-22   |
