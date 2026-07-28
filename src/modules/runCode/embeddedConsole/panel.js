@@ -2230,6 +2230,7 @@ function getWebviewHtml(webview) {
             width: 25px;
             max-height: 62vh;
             padding: 9px 4px;
+            box-sizing: border-box;
             transform: translateY(-50%);
             flex-direction: column;
             align-items: flex-end;
@@ -2240,10 +2241,36 @@ function getWebviewHtml(webview) {
             pointer-events: none;
             opacity: 1;
             visibility: visible;
+            -webkit-mask-image: none;
+            mask-image: none;
             transition: opacity 180ms ease, transform 180ms ease, visibility 180ms ease;
         }
         #run-nav.has-runs {
             display: flex;
+        }
+        #run-nav.has-hidden-top:not(.has-hidden-bottom) {
+            -webkit-mask-image: linear-gradient(to bottom, transparent, #000 14px, #000 100%);
+            mask-image: linear-gradient(to bottom, transparent, #000 14px, #000 100%);
+        }
+        #run-nav.has-hidden-bottom:not(.has-hidden-top) {
+            -webkit-mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 14px), transparent);
+            mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 14px), transparent);
+        }
+        #run-nav.has-hidden-top.has-hidden-bottom {
+            -webkit-mask-image: linear-gradient(
+                to bottom,
+                transparent,
+                #000 14px,
+                #000 calc(100% - 14px),
+                transparent
+            );
+            mask-image: linear-gradient(
+                to bottom,
+                transparent,
+                #000 14px,
+                #000 calc(100% - 14px),
+                transparent
+            );
         }
         #run-nav.has-runs.scrollbar-active {
             opacity: 0;
@@ -3692,7 +3719,41 @@ function getWebviewHtml(webview) {
             }, null);
         }
 
-        function updateActiveRunMarker() {
+        function updateRunNavOverflowHints() {
+            const maxScrollTop = Math.max(0, runNav.scrollHeight - runNav.clientHeight);
+            runNav.classList.toggle('has-hidden-top', maxScrollTop > 1 && runNav.scrollTop > 1);
+            runNav.classList.toggle(
+                'has-hidden-bottom',
+                maxScrollTop > 1 && runNav.scrollTop < maxScrollTop - 1
+            );
+        }
+
+        function positionRunNavigation() {
+            const outputRect = output.getBoundingClientRect();
+            const inset = 12;
+            const top = outputRect.top + inset;
+            const bottom = Math.max(top, outputRect.bottom - inset);
+            runNav.style.top = ((top + bottom) / 2) + 'px';
+            runNav.style.maxHeight = Math.max(0, bottom - top) + 'px';
+            updateRunNavOverflowHints();
+        }
+
+        function centerRunNavMarker(marker) {
+            if (!marker) return;
+            const maxScrollTop = Math.max(0, runNav.scrollHeight - runNav.clientHeight);
+            if (maxScrollTop <= 1) {
+                updateRunNavOverflowHints();
+                return;
+            }
+            const markerCenter = marker.offsetTop + marker.offsetHeight / 2;
+            runNav.scrollTop = Math.max(
+                0,
+                Math.min(maxScrollTop, markerCenter - runNav.clientHeight / 2)
+            );
+            updateRunNavOverflowHints();
+        }
+
+        function updateActiveRunMarker(forceIntoView = false) {
             const cells = Array.from(outputShell.querySelectorAll('.submission-cell'));
             if (!cells.length) return;
             const outputRect = output.getBoundingClientRect();
@@ -3701,15 +3762,26 @@ function getWebviewHtml(webview) {
             for (const cell of cells) {
                 if (cell.getBoundingClientRect().top <= anchorY) activeCell = cell;
             }
+            const previousActiveId = String(runNav.dataset.activeTarget || '');
+            let activeMarker = null;
             runNav.querySelectorAll('.run-nav-marker').forEach(marker => {
-                marker.classList.toggle('active', marker.dataset.target === activeCell.id);
+                const isActive = marker.dataset.target === activeCell.id;
+                marker.classList.toggle('active', isActive);
+                if (isActive) activeMarker = marker;
             });
+            runNav.dataset.activeTarget = activeCell.id;
+            if (forceIntoView || previousActiveId !== activeCell.id) {
+                centerRunNavMarker(activeMarker);
+            } else {
+                updateRunNavOverflowHints();
+            }
         }
 
         function rebuildRunNavigation() {
             if (!RUN_NAV_ENABLED) {
                 runNav.textContent = '';
                 runNav.classList.remove('has-runs');
+                runNav.classList.remove('has-hidden-top', 'has-hidden-bottom');
                 clearRunMarkerPreview();
                 return;
             }
@@ -3736,7 +3808,8 @@ function getWebviewHtml(webview) {
                 });
                 runNav.appendChild(marker);
             });
-            updateActiveRunMarker();
+            positionRunNavigation();
+            updateActiveRunMarker(true);
         }
 
         runNav.addEventListener('mousemove', event => {
@@ -3744,11 +3817,39 @@ function getWebviewHtml(webview) {
             if (nearest) previewRunMarker(nearest.marker);
         });
         runNav.addEventListener('mouseleave', clearRunMarkerPreview);
+        runNav.addEventListener('scroll', () => {
+            clearRunMarkerPreview();
+            updateRunNavOverflowHints();
+        }, { passive: true });
         runNav.addEventListener('click', event => {
             if (event.target !== runNav || !previewingRunMarker) return;
             const target = document.getElementById(String(previewingRunMarker.dataset.target || ''));
             if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
         });
+        document.addEventListener('wheel', event => {
+            if (!runNav.classList.contains('has-runs')
+                || runNav.classList.contains('scrollbar-active')
+                || runNav.scrollHeight <= runNav.clientHeight + 1) {
+                return;
+            }
+            const rect = runNav.getBoundingClientRect();
+            const withinRail = event.clientX >= rect.left
+                && event.clientX <= rect.right
+                && event.clientY >= rect.top
+                && event.clientY <= rect.bottom;
+            if (!withinRail) return;
+            const delta = Math.abs(event.deltaY) >= Math.abs(event.deltaX)
+                ? event.deltaY
+                : event.deltaX;
+            if (!delta) return;
+            const previousScrollTop = runNav.scrollTop;
+            runNav.scrollTop += delta;
+            if (runNav.scrollTop === previousScrollTop) return;
+            event.preventDefault();
+            event.stopPropagation();
+            clearRunMarkerPreview();
+            updateRunNavOverflowHints();
+        }, { passive: false, capture: true });
 
         function renderGraphEntry(entry) {
             const shell = document.createElement('div');
@@ -4305,6 +4406,7 @@ function getWebviewHtml(webview) {
         window.addEventListener('resize', () => {
             updateOverflowNotice();
             configureResultScrollHints();
+            positionRunNavigation();
             if (!hasVerticalOutputOverflow()) {
                 setRunNavScrollbarActive(false);
             }
@@ -4327,6 +4429,11 @@ function getWebviewHtml(webview) {
         window.addEventListener('focus', refreshWorkingIndicatorAfterResume);
         window.addEventListener('pageshow', refreshWorkingIndicatorAfterResume);
         window.addEventListener('resize', positionJumpToBottomButton);
+        if (typeof ResizeObserver !== 'undefined') {
+            const runNavBoundsObserver = new ResizeObserver(positionRunNavigation);
+            runNavBoundsObserver.observe(output);
+            runNavBoundsObserver.observe(composer);
+        }
 
         window.addEventListener('keydown', (event) => {
             if (event.key === 'Escape' && graphFullscreen.classList.contains('visible')) {

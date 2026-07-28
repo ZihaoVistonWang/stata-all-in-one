@@ -55,7 +55,7 @@ test('renders a five-line collapsible input cell with one shared content baselin
 test('shows compact run navigation on the right with transparent highlighted previews', () => {
     assert.equal(panelSource.includes('const RUN_NAV_ENABLED = true;'), true);
     assert.equal(panelSource.includes('if (!RUN_NAV_ENABLED)'), true);
-    assert.match(panelSource, /#run-nav\s*\{[\s\S]*right:\s*15px;[\s\S]*width:\s*25px;[\s\S]*pointer-events:\s*none/);
+    assert.match(panelSource, /#run-nav\s*\{[\s\S]*right:\s*15px;[\s\S]*width:\s*25px;[\s\S]*box-sizing:\s*border-box;[\s\S]*pointer-events:\s*none/);
     assert.match(panelSource, /#run-nav\.has-runs\.scrollbar-active\s*\{[\s\S]*opacity:\s*0;[\s\S]*visibility:\s*hidden;[\s\S]*translate\(5px, -50%\)/);
     assert.match(panelSource, /transition:\s*opacity 180ms ease, transform 180ms ease, visibility 180ms ease/);
     assert.match(panelSource, /\.run-nav-marker\s*\{[\s\S]*width:\s*6px;[\s\S]*height:\s*2px/);
@@ -80,6 +80,20 @@ test('shows compact run navigation on the right with transparent highlighted pre
     assert.equal(panelSource.includes('function noteVerticalScrollbarActivity()'), true);
     assert.equal(panelSource.includes("output.classList.toggle('scrollbar-active', shouldHide)"), true);
     assert.equal(panelSource.includes("runNav.classList.toggle('scrollbar-active', shouldHide)"), true);
+    assert.match(panelSource, /#run-nav\.has-hidden-top\.has-hidden-bottom\s*\{[\s\S]*mask-image:\s*linear-gradient/);
+    assert.equal(panelSource.includes('function updateRunNavOverflowHints()'), true);
+    assert.equal(panelSource.includes("runNav.classList.toggle('has-hidden-top'"), true);
+    assert.equal(panelSource.includes("'has-hidden-bottom'"), true);
+    assert.equal(panelSource.includes('function centerRunNavMarker(marker)'), true);
+    assert.equal(panelSource.includes('markerCenter - runNav.clientHeight / 2'), true);
+    assert.equal(panelSource.includes('function positionRunNavigation()'), true);
+    assert.equal(panelSource.includes('const outputRect = output.getBoundingClientRect();'), true);
+    assert.equal(panelSource.includes("runNav.style.maxHeight = Math.max(0, bottom - top) + 'px'"), true);
+    assert.equal(panelSource.includes('const runNavBoundsObserver = new ResizeObserver(positionRunNavigation);'), true);
+    assert.equal(panelSource.includes('runNavBoundsObserver.observe(composer);'), true);
+    assert.equal(panelSource.includes('updateActiveRunMarker(true);'), true);
+    assert.equal(panelSource.includes("document.addEventListener('wheel', event =>"), true);
+    assert.equal(panelSource.includes("{ passive: false, capture: true }"), true);
     assert.match(panelSource, /#output\s*\{[\s\S]*scrollbar-color:\s*transparent transparent/);
     assert.match(panelSource, /#output\.scrollbar-active\s*\{[\s\S]*scrollbar-color:\s*var\(--vscode-scrollbarSlider-background\) transparent/);
     assert.match(panelSource, /#output::-webkit-scrollbar-thumb\s*\{[\s\S]*background-color:\s*transparent/);
