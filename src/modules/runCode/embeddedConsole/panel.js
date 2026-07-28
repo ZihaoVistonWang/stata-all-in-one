@@ -1714,7 +1714,8 @@ function getWebviewHtml(webview) {
         .line-raw-prompt {
             padding-left: var(--console-run-gutter);
             white-space: pre-wrap;
-            word-break: break-word;
+            overflow-wrap: break-word;
+            word-break: normal;
         }
         .submission-cell {
             display: grid;
@@ -1749,7 +1750,7 @@ function getWebviewHtml(webview) {
             padding: 10px 12px;
             overflow: hidden;
             white-space: pre-wrap;
-            overflow-wrap: anywhere;
+            overflow-wrap: break-word;
             word-break: normal;
             tab-size: 4;
             font: inherit;
@@ -2332,12 +2333,12 @@ function getWebviewHtml(webview) {
             padding-left: 1.5ch;
             text-indent: -1.5ch;
             white-space: pre-wrap;
-            overflow-wrap: anywhere;
-            word-break: break-all;
+            overflow-wrap: break-word;
+            word-break: normal;
         }
         .run-nav-preview-line > .tok {
-            overflow-wrap: anywhere;
-            word-break: break-all;
+            overflow-wrap: break-word;
+            word-break: normal;
         }
         .run-nav-preview-ellipsis {
             color: var(--vscode-descriptionForeground);
@@ -3496,6 +3497,25 @@ function getWebviewHtml(webview) {
             });
         }
 
+        const softWrapSeparators = new Set(['/', '\\\\', '_', '-', '.', ',', ';', ':', '=', '+']);
+
+        function appendSoftWrappingText(container, value) {
+            const text = String(value || '');
+            let chunk = '';
+            for (const character of text) {
+                chunk += character;
+                if (!softWrapSeparators.has(character)) {
+                    continue;
+                }
+                container.appendChild(document.createTextNode(chunk));
+                container.appendChild(document.createElement('wbr'));
+                chunk = '';
+            }
+            if (chunk) {
+                container.appendChild(document.createTextNode(chunk));
+            }
+        }
+
         function renderSubmissionEntry(entry, historyIndex) {
             const cell = document.createElement('section');
             const code = String(entry && entry.code || '');
@@ -3535,7 +3555,7 @@ function getWebviewHtml(webview) {
                     const style = segment && segment.style || {};
                     if (style.color) span.style.color = style.color;
                     if (style.backgroundColor) span.style.backgroundColor = style.backgroundColor;
-                    span.textContent = String(segment && segment.text || '');
+                    appendSoftWrappingText(span, segment && segment.text);
                     line.appendChild(span);
                 });
                 codeBlock.appendChild(line);
@@ -3648,7 +3668,11 @@ function getWebviewHtml(webview) {
                 if (style.backgroundColor) {
                     span.style.backgroundColor = style.backgroundColor;
                 }
-                span.textContent = String(segment && segment.text || '');
+                if (isCommandEntry(entry)) {
+                    appendSoftWrappingText(span, segment && segment.text);
+                } else {
+                    span.textContent = String(segment && segment.text || '');
+                }
                 line.appendChild(span);
             }
 
@@ -3678,7 +3702,7 @@ function getWebviewHtml(webview) {
                 if (value instanceof Element) {
                     line.append(...Array.from(value.childNodes).map(node => node.cloneNode(true)));
                 } else {
-                    line.textContent = value || ' ';
+                    appendSoftWrappingText(line, value || ' ');
                 }
                 code.appendChild(line);
             });

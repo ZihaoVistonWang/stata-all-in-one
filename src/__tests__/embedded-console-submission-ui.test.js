@@ -15,7 +15,7 @@ const commonSource = fs.readFileSync(
 test('renders a five-line collapsible input cell with one shared content baseline', () => {
     assert.match(panelSource, /--console-run-gutter:\s*26px/);
     assert.match(panelSource, /\.submission-cell\s*\{[\s\S]*grid-template-columns:\s*var\(--console-run-gutter\) minmax\(0, 1fr\)/);
-    assert.match(panelSource, /\.submission-code\s*\{[\s\S]*max-height:\s*7\.5em;[\s\S]*white-space:\s*pre-wrap/);
+    assert.match(panelSource, /\.submission-code\s*\{[\s\S]*max-height:\s*7\.5em;[\s\S]*white-space:\s*pre-wrap;[\s\S]*overflow-wrap:\s*break-word;[\s\S]*word-break:\s*normal/);
     assert.match(panelSource, /\.submission-count\s*\{[\s\S]*color:\s*var\(--stata-comment\)/);
     assert.match(panelSource, /\.submission-count\s*\{[\s\S]*font-size:\s*0\.82em/);
     assert.match(panelSource, /\.submission-count\s*\{[\s\S]*text-align:\s*right;[\s\S]*white-space:\s*nowrap/);
@@ -24,6 +24,14 @@ test('renders a five-line collapsible input cell with one shared content baselin
     assert.match(panelSource, /#input-highlight\s*\{[\s\S]*border-radius:\s*7px;[\s\S]*background:\s*var\(--console-cell-background\)/);
     assert.match(panelSource, /#input\s*\{[\s\S]*border:\s*1px solid var\(--vscode-focusBorder\);[\s\S]*border-radius:\s*7px/);
     assert.match(panelSource, /\.line-command,[\s\S]*padding-left:\s*var\(--console-run-gutter\);[\s\S]*text-indent:\s*-2ch/);
+    assert.match(panelSource, /\.line-command,[\s\S]*\.line-raw-prompt\s*\{[\s\S]*overflow-wrap:\s*break-word;[\s\S]*word-break:\s*normal/);
+    assert.match(panelSource, /softWrapSeparators = new Set\(\['\/', '\\\\\\\\', '_', '-', '\.'/);
+    assert.equal(panelSource.includes('function appendSoftWrappingText(container, value)'), true);
+    assert.equal(panelSource.includes("document.createElement('wbr')"), true);
+    assert.equal(
+        panelSource.match(/appendSoftWrappingText\(span, segment && segment\.text\)/g)?.length,
+        2
+    );
     assert.match(panelSource, /\.result-block-scroll \.line\s*\{[\s\S]*white-space:\s*pre/);
     assert.match(panelSource, /\.result-block-shell::before,[\s\S]*width:\s*30px;[\s\S]*transition:\s*opacity 140ms ease/);
     assert.match(panelSource, /\.result-block-scroll\.has-horizontal-overflow\s*\{[\s\S]*padding-bottom:\s*14px/);
@@ -69,11 +77,12 @@ test('shows compact run navigation on the right with transparent highlighted pre
     assert.match(panelSource, /\.run-nav-tooltip-code\s*\{[\s\S]*border:\s*1px solid var\(--vscode-focusBorder\);[\s\S]*background:\s*var\(--console-cell-background\)/);
     assert.match(panelSource, /#run-nav-tooltip\s*\{[\s\S]*grid-template-columns:\s*minmax\(0, 1fr\)/);
     assert.equal(panelSource.includes('run-nav-tooltip-count'), false);
-    assert.match(panelSource, /\.run-nav-preview-line\s*\{[\s\S]*padding-left:\s*1\.5ch;[\s\S]*text-indent:\s*-1\.5ch;[\s\S]*overflow-wrap:\s*anywhere;[\s\S]*word-break:\s*break-all/);
-    assert.match(panelSource, /\.run-nav-preview-line > \.tok\s*\{[\s\S]*word-break:\s*break-all/);
+    assert.match(panelSource, /\.run-nav-preview-line\s*\{[\s\S]*padding-left:\s*1\.5ch;[\s\S]*text-indent:\s*-1\.5ch;[\s\S]*overflow-wrap:\s*break-word;[\s\S]*word-break:\s*normal/);
+    assert.match(panelSource, /\.run-nav-preview-line > \.tok\s*\{[\s\S]*overflow-wrap:\s*break-word;[\s\S]*word-break:\s*normal/);
     assert.equal(panelSource.includes('runNavTooltip.append(code);'), true);
     assert.equal(panelSource.includes("target.querySelectorAll('.submission-line')"), true);
     assert.equal(panelSource.includes('node.cloneNode(true)'), true);
+    assert.equal(panelSource.includes("appendSoftWrappingText(line, value || ' ')"), true);
     assert.equal(panelSource.includes('const navRect = runNav.getBoundingClientRect();'), true);
     assert.equal(panelSource.includes("runNavTooltip.style.right = (window.innerWidth - navRect.left + 8) + 'px'"), true);
     assert.equal(panelSource.includes("runNavTooltip.style.right = (window.innerWidth - rect.left + 8) + 'px'"), false);
