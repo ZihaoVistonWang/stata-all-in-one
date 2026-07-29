@@ -10,6 +10,10 @@ const { getUserLanguage } = require('../utils/common');
 // Update changelog: version -> changelog text
 const CHANGELOG = {
     en: {
+        '0.3.9': {
+            ver_info: '✨ Stata All in One (0.3.9): Added staged icon transitions for editor title actions to save title-bar space; fixed the Data Viewer failing to refresh after editor runs and auto-collapsing bottom-right notifications.',
+            more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#039-2026-07-29'
+        },
         '0.3.8': {
             ver_info: '✨ Stata All in One (0.3.8): Added Stata editor context menus, redesigned Embedded Console runs and navigation, and improved Data Viewer refresh; fixed some file paths not opening, execution stopping, and large-output freezes.',
             more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#038-2026-07-28'
@@ -112,6 +116,10 @@ const CHANGELOG = {
         }
     },
     zh: {
+        '0.3.9': {
+            ver_info: '✨ Stata All in One (0.3.9)：新增编辑器标题栏操作按钮的分阶段图标切换以节省标题栏空间；修复编辑器运行后无法刷新数据查看器及右下角通知自动折叠问题。',
+            more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#039-2026-07-29'
+        },
         '0.3.8': {
             ver_info: '✨ Stata All in One (0.3.8)：新增 Stata 编辑器右键菜单，重构嵌入式控制台运行界面与导航并优化数据查看器刷新；修复部分文件路径无法点击跳转、运行停止及大输出卡顿问题。',
             more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#038-2026-07-28'

@@ -13,7 +13,7 @@ Stata All in One
 </p>
 
 <p align="center">
-   | <b>版本:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.3.8</a> | <b>作者:</b> <a href="https://zihaowang.cn">王梓豪</a> | <b>Translate:</b>
+   | <b>版本:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.3.9</a> | <b>作者:</b> <a href="https://zihaowang.cn">王梓豪</a> | <b>Translate:</b>
   <a href="https://github.com/ZihaoVistonWang/stata-all-in-one">English Version</a> |
 </p>
 
@@ -325,6 +325,7 @@ Stata All in One
 
 | 版本  | 更新内容                                                                                                                                | 发布日期   |
 | ----- | --------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| 0.3.9 | 新增编辑器标题栏操作按钮的分阶段图标切换以节省标题栏空间；修复编辑器运行后无法刷新数据查看器及右下角通知自动折叠问题。                | 2026-07-29 |
 | 0.3.8 | 新增 Stata 编辑器右键菜单，重构嵌入式控制台运行界面与导航并优化数据查看器刷新；修复部分文件路径无法点击跳转、运行停止及大输出卡顿问题。 | 2026-07-28 |
 | 0.3.7 | 修复嵌入式控制台无法识别独立文件路径的问题，并修正 Update Notice 的重复前缀。                                                           | 2026-07-24 |
 | 0.3.6 | 新增嵌入式控制台输出文件路径一键打开，优化数据查看器交互，并修复图形输出顺序与控制台清空重启问题。                                      | 2026-07-24 |

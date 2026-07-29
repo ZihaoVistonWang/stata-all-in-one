@@ -3,6 +3,15 @@
 All notable changes to the Stata All in One extension will be documented in this file.
 本文件记录 Stata All in One 扩展的所有重要更改。
 
+## 0.3.9 (2026-07-29)
+
+- **Feat**: Added staged transitions from text to theme-aware icons for the editor title actions to save title-bar space, with click-to-reveal controls for Bug Report, sponsorship, and Stata AI Skill.
+- **Fixed**: Fixed the Data Viewer failing to refresh after code is run from the editor on macOS and Windows; revisiting the existing viewer now refreshes the data while preserving its viewport.
+- **Fixed**: Bottom-right information, warning, error, and Update Notice messages now stay expanded when no custom action is provided.
+- **新增**：编辑器标题栏操作按钮支持从文字分阶段切换为主题适配图标，以节省标题栏空间，并可点击重新展开反馈、打赏和 Stata AI Skill 按钮。
+- **修复**：修复 macOS 和 Windows 编辑器运行后无法刷新数据查看器的问题；再次打开现有查看器时会刷新数据并保留视口。
+- **修复**：无自定义操作项的右下角信息、警告、错误及 Update Notice 现在会保持展开。
+
 ## 0.3.8 (2026-07-28)
 
 - **Feat**: Added context-aware Stata editor menus and redesigned Embedded Console runs with collapsible input cells, grouped command and result output, hidden temporary do-file wrappers, right-side navigation, a jump-to-bottom button, and themed scrollbars. Long navigation lists now scroll with fade cues and keep the active run visible, while commands wrap at syntax boundaries and preserve multi-line block-comment highlighting.
