@@ -19,6 +19,10 @@ const { registerHelpCommand } = require('./modules/helpCommand');
 const { registerLineBreakCommand } = require('./modules/lineBreak');
 const { registerRenameProvider } = require('./modules/renameProvider');
 const { registerUpdateCheck } = require('./modules/updateNotification');
+const {
+    EDITOR_TITLE_ACTIONS_STAGE_KEY,
+    createEditorTitleBrandController
+} = require('./modules/editorTitleBrand');
 const { syncConsoleTerminalTheme } = require('./modules/runCode/embeddedConsole/renderer');
 const { prewarmConsoleTextmateTokenizer } = require('./modules/runCode/embeddedConsole/textmateTokenizer');
 const { closeRestoredDataViewerTabs, registerDtaDataViewer } = require('./modules/runCode/embeddedConsole/dataViewer/dtaEditor');
@@ -567,18 +571,46 @@ async function activate(context) {
     );
     context.subscriptions.push(openSettingsCommand);
 
-    // Register bug report command
-    const reportBugCommand = vscode.commands.registerCommand(
+    // Register the timed brand label and bug report command
+    const editorTitleBrand = createEditorTitleBrandController({
+        setStage: stage => vscode.commands.executeCommand(
+            'setContext',
+            EDITOR_TITLE_ACTIONS_STAGE_KEY,
+            stage
+        )
+    });
+    await editorTitleBrand.revealAll();
+
+    const reportBugBrandIconCommand = vscode.commands.registerCommand(
+        'stata-all-in-one.reportBugBrand',
+        () => editorTitleBrand.revealAll()
+    );
+    const reportBugBrandTextCommand = vscode.commands.registerCommand(
+        'stata-all-in-one.reportBugBrandText',
+        () => editorTitleBrand.switchToIcons()
+    );
+    const reportBugCommands = [
         'stata-all-in-one.reportBug',
+        'stata-all-in-one.reportBugIcon'
+    ].map(command => vscode.commands.registerCommand(
+        command,
         () => {
             showInfo(msg('reportBugInfo'));
         }
+    ));
+    context.subscriptions.push(
+        editorTitleBrand,
+        reportBugBrandIconCommand,
+        reportBugBrandTextCommand,
+        ...reportBugCommands
     );
-    context.subscriptions.push(reportBugCommand);
 
     // Register sponsor command
-    const sponsorCommand = vscode.commands.registerCommand(
+    const sponsorCommands = [
         'stata-all-in-one.showSponsor',
+        'stata-all-in-one.showSponsorIcon'
+    ].map(command => vscode.commands.registerCommand(
+        command,
         () => {
             const lang = getUserLanguage();
             const sponsorUrl = lang === 'zh'
@@ -586,8 +618,8 @@ async function activate(context) {
                 : 'https://github.com/ZihaoVistonWang/stata-all-in-one#sponsor';
             vscode.env.openExternal(vscode.Uri.parse(sponsorUrl));
         }
-    );
-    context.subscriptions.push(sponsorCommand);
+    ));
+    context.subscriptions.push(...sponsorCommands);
 
     // Register data viewer command
     const { revealDataViewer } = require('./modules/runCode/embeddedConsole/dataViewer/panel');
@@ -839,6 +871,10 @@ async function activate(context) {
     context.subscriptions.push(
         vscode.commands.registerCommand(
             'stata-all-in-one.showAISkillDialog',
+            () => showAISkillDialog()
+        ),
+        vscode.commands.registerCommand(
+            'stata-all-in-one.showAISkillDialogIcon',
             () => showAISkillDialog()
         ),
         vscode.commands.registerCommand(

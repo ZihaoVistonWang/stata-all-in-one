@@ -294,12 +294,37 @@
         "icon": "$(settings-gear)"
       },
       {
+        "command": "stata-all-in-one.reportBugBrand",
+        "title": "%command.reportBugBrand.title%",
+        "icon": "img/tab-icon.svg"
+      },
+      {
+        "command": "stata-all-in-one.reportBugBrandText",
+        "title": "%command.reportBugBrandText.title%",
+        "shortTitle": "%command.reportBugBrandText.short%"
+      },
+      {
         "command": "stata-all-in-one.reportBug",
-        "title": "%command.reportBug.title%"
+        "title": "%command.reportBug.title%",
+        "shortTitle": "%command.reportBug.short%"
+      },
+      {
+        "command": "stata-all-in-one.reportBugIcon",
+        "title": "%command.reportBug.title%",
+        "icon": "$(feedback)"
       },
       {
         "command": "stata-all-in-one.showSponsor",
-        "title": "%command.showSponsor.title%"
+        "title": "%command.showSponsor.title%",
+        "shortTitle": "%command.showSponsor.short%"
+      },
+      {
+        "command": "stata-all-in-one.showSponsorIcon",
+        "title": "%command.showSponsor.title%",
+        "icon": {
+          "light": "%command.showSponsorIcon.light%",
+          "dark": "%command.showSponsorIcon.dark%"
+        }
       },
       {
         "command": "stata-all-in-one.showDataViewer",
@@ -381,7 +406,13 @@
       },
       {
         "command": "stata-all-in-one.showAISkillDialog",
-        "title": "%command.showAISkillDialog.title%"
+        "title": "%command.showAISkillDialog.title%",
+        "shortTitle": "%command.showAISkillDialog.short%"
+      },
+      {
+        "command": "stata-all-in-one.showAISkillDialogIcon",
+        "title": "%command.showAISkillDialog.title%",
+        "icon": "$(sparkle)"
       },
       {
         "command": "stata-all-in-one.contextSetLevel1",
@@ -672,21 +703,44 @@
     "menus": {
       "editor/title": [
         {
+          "command": "stata-all-in-one.reportBugBrand",
+          "when": "editorLangId == stata && config.stata-all-in-one.showActionButtons && stata-all-in-one.editorTitleActionsStage >= 1",
+          "group": "navigation@0"
+        },
+        {
+          "command": "stata-all-in-one.reportBugBrandText",
+          "when": "editorLangId == stata && config.stata-all-in-one.showActionButtons && (!stata-all-in-one.editorTitleActionsStage || stata-all-in-one.editorTitleActionsStage < 1)",
+          "group": "navigation@0"
+        },
+        {
+          "command": "stata-all-in-one.reportBug",
+          "when": "editorLangId == stata && config.stata-all-in-one.showActionButtons && (!stata-all-in-one.editorTitleActionsStage || stata-all-in-one.editorTitleActionsStage < 2)",
+          "group": "navigation@0.1"
+        },
+        {
+          "command": "stata-all-in-one.reportBugIcon",
+          "when": "editorLangId == stata && config.stata-all-in-one.showActionButtons && stata-all-in-one.editorTitleActionsStage >= 2",
+          "group": "navigation@0.1"
+        },
+        {
           "command": "stata-all-in-one.showSponsor",
-          "title": "%command.showSponsor.short%",
-          "when": "editorLangId == stata && config.stata-all-in-one.showSponsorButton",
+          "when": "editorLangId == stata && config.stata-all-in-one.showSponsorButton && (!stata-all-in-one.editorTitleActionsStage || stata-all-in-one.editorTitleActionsStage < 3)",
+          "group": "navigation@1"
+        },
+        {
+          "command": "stata-all-in-one.showSponsorIcon",
+          "when": "editorLangId == stata && config.stata-all-in-one.showSponsorButton && stata-all-in-one.editorTitleActionsStage >= 3",
           "group": "navigation@1"
         },
         {
           "command": "stata-all-in-one.showAISkillDialog",
-          "when": "editorLangId == stata && config.stata-all-in-one.showActionButtons",
+          "when": "editorLangId == stata && config.stata-all-in-one.showActionButtons && (!stata-all-in-one.editorTitleActionsStage || stata-all-in-one.editorTitleActionsStage < 4)",
           "group": "navigation@1.8"
         },
         {
-          "command": "stata-all-in-one.reportBug",
-          "title": "%command.reportBug.short%",
-          "when": "editorLangId == stata && config.stata-all-in-one.showActionButtons",
-          "group": "navigation@0"
+          "command": "stata-all-in-one.showAISkillDialogIcon",
+          "when": "editorLangId == stata && config.stata-all-in-one.showActionButtons && stata-all-in-one.editorTitleActionsStage >= 4",
+          "group": "navigation@1.8"
         },
         {
           "command": "stata-all-in-one.runSection",
@@ -872,6 +926,26 @@
         }
       ],
       "commandPalette": [
+        {
+          "command": "stata-all-in-one.reportBugBrand",
+          "when": "false"
+        },
+        {
+          "command": "stata-all-in-one.reportBugBrandText",
+          "when": "false"
+        },
+        {
+          "command": "stata-all-in-one.reportBugIcon",
+          "when": "false"
+        },
+        {
+          "command": "stata-all-in-one.showSponsorIcon",
+          "when": "false"
+        },
+        {
+          "command": "stata-all-in-one.showAISkillDialogIcon",
+          "when": "false"
+        },
         {
           "command": "stata-all-in-one.runLine",
           "when": "false"
