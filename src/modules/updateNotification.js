@@ -224,7 +224,7 @@ function getChangelog(version, lang = 'en') {
 }
 
 const showUpdateInfo = (message, ...items) =>
-    vscode.window.showInformationMessage(message, ...items);
+    vscode.window.showInformationMessage(message, ...(items.length ? items : ['OK']));
 
 /**
  * Check for updates and show notification

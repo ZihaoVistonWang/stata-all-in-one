@@ -54,7 +54,7 @@ test('copies the full cell text through the VS Code clipboard on double click', 
     assert.match(panelSource, /column: column/);
     assert.match(panelSource, /cell\.getAttribute\('data-full-text'\)/);
     assert.match(panelSource, /vscode\.env\.clipboard\.writeText/);
-    assert.match(panelSource, /vscode\.window\.showInformationMessage/);
+    assert.match(panelSource, /showInfo\(msg\('dataViewerCellCopied'/);
     assert.doesNotMatch(panelSource, /type: 'copyCellResult'/);
 });
 

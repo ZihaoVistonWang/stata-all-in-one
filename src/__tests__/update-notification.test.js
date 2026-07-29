@@ -35,3 +35,10 @@ test('shows update notices with exactly one extension label', async () => {
     assert.equal(shownArgs[0], message);
     assert.doesNotMatch(shownArgs[0], /Stata All in One.*Stata All in One/);
 });
+
+test('keeps update notices expanded when no actions are supplied', async () => {
+    const message = getChangelog('0.3.8', 'en').ver_info;
+    await showUpdateInfo(message);
+
+    assert.deepEqual(shownArgs, [message, 'OK']);
+});

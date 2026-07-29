@@ -116,6 +116,7 @@ function loadResolver(options = {}) {
         isMacOS: () => options.platform === 'darwin',
         msg: key => key,
         showInfo: () => {},
+        showError: (...args) => vscodeMock.window.showErrorMessage(...args),
         stripSurroundingQuotes: value => String(value || '').replace(/^["']|["']$/g, '')
     };
     const stataDiscoveryMock = {

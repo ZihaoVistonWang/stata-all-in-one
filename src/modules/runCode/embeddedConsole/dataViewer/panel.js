@@ -2076,7 +2076,7 @@ function attachPanel(panel, mode) {
             const value = String(message.text || '');
             try {
                 await vscode.env.clipboard.writeText(value);
-                vscode.window.showInformationMessage(msg('dataViewerCellCopied', { column, value }));
+                showInfo(msg('dataViewerCellCopied', { column, value }));
             } catch (error) {
                 showError(msg('dataViewerCellCopyFailed', { error: error.message }));
             }

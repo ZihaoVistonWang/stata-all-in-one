@@ -538,20 +538,32 @@ const msg = (key, params) => {
 /**
  * Show information message
  */
-const showInfo = (msg, ...items) => 
-    vscode.window.showInformationMessage(`${EXT_LABEL}: ${msg}`, ...items);
+// VS Code keeps notifications with primary actions expanded and disables collapse.
+const withDefaultNotificationAction = items => items.length ? items : ['OK'];
+
+const showInfo = (message, ...items) =>
+    vscode.window.showInformationMessage(
+        `${EXT_LABEL}: ${message}`,
+        ...withDefaultNotificationAction(items)
+    );
 
 /**
  * Show warning message
  */
-const showWarn = (msg, ...items) => 
-    vscode.window.showWarningMessage(`${EXT_LABEL}: ${msg}`, ...items);
+const showWarn = (message, ...items) =>
+    vscode.window.showWarningMessage(
+        `${EXT_LABEL}: ${message}`,
+        ...withDefaultNotificationAction(items)
+    );
 
 /**
  * Show error message
  */
-const showError = (msg, ...items) => 
-    vscode.window.showErrorMessage(`${EXT_LABEL}: ${msg}`, ...items);
+const showError = (message, ...items) =>
+    vscode.window.showErrorMessage(
+        `${EXT_LABEL}: ${message}`,
+        ...withDefaultNotificationAction(items)
+    );
 
 /**
  * Check if running on Windows

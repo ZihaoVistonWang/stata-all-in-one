@@ -7,6 +7,7 @@ const {
     isWindows,
     isMacOS,
     msg,
+    showError,
     stripSurroundingQuotes
 } = require('../../utils/common');
 const {
@@ -188,7 +189,7 @@ async function promptForStataCommandSetup(context) {
     } catch {
         quickPick.dispose();
         stataCommandSetupQuickPick = null;
-        await vscode.window.showErrorMessage(msg('stataSetupServiceUnavailable'));
+        await showError(msg('stataSetupServiceUnavailable'));
         return {
             platform: isWindows() ? 'win32' : 'darwin',
             autoDetected: false,
