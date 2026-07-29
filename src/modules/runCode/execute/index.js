@@ -224,6 +224,7 @@ async function runCurrentSection(context, editor = null) {
                     vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
                     capability.setCapabilityState(context, 'console');
                     await refreshMemoryVarsAfterRun(context, consoleResult);
+                    await invalidateConsoleDataViewer();
                 } else if (consoleResult.shouldOfferGuiFallback) {
                     showConsoleUnavailableToast(consoleResult);
                     capability.setCapabilityState(context, 'external');
@@ -250,6 +251,7 @@ async function runCurrentSection(context, editor = null) {
                     vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
                     capability.setCapabilityState(context, 'console');
                     await refreshMemoryVarsAfterRun(context, consoleResult);
+                    await invalidateConsoleDataViewer();
                 } else if (consoleResult.shouldOfferGuiFallback) {
                     showConsoleUnavailableToast(consoleResult);
                     capability.setCapabilityState(context, 'external');

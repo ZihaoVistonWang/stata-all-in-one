@@ -2327,10 +2327,6 @@ async function updateData() {
     _consoleSnapshot.data = null;
     _consoleSnapshot.entry = null;
     _dirty.console = true;
-    const panel = _panels.console;
-    if (panel && panel.active) {
-        requestPanelRefresh('console', _pendingFilter.console, true);
-    }
 }
 
 async function resetConsoleData() {

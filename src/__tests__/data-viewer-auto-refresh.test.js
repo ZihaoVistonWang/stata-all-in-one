@@ -7,16 +7,27 @@ const panelSource = fs.readFileSync(
     path.resolve(__dirname, '../modules/runCode/embeddedConsole/dataViewer/panel.js'),
     'utf8'
 );
+const executeSource = fs.readFileSync(
+    path.resolve(__dirname, '../modules/runCode/execute/index.js'),
+    'utf8'
+);
 
 test('marks Console data stale without refreshing an inactive Data Viewer', () => {
     assert.match(panelSource, /_dirty\.console = true;/);
-    assert.match(
-        panelSource,
-        /if \(panel && panel\.active\) \{\s*requestPanelRefresh\('console', _pendingFilter\.console, true\);/
-    );
     assert.doesNotMatch(
         panelSource,
-        /async function updateData\(\)[\s\S]*?await refreshDataViewer\('console'/
+        /async function updateData\(\)[\s\S]*?requestPanelRefresh\('console'/
+    );
+});
+
+test('invalidates Data Viewer data after editor execution on both platforms', () => {
+    const runCurrentSectionSource = executeSource.slice(
+        executeSource.indexOf('async function runCurrentSection'),
+        executeSource.indexOf('async function ensurePlatformExecutionReady')
+    );
+    assert.equal(
+        (runCurrentSectionSource.match(/await invalidateConsoleDataViewer\(\);/g) || []).length,
+        2
     );
 });
 
