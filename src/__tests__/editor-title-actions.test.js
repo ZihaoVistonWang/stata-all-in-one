@@ -47,7 +47,10 @@ test('general action-button setting still controls Bug Report and AI only', () =
 });
 
 test('editor-title actions switch from text to icons in four timed stages', () => {
-    assert.equal(getCommand('stata-all-in-one.reportBugBrand').icon, 'img/tab-icon.svg');
+    assert.deepEqual(getCommand('stata-all-in-one.reportBugBrand').icon, {
+        light: 'img/tab-icon-light.svg',
+        dark: 'img/tab-icon-dark.svg'
+    });
     assert.equal(getCommand('stata-all-in-one.reportBugBrandText').icon, undefined);
     assert.equal(
         getCommand('stata-all-in-one.reportBugBrandText').shortTitle,

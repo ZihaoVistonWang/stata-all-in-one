@@ -33,8 +33,10 @@ function getExtensionUri() {
 function getPanelIconPath() {
     const extUri = getExtensionUri();
     if (!extUri) return undefined;
-    const iconUri = vscode.Uri.joinPath(extUri, 'img', 'tab-icon.svg');
-    return { light: iconUri, dark: iconUri };
+    return {
+        light: vscode.Uri.joinPath(extUri, 'img', 'tab-icon-light.svg'),
+        dark: vscode.Uri.joinPath(extUri, 'img', 'tab-icon-dark.svg')
+    };
 }
 
 function getPanelTitle() {

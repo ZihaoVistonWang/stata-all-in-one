@@ -296,7 +296,10 @@
       {
         "command": "stata-all-in-one.reportBugBrand",
         "title": "%command.reportBugBrand.title%",
-        "icon": "img/tab-icon.svg"
+        "icon": {
+          "light": "img/tab-icon-light.svg",
+          "dark": "img/tab-icon-dark.svg"
+        }
       },
       {
         "command": "stata-all-in-one.reportBugBrandText",

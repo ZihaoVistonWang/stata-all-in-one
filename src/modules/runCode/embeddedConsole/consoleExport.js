@@ -6,7 +6,10 @@ const EXPORT_BASENAME = 'stata-all-in-one-export';
 const ONLINE_CJK_FONT_CSS_URL = 'https://fontsapi.zeoseven.com/442/main/result.css';
 const ONLINE_LATIN_FONT_WOFF2_URL = 'https://cdn.jsdelivr.net/fontsource/fonts/maple-mono@latest/latin-400-normal.woff2';
 const ONLINE_LATIN_FONT_WOFF_URL = 'https://cdn.jsdelivr.net/fontsource/fonts/maple-mono@latest/latin-400-normal.woff';
-const HTML_TAB_ICON_PATH = path.resolve(__dirname, '../../../../img/tab-icon.svg');
+const HTML_TAB_ICON_PATHS = {
+    light: path.resolve(__dirname, '../../../../img/tab-icon-light.svg'),
+    dark: path.resolve(__dirname, '../../../../img/tab-icon-dark.svg')
+};
 
 function entryText(entry) {
     return (Array.isArray(entry && entry.segments) ? entry.segments : [])
@@ -157,15 +160,20 @@ async function prepareRuns(entries, options) {
     return { runs, missingGraphs };
 }
 
-async function loadHtmlTabIcon(options) {
+async function loadHtmlTabIcons(options) {
     const readFile = options.readTabIcon || fs.promises.readFile;
-    try {
-        const buffer = await readFile(HTML_TAB_ICON_PATH);
-        if (!buffer || !buffer.length) return '';
-        return `data:image/svg+xml;base64,${Buffer.from(buffer).toString('base64')}`;
-    } catch (_error) {
-        return '';
+    const result = {};
+    for (const [theme, iconPath] of Object.entries(HTML_TAB_ICON_PATHS)) {
+        try {
+            const buffer = await readFile(iconPath);
+            result[theme] = buffer && buffer.length
+                ? `data:image/svg+xml;base64,${Buffer.from(buffer).toString('base64')}`
+                : '';
+        } catch (_error) {
+            result[theme] = '';
+        }
     }
+    return result;
 }
 
 function sourceParts(options) {
@@ -393,7 +401,9 @@ function serializeInteractiveHtml(prepared, options) {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Stata All in One Export</title>
-${options.tabIconDataUrl ? `<link rel="icon" type="image/svg+xml" href="${options.tabIconDataUrl}">` : ''}
+${options.tabIconDataUrls && options.tabIconDataUrls.light && options.tabIconDataUrls.dark
+        ? `<link id="tab-icon" rel="icon" type="image/svg+xml" href="${options.tabIconDataUrls.light}" data-light="${options.tabIconDataUrls.light}" data-dark="${options.tabIconDataUrls.dark}">`
+        : ''}
 <link rel="preload" href="${ONLINE_CJK_FONT_CSS_URL}" as="style" crossorigin>
 <link rel="stylesheet" href="${ONLINE_CJK_FONT_CSS_URL}" crossorigin>
 <script>(function(){try{var saved=localStorage.getItem('stata-all-in-one-export-theme');var theme=saved||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');document.documentElement.dataset.theme=theme}catch(_error){}})();</script>
@@ -699,6 +709,7 @@ ${runs}
     var root = document.documentElement;
     var button = document.getElementById('theme-toggle');
     var label = document.getElementById('theme-toggle-label');
+    var tabIcon = document.getElementById('tab-icon');
     var labels = { light: ${JSON.stringify(labels.light)}, dark: ${JSON.stringify(labels.dark)} };
     function applyTheme(theme) {
         root.dataset.theme = theme;
@@ -706,6 +717,7 @@ ${runs}
         label.textContent = nextLabel;
         button.title = nextLabel;
         button.setAttribute('aria-label', nextLabel);
+        if (tabIcon) tabIcon.href = theme === 'dark' ? tabIcon.dataset.dark : tabIcon.dataset.light;
         try { localStorage.setItem('stata-all-in-one-export-theme', theme); } catch (_error) {}
     }
     applyTheme(root.dataset.theme === 'dark' ? 'dark' : 'light');
@@ -869,8 +881,8 @@ async function serializeConsoleExport(entries, format, options = {}) {
     const prepared = await prepareRuns(entries, options);
     let content;
     if (format === 'html') {
-        const tabIconDataUrl = await loadHtmlTabIcon(options);
-        content = serializeHtml(prepared, { ...options, tabIconDataUrl });
+        const tabIconDataUrls = await loadHtmlTabIcons(options);
+        content = serializeHtml(prepared, { ...options, tabIconDataUrls });
     }
     else if (format === 'md') content = serializeMarkdown(prepared, options);
     else if (format === 'ipynb') content = serializeNotebook(prepared, options);
