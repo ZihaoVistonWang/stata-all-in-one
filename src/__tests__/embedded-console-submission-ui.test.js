@@ -95,6 +95,9 @@ test('shows compact run navigation on the right with transparent highlighted pre
     assert.equal(panelSource.includes("'has-hidden-bottom'"), true);
     assert.equal(panelSource.includes('function centerRunNavMarker(marker)'), true);
     assert.equal(panelSource.includes('markerCenter - runNav.clientHeight / 2'), true);
+    assert.equal(panelSource.includes('const inputActivationY = outputRect.bottom - 1;'), true);
+    assert.equal(panelSource.includes('cell.getBoundingClientRect().top < inputActivationY'), true);
+    assert.equal(panelSource.includes('const atBottom = isOutputAtBottom();'), false);
     assert.equal(panelSource.includes('function positionRunNavigation()'), true);
     assert.equal(panelSource.includes('const outputRect = output.getBoundingClientRect();'), true);
     assert.equal(panelSource.includes("runNav.style.maxHeight = Math.max(0, bottom - top) + 'px'"), true);

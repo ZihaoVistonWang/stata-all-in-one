@@ -38,6 +38,24 @@ test('keeps numeric highlighting for ordinary Stata output', () => {
     assert.ok(outputEntries[0].segments.some(segment => segment.tokenType === 'number'));
 });
 
+test('does not highlight numbers that belong to paths in parenthetical notes', () => {
+    const renderer = new StataTerminalRenderer();
+    const outputEntries = renderer.renderOutputChunkSegments(
+        '(file /tmp/run42/st06431.000001 not found; 3 attempts)\n',
+        88
+    );
+    const numberSegments = outputEntries[0].segments
+        .filter(segment => segment.tokenType === 'number')
+        .map(segment => segment.text);
+
+    assert.deepEqual(numberSegments, ['3']);
+    assert.equal(
+        outputEntries[0].segments.some(segment => /run42|06431|000001/.test(segment.text)
+            && segment.tokenType === 'number'),
+        false
+    );
+});
+
 test('keeps which errors highlighted as errors', () => {
     const renderer = new StataTerminalRenderer();
     renderer.renderCommandSegments('which missing_command', 88);

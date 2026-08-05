@@ -3780,10 +3780,10 @@ function getWebviewHtml(webview) {
             const cells = Array.from(outputShell.querySelectorAll('.submission-cell'));
             if (!cells.length) return;
             const outputRect = output.getBoundingClientRect();
-            const anchorY = outputRect.top + Math.min(90, outputRect.height * 0.25);
+            const inputActivationY = outputRect.bottom - 1;
             let activeCell = cells[0];
             for (const cell of cells) {
-                if (cell.getBoundingClientRect().top <= anchorY) activeCell = cell;
+                if (cell.getBoundingClientRect().top < inputActivationY) activeCell = cell;
             }
             const previousActiveId = String(runNav.dataset.activeTarget || '');
             let activeMarker = null;

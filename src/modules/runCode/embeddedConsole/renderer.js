@@ -131,6 +131,7 @@ let CURRENT_THEME_DATA = null;
 let CURRENT_THEME_DEFAULT_FOREGROUND = null;
 
 const VALUE_NUMBER_REGEX = /(?<![%A-Za-z_])[-+]?\d+(?:,\d{3})*(?:\.\d+)?(?:e[+-]?\d+)?(?![A-Za-z])/gi;
+const NOTE_PATH_REGEX = /(?:[A-Za-z]:[\\/]|\\\\[^\\\s]+\\|\/[^/\s)"']*[\\/]|(?:\.{1,2}|[A-Za-z_.-][A-Za-z0-9_.-]*)[\\/])[^\s)"']+/g;
 
 const COMMAND_KEYWORDS = new Set([
     'if', 'in', 'using', 'by', 'bysort', 'quietly', 'qui', 'capture', 'cap',
@@ -805,9 +806,14 @@ class StataTerminalRenderer {
     }
 
     _renderNoteLine(line) {
+        const commentStyle = { fg: CURRENT_THEME_SLOT_MAP.comment, dim: true, italic: true };
         return `${this._highlightInline(line, {
-            defaultStyle: { fg: CURRENT_THEME_SLOT_MAP.comment, dim: true, italic: true },
+            defaultStyle: commentStyle,
             matchers: [
+                {
+                    regex: NOTE_PATH_REGEX,
+                    style: commentStyle
+                },
                 {
                     regex: VALUE_NUMBER_REGEX,
                     style: { fg: CURRENT_THEME_SLOT_MAP.number }
@@ -1148,11 +1154,16 @@ class StataTerminalRenderer {
 
         if (this._isParenNoteLine(line) || /^\s*\* = /.test(line)) {
             lineKind = 'note';
+            const commentStyle = this._styleForTokenType('comment', { dim: true, italic: true });
             const rendered = {
                 kind: lineKind,
                 segments: this._segmentInline(line, {
-                    defaultStyle: this._styleForTokenType('comment', { dim: true, italic: true }),
+                    defaultStyle: commentStyle,
                     matchers: [
+                        {
+                            regex: NOTE_PATH_REGEX,
+                            style: commentStyle
+                        },
                         {
                             regex: VALUE_NUMBER_REGEX,
                             style: this._styleForTokenType('number')
