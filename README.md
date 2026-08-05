@@ -13,7 +13,7 @@ Stata All in One
 </p>
 
 <p align="center">
-   | <b>Version:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.3.9</a> | <b>Author:</b> <a href="https://zihaowang.cn">Zihao Viston Wang</a> | <b>Translate:</b>
+   | <b>Version:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.3.10</a> | <b>Author:</b> <a href="https://zihaowang.cn">Zihao Viston Wang</a> | <b>Translate:</b>
   <a href="https://gitee.com/ZihaoVistonWang/stata-all-in-one">中文版本</a> |
 </p>
 
@@ -33,16 +33,15 @@ Stata All in One
 
 <p align="center">Stata All in One is derived from <a href="https://github.com/ZihaoVistonWang/stata-outline">Stata Outline</a>, expanded with new features and improvements.</p>
 
+<p align="center">This README provides technical documentation and installation/configuration instructions for Stata All in One. For a more accessible feature overview, visit my <a href="https://zihaowang.cn/en/post/stata-all-in-one-news/">blog</a> to learn more.</p>
+
 ---
 
 ## Acknowledgments
 
 - First, my thanks go to RedNote user **Rich\*\*d**, WeChat users **M\*k\***, **柿\*\*橙**, **X\*\*n**, and the anonymous user who commented “功能强大且配置简单的插件，谢谢！”, and Buy Me a Coffee supporters **LB\*\*PG@gmail.com** and **ol\*\*\*ba@gmail.com** for their generous contributions and continued support of this project.
-
 - Above all, I am deeply grateful to the **Agricultural Economics and Management Innovation Team** at Northwest A&F University for supporting my research, providing funding, and helping [promote and publicize](https://mp.weixin.qq.com/s/kxSfIF2nu1LuUzC2NvKWog) this project.
-
-- I am also sincerely grateful to Assoc. Prof. [Yujun Lian](https://lingnan.sysu.edu.cn/faculty/lianyujun) and the [lianxh.cn](https://www.lianxh.cn/) team for their patient guidance and [publicity support](https://www.lianxh.cn/details/1865.html).
-
+- I am also sincerely grateful to **Assoc. Prof. [Yujun Lian](https://lingnan.sysu.edu.cn/faculty/lianyujun)** and the **[lianxh.cn](https://www.lianxh.cn/) team** for their patient guidance and [publicity support](https://www.lianxh.cn/details/1865.html).
 - Finally, I thank Stata's officially authorized distributor [**Beijing Uone Info&Tech Co.,Ltd (Uone-Tech)**](http://www.uone-tech.cn/) for its support in [promoting and publicizing](https://mp.weixin.qq.com/s/UhLmoGK4VhYULACagjbcTg) this project.
 
 ## Features
@@ -51,7 +50,7 @@ Stata All in One
    <a href="https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/img/example-marked-en.jpg"><img src="img/example-marked-en.jpg" alt="Feature Showcase"/> Click to view full image </a>
 </p>
 
-> ⚠️ Features marked with 🛠️ require **Stata 17 or later** and a `STATA.LIC` license file. Please support genuine Stata software to enjoy the full experience. You can contact Stata Corp, LLC's officially authorized partner [Beijing Uone Info&Tech Co.,Ltd (Uone-Tech)](http://xhslink.com/o/QYWdYfrEhy) to purchase genuine Stata software or request a trial.
+> ⚠️ Features marked with 🛠️ require **Stata 17 or later** and a `STATA.LIC` license file. Please support genuine Stata software to enjoy the full experience. You can contact Stata Corp, LLC's officially authorized partner [Beijing Uone Info&amp;Tech Co.,Ltd (Uone-Tech)](http://xhslink.com/o/QYWdYfrEhy) to purchase genuine Stata software or request a trial.
 
 ### 1. Stata AI Skill 🛠️
 
@@ -77,7 +76,7 @@ Stata All in One
 - **Dataset Variable Autocompletion**: (After running code that loads a dataset once) Provides intelligent autocomplete suggestions based on the current dataset when typing variable names in the editor and console, boosting coding efficiency.
 
 [^1]: [Stata Enhanced](https://github.com/kylebarron/language-stata) syntax engine was developed by Kyle Barron, providing comprehensive support for the Stata language. This extension follows the [MIT](https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/THIRD_PARTY_NOTICES.md) License. Thanks to Kyle Barron for his contribution!
-
+    
 ### 4. Smart Outline & Structural Navigation
 
 - **Multi-level Outline Recognition**: Automatically detects comment lines from `**#` to `**######` as hierarchical headers, supporting up to _6 levels_.
@@ -89,7 +88,7 @@ Stata All in One
 - **`program define` Block Recognition**: Displays program names in the outline view for easy navigation and management of custom programs.<a id="code_execution"></a>
 
 [^2]: Sorry~ This is a VS Code GUI setting, I cannot control it through the extension.
-
+    
 ### 5. Data Viewer 🛠️
 
 - **Click to View**: Click a `.dta` file in the VS Code Explorer to open it in the new `Data Viewer` panel.
@@ -119,58 +118,65 @@ Stata All in One
 ### 7. More Features
 
 1. Enhanced Embedded Console 🛠️
+
    - **Graph Output**
+
      - **Direct Display**: Render Stata graph output directly in the embedded console.
      - **Export Options**: Save graphs as SVG, PNG (configurable DPI), or copy to clipboard.
      - **Fullscreen View**: Click a graph to view it in fullscreen mode for detailed inspection.
-
    - **Progress Display**
-     - **Command Execution Status**: For long-running commands like `bootstrap`, `bdiff`, and `xthreg`, the console shows real-time progress (e.g. 50/2000) and estimated time remaining. Other commands display elapsed time.
 
+     - **Command Execution Status**: For long-running commands like `bootstrap`, `bdiff`, and `xthreg`, the console shows real-time progress (e.g. 50/2000) and estimated time remaining. Other commands display elapsed time.
    - **Custom Font**:
+
      - **Online (Default)**: Load Maple Mono for Latin text and Maple Mono NF CN for Chinese text.
      - **Font Settings**: Use `stata-all-in-one.consoleFontMode` and `stata-all-in-one.consoleCustomFontFamily` to customize the console font for a better reading experience.
    - **Run Presentation**
+
      - **Grouped Display**: Show each run as a collapsible input cell with clearly grouped command echoes and results.
      - **Quick Navigation**: Quickly locate output using the Embedded Console's right-side navigation and jump-to-bottom button.
    - **Large Output & Run Control**
+
      - **Responsive Browsing**: Page large output while preserving complete history.
      - **Reliable Stop**: Stop or Esc first attempts a soft interrupt, then force-terminates and automatically rebuilds an unresponsive Stata session.
      - **Stable Status**: Keep elapsed time accurate across view changes and avoid duplicate temporary do-file input.
    - **Result Management**
+
      - **Complete Exports**: Preserve the entire Console history when exporting results to HTML, Markdown, or Notebook.
      - **Consistent Layout**: Keep command grouping aligned across HTML, Markdown, and Notebook; HTML also provides code previews, continuous navigation, aligned numbering, and horizontal-scroll cues.
      - **Reliable File Links**: Recognize and validate file and directory paths in results, including Chinese, multi-line, and repeated paths, and open them with one click.
    - **Data Viewer Integration**
-     - **On-demand Refresh**: After data changes, click the already-open Data Viewer tab again to refresh it and restore the previous viewport.
 
+     - **On-demand Refresh**: After data changes, click the already-open Data Viewer tab again to refresh it and restore the previous viewport.
 2. Enhanced Comments
+
    - **Toggle Comments**: Quickly toggle line comments using `Ctrl / ⌘ + /`.
    - **Optional Styles**: Defaults to `//`, with support for switching to other valid Stata comment delimiters in settings.
-
 3. Built-in Help
+
    - **Hover Help**: Hover over a Stata command to see help information, with automatic filtering of non-practical commands like `#delimit`, `using`, etc.
    - **Show Help Text**: For example, select `regress` and press `Ctrl / ⌘ + Shift + H`. In External App mode, this opens Stata's `regress` help page; in Embedded Console mode, the help text is displayed directly in the console.<a id="line-break"></a>
-
 4. Smart Line Break
+
    - **One-Key Line Break**: Use `Shift + Enter` to insert Stata line continuation symbol `///` at the cursor position.
    - **Smart Indentation**: Automatically indent by 4 spaces
-
 5. Convenient Editor Context Menus
+
    - **Smart Run Actions**: Show “Run Current Section,” “Run Current Line,” or “Run Selected Lines” based on the cursor and selection, with the matching shortcut hint.
    - **Quick Editing**: Right-click to set heading levels, insert separators, center heading text, or quickly comment using the configured style.
    - **AI Skill**: Open Stata AI Skill from the context menu when a usable Stata license is detected.
-
 6. Safe Rename Mode
+
    - **Rename Variable**: Select a variable and press `F2` to rename all occurrences in the current document.
    - **Smart Validation**: Automatically validates the new name to ensure it follows Stata naming rules and does not conflict with built-in commands or keywords.
    - **Command Protection**: Intelligently prevents renaming Stata commands (e.g., `reghdfe`, `outreg2`) and their options (e.g., `absorb`, `ctitle`).
-
 7. Auto `cd` to Do File Directory
-   - **Auto Working Directory**: When enabled, automatically sets Stata's working directory to the do file's location on first launch.
-   <!-- - **Disabled by default**: This feature is off by default to avoid unexpected behavior for users who manually write `cd` at the top of their do files. Enable via setting `stata-all-in-one.cdToDoFileDir`. -->
 
+   - **Auto Working Directory**: When enabled, automatically sets Stata's working directory to the do file's location on first launch.
+
+   <!-- - **Disabled by default**: This feature is off by default to avoid unexpected behavior for users who manually write `cd` at the top of their do files. Enable via setting `stata-all-in-one.cdToDoFileDir`. -->
 8. Quick Settings
+
    - **Settings Button**: Click the gear icon in the editor title bar to quickly access Stata All in One settings.
 
 ---
@@ -212,34 +218,35 @@ If automatic discovery cannot find Stata, choose `Stata not found? Configure it 
 ### Code Execution
 
 1. **Run Mode** (`stata-all-in-one.runMode`)
+
    - `embeddedConsole` (default): Run code in the built-in **Console | Stata All in One** panel within VS Code, with direct output viewing and interaction.
    - `externalApp`: Send code to the system-installed Stata application for execution.
-
 2. **Stata Version on macOS** (`stata-all-in-one.stataVersionOnMacOS`)
+
    - Stata runtime version. When empty, the extension detects installed versions at startup for up to 3 seconds, preferring the highest numeric version and then `StataMP`, `StataSE`, `StataBE`, and `StataIC`. If detection fails, configure directly from the running Stata instance. The initializer then verifies the exact `.app`, Console dylib, and `stata.lic`, initializes the Embedded Console when possible, and reports the result once in a central dialog.
-
 3. **Stata Path on Windows** (`stata-all-in-one.stataPathOnWindows`)
-   - Path to Stata executable file (e.g., `C:\Program Files\Stata17\StataMP-64.exe`). When empty, the extension runs the bundled `scripts/discover_stata_windows.bat` registry probe at startup for up to 5 seconds. The same BAT can be run independently to generate `stata-discovery-report.json` for troubleshooting. If detection fails, configure directly from the running Stata instance. The initializer then verifies the EXE, Console DLL, and `stata.lic`, initializes the Embedded Console when possible, and reports the result once in a central dialog.
 
+   - Path to Stata executable file (e.g., `C:\Program Files\Stata17\StataMP-64.exe`). When empty, the extension runs the bundled `scripts/discover_stata_windows.bat` registry probe at startup for up to 5 seconds. The same BAT can be run independently to generate `stata-discovery-report.json` for troubleshooting. If detection fails, configure directly from the running Stata instance. The initializer then verifies the EXE, Console DLL, and `stata.lic`, initializes the Embedded Console when possible, and reports the result once in a central dialog.
 4. **Close Stata Other Windows Before Sending Code (Windows)** (`stata-all-in-one.closeStataOtherWindowsBeforeSendingCode`)
+
    - `true`: Close Stata helper windows (such as Viewer/Data Editor) before sending run commands.
    - `false` (default): Keep those windows open and send code directly.
-
 5. **Auto cd to Do File Directory** (`stata-all-in-one.cdToDoFileDir`)
+
    - `true` (default): Automatically set Stata's working directory to the do file's location on first launch.
    - `false`: Stata's working directory is not changed on startup.
-
 6. **Show Action Buttons** (`stata-all-in-one.showActionButtons`)
+
    - `true` (default): Show the "Bug Report" and "Stata AI Skill" buttons in the editor title bar.
    - `false`: Hide both buttons.
-
 7. **Show Sponsor Button** (`stata-all-in-one.showSponsorButton`)
+
    - `true`: Show the "Sponsor" button in the Stata editor title bar.
    - `false` (default): Hide the button.
-
 8. **Enable Ctrl+Shift+D for Run Shortcut** (`stata-all-in-one.enableCtrlShiftD`)
-    - `true`: Use `Ctrl / ⌘ + Shift + D` as the run code shortcut.
-    - `false` (default): Use the default `Ctrl / ⌘ + D` shortcut.
+
+   - `true`: Use `Ctrl / ⌘ + Shift + D` as the run code shortcut.
+   - `false` (default): Use the default `Ctrl / ⌘ + D` shortcut.
 
 ### Embedded Console
 
@@ -250,12 +257,13 @@ If automatic discovery cannot find Stata, choose `Stata not found? Configure it 
     - `custom`: Use the custom font specified below.
 
 [^3]: Font credits: [subframe7536/maple-font](https://github.com/subframe7536/maple-font), [fontsource](https://fontsource.org/fonts/maple-mono), and ZeoSeven Fonts ([443](https://fonts.zeoseven.com/items/443/), [442](https://fonts.zeoseven.com/items/442/)).
-
+    
 12. **Console Custom Font Family** (`stata-all-in-one.consoleCustomFontFamily`)
+
     - When font mode is set to `custom`, the CSS `font-family` list used by the console.
     - Example: `"Maple Mono NF CN", Menlo, Monaco, monospace`
-
 13. **Graph Export DPI** (`stata-all-in-one.graphPngDpi`)
+
     - DPI value for saving embedded console graphs as PNG. Default `600`, range 72–1200.
 
 ### Syntax Highlighting and Code Completion
@@ -268,20 +276,22 @@ If automatic discovery cannot find Stata, choose `Stata not found? Configure it 
 ### Hover Help
 
 15. **Enable Hover Docs** (`stata-all-in-one.enableHoverDocs`)
+
     - `true` (default): Show official Stata help information when hovering over Stata commands.
     - `false`: Disable hover help.
-
 16. **Additional ADO Paths** (`stata-all-in-one.additionalAdoPaths`)
+
     - Extra Stata ADO paths for scanning help files of community-contributed commands.
     - Example: `["/Users/username/ado/personal", "C:\\Users\\username\\ado\\personal"]`
 
 ### Outline & Navigation
 
 17. **Display Multi-level Numbering** (`stata-all-in-one.numberingShow`)
+
     - `true`: Outline displays `1.1`, `1.2.1` style numbering.
     - `false` (default): Displays original headings.
-
 18. **Auto-update Heading Numbering** (`stata-all-in-one.numberingAdd`)
+
     - `true`: **When numbering is enabled**, automatically update section titles in `.do` files to include numbers.
     - `false` (default): Only displays numbering in outline, doesn't modify file.
 
@@ -290,9 +300,10 @@ If automatic discovery cannot find Stata, choose `Stata not found? Configure it 
 ### Code Style
 
 19. **Comment Style** (`stata-all-in-one.commentStyle`)
-    - `// ` (default): Comment style used for toggling comments. Options include `//`, `*`, or `/* ... */`
 
+    - `// ` (default): Comment style used for toggling comments. Options include `//`, `*`, or `/* ... */`
 20. **Separator Length** (`stata-all-in-one.separatorLength`)
+
     - Total character length of the separator line (including the `** #` prefix and separators). Default: `60`
 
 <a id="separatorSymmetric"></a>
@@ -315,17 +326,18 @@ If this extension has been helpful to you, feel free to scan the **Alipay** (lef
 
 ## Changelog
 
-| Version | Changes                                                                                                              | Release Date |
-| ------- | -------------------------------------------------------------------------------------------------------------------- | ------------ |
-| 0.3.9  | Added staged icon transitions for editor title actions to save title-bar space; fixed the Data Viewer failing to refresh after editor runs and auto-collapsing bottom-right notifications. | 2026-07-29   |
-| 0.3.8  | Added Stata editor context menus, redesigned Embedded Console runs and navigation, and improved Data Viewer refresh; fixed some file paths not opening, execution stopping, and large-output freezes. | 2026-07-28   |
-| 0.3.7  | Fixed standalone file-path detection in Embedded Console and corrected the duplicated Update Notice prefix. | 2026-07-24   |
-| 0.3.6  | Added one-click file opening from Embedded Console output, improved Data Viewer interactions, and fixed graph ordering and Console reset behavior. | 2026-07-24   |
-| 0.3.5  | Moved Stata AI Skill online, reducing the Stata All in One extension package to 2.48 MB; fixed Tab recognition between code tokens. | 2026-07-22   |
-| 0.3.4  | Rebuilt the Data Viewer with direct `.dta` and Console-memory access and improved native stability on macOS and Windows. | 2026-07-22   |
-| 0.3.3  | Improved Embedded Console command compatibility and multi-line `browse` routing, and refined `which` output rendering. | 2026-07-21   |
-| 0.3.2  | Focused on improving Stata initialization and intelligent autocomplete, while adding multi-format Console export, built-in data browsing commands, and Stata AI Skill v1.1 | 2026-07-17   |
-| 0.3.1  | Streamlined Stata startup setup with automatic installation discovery and runtime checks to minimize manual configuration | 2026-07-13   |
-| 0.3.0  | Stable release: Fixed known issues from the preview releases | 2026-07-06   |
+| Version | Changes                                                                                                                                                                                               | Release Date |
+| ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| 0.3.10  | Added theme-aware tab icons; fixed macOS Embedded Console crashes in complex prediction workflows, Console path highlighting, and run navigation.                                                     | 2026-08-06   |
+| 0.3.9   | Added staged icon transitions for editor title actions to save title-bar space; fixed the Data Viewer failing to refresh after editor runs and auto-collapsing bottom-right notifications.            | 2026-07-29   |
+| 0.3.8   | Added Stata editor context menus, redesigned Embedded Console runs and navigation, and improved Data Viewer refresh; fixed some file paths not opening, execution stopping, and large-output freezes. | 2026-07-28   |
+| 0.3.7   | Fixed standalone file-path detection in Embedded Console and corrected the duplicated Update Notice prefix.                                                                                           | 2026-07-24   |
+| 0.3.6   | Added one-click file opening from Embedded Console output, improved Data Viewer interactions, and fixed graph ordering and Console reset behavior.                                                    | 2026-07-24   |
+| 0.3.5   | Moved Stata AI Skill online, reducing the Stata All in One extension package to 2.48 MB; fixed Tab recognition between code tokens.                                                                   | 2026-07-22   |
+| 0.3.4   | Rebuilt the Data Viewer with direct`.dta` and Console-memory access and improved native stability on macOS and Windows.                                                                             | 2026-07-22   |
+| 0.3.3   | Improved Embedded Console command compatibility and multi-line`browse` routing, and refined `which` output rendering.                                                                             | 2026-07-21   |
+| 0.3.2   | Focused on improving Stata initialization and intelligent autocomplete, while adding multi-format Console export, built-in data browsing commands, and Stata AI Skill v1.1                            | 2026-07-17   |
+| 0.3.1   | Streamlined Stata startup setup with automatic installation discovery and runtime checks to minimize manual configuration                                                                             | 2026-07-13   |
+| 0.3.0   | Stable release: Fixed known issues from the preview releases                                                                                                                                          | 2026-07-06   |
 
 See [CHANGELOG.md](CHANGELOG.md) for full version history.

@@ -3,6 +3,17 @@
 All notable changes to the Stata All in One extension will be documented in this file.
 本文件记录 Stata All in One 扩展的所有重要更改。
 
+## 0.3.10 (2026-08-06)
+
+- **Feat**: Added light- and dark-theme-aware tab icons for editor title actions, the Embedded Console, the Data Viewer, and exported HTML reports.
+- **Fixed**: Preserved Stata thread affinity on macOS to prevent Embedded Console crashes during complex prediction workflows, and updated the universal2 native bridge.
+- **Fixed**: Prevented numbers inside Console output paths from being highlighted as numeric values and made run navigation follow the latest input cell entering the visible output area.
+- **Build**: Rebuilt the Windows native bridge from the shared source and corrected the PowerShell build script to locate node-gyp's actual output filename.
+- **新增**：为编辑器标题栏操作、嵌入式控制台、数据查看器及导出的 HTML 报告新增明暗主题自适应标签图标。
+- **修复**：保持 macOS 上 Stata 初始化与执行的线程亲和性，避免复杂预测流程导致嵌入式控制台崩溃，并更新 universal2 原生桥接器。
+- **修复**：避免控制台输出路径中的数字被误判为数值高亮，并使运行导航跟随最新进入可视区域的输入单元。
+- **构建**：基于共享源码重新编译 Windows 原生桥接器，并修正 PowerShell 构建脚本对 node-gyp 实际产物文件名的查找。
+
 ## 0.3.9 (2026-07-29)
 
 - **Feat**: Added staged transitions from text to theme-aware icons for the editor title actions to save title-bar space, with click-to-reveal controls for Bug Report, sponsorship, and Stata AI Skill.

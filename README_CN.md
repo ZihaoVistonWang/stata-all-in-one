@@ -13,7 +13,7 @@ Stata All in One
 </p>
 
 <p align="center">
-   | <b>版本:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.3.9</a> | <b>作者:</b> <a href="https://zihaowang.cn">王梓豪</a> | <b>Translate:</b>
+   | <b>版本:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.3.10</a> | <b>作者:</b> <a href="https://zihaowang.cn">王梓豪</a> | <b>Translate:</b>
   <a href="https://github.com/ZihaoVistonWang/stata-all-in-one">English Version</a> |
 </p>
 
@@ -33,14 +33,16 @@ Stata All in One
 
 <p align="center">Stata All in One 源自 <a href="https://github.com/ZihaoVistonWang/stata-outline">Stata Outline</a>，进行了功能扩展和改进。</p>
 
+<p align="center">以下为 Stata All in One 的技术文档和安装配置说明；如需更直观易读的功能介绍，请访问我的【<a href="https://zihaowang.cn/zh/post/stata-all-in-one-news/">博客</a>】了解更多。</p>
+
 ---
 
 ## 致谢
 
 - 感谢小红书用户 **Rich\*\*d**、微信用户 **M\*k\***、**柿\*\*橙**、**X\*\*n**、评论 “功能强大且配置简单的插件，谢谢！” 的匿名用户，以及 Buy me a coffee 用户 **LB\*\*PG@gmail.com**、**ol\*\*\*ba@gmail.com** 对本项目的支持。
-- 感谢西北农林科技大学农业经济与管理创新团队为本人提供的科研支持、经费支持和对本项目的[宣传推广支持](https://mp.weixin.qq.com/s/kxSfIF2nu1LuUzC2NvKWog)。
-- 感谢[连玉君](https://lingnan.sysu.edu.cn/faculty/lianyujun)老师的耐心指导和[连享会](https://www.lianxh.cn/)平台的[宣发支持](https://www.lianxh.cn/details/1865.html)。
-- 感谢Stata官方授权经销商[北京友万信息科技有限公司（友万科技）](http://www.uone-tech.cn/)对本项目的[宣发支持](https://mp.weixin.qq.com/s/UhLmoGK4VhYULACagjbcTg)。
+- 感谢**西北农林科技大学农业经济与管理创新团队**为本人提供的科研支持、经费支持和对本项目的[宣传推广支持](https://mp.weixin.qq.com/s/kxSfIF2nu1LuUzC2NvKWog)。
+- 感谢[**连玉君老师**](https://lingnan.sysu.edu.cn/faculty/lianyujun)的耐心指导和[**连享会平台**](https://www.lianxh.cn/)的[宣发支持](https://www.lianxh.cn/details/1865.html)。
+- 感谢Stata官方授权经销商[**北京友万信息科技有限公司（友万科技）**](http://www.uone-tech.cn/)对本项目的[宣发支持](https://mp.weixin.qq.com/s/UhLmoGK4VhYULACagjbcTg)。
 
 ## 功能概览
 
@@ -74,7 +76,7 @@ Stata All in One
 - **数据集变量名自动补全**：（运行代码读取一次数据集后）在编辑器和控制台中输入变量名时，提供基于当前数据集的智能补全建议，提升编码效率。
 
 [^1]: [Stata Enhanced](https://github.com/kylebarron/language-stata) 语法引擎由 Kyle Barron 开发，提供了对 Stata 语言的全面支持。本拓展遵循 [MIT](https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/THIRD_PARTY_NOTICES.md) 许可协议，感谢 Kyle Barron 的贡献！
-
+    
 ### 4. 智能大纲与结构导航
 
 - **多级大纲识别**：自动识别 `**#` 至 `**######` 格式的注释行，最高支持 _6 级层级标题_。
@@ -86,7 +88,7 @@ Stata All in One
 - **支持`program define`块**：在大纲视图中显示 program 名称，方便导航和管理自定义程序。<a id="code_execution"></a>
 
 [^2]: 抱歉～此为VS Code的GUI设置，我无法通过插件控制它。
-
+    
 ### 5. 数据查看器 🛠️
 
 - **即点即看**：点击VS Code资源管理器中的 `.dta` 文件，即可在全新的 `数据查看器` 面板中打开数据集。
@@ -256,7 +258,7 @@ Stata All in One
 - `custom`：使用下方自定义字体设置。
 
 [^3]: 字体致谢：[subframe7536/maple-font](https://github.com/subframe7536/maple-font)、[fontsource](https://fontsource.org/fonts/maple-mono) 和 ZeoSeven Fonts（[443](https://fonts.zeoseven.com/items/443/)、[442](https://fonts.zeoseven.com/items/442/)）。
-
+    
 12. **控制台自定义字体** (`stata-all-in-one.consoleCustomFontFamily`)
     - 当字体模式设为 `custom` 时，控制台使用的 CSS `font-family` 列表。
     - 示例：`"Maple Mono NF CN", Menlo, Monaco, monospace`
@@ -323,17 +325,18 @@ Stata All in One
 
 ## 版本记录
 
-| 版本  | 更新内容                                                                                                                                | 发布日期   |
-| ----- | --------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
-| 0.3.9 | 新增编辑器标题栏操作按钮的分阶段图标切换以节省标题栏空间；修复编辑器运行后无法刷新数据查看器及右下角通知自动折叠问题。                | 2026-07-29 |
-| 0.3.8 | 新增 Stata 编辑器右键菜单，重构嵌入式控制台运行界面与导航并优化数据查看器刷新；修复部分文件路径无法点击跳转、运行停止及大输出卡顿问题。 | 2026-07-28 |
-| 0.3.7 | 修复嵌入式控制台无法识别独立文件路径的问题，并修正 Update Notice 的重复前缀。                                                           | 2026-07-24 |
-| 0.3.6 | 新增嵌入式控制台输出文件路径一键打开，优化数据查看器交互，并修复图形输出顺序与控制台清空重启问题。                                      | 2026-07-24 |
-| 0.3.5 | Stata AI Skill 改为在线安装，Stata All in One拓展包精简至 2.48 MB；修复代码中字符串间的 Tab 命令识别问题。                              | 2026-07-22 |
-| 0.3.4 | 重构数据查看器，支持直读`.dta` 与控制台内存数据，并提升 macOS 和 Windows 原生组件稳定性。                                             | 2026-07-22 |
-| 0.3.3 | 改进嵌入式控制台的命令兼容性与多行`browse` 路由，优化 `which` 输出显示。                                                            | 2026-07-21 |
-| 0.3.2 | 重点优化了 Stata 初始化与智能补全，并新增控制台多格式导出、内置数据浏览命令及 Stata AI Skill v1.1。                                     | 2026-07-17 |
-| 0.3.1 | 优化 Stata 初始化配置流程，自动完成安装探测与运行环境检查，尽可能减少用户手动配置的情况                                                 | 2026-07-13 |
-| 0.3.0 | 正式版：修复预览版中的已知问题                                                                                                          | 2026-07-06 |
+| 版本   | 更新内容                                                                                                                                | 发布日期   |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| 0.3.10 | 新增明暗主题自适应标签图标；修复 macOS 嵌入式控制台复杂预测崩溃，以及控制台路径高亮与运行导航问题。                                     | 2026-08-06 |
+| 0.3.9  | 新增编辑器标题栏操作按钮的分阶段图标切换以节省标题栏空间；修复编辑器运行后无法刷新数据查看器及右下角通知自动折叠问题。                  | 2026-07-29 |
+| 0.3.8  | 新增 Stata 编辑器右键菜单，重构嵌入式控制台运行界面与导航并优化数据查看器刷新；修复部分文件路径无法点击跳转、运行停止及大输出卡顿问题。 | 2026-07-28 |
+| 0.3.7  | 修复嵌入式控制台无法识别独立文件路径的问题，并修正 Update Notice 的重复前缀。                                                           | 2026-07-24 |
+| 0.3.6  | 新增嵌入式控制台输出文件路径一键打开，优化数据查看器交互，并修复图形输出顺序与控制台清空重启问题。                                      | 2026-07-24 |
+| 0.3.5  | Stata AI Skill 改为在线安装，Stata All in One拓展包精简至 2.48 MB；修复代码中字符串间的 Tab 命令识别问题。                              | 2026-07-22 |
+| 0.3.4  | 重构数据查看器，支持直读`.dta` 与控制台内存数据，并提升 macOS 和 Windows 原生组件稳定性。                                             | 2026-07-22 |
+| 0.3.3  | 改进嵌入式控制台的命令兼容性与多行`browse` 路由，优化 `which` 输出显示。                                                            | 2026-07-21 |
+| 0.3.2  | 重点优化了 Stata 初始化与智能补全，并新增控制台多格式导出、内置数据浏览命令及 Stata AI Skill v1.1。                                     | 2026-07-17 |
+| 0.3.1  | 优化 Stata 初始化配置流程，自动完成安装探测与运行环境检查，尽可能减少用户手动配置的情况                                                 | 2026-07-13 |
+| 0.3.0  | 正式版：修复预览版中的已知问题                                                                                                          | 2026-07-06 |
 
 详见 [CHANGELOG.md](CHANGELOG.md) 完整版本记录。
