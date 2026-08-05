@@ -113,11 +113,11 @@ try {
     Pop-Location
 }
 
-# Copy the output
+# Copy the output (node-gyp emits <target_name>.node, not the platform-suffixed name)
 $BuildOutput = if ($Configuration -eq "Debug") {
-    Join-Path $BuildDir "Debug\stata_bridge-win32.node"
+    Join-Path $BuildDir "Debug\stata_bridge.node"
 } else {
-    Join-Path $BuildDir "Release\stata_bridge-win32.node"
+    Join-Path $BuildDir "Release\stata_bridge.node"
 }
 
 if (-not (Test-Path $BuildOutput)) {
