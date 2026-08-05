@@ -35,10 +35,10 @@ cp "$ARM64_NODE" "$ARM64_OUT"
 echo "arm64 build successful: $ARM64_OUT"
 
 echo ""
-echo "=== Step 2: Building for x86_64 (via Rosetta) ==="
+echo "=== Step 2: Building for x86_64 ==="
 node-gyp clean 2>/dev/null || true
-arch -x86_64 node-gyp configure
-arch -x86_64 node-gyp build
+node-gyp configure --arch=x64
+node-gyp build --arch=x64
 
 X86_64_NODE=$(find "$NATIVE_DIR" -name "*.node" -path "*x86_64*" 2>/dev/null | head -1)
 [ -z "$X86_64_NODE" ] && X86_64_NODE=$(find "$NATIVE_DIR/build" -name "*.node" 2>/dev/null | head -1)

@@ -89,10 +89,9 @@ function initSession(dylibPath, splash = false, execPath = '', stHome = '') {
 /**
  * Execute Stata code (async with streaming output)
  *
- * On Windows the C++ Execute submits to a dedicated Stata thread and
- * a polling thread reads output incrementally — TSFN callbacks stream
- * output chunks to this function.  On macOS a C++ worker thread runs
- * StataSO_Execute and polls output.
+ * On every platform the C++ Execute submits to the dedicated thread that ran
+ * StataSO_Main. A polling thread reads output incrementally and TSFN callbacks
+ * stream output chunks to this function.
  *
  * @param {string} code - Stata code to execute
  * @param {boolean} echo - Whether Stata should echo the command
@@ -112,7 +111,6 @@ function execute(code, echo = false, onOutput = null) {
         }
 
         try {
-            clearOutput();
             let latestOutput = '';
             const t0 = Date.now();
             nativeModule.execute(code, echo, (payload) => {
