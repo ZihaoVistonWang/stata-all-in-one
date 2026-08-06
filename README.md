@@ -50,7 +50,7 @@ Stata All in One
    <a href="https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/img/example-marked-en.jpg"><img src="img/example-marked-en.jpg" alt="Feature Showcase"/> Click to view full image </a>
 </p>
 
-> ⚠️ Features marked with 🛠️ require **Stata 17 or later** and a `STATA.LIC` license file. Please support genuine Stata software to enjoy the full experience. You can contact Stata Corp, LLC's officially authorized partner [Beijing Uone Info&amp;Tech Co.,Ltd (Uone-Tech)](https://m.tb.cn/h.8U4PB4vroQNv8SU) to purchase genuine Stata software or request a trial.
+> ⚠️ Features marked with 🛠️ require **Stata 17 or later** and a `STATA.LIC` license file. Please support genuine Stata software to enjoy the full experience. You can contact Stata Corp, LLC's officially authorized partner [Beijing Uone Info&amp;Tech Co.,Ltd (Uone-Tech)](http://www.uone-tech.cn/Stata.html) to purchase genuine Stata software or request a trial.
 
 ### 1. Stata AI Skill 🛠️
 

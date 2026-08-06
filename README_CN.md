@@ -50,7 +50,7 @@ Stata All in One
    <a href="https://pan.zihaowang.cn/share/example-marked-cn.jpg"><img src="img/example-marked-cn.jpg" alt="功能展示图"/> 点击查看大图 </a>
 </p>
 
-> ⚠️ 以下标注 🛠️ 的功能需要 **Stata 17 及以上版本**和 `STATA.LIC` 证书文件，请支持正版 Stata 软件以获得完整功能体验。您可以访问 Stata Corp, LLC 官方授权合作伙伴北京友万信息科技有限公司（友万科技）的[淘宝店铺](https://m.tb.cn/h.8U4PB4vroQNv8SU)采购正版软件或申请试用。
+> ⚠️ 以下标注 🛠️ 的功能需要 **Stata 17 及以上版本**和 `STATA.LIC` 证书文件，请支持正版 Stata 软件以获得完整功能体验。您可以联系 Stata Corp, LLC 官方授权合作伙伴[北京友万信息科技有限公司（友万科技）](http://www.uone-tech.cn/Stata.html)采购正版软件或申请试用。
 
 ### 1. Stata AI Skill 功能 🛠️
 
