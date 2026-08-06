@@ -50,7 +50,7 @@ Stata All in One
    <a href="https://pan.zihaowang.cn/share/example-marked-cn.jpg"><img src="img/example-marked-cn.jpg" alt="功能展示图"/> 点击查看大图 </a>
 </p>
 
-> ⚠️ 以下标注 🛠️ 的功能需要 **Stata 17 及以上版本**和 `STATA.LIC` 证书文件，请支持正版 Stata 软件以获得完整功能体验。您可以联系 Stata Corp, LLC 官方授权合作伙伴[北京友万信息科技有限公司（友万科技）](http://xhslink.com/o/QYWdYfrEhy)采购正版软件或申请试用。
+> ⚠️ 以下标注 🛠️ 的功能需要 **Stata 17 及以上版本**和 `STATA.LIC` 证书文件，请支持正版 Stata 软件以获得完整功能体验。您可以访问 Stata Corp, LLC 官方授权合作伙伴北京友万信息科技有限公司（友万科技）的[淘宝店铺](https://m.tb.cn/h.8U4PB4vroQNv8SU)采购正版软件或申请试用。
 
 ### 1. Stata AI Skill 功能 🛠️
 
@@ -75,8 +75,6 @@ Stata All in One
 - **自定义命令高亮**：支持为用户常用的第三方命令（如 `reghdfe`、`ivreghdfe`、`gtools` 等）添加关键字高亮，可在设置中自由配置。
 - **数据集变量名自动补全**：（运行代码读取一次数据集后）在编辑器和控制台中输入变量名时，提供基于当前数据集的智能补全建议，提升编码效率。
 
-[^1]: [Stata Enhanced](https://github.com/kylebarron/language-stata) 语法引擎由 Kyle Barron 开发，提供了对 Stata 语言的全面支持。本拓展遵循 [MIT](https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/THIRD_PARTY_NOTICES.md) 许可协议，感谢 Kyle Barron 的贡献！
-    
 ### 4. 智能大纲与结构导航
 
 - **多级大纲识别**：自动识别 `**#` 至 `**######` 格式的注释行，最高支持 _6 级层级标题_。
@@ -87,8 +85,6 @@ Stata All in One
 - **自动同步序号**：插件会根据大纲结构自动在 `.do` 文件中插入或删除序号（需在设置中开启）。
 - **支持`program define`块**：在大纲视图中显示 program 名称，方便导航和管理自定义程序。<a id="code_execution"></a>
 
-[^2]: 抱歉～此为VS Code的GUI设置，我无法通过插件控制它。
-    
 ### 5. 数据查看器 🛠️
 
 - **即点即看**：点击VS Code资源管理器中的 `.dta` 文件，即可在全新的 `数据查看器` 面板中打开数据集。
@@ -257,8 +253,6 @@ Stata All in One
 - `system`：直接使用系统等宽字体。
 - `custom`：使用下方自定义字体设置。
 
-[^3]: 字体致谢：[subframe7536/maple-font](https://github.com/subframe7536/maple-font)、[fontsource](https://fontsource.org/fonts/maple-mono) 和 ZeoSeven Fonts（[443](https://fonts.zeoseven.com/items/443/)、[442](https://fonts.zeoseven.com/items/442/)）。
-    
 12. **控制台自定义字体** (`stata-all-in-one.consoleCustomFontFamily`)
     - 当字体模式设为 `custom` 时，控制台使用的 CSS `font-family` 列表。
     - 示例：`"Maple Mono NF CN", Menlo, Monaco, monospace`
@@ -340,3 +334,9 @@ Stata All in One
 | 0.3.0  | 正式版：修复预览版中的已知问题                                                                                                          | 2026-07-06 |
 
 详见 [CHANGELOG.md](CHANGELOG.md) 完整版本记录。
+
+[^1]: [Stata Enhanced](https://github.com/kylebarron/language-stata) 语法引擎由 Kyle Barron 开发，提供了对 Stata 语言的全面支持。本拓展遵循 [MIT](https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/THIRD_PARTY_NOTICES.md) 许可协议，感谢 Kyle Barron 的贡献！
+    
+[^2]: 抱歉～此为VS Code的GUI设置，我无法通过插件控制它。
+    
+[^3]: 字体致谢：[subframe7536/maple-font](https://github.com/subframe7536/maple-font)、[fontsource](https://fontsource.org/fonts/maple-mono) 和 ZeoSeven Fonts（[443](https://fonts.zeoseven.com/items/443/)、[442](https://fonts.zeoseven.com/items/442/)）。
