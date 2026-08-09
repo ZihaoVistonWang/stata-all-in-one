@@ -154,10 +154,12 @@ test('exports standalone HTML with escaped output, source link, styles, and embe
     const result = await serializeConsoleExport(sampleHistory(), 'html', SOURCE_OPTIONS);
     assert.match(result.content, /^<!DOCTYPE html>/);
     assert.match(result.content, new RegExp(`href="${MARKETPLACE_URL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`));
-    const tabIcon = result.content.match(/<link id="tab-icon" rel="icon" type="image\/svg\+xml" href="data:image\/svg\+xml;base64,([^"]+)" data-light="[^"]+" data-dark="data:image\/svg\+xml;base64,([^"]+)">/);
+    const tabIcon = result.content.match(/<link id="tab-icon" rel="icon" type="image\/svg\+xml" data-light="data:image\/svg\+xml;base64,([^"]+)" data-dark="data:image\/svg\+xml;base64,([^"]+)">/);
     assert.ok(tabIcon);
     assert.match(Buffer.from(tabIcon[1], 'base64').toString('utf8'), /<svg width="16" height="16"/);
     assert.match(Buffer.from(tabIcon[2], 'base64').toString('utf8'), /<svg width="16" height="16"/);
+    assert.doesNotMatch(result.content, /id="tab-icon"[^>]+\shref=/);
+    assert.match(result.content, /tabIcon\.href=theme==='dark'\?tabIcon\.dataset\.dark:tabIcon\.dataset\.light/);
     assert.match(result.content, /tabIcon\.href = theme === 'dark' \? tabIcon\.dataset\.dark : tabIcon\.dataset\.light/);
     assert.match(result.content, /error: intentional &lt;error&gt;/);
     assert.match(result.content, /font-weight:700/);

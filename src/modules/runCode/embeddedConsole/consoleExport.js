@@ -402,11 +402,11 @@ function serializeInteractiveHtml(prepared, options) {
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Stata All in One Export</title>
 ${options.tabIconDataUrls && options.tabIconDataUrls.light && options.tabIconDataUrls.dark
-        ? `<link id="tab-icon" rel="icon" type="image/svg+xml" href="${options.tabIconDataUrls.light}" data-light="${options.tabIconDataUrls.light}" data-dark="${options.tabIconDataUrls.dark}">`
+        ? `<link id="tab-icon" rel="icon" type="image/svg+xml" data-light="${options.tabIconDataUrls.light}" data-dark="${options.tabIconDataUrls.dark}">`
         : ''}
+<script>(function(){var root=document.documentElement;var theme=matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';try{var saved=localStorage.getItem('stata-all-in-one-export-theme');if(saved==='light'||saved==='dark')theme=saved}catch(_error){}root.dataset.theme=theme;var tabIcon=document.getElementById('tab-icon');if(tabIcon)tabIcon.href=theme==='dark'?tabIcon.dataset.dark:tabIcon.dataset.light})();</script>
 <link rel="preload" href="${ONLINE_CJK_FONT_CSS_URL}" as="style" crossorigin>
 <link rel="stylesheet" href="${ONLINE_CJK_FONT_CSS_URL}" crossorigin>
-<script>(function(){try{var saved=localStorage.getItem('stata-all-in-one-export-theme');var theme=saved||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');document.documentElement.dataset.theme=theme}catch(_error){}})();</script>
 <style>
 @font-face {
     font-family: "Maple Mono";
