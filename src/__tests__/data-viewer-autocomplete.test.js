@@ -20,6 +20,12 @@ describe('Data Viewer filter autocomplete', () => {
         assert.strictEqual(candidates[0].matchType, 'fuzzy');
     });
 
+    it('matches Unicode variable names', () => {
+        const candidates = selectDataViewerCandidates('这是', ['这是一个变量']);
+        assert.deepStrictEqual(candidates.map(candidate => candidate.label), ['这是一个变量']);
+        assert.deepStrictEqual(candidates[0].matchIndexes, [0, 1]);
+    });
+
     it('keeps variables ahead of filter keywords in mixed results', () => {
         const candidates = selectDataViewerCandidates('in', ['income', 'industry']);
         assert.deepStrictEqual(

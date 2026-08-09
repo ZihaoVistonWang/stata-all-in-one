@@ -2633,11 +2633,15 @@ function getWebviewHtml(webview) {
         var autocompleteVisible = false;
         var autocompleteRequestId = 0;
 
+        function isAutocompleteWordCharacter(character) {
+            return !!character && /[\\p{L}\\p{M}\\p{N}_]/u.test(character);
+        }
+
         function getCurrentWord() {
             var text = input.value || '';
             var pos = input.selectionStart || 0;
             var start = pos;
-            while (start > 0 && /[A-Za-z0-9_]/.test(text[start - 1])) {
+            while (start > 0 && isAutocompleteWordCharacter(text[start - 1])) {
                 start--;
             }
             return { word: text.slice(start, pos), start: start, end: pos };
@@ -2713,7 +2717,7 @@ function getWebviewHtml(webview) {
             var text = input.value || '';
             var pos = input.selectionStart || 0;
             var wordEnd = pos;
-            while (wordEnd < text.length && /[A-Za-z0-9_]/.test(text[wordEnd])) {
+            while (wordEnd < text.length && isAutocompleteWordCharacter(text[wordEnd])) {
                 wordEnd++;
             }
             input.value = text.slice(0, wordStart) + command + ' ' + text.slice(wordEnd);

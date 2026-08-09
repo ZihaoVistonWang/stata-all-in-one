@@ -7,7 +7,8 @@ const {
     analyzeCompletionContext,
     matchCompletionLabel,
     selectCompletionCandidates,
-    getCompletionSortText
+    getCompletionSortText,
+    getCompletionFilterText
 } = require('../modules/completionContext');
 
 const pools = {
@@ -289,6 +290,19 @@ describe('completion fuzzy matching', () => {
     it('does not use broad fuzzy matching for one character', () => {
         assert.strictEqual(matchCompletionLabel('price', 'r'), null);
         assert.strictEqual(matchCompletionLabel('revenue', 'r').matchType, COMPLETION_MATCH_TYPES.prefix);
+    });
+
+    it('keeps shared fuzzy matches visible through VS Code native filtering', () => {
+        const price = {
+            label: 'price',
+            matchIndexes: [1, 2]
+        };
+        const chinese = {
+            label: '这是一个变量',
+            matchIndexes: [4, 5]
+        };
+        assert.strictEqual(getCompletionFilterText(price), '_ri__');
+        assert.strictEqual(getCompletionFilterText(chinese), '____变量');
     });
 
     it('supports fuzzy matching in every context-eligible candidate category', () => {

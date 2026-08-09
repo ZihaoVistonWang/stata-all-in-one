@@ -766,11 +766,15 @@ function getDataViewerHtml(webview) {
             });
         }
 
+        function isFilterWordCharacter(character) {
+            return !!character && /[\\p{L}\\p{M}\\p{N}_]/u.test(character);
+        }
+
         function getCurrentFilterWord() {
             var text = filterInput.value || '';
             var pos = filterInput.selectionStart || 0;
             var start = pos;
-            while (start > 0 && /[A-Za-z0-9_]/.test(text[start - 1])) start--;
+            while (start > 0 && isFilterWordCharacter(text[start - 1])) start--;
             return { word: text.slice(start, pos), start: start };
         }
 
@@ -842,7 +846,7 @@ function getDataViewerHtml(webview) {
             var text = filterInput.value || '';
             var pos = filterInput.selectionStart || 0;
             var wordEnd = pos;
-            while (wordEnd < text.length && /[A-Za-z0-9_]/.test(text[wordEnd])) wordEnd++;
+            while (wordEnd < text.length && isFilterWordCharacter(text[wordEnd])) wordEnd++;
             filterInput.value = text.slice(0, wordStart) + value + ' ' + text.slice(wordEnd);
             filterInput.selectionStart = filterInput.selectionEnd = wordStart + value.length + 1;
             hideFilterAutocomplete();
@@ -912,7 +916,7 @@ function getDataViewerHtml(webview) {
                 appendFilterSpan(text, className, seg.style || {});
                 return;
             }
-            var parts = text.split(/([A-Za-z_][A-Za-z0-9_]*)/);
+            var parts = text.split(/([\\p{L}_][\\p{L}\\p{M}\\p{N}_]*)/gu);
             for (var i = 0; i < parts.length; i++) {
                 var part = parts[i];
                 if (!part) continue;

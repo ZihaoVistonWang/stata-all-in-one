@@ -1,4 +1,5 @@
 const vscode = require('vscode');
+const { STATA_IDENTIFIER_BODY, isStataIdentifier } = require('./stataIdentifier');
 
 const documentVars = new Map();
 let memoryVars = [];
@@ -25,7 +26,7 @@ function normalizeVarNames(values) {
     const seen = new Set();
     for (const value of Array.isArray(values) ? values : []) {
         const name = String(value || '').trim();
-        if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
+        if (!isStataIdentifier(name)) {
             continue;
         }
         const key = name.toLowerCase();
@@ -82,7 +83,9 @@ function extractVariableNames(document) {
             continue;
         }
 
-        const genMatch = line.match(/\b(gen|generate|egen)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*=/i);
+        const genMatch = line.match(
+            new RegExp(`\\b(gen|generate|egen)\\s+(${STATA_IDENTIFIER_BODY})\\s*=`, 'iu')
+        );
         if (genMatch) {
             variables.add(genMatch[2]);
         }
@@ -98,7 +101,7 @@ function extractVariableNames(document) {
             if (match && match[2]) {
                 const vars = match[2].split(/[\s,]+/).filter(v => v && !v.match(/^[0-9]/));
                 vars.forEach(v => {
-                    if (v.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
+                    if (isStataIdentifier(v)) {
                         variables.add(v);
                     }
                 });
@@ -107,14 +110,16 @@ function extractVariableNames(document) {
 
         const renameMatch = line.match(/\b(rename|drop|keep)\s+(.*?)(?:\n|if|in|,|$)/i);
         if (renameMatch && renameMatch[2]) {
-            const vars = renameMatch[2].split(/[\s,]+/).filter(v => v && v.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/));
+            const vars = renameMatch[2].split(/[\s,]+/).filter(isStataIdentifier);
             vars.forEach(v => variables.add(v));
         }
 
-        const exprMatch = line.match(/\b([a-zA-Z_][a-zA-Z0-9_]*)\s*([><=!]+|in|if)/g);
+        const exprMatch = line.match(
+            new RegExp(`(${STATA_IDENTIFIER_BODY})\\s*([><=!]+|in|if)`, 'giu')
+        );
         if (exprMatch) {
             exprMatch.forEach(expr => {
-                const varMatch = expr.match(/^([a-zA-Z_][a-zA-Z0-9_]*)/);
+                const varMatch = expr.match(new RegExp(`^(${STATA_IDENTIFIER_BODY})`, 'u'));
                 if (varMatch) {
                     variables.add(varMatch[1]);
                 }
@@ -189,7 +194,7 @@ function parseMataVarNameLines(output) {
     const lines = String(output || '').split(/\r?\n/);
     for (const rawLine of lines) {
         const line = rawLine.trim();
-        if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(line)) {
+        if (isStataIdentifier(line)) {
             names.push(line);
         }
     }

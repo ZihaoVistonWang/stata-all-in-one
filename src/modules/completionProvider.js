@@ -9,7 +9,8 @@ const variableSuggestions = require('./variableSuggestionService');
 const {
     analyzeCompletionContext,
     selectCompletionCandidates,
-    getCompletionSortText
+    getCompletionSortText,
+    getCompletionFilterText
 } = require('./completionContext');
 
 // Extract Stata built-in commands from the grammar
@@ -145,66 +146,7 @@ const StataOptions = [
  * @returns {Set<string>}
  */
 function extractVariableNames(document) {
-    const variables = new Set();
-
-    for (let i = 0; i < document.lineCount; i++) {
-        const line = document.lineAt(i).text;
-
-        // Skip comment lines
-        if (line.trimStart().startsWith('//') || line.trimStart().startsWith('*')) {
-            continue;
-        }
-
-        // Pattern 1: gen/generate/egen varname = ...
-        // Match: gen var_name = or generate var_name =
-        const genMatch = line.match(/\b(gen|generate|egen)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*=/i);
-        if (genMatch) {
-            variables.add(genMatch[2]);
-        }
-
-        // Pattern 2: Variables after 'summarize', 'sum', 'tabstat', 'reg', etc.
-        // Match: command var1 var2 var3 ...
-        const cmdPatterns = [
-            /\b(summarize|sum|describe|desc|list|lis|li|tabulate|tab|tabstat|correlate|corr|pwcorr)\s+(.*?)(?:\n|,|$)/i,
-            /\b(reg|regress|logit|probit|ologit|poisson|nbreg)\s+(.*?)\s+(?:if|in|,|$)/i,
-            /\b(scatter|twoway|graph)\s+(.*?),/i
-        ];
-
-        for (const pattern of cmdPatterns) {
-            const match = line.match(pattern);
-            if (match && match[2]) {
-                // Extract variable names from the command arguments
-                const vars = match[2].split(/[\s,]+/).filter(v => v && !v.match(/^[0-9]/));
-                // Only add valid variable names (alphanumeric + underscore)
-                vars.forEach(v => {
-                    if (v.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
-                        variables.add(v);
-                    }
-                });
-            }
-        }
-
-        // Pattern 3: Variables from 'rename', 'drop', 'keep' commands
-        const renameMatch = line.match(/\b(rename|drop|keep)\s+(.*?)(?:\n|if|in|,|$)/i);
-        if (renameMatch && renameMatch[2]) {
-            const vars = renameMatch[2].split(/[\s,]+/).filter(v => v && v.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/));
-            vars.forEach(v => variables.add(v));
-        }
-
-        // Pattern 4: Variables from assignments in expressions
-        // Match: varname == value or varname > value in if conditions
-        const exprMatch = line.match(/\b([a-zA-Z_][a-zA-Z0-9_]*)\s*([><=!]+|in|if)/g);
-        if (exprMatch) {
-            exprMatch.forEach(expr => {
-                const varMatch = expr.match(/^([a-zA-Z_][a-zA-Z0-9_]*)/);
-                if (varMatch) {
-                    variables.add(varMatch[1]);
-                }
-            });
-        }
-    }
-
-    return variables;
+    return variableSuggestions.extractVariableNames(document);
 }
 
 /**
@@ -275,7 +217,7 @@ function createCompletionProvider() {
                 item.sortText = getCompletionSortText(candidate);
                 // Let VS Code's native suggest widget filter and highlight the
                 // same label that the shared fuzzy matcher selected.
-                item.filterText = candidate.label;
+                item.filterText = getCompletionFilterText(candidate);
                 item.range = range;
                 if (candidate.kind === 'var') item.detail = 'Variable';
                 if (candidate.kind === 'opt') item.detail = 'Stata option';
@@ -331,6 +273,24 @@ function registerCompletionProvider(context) {
     );
 
     context.subscriptions.push(disposable);
+
+    const unicodeTrigger = vscode.workspace.onDidChangeTextDocument(event => {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor || !event || event.document !== editor.document || event.document.languageId !== 'stata') {
+            return;
+        }
+        const insertedText = event.contentChanges
+            .map(change => String(change.text || ''))
+            .join('');
+        const lastCharacter = Array.from(insertedText).pop() || '';
+        if (!lastCharacter || /^[\x00-\x7F]$/.test(lastCharacter)
+            || !/[\p{L}\p{M}\p{N}_]/u.test(lastCharacter)) {
+            return;
+        }
+        vscode.commands.executeCommand('editor.action.triggerSuggest');
+    });
+
+    context.subscriptions.push(unicodeTrigger);
 }
 
 module.exports = {

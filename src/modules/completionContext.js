@@ -1,3 +1,8 @@
+const {
+    STATA_IDENTIFIER_BODY,
+    getTrailingStataIdentifier
+} = require('./stataIdentifier');
+
 const COMPLETION_TYPES = Object.freeze({
     command: 'command',
     variable: 'variable',
@@ -75,15 +80,7 @@ function getCurrentLine(text, cursor) {
 }
 
 function getCurrentWord(linePrefix) {
-    const match = String(linePrefix || '').match(/[A-Za-z_][A-Za-z0-9_]*$/);
-    if (!match) {
-        return { word: '', start: linePrefix.length, end: linePrefix.length };
-    }
-    return {
-        word: match[0],
-        start: match.index,
-        end: linePrefix.length
-    };
+    return getTrailingStataIdentifier(linePrefix);
 }
 
 function scanStructure(text) {
@@ -154,7 +151,9 @@ function getOpenCallContexts(text, cursor) {
         if (char === '/' && source[i + 1] === '/') break;
 
         if (char === '(') {
-            const nameMatch = source.slice(0, i).match(/([A-Za-z_][A-Za-z0-9_]*)\s*$/);
+            const nameMatch = source.slice(0, i).match(
+                new RegExp(`(${STATA_IDENTIFIER_BODY})\\s*$`, 'u')
+            );
             stack.push({
                 name: nameMatch ? nameMatch[1].toLowerCase() : '',
                 contentStart: i + 1,
@@ -425,6 +424,26 @@ function getCompletionSortText(candidate) {
     return `${kindPriority}:${String(score).padStart(9, '0')}:${label}`;
 }
 
+function getCompletionFilterText(candidate) {
+    const label = String(candidate && candidate.label || '');
+    const matchIndexes = candidate && Array.isArray(candidate.matchIndexes)
+        ? candidate.matchIndexes
+        : [];
+    if (!label || !matchIndexes.length) return label;
+
+    // VS Code performs another fuzzy-filtering pass after the provider returns.
+    // Its scorer favors word boundaries and can otherwise discard valid shared
+    // matches such as `ri -> price` or `变量 -> 这是一个变量`. Preserve the
+    // matched characters at their original offsets and turn every skipped
+    // character into a boundary so native highlighting still maps to the label.
+    const matched = new Set(matchIndexes);
+    let filterText = '';
+    for (let index = 0; index < label.length; index++) {
+        filterText += matched.has(index) ? label[index] : '_';
+    }
+    return filterText;
+}
+
 module.exports = {
     COMPLETION_TYPES,
     COMPLETION_MATCH_TYPES,
@@ -432,5 +451,6 @@ module.exports = {
     analyzeCompletionContext,
     matchCompletionLabel,
     selectCompletionCandidates,
-    getCompletionSortText
+    getCompletionSortText,
+    getCompletionFilterText
 };
