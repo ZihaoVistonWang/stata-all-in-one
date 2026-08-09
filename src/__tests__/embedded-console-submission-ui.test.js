@@ -60,6 +60,16 @@ test('renders a five-line collapsible input cell with one shared content baselin
     assert.equal(panelSource.includes("chevron.textContent = expanded ? '⌃' : '⌄'"), false);
 });
 
+test('highlights only matched autocomplete characters with safe DOM text', () => {
+    assert.match(panelSource, /\.autocomplete-label-match\s*\{[\s\S]*--vscode-editorSuggestWidget-highlightForeground/);
+    assert.equal(panelSource.includes('function appendAutocompleteLabel(container, label, matchIndexes)'), true);
+    assert.equal(panelSource.includes('new Set(Array.isArray(matchIndexes) ? matchIndexes : [])'), true);
+    assert.equal(panelSource.includes("span.className = 'autocomplete-label-match'"), true);
+    assert.equal(panelSource.includes('span.textContent = chunk'), true);
+    assert.equal(panelSource.includes('appendAutocompleteLabel(text, label, m.matchIndexes)'), true);
+    assert.equal(panelSource.includes('text.innerHTML = label'), false);
+});
+
 test('shows compact run navigation on the right with transparent highlighted previews', () => {
     assert.equal(panelSource.includes('const RUN_NAV_ENABLED = true;'), true);
     assert.equal(panelSource.includes('if (!RUN_NAV_ENABLED)'), true);

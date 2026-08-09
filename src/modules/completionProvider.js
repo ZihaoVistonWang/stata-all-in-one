@@ -273,6 +273,9 @@ function createCompletionProvider() {
                 // VS Code applies its own sorting after the provider returns.
                 // Keep variables ahead of every other candidate category.
                 item.sortText = getCompletionSortText(candidate);
+                // Let VS Code's native suggest widget filter and highlight the
+                // same label that the shared fuzzy matcher selected.
+                item.filterText = candidate.label;
                 item.range = range;
                 if (candidate.kind === 'var') item.detail = 'Variable';
                 if (candidate.kind === 'opt') item.detail = 'Stata option';

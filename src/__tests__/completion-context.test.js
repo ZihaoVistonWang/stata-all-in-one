@@ -2,7 +2,10 @@ const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 const {
     COMPLETION_TYPES,
+    COMPLETION_MATCH_TYPES,
+    MAX_COMPLETION_CANDIDATES,
     analyzeCompletionContext,
+    matchCompletionLabel,
     selectCompletionCandidates,
     getCompletionSortText
 } = require('../modules/completionContext');
@@ -30,21 +33,21 @@ describe('completion context', () => {
 
     it('recognizes a command after a known prefix', () => {
         assert.strictEqual(analyze('capture re').type, COMPLETION_TYPES.command);
-        assert.deepStrictEqual(labels('capture re'), ['reg', 'replace']);
+        assert.deepStrictEqual(labels('capture re'), ['reg', 'replace', 'predict', 'foreach']);
     });
 
     it('narrows known command arguments to variables', () => {
         assert.strictEqual(analyze('reg y fo').type, COMPLETION_TYPES.variable);
-        assert.deepStrictEqual(labels('reg y fo'), ['foreign', 'foo']);
+        assert.deepStrictEqual(labels('reg y fo'), ['foo', 'foreign']);
         assert.strictEqual(analyze('reghdfe y fo').type, COMPLETION_TYPES.variable);
-        assert.deepStrictEqual(labels('reghdfe y fo'), ['foreign', 'foo']);
+        assert.deepStrictEqual(labels('reghdfe y fo'), ['foo', 'foreign']);
         assert.deepStrictEqual(labels('reghdfe y p'), ['price']);
     });
 
     it('offers variables and functions in an if expression', () => {
         const context = analyze('reg y if fo');
         assert.strictEqual(context.type, COMPLETION_TYPES.expression);
-        assert.deepStrictEqual(labels('reg y if fo'), ['foreign', 'foo']);
+        assert.deepStrictEqual(labels('reg y if fo'), ['foo', 'foreign', 'floor']);
     });
 
     it('offers functions as well as variables inside expressions', () => {
@@ -55,15 +58,15 @@ describe('completion context', () => {
 
     it('narrows a top-level comma position to options', () => {
         assert.strictEqual(analyze('reg y, ro').type, COMPLETION_TYPES.option);
-        assert.deepStrictEqual(labels('reg y, ro'), ['robust', 'row']);
+        assert.deepStrictEqual(labels('reg y, ro'), ['row', 'robust']);
     });
 
     it('narrows variable-valued option arguments to variables', () => {
         assert.strictEqual(analyze('reghdfe y x, absorb(fo').type, COMPLETION_TYPES.variable);
-        assert.deepStrictEqual(labels('reghdfe y x, absorb(fo'), ['foreign', 'foo']);
+        assert.deepStrictEqual(labels('reghdfe y x, absorb(fo'), ['foo', 'foreign']);
         assert.deepStrictEqual(labels('reghdfe y x, absorb(p'), ['price']);
         assert.strictEqual(analyze('reghdfe y x, vce(cluster fo').type, COMPLETION_TYPES.variable);
-        assert.deepStrictEqual(labels('reghdfe y x, vce(cluster fo'), ['foreign', 'foo']);
+        assert.deepStrictEqual(labels('reghdfe y x, vce(cluster fo'), ['foo', 'foreign']);
         assert.strictEqual(analyze('reghdfe y x, absorb(country##c.(fo').type, COMPLETION_TYPES.variable);
     });
 
@@ -74,20 +77,20 @@ describe('completion context', () => {
     it('falls back to all types for an unknown command', () => {
         const context = analyze('mystery f');
         assert.strictEqual(context.type, COMPLETION_TYPES.all);
-        assert.deepStrictEqual(labels('mystery f'), ['foreign', 'foo', 'format', 'foreach', 'floor']);
+        assert.deepStrictEqual(labels('mystery f'), ['foo', 'foreign', 'format', 'foreach', 'floor']);
         assert.strictEqual(analyze('mystery_command fo').type, COMPLETION_TYPES.all);
     });
 
     it('falls back to all types when an option expression is nested', () => {
         const context = analyze('reg y, vce(ro');
         assert.strictEqual(context.type, COMPLETION_TYPES.all);
-        assert.deepStrictEqual(labels('reg y, vce(ro'), ['round', 'robust', 'row']);
+        assert.deepStrictEqual(labels('reg y, vce(ro'), ['round', 'row', 'robust']);
     });
 
     it('falls back to all types for an indented line start', () => {
         const context = analyze('    fo');
         assert.strictEqual(context.type, COMPLETION_TYPES.all);
-        assert.deepStrictEqual(labels('    fo'), ['foreign', 'foo', 'format', 'foreach']);
+        assert.deepStrictEqual(labels('    fo'), ['foo', 'foreign', 'format', 'foreach', 'floor']);
     });
 
     it('returns an absolute replacement offset for multiline Console input', () => {
@@ -235,11 +238,11 @@ describe('completion context matrix', () => {
 
 describe('completion candidate category filtering', () => {
     const cases = [
-        ['re', ['reg', 'replace']],
+        ['re', ['reg', 'replace', 'predict', 'foreach']],
         ['reghdfe y p', ['price']],
         ['reghdfe y, absorb(p', ['price']],
         ['regress y if p', ['price', 'poisson']],
-        ['regress y, ro', ['robust', 'row']],
+        ['regress y, ro', ['row', 'robust']],
         ['mystery p', ['price', 'predict', 'poisson', 'percent']]
     ];
 
@@ -259,5 +262,82 @@ describe('completion candidate category filtering', () => {
             ['var', 'cmd', 'fn', 'opt']
         );
         assert.strictEqual(vscodeSorted[0].label, 'price');
+    });
+});
+
+describe('completion fuzzy matching', () => {
+    it('matches non-contiguous characters and returns original label indexes', () => {
+        const match = matchCompletionLabel('a_list', 'alst');
+        assert.deepStrictEqual(match.matchIndexes, [0, 2, 4, 5]);
+        assert.strictEqual(match.matchType, COMPLETION_MATCH_TYPES.fuzzy);
+
+        const pandas = matchCompletionLabel('pandas', 'pada');
+        assert.deepStrictEqual(pandas.matchIndexes, [0, 1, 3, 4]);
+        assert.strictEqual(pandas.matchType, COMPLETION_MATCH_TYPES.fuzzy);
+    });
+
+    it('matches case-insensitively and recognizes exact and normalized prefixes', () => {
+        assert.strictEqual(
+            matchCompletionLabel('A_LIST', 'a_list').matchType,
+            COMPLETION_MATCH_TYPES.exact
+        );
+        const normalized = matchCompletionLabel('a_list', 'alist');
+        assert.strictEqual(normalized.matchType, COMPLETION_MATCH_TYPES.normalizedPrefix);
+        assert.deepStrictEqual(normalized.matchIndexes, [0, 2, 3, 4, 5]);
+    });
+
+    it('does not use broad fuzzy matching for one character', () => {
+        assert.strictEqual(matchCompletionLabel('price', 'r'), null);
+        assert.strictEqual(matchCompletionLabel('revenue', 'r').matchType, COMPLETION_MATCH_TYPES.prefix);
+    });
+
+    it('supports fuzzy matching in every context-eligible candidate category', () => {
+        const fuzzyPools = {
+            commands: ['regress'],
+            variables: ['a_list'],
+            functions: ['parsedate'],
+            options: ['allbaselevels']
+        };
+        assert.deepStrictEqual(
+            selectCompletionCandidates(analyze('rgs'), fuzzyPools).map(item => item.label),
+            ['regress']
+        );
+        assert.deepStrictEqual(
+            selectCompletionCandidates(analyze('reg y alst'), fuzzyPools).map(item => item.label),
+            ['a_list']
+        );
+        assert.deepStrictEqual(
+            selectCompletionCandidates(analyze('display pada'), fuzzyPools).map(item => item.label),
+            ['parsedate']
+        );
+        assert.deepStrictEqual(
+            selectCompletionCandidates(analyze('reg y, ablv'), fuzzyPools).map(item => item.label),
+            ['allbaselevels']
+        );
+    });
+
+    it('deduplicates case-insensitively and sorts deterministically', () => {
+        const fuzzyPools = {
+            commands: [],
+            variables: ['a_long_list', 'A_LIST', 'a_list', 'another_list'],
+            functions: [],
+            options: []
+        };
+        const candidates = selectCompletionCandidates(analyze('reg y alst'), fuzzyPools);
+        assert.deepStrictEqual(
+            candidates.map(item => item.label),
+            ['A_LIST', 'a_long_list', 'another_list']
+        );
+    });
+
+    it('always caps the returned candidate count', () => {
+        const variables = Array.from(
+            { length: MAX_COMPLETION_CANDIDATES + 50 },
+            (_value, index) => `a_${index}_list`
+        );
+        const candidates = selectCompletionCandidates(analyze('reg y alst'), {
+            commands: [], variables, functions: [], options: []
+        }, Infinity);
+        assert.strictEqual(candidates.length, MAX_COMPLETION_CANDIDATES);
     });
 });

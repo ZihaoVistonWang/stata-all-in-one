@@ -7,6 +7,31 @@ const COMPLETION_TYPES = Object.freeze({
     none: 'none'
 });
 
+const COMPLETION_MATCH_TYPES = Object.freeze({
+    exact: 'exact',
+    prefix: 'prefix',
+    normalizedPrefix: 'normalized-prefix',
+    fuzzy: 'fuzzy'
+});
+
+const MAX_COMPLETION_CANDIDATES = 100;
+const MAX_SEARCH_TEXT_CACHE_SIZE = 20000;
+const searchTextCache = new Map();
+
+const CANDIDATE_KIND_PRIORITY = Object.freeze({
+    var: 0,
+    cmd: 1,
+    fn: 2,
+    opt: 3
+});
+
+const MATCH_TYPE_PRIORITY = Object.freeze({
+    [COMPLETION_MATCH_TYPES.exact]: 0,
+    [COMPLETION_MATCH_TYPES.prefix]: 1,
+    [COMPLETION_MATCH_TYPES.normalizedPrefix]: 2,
+    [COMPLETION_MATCH_TYPES.fuzzy]: 3
+});
+
 const SIMPLE_COMMAND_PREFIXES = new Set([
     'capture', 'cap', 'quietly', 'qui', 'noisily', 'noi'
 ]);
@@ -260,10 +285,99 @@ function analyzeCompletionContext(text, cursor) {
     return result(COMPLETION_TYPES.all);
 }
 
-function selectCompletionCandidates(context, pools, limit = Infinity) {
+function createSearchText(label) {
+    const lower = label.toLowerCase();
+    let compact = '';
+    const compactIndexes = [];
+    for (let i = 0; i < lower.length; i++) {
+        if (lower[i] === '_') continue;
+        compact += lower[i];
+        compactIndexes.push(i);
+    }
+    return { lower, compact, compactIndexes };
+}
+
+function getSearchText(label) {
+    const cached = searchTextCache.get(label);
+    if (cached) return cached;
+    const searchText = createSearchText(label);
+    if (searchTextCache.size < MAX_SEARCH_TEXT_CACHE_SIZE) {
+        searchTextCache.set(label, searchText);
+    }
+    return searchText;
+}
+
+function contiguousIndexes(length) {
+    return Array.from({ length }, (_value, index) => index);
+}
+
+function createMatch(label, matchIndexes, matchType, queryLength) {
+    const firstIndex = matchIndexes[0] || 0;
+    const lastIndex = matchIndexes[matchIndexes.length - 1] || firstIndex;
+    const skippedCharacters = Math.max(0, lastIndex - firstIndex - queryLength + 1);
+    const score = MATCH_TYPE_PRIORITY[matchType] * 1000000
+        + skippedCharacters * 10000
+        + firstIndex * 100
+        + Math.min(label.length, 99);
+    return { matchIndexes, matchType, score };
+}
+
+function matchCompletionLabel(label, prefix) {
+    const query = String(prefix || '').toLowerCase();
+    if (!query) return null;
+
+    const searchText = getSearchText(label);
+    if (searchText.lower === query) {
+        return createMatch(label, contiguousIndexes(query.length), COMPLETION_MATCH_TYPES.exact, query.length);
+    }
+    if (searchText.lower.startsWith(query)) {
+        return createMatch(label, contiguousIndexes(query.length), COMPLETION_MATCH_TYPES.prefix, query.length);
+    }
+
+    // One-character fuzzy matches create too much noise and too many results.
+    if (query.length < 2) return null;
+
+    if (!query.includes('_') && searchText.compact.startsWith(query)) {
+        return createMatch(
+            label,
+            searchText.compactIndexes.slice(0, query.length),
+            COMPLETION_MATCH_TYPES.normalizedPrefix,
+            query.length
+        );
+    }
+
+    const matchIndexes = [];
+    let queryIndex = 0;
+    for (let labelIndex = 0; labelIndex < searchText.lower.length && queryIndex < query.length; labelIndex++) {
+        if (searchText.lower[labelIndex] === query[queryIndex]) {
+            matchIndexes.push(labelIndex);
+            queryIndex += 1;
+        }
+    }
+    if (queryIndex !== query.length) return null;
+    return createMatch(label, matchIndexes, COMPLETION_MATCH_TYPES.fuzzy, query.length);
+}
+
+function compareCompletionCandidates(left, right) {
+    const kindDifference = (CANDIDATE_KIND_PRIORITY[left.kind] ?? 9)
+        - (CANDIDATE_KIND_PRIORITY[right.kind] ?? 9);
+    if (kindDifference !== 0) return kindDifference;
+    if (left.score !== right.score) return left.score - right.score;
+    if (left.label.length !== right.label.length) return left.label.length - right.label.length;
+    const leftKey = getSearchText(left.label).lower;
+    const rightKey = getSearchText(right.label).lower;
+    if (leftKey < rightKey) return -1;
+    if (leftKey > rightKey) return 1;
+    return 0;
+}
+
+function selectCompletionCandidates(context, pools, limit = MAX_COMPLETION_CANDIDATES) {
     if (!context || context.type === COMPLETION_TYPES.none) return [];
     const prefix = String(context.prefix || '').toLowerCase();
     if (!prefix) return [];
+    const requestedLimit = Number.isFinite(limit) ? Math.max(0, Math.floor(limit)) : MAX_COMPLETION_CANDIDATES;
+    const safeLimit = Math.min(requestedLimit, MAX_COMPLETION_CANDIDATES);
+    if (safeLimit === 0) return [];
 
     let sources = [];
     if (context.type === COMPLETION_TYPES.command) {
@@ -292,30 +406,31 @@ function selectCompletionCandidates(context, pools, limit = Infinity) {
         for (const rawValue of Array.isArray(source.values) ? source.values : []) {
             const label = String(rawValue || '').trim();
             const key = label.toLowerCase();
-            if (!label || !key.startsWith(prefix) || seen.has(key)) continue;
+            if (!label || seen.has(key)) continue;
+            const match = matchCompletionLabel(label, prefix);
+            if (!match) continue;
             seen.add(key);
-            result.push({ label, kind: source.kind });
-            if (result.length >= limit) return result;
+            result.push({ label, kind: source.kind, ...match });
         }
     }
-    return result;
+    result.sort(compareCompletionCandidates);
+    return result.slice(0, safeLimit);
 }
 
 function getCompletionSortText(candidate) {
-    const priority = {
-        var: '0',
-        cmd: '1',
-        fn: '2',
-        opt: '3'
-    };
     const kind = candidate && candidate.kind;
     const label = String(candidate && candidate.label || '').toLowerCase();
-    return `${priority[kind] || '9'}:${label}`;
+    const kindPriority = CANDIDATE_KIND_PRIORITY[kind] ?? 9;
+    const score = Number.isFinite(candidate && candidate.score) ? candidate.score : 999999999;
+    return `${kindPriority}:${String(score).padStart(9, '0')}:${label}`;
 }
 
 module.exports = {
     COMPLETION_TYPES,
+    COMPLETION_MATCH_TYPES,
+    MAX_COMPLETION_CANDIDATES,
     analyzeCompletionContext,
+    matchCompletionLabel,
     selectCompletionCandidates,
     getCompletionSortText
 };

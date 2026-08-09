@@ -2133,6 +2133,10 @@ function getWebviewHtml(webview) {
             background: var(--vscode-list-activeSelectionBackground);
             color: var(--vscode-list-activeSelectionForeground);
         }
+        .autocomplete-label-match {
+            color: var(--vscode-editorSuggestWidget-highlightForeground, var(--vscode-list-highlightForeground));
+            font-weight: 600;
+        }
         .autocomplete-icon {
             font-family: "codicon";
             font-size: 16px;
@@ -2644,6 +2648,26 @@ function getWebviewHtml(webview) {
             if (kind === 'fn')  return 'fn-icon';
             return 'cmd-icon';
         }
+        function appendAutocompleteLabel(container, label, matchIndexes) {
+            var matched = new Set(Array.isArray(matchIndexes) ? matchIndexes : []);
+            var chunk = '';
+            var chunkMatched = false;
+            function appendChunk() {
+                if (!chunk) return;
+                var span = document.createElement('span');
+                if (chunkMatched) span.className = 'autocomplete-label-match';
+                span.textContent = chunk;
+                container.appendChild(span);
+                chunk = '';
+            }
+            for (var index = 0; index < label.length; index++) {
+                var isMatched = matched.has(index);
+                if (chunk && isMatched !== chunkMatched) appendChunk();
+                chunkMatched = isMatched;
+                chunk += label[index];
+            }
+            appendChunk();
+        }
         function showAutocomplete(matches, wordStart) {
             if (!matches.length) {
                 hideAutocomplete();
@@ -2662,7 +2686,7 @@ function getWebviewHtml(webview) {
                 item.appendChild(icon);
                 var text = document.createElement('span');
                 text.className = 'autocomplete-label';
-                text.textContent = label;
+                appendAutocompleteLabel(text, label, m.matchIndexes);
                 item.appendChild(text);
                 item.addEventListener('mousedown', function (e) {
                     e.preventDefault();
