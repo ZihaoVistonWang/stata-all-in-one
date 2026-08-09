@@ -71,6 +71,16 @@ test('highlights only matched autocomplete characters with safe DOM text', () =>
     assert.equal(panelSource.includes('text.innerHTML = label'), false);
 });
 
+test('lets the command composer collapse to its label without persisting the temporary height', () => {
+    assert.match(panelSource, /\.composer\s*\{[\s\S]*box-sizing:\s*border-box;[\s\S]*height:\s*94px/);
+    assert.match(panelSource, /\.composer\.is-collapsed \.composer-input-wrapper\s*\{[\s\S]*display:\s*none/);
+    assert.match(panelSource, /\.composer-input-wrapper\s*\{[\s\S]*min-height:\s*0/);
+    assert.equal(panelSource.includes('const COLLAPSED_COMPOSER_HEIGHT = 30;'), true);
+    assert.equal(panelSource.includes('const COLLAPSE_SNAP_HEIGHT = 48;'), true);
+    assert.equal(panelSource.includes("composer.classList.toggle('is-collapsed', collapsed)"), true);
+    assert.equal(panelSource.includes('vscode.setState'), false);
+});
+
 test('shows compact run navigation on the right with transparent highlighted previews', () => {
     assert.equal(panelSource.includes('const RUN_NAV_ENABLED = true;'), true);
     assert.equal(panelSource.includes('if (!RUN_NAV_ENABLED)'), true);

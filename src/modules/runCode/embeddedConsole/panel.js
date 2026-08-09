@@ -1979,11 +1979,19 @@ function getWebviewHtml(webview) {
         .composer {
             background: color-mix(in srgb, var(--vscode-editor-background) 92%, var(--vscode-sideBar-background));
             padding: 2px 0 8px;
+            box-sizing: border-box;
             display: flex;
             flex-direction: column;
             gap: 4px;
             flex-shrink: 0;
-            height: 84px;
+            height: 94px;
+        }
+        .composer.is-collapsed {
+            gap: 0;
+        }
+        .composer.is-collapsed .composer-help-btn,
+        .composer.is-collapsed .composer-input-wrapper {
+            display: none;
         }
         .composer-label {
             display: flex;
@@ -2044,7 +2052,7 @@ function getWebviewHtml(webview) {
             width: 100%;
             position: relative;
             flex: 1;
-            min-height: 42px;
+            min-height: 0;
         }
         .composer-input-wrapper > * {
             grid-area: 1 / 1;
@@ -4414,10 +4422,18 @@ function getWebviewHtml(webview) {
             inputHighlight.scrollLeft = input.scrollLeft;
         });
 
-        const MIN_COMPOSER_HEIGHT = 84;
+        const COLLAPSED_COMPOSER_HEIGHT = 30;
+        const COLLAPSE_SNAP_HEIGHT = 48;
         let isResizing = false;
         let resizeStartY = 0;
         let resizeStartHeight = 0;
+
+        function setComposerHeight(height) {
+            const collapsed = height <= COLLAPSE_SNAP_HEIGHT;
+            const nextHeight = collapsed ? COLLAPSED_COMPOSER_HEIGHT : height;
+            composer.classList.toggle('is-collapsed', collapsed);
+            composer.style.height = nextHeight + 'px';
+        }
 
         resizeHandle.addEventListener('mousedown', (e) => {
             isResizing = true;
@@ -4433,10 +4449,10 @@ function getWebviewHtml(webview) {
             if (!isResizing) return;
             const deltaY = e.clientY - resizeStartY;
             let newHeight = resizeStartHeight - deltaY;
-            newHeight = Math.max(MIN_COMPOSER_HEIGHT, newHeight);
+            newHeight = Math.max(COLLAPSED_COMPOSER_HEIGHT, newHeight);
             const maxHeight = document.body.offsetHeight - 60;
             newHeight = Math.min(maxHeight, newHeight);
-            composer.style.height = newHeight + 'px';
+            setComposerHeight(newHeight);
             positionJumpToBottomButton();
         });
 
