@@ -73,7 +73,7 @@ const StataBuiltinCommands = [
     'include', 'infile', 'infix', 'input', 'insheet', 'inspect', 'integ',
     'intreg', 'ipolate', 'iqreg', 'irf', 'isid', 'istdize', 'ivprobit',
     'ivreg', 'jacknife', 'jknife', 'joinby', 'kap', 'kappa', 'kdensity',
-    'ksmirnov', 'ktau', 'kwallis', 'labelbook', 'ladder', 'levelsof',
+    'ksmirnov', 'ktau', 'kwallis', 'label', 'labelbook', 'ladder', 'levelsof',
     'leverage', 'lfit', 'lincom', 'linktest', 'list', 'llogistic', 'lnormal',
     'loadingplot', 'log', 'logistic', 'logit', 'lookfor', 'lookup', 'lowess',
     'lreg', 'lroc', 'lrtest', 'ltable', 'lvr2plot', 'rvpplot', 'manova',
