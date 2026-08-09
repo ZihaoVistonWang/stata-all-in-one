@@ -26,6 +26,26 @@ describe('Data Viewer filter autocomplete', () => {
         assert.deepStrictEqual(candidates[0].matchIndexes, [0, 1]);
     });
 
+    it('allows one Han character to match inside a variable name', () => {
+        const candidates = selectDataViewerCandidates('变', ['这是一个变量']);
+        assert.deepStrictEqual(candidates.map(candidate => candidate.label), ['这是一个变量']);
+        assert.deepStrictEqual(candidates[0].matchIndexes, [4]);
+    });
+
+    it('matches Chinese variable names by full pinyin without enabling initials', () => {
+        const candidates = selectDataViewerCandidates('bianlia', ['这是一个变量']);
+        assert.deepStrictEqual(candidates.map(candidate => candidate.label), ['这是一个变量']);
+        assert.deepStrictEqual(candidates[0].matchIndexes, [4, 5]);
+        assert.strictEqual(candidates[0].matchType, 'pinyin');
+        assert.deepStrictEqual(selectDataViewerCandidates('zsygbl', ['这是一个变量']), []);
+    });
+
+    it('supports ordered pinyin fuzziness across Chinese characters', () => {
+        const candidates = selectDataViewerCandidates('bil', ['这是一个变量']);
+        assert.deepStrictEqual(candidates.map(candidate => candidate.label), ['这是一个变量']);
+        assert.deepStrictEqual(candidates[0].matchIndexes, [4, 5]);
+    });
+
     it('keeps variables ahead of filter keywords in mixed results', () => {
         const candidates = selectDataViewerCandidates('in', ['income', 'industry']);
         assert.deepStrictEqual(

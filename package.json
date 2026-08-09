@@ -1044,6 +1044,7 @@
     "url": "https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md"
   },
   "dependencies": {
+    "pinyin-pro": "3.28.2",
     "vscode-oniguruma": "^2.0.1",
     "vscode-textmate": "^9.3.2"
   },

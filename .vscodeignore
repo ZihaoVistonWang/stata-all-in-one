@@ -16,6 +16,9 @@ scripts/*.backup*
 node_modules/node-gyp/**
 node_modules/node-addon-api/**
 node_modules/@types/**
+node_modules/pinyin-pro/dist/index.mjs
+node_modules/pinyin-pro/types/**
+node_modules/pinyin-pro/README.md
 native/stata_bridge/build/**
 CHANGELOG_prerelease.md
 SHORTCUT.md

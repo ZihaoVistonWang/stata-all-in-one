@@ -7,6 +7,7 @@ const vscode = require('vscode');
 const config = require('../utils/config');
 const variableSuggestions = require('./variableSuggestionService');
 const {
+    COMPLETION_TYPES,
     analyzeCompletionContext,
     selectCompletionCandidates,
     getCompletionSortText,
@@ -210,7 +211,10 @@ function createCompletionProvider() {
             );
 
             return candidates.map(candidate => {
-                const item = new vscode.CompletionItem(candidate.label, kindMap[candidate.kind]);
+                const item = new vscode.CompletionItem(
+                    candidate.displayLabel || candidate.label,
+                    kindMap[candidate.kind]
+                );
                 item.insertText = candidate.label;
                 // VS Code applies its own sorting after the provider returns.
                 // Keep variables ahead of every other candidate category.
@@ -274,6 +278,7 @@ function registerCompletionProvider(context) {
 
     context.subscriptions.push(disposable);
 
+    let suggestTriggerTimer;
     const unicodeTrigger = vscode.workspace.onDidChangeTextDocument(event => {
         const editor = vscode.window.activeTextEditor;
         if (!editor || !event || event.document !== editor.document || event.document.languageId !== 'stata') {
@@ -283,14 +288,52 @@ function registerCompletionProvider(context) {
             .map(change => String(change.text || ''))
             .join('');
         const lastCharacter = Array.from(insertedText).pop() || '';
-        if (!lastCharacter || /^[\x00-\x7F]$/.test(lastCharacter)
-            || !/[\p{L}\p{M}\p{N}_]/u.test(lastCharacter)) {
+        const isUnicodeIdentifierCharacter = !!lastCharacter
+            && !/^[\x00-\x7F]$/.test(lastCharacter)
+            && /[\p{L}\p{M}\p{N}_]/u.test(lastCharacter);
+        const isAsciiLetter = /^[A-Za-z]$/.test(lastCharacter);
+        if (!isUnicodeIdentifierCharacter && !isAsciiLetter) {
             return;
         }
-        vscode.commands.executeCommand('editor.action.triggerSuggest');
+
+        if (suggestTriggerTimer) clearTimeout(suggestTriggerTimer);
+        suggestTriggerTimer = setTimeout(() => {
+            const activeEditor = vscode.window.activeTextEditor;
+            if (!activeEditor || activeEditor.document !== event.document) return;
+
+            if (isAsciiLetter) {
+                const position = activeEditor.selection.active;
+                const linePrefix = activeEditor.document.getText(new vscode.Range(
+                    new vscode.Position(position.line, 0),
+                    position
+                ));
+                const completionContext = analyzeCompletionContext(linePrefix, linePrefix.length);
+                const hasPinyinQuery = /^[A-Za-z]{2,}$/.test(completionContext.prefix || '');
+                const permitsVariables = completionContext.type === COMPLETION_TYPES.variable
+                    || completionContext.type === COMPLETION_TYPES.expression
+                    || completionContext.type === COMPLETION_TYPES.all;
+                if (!hasPinyinQuery || !permitsVariables) return;
+                const hasHanVariable = variableSuggestions
+                    .getVariablesForCompletion(activeEditor.document)
+                    .some(variable => /\p{Script=Han}/u.test(variable));
+                if (!hasHanVariable) return;
+            }
+
+            // An open native suggest widget may keep filtering the stale item
+            // returned for `bi` without asking the provider again for `bian`.
+            // Close that session first so the displayed pinyin mapping always
+            // reflects the complete word currently in the editor.
+            vscode.commands.executeCommand('hideSuggestWidget').then(() => {
+                vscode.commands.executeCommand('editor.action.triggerSuggest');
+            });
+        }, 25);
     });
 
-    context.subscriptions.push(unicodeTrigger);
+    context.subscriptions.push(unicodeTrigger, {
+        dispose() {
+            if (suggestTriggerTimer) clearTimeout(suggestTriggerTimer);
+        }
+    });
 }
 
 module.exports = {

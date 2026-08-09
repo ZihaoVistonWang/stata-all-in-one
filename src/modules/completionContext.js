@@ -3,6 +3,15 @@ const {
     getTrailingStataIdentifier
 } = require('./stataIdentifier');
 
+let pinyinConverter;
+
+function getPinyinConverter() {
+    if (!pinyinConverter) {
+        pinyinConverter = require('pinyin-pro').pinyin;
+    }
+    return pinyinConverter;
+}
+
 const COMPLETION_TYPES = Object.freeze({
     command: 'command',
     variable: 'variable',
@@ -16,12 +25,14 @@ const COMPLETION_MATCH_TYPES = Object.freeze({
     exact: 'exact',
     prefix: 'prefix',
     normalizedPrefix: 'normalized-prefix',
-    fuzzy: 'fuzzy'
+    fuzzy: 'fuzzy',
+    pinyin: 'pinyin'
 });
 
 const MAX_COMPLETION_CANDIDATES = 100;
 const MAX_SEARCH_TEXT_CACHE_SIZE = 20000;
 const searchTextCache = new Map();
+const pinyinSearchTextCache = new Map();
 
 const CANDIDATE_KIND_PRIORITY = Object.freeze({
     var: 0,
@@ -34,7 +45,8 @@ const MATCH_TYPE_PRIORITY = Object.freeze({
     [COMPLETION_MATCH_TYPES.exact]: 0,
     [COMPLETION_MATCH_TYPES.prefix]: 1,
     [COMPLETION_MATCH_TYPES.normalizedPrefix]: 2,
-    [COMPLETION_MATCH_TYPES.fuzzy]: 3
+    [COMPLETION_MATCH_TYPES.fuzzy]: 3,
+    [COMPLETION_MATCH_TYPES.pinyin]: 4
 });
 
 const SIMPLE_COMMAND_PREFIXES = new Set([
@@ -306,6 +318,49 @@ function getSearchText(label) {
     return searchText;
 }
 
+function normalizePinyinSyllable(value) {
+    return String(value || '')
+        .toLowerCase()
+        .replace(/ü/g, 'v')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z]/g, '');
+}
+
+function createPinyinSearchText(label) {
+    const value = String(label || '');
+    if (!/\p{Script=Han}/u.test(value)) return null;
+
+    const characters = Array.from(value);
+    const syllables = getPinyinConverter()(value, { toneType: 'none', type: 'array' });
+    if (!Array.isArray(syllables) || syllables.length !== characters.length) return null;
+
+    let lower = '';
+    const labelIndexes = [];
+    let labelIndex = 0;
+    for (let index = 0; index < characters.length; index++) {
+        const character = characters[index];
+        const syllable = /\p{Script=Han}/u.test(character)
+            ? normalizePinyinSyllable(syllables[index])
+            : character.toLowerCase();
+        lower += syllable;
+        for (let syllableIndex = 0; syllableIndex < syllable.length; syllableIndex++) {
+            labelIndexes.push(labelIndex);
+        }
+        labelIndex += character.length;
+    }
+    return lower ? { lower, labelIndexes } : null;
+}
+
+function getPinyinSearchText(label) {
+    if (pinyinSearchTextCache.has(label)) return pinyinSearchTextCache.get(label);
+    const searchText = createPinyinSearchText(label);
+    if (pinyinSearchTextCache.size < MAX_SEARCH_TEXT_CACHE_SIZE) {
+        pinyinSearchTextCache.set(label, searchText);
+    }
+    return searchText;
+}
+
 function contiguousIndexes(length) {
     return Array.from({ length }, (_value, index) => index);
 }
@@ -333,8 +388,9 @@ function matchCompletionLabel(label, prefix) {
         return createMatch(label, contiguousIndexes(query.length), COMPLETION_MATCH_TYPES.prefix, query.length);
     }
 
-    // One-character fuzzy matches create too much noise and too many results.
-    if (query.length < 2) return null;
+    // One Latin character creates too much noise. A single Han character is
+    // already specific enough and should match anywhere in a variable name.
+    if (query.length < 2 && !/\p{Script=Han}/u.test(query)) return null;
 
     if (!query.includes('_') && searchText.compact.startsWith(query)) {
         return createMatch(
@@ -355,6 +411,64 @@ function matchCompletionLabel(label, prefix) {
     }
     if (queryIndex !== query.length) return null;
     return createMatch(label, matchIndexes, COMPLETION_MATCH_TYPES.fuzzy, query.length);
+}
+
+function matchPinyinCompletionLabel(label, prefix) {
+    const query = String(prefix || '').toLowerCase();
+    // Full-pinyin matching is deliberately limited to two or more ASCII
+    // letters. It does not implement initial-letter matching such as zsygbl.
+    if (query.length < 2 || !/^[a-z]+$/.test(query)) return null;
+
+    const searchText = getPinyinSearchText(label);
+    if (!searchText) return null;
+
+    const pinyinMatchIndexes = [];
+    const contiguousStart = searchText.lower.indexOf(query);
+    if (contiguousStart >= 0) {
+        for (let index = 0; index < query.length; index++) {
+            pinyinMatchIndexes.push(contiguousStart + index);
+        }
+    } else {
+        let queryIndex = 0;
+        for (let index = 0; index < searchText.lower.length && queryIndex < query.length; index++) {
+            if (searchText.lower[index] === query[queryIndex]) {
+                pinyinMatchIndexes.push(index);
+                queryIndex += 1;
+            }
+        }
+        if (queryIndex !== query.length) return null;
+
+        // Permit ordered pinyin fuzziness such as `bil -> bianliang`, while
+        // rejecting pure initial-letter queries such as `zsygbl`.
+        const matchesPerLabelIndex = new Map();
+        for (const pinyinIndex of pinyinMatchIndexes) {
+            const labelIndex = searchText.labelIndexes[pinyinIndex];
+            matchesPerLabelIndex.set(labelIndex, (matchesPerLabelIndex.get(labelIndex) || 0) + 1);
+        }
+        if (![...matchesPerLabelIndex.values()].some(count => count >= 2)) return null;
+    }
+
+    const matchIndexes = [];
+    for (const pinyinIndex of pinyinMatchIndexes) {
+        const labelIndex = searchText.labelIndexes[pinyinIndex];
+        if (matchIndexes[matchIndexes.length - 1] !== labelIndex) {
+            matchIndexes.push(labelIndex);
+        }
+    }
+    const matchedLabel = matchIndexes.map(index => label[index]).join('');
+    const displayLabel = `${label} · ${query} → ${matchedLabel}`;
+    const match = createMatch(label, matchIndexes, COMPLETION_MATCH_TYPES.pinyin, matchIndexes.length);
+    const pinyinStart = pinyinMatchIndexes[0];
+    const pinyinEnd = pinyinMatchIndexes[pinyinMatchIndexes.length - 1];
+    match.score += Math.max(0, pinyinEnd - pinyinStart - query.length + 1) * 10000;
+    return {
+        ...match,
+        // The native widget cannot map Latin filter positions onto Han glyphs.
+        // Show the matched pinyin and its Han target so VS Code can highlight
+        // the Latin fragment while insertion continues to use the real label.
+        displayLabel,
+        filterText: displayLabel
+    };
 }
 
 function compareCompletionCandidates(left, right) {
@@ -406,7 +520,8 @@ function selectCompletionCandidates(context, pools, limit = MAX_COMPLETION_CANDI
             const label = String(rawValue || '').trim();
             const key = label.toLowerCase();
             if (!label || seen.has(key)) continue;
-            const match = matchCompletionLabel(label, prefix);
+            const match = matchCompletionLabel(label, prefix)
+                || (source.kind === 'var' ? matchPinyinCompletionLabel(label, prefix) : null);
             if (!match) continue;
             seen.add(key);
             result.push({ label, kind: source.kind, ...match });
@@ -429,6 +544,9 @@ function getCompletionFilterText(candidate) {
     const matchIndexes = candidate && Array.isArray(candidate.matchIndexes)
         ? candidate.matchIndexes
         : [];
+    if (candidate && candidate.matchType === COMPLETION_MATCH_TYPES.pinyin) {
+        return String(candidate.filterText || label);
+    }
     if (!label || !matchIndexes.length) return label;
 
     // VS Code performs another fuzzy-filtering pass after the provider returns.
@@ -450,6 +568,7 @@ module.exports = {
     MAX_COMPLETION_CANDIDATES,
     analyzeCompletionContext,
     matchCompletionLabel,
+    matchPinyinCompletionLabel,
     selectCompletionCandidates,
     getCompletionSortText,
     getCompletionFilterText
