@@ -9,7 +9,7 @@ Stata All in One
 </h1>
 
 <p align="center">
-   一个为 Stata 用户量身打造的 <b>VS Code</b> 扩展
+   一个协同的Stata生产力环境。
 </p>
 
 <p align="center">
