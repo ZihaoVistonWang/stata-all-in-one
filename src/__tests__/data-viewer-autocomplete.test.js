@@ -4,7 +4,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 const {
     mergeVariableLists,
-    selectDataViewerCandidates
+    selectDataViewerCandidates,
+    selectVariableTableCandidates,
+    expandVariableTableVarlist
 } = require('../modules/runCode/embeddedConsole/dataViewer/autocomplete');
 
 const panelSource = fs.readFileSync(
@@ -46,6 +48,30 @@ describe('Data Viewer filter autocomplete', () => {
         assert.deepStrictEqual(candidates[0].matchIndexes, [4, 5]);
     });
 
+    it('filters the variables table with the same matcher and no data keywords', () => {
+        const candidates = selectVariableTableCandidates('bil', ['这是一个变量', 'billing']);
+        assert.deepStrictEqual(
+            candidates.map(candidate => [candidate.label, candidate.kind]),
+            [['billing', 'var'], ['这是一个变量', 'var']]
+        );
+        assert.deepStrictEqual(candidates[1].matchIndexes, [4, 5]);
+        assert.deepStrictEqual(selectVariableTableCandidates('in', []), []);
+    });
+
+    it('expands a Stata variable list for the variables table', () => {
+        const variables = ['price', 'weight', 'length', 'gear_ratio', '这是一个变量'];
+        assert.deepStrictEqual(
+            expandVariableTableVarlist('price length gear*', variables),
+            ['price', 'length', 'gear_ratio']
+        );
+        assert.deepStrictEqual(
+            expandVariableTableVarlist('weight-gear_ratio', variables),
+            ['weight', 'length', 'gear_ratio']
+        );
+        assert.deepStrictEqual(expandVariableTableVarlist('_all', variables), variables);
+        assert.deepStrictEqual(expandVariableTableVarlist('price if', variables), []);
+    });
+
     it('keeps variables ahead of filter keywords in mixed results', () => {
         const candidates = selectDataViewerCandidates('in', ['income', 'industry']);
         assert.deepStrictEqual(
@@ -83,5 +109,15 @@ describe('Data Viewer filter autocomplete', () => {
         assert.match(panelSource, /appendFilterAutocompleteLabel\(\s*text,\s*label/);
         assert.match(panelSource, /span\.textContent = label\.slice\(start, end\)/);
         assert.doesNotMatch(panelSource, /innerHTML\s*=\s*label/);
+    });
+
+    it('uses variable-only autocomplete and applies a Stata varlist on Enter', () => {
+        assert.match(panelSource, /type: 'variableTableAutocomplete'/);
+        assert.match(panelSource, /message\.type === 'variableTableAutocompleteResult'/);
+        assert.match(panelSource, /message\.requestId === variableAutocompleteRequestId/);
+        assert.match(panelSource, /type: 'variableTableApply'/);
+        assert.match(panelSource, /message\.type === 'variableTableApplyResult'/);
+        assert.match(panelSource, /message\.requestId === variableApplyRequestId/);
+        assert.match(panelSource, /dataViewerVariableFilterPlaceholder/);
     });
 });

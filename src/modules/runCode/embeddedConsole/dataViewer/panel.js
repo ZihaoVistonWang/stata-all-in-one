@@ -6,7 +6,9 @@ const { StataTerminalRenderer, getWebviewThemeVariables } = require('../renderer
 const variableSuggestions = require('../../../variableSuggestionService');
 const {
     mergeVariableLists: mergeAutocompleteVariables,
-    selectDataViewerCandidates
+    selectDataViewerCandidates,
+    selectVariableTableCandidates,
+    expandVariableTableVarlist
 } = require('./autocomplete');
 
 const PANEL_VIEW_TYPE = 'stata-all-in-one.dataViewer';
@@ -492,12 +494,6 @@ function getDataViewerHtml(webview) {
         body.loading .loading-state { display: flex; }
         body.loading .empty-state { display: none; }
         body.loading .tab-content table { display: none; }
-        body:not(.data-tab-active) #filter-btn {
-            display: none;
-        }
-        body:not(.data-tab-active) .filter-row {
-            display: none;
-        }
         .cell-overflow-tooltip {
             position: fixed;
             z-index: 1000;
@@ -554,6 +550,7 @@ function getDataViewerHtml(webview) {
         <div class="loading-state" id="loading-msg">${escHtml(msg('dataViewerLoading'))}</div>
         <div class="tab-content active" id="content-vars">
             <div class="empty-state" id="empty-vars">${escHtml(msg('dataViewerNoDataset'))}</div>
+            <div class="empty-state" id="empty-vars-filter" style="display:none">${escHtml(msg('dataViewerNoVariableMatches'))}</div>
             <table id="table-vars" style="display:none">
                 <thead><tr><th>${escHtml(msg('dataViewerColumnName'))}</th><th>${escHtml(msg('dataViewerColumnType'))}</th><th>${escHtml(msg('dataViewerColumnFormat'))}</th><th>${escHtml(msg('dataViewerColumnLabel'))}</th></tr></thead>
                 <tbody></tbody>
@@ -590,6 +587,16 @@ function getDataViewerHtml(webview) {
         var filterAutocompleteIndex = -1;
         var filterAutocompleteVisible = false;
         var filterAutocompleteRequestId = 0;
+        var variableAutocompleteRequestId = 0;
+        var variableApplyRequestId = 0;
+        var dataFilterText = '';
+        var variableFilterText = String(webviewState.variableFilterText || '');
+        var filterOpenByTab = {
+            vars: !!webviewState.variableFilterOpen,
+            data: false
+        };
+        var allVarsCache = [];
+        filterInput.value = variableFilterText;
 
         document.querySelectorAll('.tab').forEach(function (tab) {
             tab.addEventListener('click', function () {
@@ -603,6 +610,8 @@ function getDataViewerHtml(webview) {
         });
         document.getElementById('filter-btn').addEventListener('click', function () {
             document.body.classList.toggle('filter-open');
+            filterOpenByTab[currentTab] = document.body.classList.contains('filter-open');
+            persistFilterState();
             if (document.body.classList.contains('filter-open')) {
                 filterInput.focus();
                 updateFilterHighlight();
@@ -612,14 +621,25 @@ function getDataViewerHtml(webview) {
             syncFilterUi();
         });
         document.getElementById('filter-apply-btn').addEventListener('click', function () {
-            requestRefresh(false);
+            if (currentTab === 'vars') {
+                applyVariableTableFilter();
+            } else {
+                requestRefresh(false);
+            }
             filterInput.focus();
         });
         document.getElementById('filter-clear-btn').addEventListener('click', function () {
             filterInput.value = '';
+            saveCurrentFilterText();
             updateFilterHighlight();
             hideFilterAutocomplete();
-            requestRefresh(false);
+            if (currentTab === 'vars') {
+                variableAutocompleteRequestId++;
+                variableApplyRequestId++;
+                renderVariableTableNames([]);
+            } else {
+                requestRefresh(false);
+            }
             filterInput.focus();
         });
 
@@ -636,8 +656,13 @@ function getDataViewerHtml(webview) {
         loadMoreEl.style.cursor = 'pointer';
 
         filterInput.addEventListener('input', function () {
+            saveCurrentFilterText();
             updateFilterHighlight();
-            triggerFilterAutocomplete();
+            if (currentTab === 'vars') {
+                triggerVariableTableAutocomplete();
+            } else {
+                triggerFilterAutocomplete();
+            }
         });
         filterInput.addEventListener('scroll', function () {
             filterHighlight.scrollLeft = filterInput.scrollLeft;
@@ -652,8 +677,15 @@ function getDataViewerHtml(webview) {
                 if (filterInput.value) {
                     event.preventDefault();
                     filterInput.value = '';
+                    saveCurrentFilterText();
                     updateFilterHighlight();
-                    requestRefresh(false);
+                    if (currentTab === 'vars') {
+                        variableAutocompleteRequestId++;
+                        variableApplyRequestId++;
+                        renderVariableTableNames([]);
+                    } else {
+                        requestRefresh(false);
+                    }
                 }
                 return;
             }
@@ -676,7 +708,11 @@ function getDataViewerHtml(webview) {
                     return;
                 }
                 event.preventDefault();
-                requestRefresh(false);
+                if (currentTab === 'vars') {
+                    applyVariableTableFilter();
+                } else {
+                    requestRefresh(false);
+                }
             }
         });
 
@@ -697,16 +733,22 @@ function getDataViewerHtml(webview) {
         }
 
         function switchTab(name) {
+            saveCurrentFilterText();
+            filterOpenByTab[currentTab] = document.body.classList.contains('filter-open');
             currentTab = name;
             webviewState.currentTab = name;
-            vscode.setState(webviewState);
             document.querySelectorAll('.tab').forEach(function (t) { t.classList.remove('active'); });
             document.querySelectorAll('.tab-content').forEach(function (c) { c.classList.remove('active'); });
             document.getElementById('tab-' + name).classList.add('active');
             document.getElementById('content-' + name).classList.add('active');
-            if (name !== 'data') {
-                hideFilterAutocomplete();
-            }
+            filterInput.value = name === 'vars' ? variableFilterText : dataFilterText;
+            filterInput.placeholder = name === 'vars'
+                ? ${JSON.stringify(msg('dataViewerVariableFilterPlaceholder'))}
+                : ${JSON.stringify(msg('dataViewerFilterPlaceholder'))};
+            document.body.classList.toggle('filter-open', !!filterOpenByTab[name]);
+            hideFilterAutocomplete();
+            updateFilterHighlight();
+            persistFilterState();
             syncFilterUi();
             scheduleDataRender(false);
             scheduleAutoLoadCheck();
@@ -716,6 +758,21 @@ function getDataViewerHtml(webview) {
         function syncFilterUi() {
             document.body.classList.toggle('data-tab-active', currentTab === 'data');
             filterIcon.className = 'refresh-icon ' + (document.body.classList.contains('filter-open') ? 'codicon-filter-filled' : 'codicon-filter');
+        }
+
+        function saveCurrentFilterText() {
+            if (currentTab === 'vars') {
+                variableFilterText = filterInput.value || '';
+            } else {
+                dataFilterText = filterInput.value || '';
+            }
+            persistFilterState();
+        }
+
+        function persistFilterState() {
+            webviewState.variableFilterText = variableFilterText;
+            webviewState.variableFilterOpen = !!filterOpenByTab.vars;
+            vscode.setState(webviewState);
         }
 
         function captureViewport() {
@@ -752,16 +809,22 @@ function getDataViewerHtml(webview) {
 
         function requestRefresh(preservePosition, requestedFilterText, savedViewport) {
             var viewport = preservePosition
-                ? (savedViewport || captureViewport())
+                ? (savedViewport || (currentTab === 'data' ? captureViewport() : webviewState.viewport || null))
                 : null;
             if (requestedFilterText !== undefined) {
-                filterInput.value = requestedFilterText || '';
-                document.body.classList.toggle('filter-open', !!filterInput.value);
-                updateFilterHighlight();
+                dataFilterText = requestedFilterText || '';
+                filterOpenByTab.data = !!dataFilterText;
+                if (currentTab === 'data') {
+                    filterInput.value = dataFilterText;
+                    document.body.classList.toggle('filter-open', filterOpenByTab.data);
+                    updateFilterHighlight();
+                }
+            } else if (currentTab === 'data') {
+                dataFilterText = filterInput.value || '';
             }
             vscode.postMessage({
                 type: 'refresh',
-                filterText: filterInput.value || '',
+                filterText: dataFilterText,
                 viewport: viewport
             });
         }
@@ -854,6 +917,7 @@ function getDataViewerHtml(webview) {
         }
 
         function triggerFilterAutocomplete() {
+            if (currentTab !== 'data') return;
             var current = getCurrentFilterWord();
             filterAutocompleteRequestId++;
             if (!current.word) {
@@ -866,6 +930,40 @@ function getDataViewerHtml(webview) {
                 requestId: filterAutocompleteRequestId,
                 prefix: current.word,
                 wordStart: current.start
+            });
+        }
+
+        function triggerVariableTableAutocomplete() {
+            if (currentTab !== 'vars') return;
+            var current = getCurrentFilterWord();
+            variableAutocompleteRequestId++;
+            if (!current.word) {
+                hideFilterAutocomplete();
+                return;
+            }
+            hideFilterAutocomplete();
+            vscode.postMessage({
+                type: 'variableTableAutocomplete',
+                requestId: variableAutocompleteRequestId,
+                prefix: current.word,
+                wordStart: current.start
+            });
+        }
+
+        function applyVariableTableFilter() {
+            if (currentTab !== 'vars') return;
+            hideFilterAutocomplete();
+            variableFilterText = filterInput.value || '';
+            persistFilterState();
+            variableApplyRequestId++;
+            if (!variableFilterText.trim()) {
+                renderVariableTableNames([]);
+                return;
+            }
+            vscode.postMessage({
+                type: 'variableTableApply',
+                requestId: variableApplyRequestId,
+                varList: variableFilterText
             });
         }
 
@@ -963,14 +1061,16 @@ function getDataViewerHtml(webview) {
 
         function showEmpty(hasData) {
             document.getElementById('empty-vars').style.display = hasData ? 'none' : '';
+            document.getElementById('empty-vars-filter').style.display = 'none';
             document.getElementById('table-vars').style.display = hasData ? '' : 'none';
             document.getElementById('empty-data').style.display = hasData ? 'none' : '';
             document.getElementById('data-table-container').style.display = hasData ? '' : 'none';
         }
 
-        function renderVars(vars) {
+        function renderVars(vars, rememberAll) {
+            if (rememberAll !== false) allVarsCache = (vars || []).slice();
             var tbody = document.getElementById('table-vars').querySelector('tbody');
-            tbody.innerHTML = '';
+            tbody.replaceChildren();
             for (var i = 0; i < vars.length; i++) {
                 var v = vars[i];
                 var tr = document.createElement('tr');
@@ -980,8 +1080,30 @@ function getDataViewerHtml(webview) {
                 appendVarsCell(tr, 'var-label', displayValue(v.label || v.valueLabel));
                 tbody.appendChild(tr);
             }
+            var hasFilterMatches = !!variableFilterText && vars.length === 0;
+            document.getElementById('empty-vars-filter').style.display = hasFilterMatches ? '' : 'none';
+            document.getElementById('table-vars').style.display = hasFilterMatches ? 'none' : (allVarsCache.length ? '' : 'none');
             autoSizeVarsColumns();
             scheduleOverflowTitleUpdate();
+        }
+
+        function renderVariableTableNames(names) {
+            if (!variableFilterText) {
+                renderVars(allVarsCache, false);
+                return;
+            }
+            var varsByName = {};
+            for (var i = 0; i < allVarsCache.length; i++) {
+                varsByName[String(allVarsCache[i].name || '').toLowerCase()] = allVarsCache[i];
+            }
+            var filtered = [];
+            for (var ni = 0; ni < names.length; ni++) {
+                var key = String(names[ni] || '').toLowerCase();
+                if (varsByName[key]) {
+                    filtered.push(varsByName[key]);
+                }
+            }
+            renderVars(filtered, false);
         }
 
         function appendVarsCell(row, className, value) {
@@ -1922,23 +2044,30 @@ function getDataViewerHtml(webview) {
             document.body.classList.remove('loading');
             document.getElementById('loading-msg').style.display = 'none';
             if (data.filterText !== undefined) {
-                filterInput.value = data.filterText || '';
-                document.body.classList.toggle('filter-open', !!filterInput.value);
-                if (filterInput.value) {
+                dataFilterText = data.filterText || '';
+                filterOpenByTab.data = !!dataFilterText;
+                if (dataFilterText) {
                     switchTab('data');
+                } else if (currentTab === 'data') {
+                    filterInput.value = dataFilterText;
+                    document.body.classList.toggle('filter-open', filterOpenByTab.data);
+                    updateFilterHighlight();
                 }
-                updateFilterHighlight();
             }
             var hasData = data.vars && data.vars.length > 0;
             showEmpty(hasData);
             if (!hasData) {
+                allVarsCache = [];
                 sharedAutocompleteVariables = data.variableSuggestions || sharedAutocompleteVariables;
                 autocompleteVariables = mergeVariableLists(sharedAutocompleteVariables);
                 updateFilterHighlight();
                 document.getElementById('info-bar').textContent = ${JSON.stringify(msg('dataViewerNoDataset'))};
                 return;
             }
-            renderVars(data.vars);
+            renderVars(data.vars, true);
+            if (currentTab === 'vars' && variableFilterText) {
+                applyVariableTableFilter();
+            }
             sharedAutocompleteVariables = data.variableSuggestions || sharedAutocompleteVariables;
             autocompleteVariables = mergeVariableLists(data.allVarNames || data.dataColumns || [], sharedAutocompleteVariables);
             updateFilterHighlight();
@@ -1989,6 +2118,25 @@ function getDataViewerHtml(webview) {
                 } else {
                     showFilterAutocomplete(matches, message.wordStart || 0);
                 }
+            } else if (
+                message.type === 'variableTableAutocompleteResult'
+                && message.requestId === variableAutocompleteRequestId
+                && currentTab === 'vars'
+            ) {
+                var variableMatches = message.matches || [];
+                var variablePrefix = String(message.prefix || '').toLowerCase();
+                if (variableMatches.length === 1 && variableMatches[0].label.toLowerCase() === variablePrefix) {
+                    hideFilterAutocomplete();
+                } else {
+                    showFilterAutocomplete(variableMatches, message.wordStart || 0);
+                }
+            } else if (
+                message.type === 'variableTableApplyResult'
+                && message.requestId === variableApplyRequestId
+                && currentTab === 'vars'
+                && String(message.varList || '') === variableFilterText
+            ) {
+                renderVariableTableNames(message.names || []);
             } else if (message.type === 'setStatus') {
                 // Could show loading indicator
             } else if (message.type === 'variablesUpdate') {
@@ -2017,9 +2165,7 @@ function getDataViewerHtml(webview) {
         });
 
         setTimeout(function () {
-            if (webviewState.currentTab === 'data') {
-                switchTab('data');
-            }
+            switchTab(webviewState.currentTab === 'data' ? 'data' : 'vars');
             syncFilterUi();
             vscode.postMessage({
                 type: 'ready',
@@ -2116,6 +2262,35 @@ function attachPanel(panel, mode) {
                     prefix,
                     wordStart: message.wordStart,
                     matches
+                });
+            }
+        } else if (message.type === 'variableTableAutocomplete') {
+            const prefix = String(message.prefix || '');
+            const matches = selectVariableTableCandidates(
+                prefix,
+                _datasetAutocompleteVariables[mode]
+            );
+            if (_panels[mode] === panel) {
+                panel.webview.postMessage({
+                    type: 'variableTableAutocompleteResult',
+                    requestId: message.requestId,
+                    prefix,
+                    wordStart: message.wordStart,
+                    matches
+                });
+            }
+        } else if (message.type === 'variableTableApply') {
+            const varList = String(message.varList || '');
+            const names = expandVariableTableVarlist(
+                varList,
+                _datasetAutocompleteVariables[mode]
+            );
+            if (_panels[mode] === panel) {
+                panel.webview.postMessage({
+                    type: 'variableTableApplyResult',
+                    requestId: message.requestId,
+                    varList,
+                    names
                 });
             }
         } else if (message.type === 'loadWindow') {
