@@ -5,6 +5,7 @@ const {
     COMPLETION_MATCH_TYPES,
     MAX_COMPLETION_CANDIDATES,
     analyzeCompletionContext,
+    configurePinyinMatching,
     matchCompletionLabel,
     selectCompletionCandidates,
     getCompletionSortText,
@@ -409,5 +410,53 @@ describe('completion fuzzy matching', () => {
         assert.strictEqual(candidate.nameDisplay, 'mpg');
         assert.strictEqual(candidate.labelDetail, 'Mileage (mpg)');
         assert.match(getCompletionFilterText(candidate), /^_+Mi/);
+    });
+
+    it('can disable pinyin matching without disabling ordinary matching', () => {
+        configurePinyinMatching({ isEnabled: () => false });
+        try {
+            const pools = {
+                commands: [],
+                variables: [{ name: '这是一个变量', variableLabel: '企业代码' }],
+                functions: [],
+                options: []
+            };
+            assert.deepStrictEqual(
+                selectCompletionCandidates({ type: COMPLETION_TYPES.variable, prefix: 'bianliang' }, pools),
+                []
+            );
+            assert.strictEqual(
+                selectCompletionCandidates({ type: COMPLETION_TYPES.variable, prefix: '变量' }, pools)[0].label,
+                '这是一个变量'
+            );
+        } finally {
+            configurePinyinMatching();
+        }
+    });
+
+    it('reports slow pinyin cache construction', async () => {
+        let report;
+        configurePinyinMatching({
+            isEnabled: () => true,
+            thresholdMs: 0,
+            onSlowCache: value => { report = value; }
+        });
+        try {
+            selectCompletionCandidates({
+                type: COMPLETION_TYPES.variable,
+                prefix: 'xingneng'
+            }, {
+                commands: [],
+                variables: [{ name: 'benchmark_target', variableLabel: '性能测试专用标签' }],
+                functions: [],
+                options: []
+            });
+            await new Promise(resolve => setImmediate(resolve));
+            assert.ok(report);
+            assert.ok(report.cacheMisses > 0);
+            assert.ok(report.duration >= 0);
+        } finally {
+            configurePinyinMatching();
+        }
     });
 });

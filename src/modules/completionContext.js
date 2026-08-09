@@ -31,8 +31,35 @@ const COMPLETION_MATCH_TYPES = Object.freeze({
 
 const MAX_COMPLETION_CANDIDATES = 100;
 const MAX_SEARCH_TEXT_CACHE_SIZE = 20000;
+const PINYIN_CACHE_WARNING_MS = 500;
 const searchTextCache = new Map();
 const pinyinSearchTextCache = new Map();
+let activePinyinTiming = null;
+let activePinyinEnabled = null;
+let pinyinRuntime = {
+    isEnabled: () => true,
+    onSlowCache: null,
+    thresholdMs: PINYIN_CACHE_WARNING_MS
+};
+
+function configurePinyinMatching(options = {}) {
+    pinyinRuntime = {
+        isEnabled: typeof options.isEnabled === 'function' ? options.isEnabled : () => true,
+        onSlowCache: typeof options.onSlowCache === 'function' ? options.onSlowCache : null,
+        thresholdMs: Number.isFinite(options.thresholdMs)
+            ? Math.max(0, Number(options.thresholdMs))
+            : PINYIN_CACHE_WARNING_MS
+    };
+}
+
+function isPinyinMatchingEnabled() {
+    if (activePinyinEnabled !== null) return activePinyinEnabled;
+    try {
+        return pinyinRuntime.isEnabled() !== false;
+    } catch (_error) {
+        return true;
+    }
+}
 
 const CANDIDATE_KIND_PRIORITY = Object.freeze({
     var: 0,
@@ -356,7 +383,12 @@ function createPinyinSearchText(label) {
 
 function getPinyinSearchText(label) {
     if (pinyinSearchTextCache.has(label)) return pinyinSearchTextCache.get(label);
+    const startedAt = performance.now();
     const searchText = createPinyinSearchText(label);
+    if (activePinyinTiming) {
+        activePinyinTiming.cacheDurationMs += performance.now() - startedAt;
+        activePinyinTiming.cacheMisses += 1;
+    }
     if (pinyinSearchTextCache.size < MAX_SEARCH_TEXT_CACHE_SIZE) {
         pinyinSearchTextCache.set(label, searchText);
     }
@@ -416,6 +448,7 @@ function matchCompletionLabel(label, prefix) {
 }
 
 function matchPinyinCompletionLabel(label, prefix) {
+    if (!isPinyinMatchingEnabled()) return null;
     const query = String(prefix || '').toLowerCase();
     // Full-pinyin matching is deliberately limited to two or more ASCII
     // letters. It does not implement initial-letter matching such as zsygbl.
@@ -571,6 +604,14 @@ function selectCompletionCandidates(context, pools, limit = MAX_COMPLETION_CANDI
     const safeLimit = Math.min(requestedLimit, MAX_COMPLETION_CANDIDATES);
     if (safeLimit === 0) return [];
 
+    const previousPinyinEnabled = activePinyinEnabled;
+    activePinyinEnabled = previousPinyinEnabled !== null
+        ? previousPinyinEnabled
+        : isPinyinMatchingEnabled();
+    const previousTiming = activePinyinTiming;
+    const timing = previousTiming || { cacheDurationMs: 0, cacheMisses: 0 };
+    activePinyinTiming = timing;
+
     let sources = [];
     if (context.type === COMPLETION_TYPES.command) {
         sources = [{ values: pools.commands, kind: 'cmd' }];
@@ -593,22 +634,43 @@ function selectCompletionCandidates(context, pools, limit = MAX_COMPLETION_CANDI
     }
 
     const result = [];
-    const seen = new Set();
-    for (const source of sources) {
-        for (const rawValue of Array.isArray(source.values) ? source.values : []) {
-            const variableValue = source.kind === 'var' ? getVariableSourceValue(rawValue) : null;
-            const label = source.kind === 'var' ? variableValue.name : String(rawValue || '').trim();
-            const key = label.toLowerCase();
-            if (!label || seen.has(key)) continue;
-            const candidate = source.kind === 'var'
-                ? createVariableCandidate(variableValue, prefix)
-                : null;
-            const match = source.kind === 'var'
-                ? candidate
-                : matchCompletionLabel(label, prefix);
-            if (!match) continue;
-            seen.add(key);
-            result.push(source.kind === 'var' ? candidate : { label, kind: source.kind, ...match });
+    try {
+        const seen = new Set();
+        for (const source of sources) {
+            for (const rawValue of Array.isArray(source.values) ? source.values : []) {
+                const variableValue = source.kind === 'var' ? getVariableSourceValue(rawValue) : null;
+                const label = source.kind === 'var' ? variableValue.name : String(rawValue || '').trim();
+                const key = label.toLowerCase();
+                if (!label || seen.has(key)) continue;
+                const candidate = source.kind === 'var'
+                    ? createVariableCandidate(variableValue, prefix)
+                    : null;
+                const match = source.kind === 'var'
+                    ? candidate
+                    : matchCompletionLabel(label, prefix);
+                if (!match) continue;
+                seen.add(key);
+                result.push(source.kind === 'var' ? candidate : { label, kind: source.kind, ...match });
+            }
+        }
+    } finally {
+        activePinyinTiming = previousTiming;
+        activePinyinEnabled = previousPinyinEnabled;
+        if (!previousTiming
+            && timing.cacheMisses > 0
+            && timing.cacheDurationMs > pinyinRuntime.thresholdMs
+            && pinyinRuntime.onSlowCache) {
+            const duration = Math.round(timing.cacheDurationMs);
+            queueMicrotask(() => {
+                try {
+                    Promise.resolve(pinyinRuntime.onSlowCache({
+                        duration,
+                        cacheMisses: timing.cacheMisses
+                    })).catch(() => {});
+                } catch (_error) {
+                    // A notification failure must never interrupt completion.
+                }
+            });
         }
     }
     result.sort(compareCompletionCandidates);
@@ -671,6 +733,8 @@ module.exports = {
     COMPLETION_TYPES,
     COMPLETION_MATCH_TYPES,
     MAX_COMPLETION_CANDIDATES,
+    PINYIN_CACHE_WARNING_MS,
+    configurePinyinMatching,
     analyzeCompletionContext,
     matchCompletionLabel,
     matchPinyinCompletionLabel,

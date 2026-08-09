@@ -6,6 +6,7 @@
   "config.commentStyle.description": "Comment style used for toggling comments. Options include `//`, `*`, or `/* ... */`",
   "config.separatorLength.description": "Total character length of the separator line (including the '** #' prefix and separators).",
   "config.customCommands.description": "User-defined Stata commands to highlight as keywords (array of strings). These commands will use the **same color** as built-in commands (like regress, summarize). Case-insensitive matching supported. Example: [\"reghdfe\", \"ivreg2\", \"outreg2\"]. **Requires reloading window** (Ctrl+Shift+P → Developer: Reload Window)",
+  "config.enablePinyinVariableMatching.description": "Enable pinyin fuzzy matching for variable names and variable labels in completion suggestions. Other Chinese, English, and character-based matching remains available when disabled.",
 "config.separatorSymmetric.description": "Add ` **` at the end of separator lines to ensure visual symmetry (e.g., `** === title === **`).",
   "config.closeStataOtherWindowsBeforeSendingCode.description": "**[Windows]** When running code, close Stata other windows (such as Viewer/Data Editor) before sending commands.",
     "config.enableCtrlShiftD.description": "Enable `Ctrl/Cmd+Shift+D` as the run code shortcut (instead of the default `Ctrl/Cmd+D`).",

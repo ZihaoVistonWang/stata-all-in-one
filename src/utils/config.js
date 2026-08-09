@@ -77,6 +77,9 @@ const getCustomCommands = () => {
     return uniq.length > 0 ? uniq : ['reghdfe'];
 };
 
+const getEnablePinyinVariableMatching = () =>
+    getConfigValue('enablePinyinVariableMatching', true);
+
 /**
  * Get stataPathOnWindows setting
  */
@@ -161,6 +164,7 @@ module.exports = {
     getSeparatorLength,
     getStataPathOnWindows: getStataPathOnWindows,
     getCustomCommands,
+    getEnablePinyinVariableMatching,
     getCloseStataOtherWindowsBeforeSendingCode,
     getSeparatorSymmetric,
     getEnableCtrlShiftD,

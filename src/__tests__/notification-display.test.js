@@ -3,10 +3,10 @@ const assert = require('node:assert/strict');
 const Module = require('module');
 const path = require('path');
 
-function loadCommon() {
+function loadCommon(language = 'en') {
     const calls = [];
     const vscodeMock = {
-        env: { language: 'en' },
+        env: { language },
         window: {
             showInformationMessage: (...args) => {
                 calls.push(['info', ...args]);
@@ -62,4 +62,16 @@ test('existing notification actions remain unchanged', async () => {
     assert.deepEqual(calls, [
         ['info', 'Stata All in One: Choose an action', 'Open', 'Later']
     ]);
+});
+
+test('pinyin performance notification follows the active UI language', () => {
+    const { common: english } = loadCommon('en');
+    assert.match(english.msg('pinyinMatchingSlow', { duration: 501 }), /501 ms/);
+    assert.strictEqual(english.msg('pinyinMatchingDisableYes'), 'Yes');
+    assert.doesNotMatch(english.msg('pinyinMatchingSlow', { duration: 501 }), /是否关闭/);
+
+    const { common: chinese } = loadCommon('zh-cn');
+    assert.match(chinese.msg('pinyinMatchingSlow', { duration: 501 }), /501 毫秒/);
+    assert.strictEqual(chinese.msg('pinyinMatchingDisableYes'), '是');
+    assert.doesNotMatch(chinese.msg('pinyinMatchingSlow', { duration: 501 }), /Disable pinyin/);
 });

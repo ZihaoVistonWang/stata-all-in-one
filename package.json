@@ -95,6 +95,11 @@
           ],
           "markdownDescription": "%config.customCommands.description%"
         },
+        "stata-all-in-one.enablePinyinVariableMatching": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "%config.enablePinyinVariableMatching.description%"
+        },
         "stata-all-in-one.separatorSymmetric": {
           "type": "boolean",
           "default": false,

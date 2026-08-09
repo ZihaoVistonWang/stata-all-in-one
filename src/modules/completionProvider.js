@@ -9,10 +9,41 @@ const variableSuggestions = require('./variableSuggestionService');
 const {
     COMPLETION_TYPES,
     analyzeCompletionContext,
+    configurePinyinMatching,
     selectCompletionCandidates,
     getCompletionSortText,
     getCompletionFilterText
 } = require('./completionContext');
+const { msg, showWarn } = require('../utils/common');
+
+let slowPinyinNotificationPending = false;
+
+async function disablePinyinVariableMatching() {
+    const setting = config.getConfig();
+    const inspection = setting.inspect('enablePinyinVariableMatching') || {};
+    let target = vscode.ConfigurationTarget.Global;
+    if (inspection.workspaceFolderValue !== undefined) {
+        target = vscode.ConfigurationTarget.WorkspaceFolder;
+    } else if (inspection.workspaceValue !== undefined) {
+        target = vscode.ConfigurationTarget.Workspace;
+    }
+    await setting.update('enablePinyinVariableMatching', false, target);
+}
+
+async function showSlowPinyinNotification({ duration }) {
+    if (slowPinyinNotificationPending || !config.getEnablePinyinVariableMatching()) return;
+    slowPinyinNotificationPending = true;
+    try {
+        const yes = msg('pinyinMatchingDisableYes');
+        const no = msg('pinyinMatchingDisableNo');
+        const choice = await showWarn(msg('pinyinMatchingSlow', { duration }), yes, no);
+        if (choice === yes) {
+            await disablePinyinVariableMatching();
+        }
+    } finally {
+        slowPinyinNotificationPending = false;
+    }
+}
 
 // Extract Stata built-in commands from the grammar
 // This list is derived from grammars/stata.json
@@ -281,6 +312,10 @@ function createCompletionProvider() {
  * @param {vscode.ExtensionContext} context
  */
 function registerCompletionProvider(context) {
+    configurePinyinMatching({
+        isEnabled: config.getEnablePinyinVariableMatching,
+        onSlowCache: showSlowPinyinNotification
+    });
     const provider = createCompletionProvider();
 
     const disposable = vscode.languages.registerCompletionItemProvider(
