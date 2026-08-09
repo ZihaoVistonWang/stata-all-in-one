@@ -165,6 +165,19 @@ function createCompletionItems(words, kind) {
     });
 }
 
+function getCompletionPools(document) {
+    return {
+        commands: [...new Set([
+            ...StataBuiltinCommands,
+            ...StataKeywords,
+            ...config.getCustomCommands()
+        ])],
+        variables: variableSuggestions.getVariableCandidatesForCompletion(document),
+        functions: StataFunctions,
+        options: StataOptions
+    };
+}
+
 /**
  * Create the completion provider
  * @returns {vscode.CompletionItemProvider}
@@ -191,14 +204,11 @@ function createCompletionProvider() {
                 return [];
             }
 
-            const customCommands = config.getCustomCommands();
             const completionContext = analyzeCompletionContext(linePrefix, linePrefix.length);
-            const candidates = selectCompletionCandidates(completionContext, {
-                commands: [...new Set([...StataBuiltinCommands, ...StataKeywords, ...customCommands])],
-                variables: variableSuggestions.getVariablesForCompletion(document),
-                functions: StataFunctions,
-                options: StataOptions
-            });
+            const candidates = selectCompletionCandidates(
+                completionContext,
+                getCompletionPools(document)
+            );
             const kindMap = {
                 cmd: vscode.CompletionItemKind.Keyword,
                 var: vscode.CompletionItemKind.Variable,
@@ -211,8 +221,15 @@ function createCompletionProvider() {
             );
 
             return candidates.map(candidate => {
+                const completionLabel = candidate.kind === 'var'
+                    ? {
+                        label: candidate.nameDisplay || candidate.label,
+                        detail: candidate.labelDetail ? `  ${candidate.labelDetail}` : undefined,
+                        description: 'Variable'
+                    }
+                    : (candidate.displayLabel || candidate.label);
                 const item = new vscode.CompletionItem(
-                    candidate.displayLabel || candidate.label,
+                    completionLabel,
                     kindMap[candidate.kind]
                 );
                 item.insertText = candidate.label;
@@ -223,7 +240,6 @@ function createCompletionProvider() {
                 // same label that the shared fuzzy matcher selected.
                 item.filterText = getCompletionFilterText(candidate);
                 item.range = range;
-                if (candidate.kind === 'var') item.detail = 'Variable';
                 if (candidate.kind === 'opt') item.detail = 'Stata option';
                 return item;
             });
@@ -301,22 +317,34 @@ function registerCompletionProvider(context) {
             const activeEditor = vscode.window.activeTextEditor;
             if (!activeEditor || activeEditor.document !== event.document) return;
 
+            const position = activeEditor.selection.active;
+            const linePrefix = activeEditor.document.getText(new vscode.Range(
+                new vscode.Position(position.line, 0),
+                position
+            ));
+            const completionContext = analyzeCompletionContext(linePrefix, linePrefix.length);
+
             if (isAsciiLetter) {
-                const position = activeEditor.selection.active;
-                const linePrefix = activeEditor.document.getText(new vscode.Range(
-                    new vscode.Position(position.line, 0),
-                    position
-                ));
-                const completionContext = analyzeCompletionContext(linePrefix, linePrefix.length);
                 const hasPinyinQuery = /^[A-Za-z]{2,}$/.test(completionContext.prefix || '');
                 const permitsVariables = completionContext.type === COMPLETION_TYPES.variable
                     || completionContext.type === COMPLETION_TYPES.expression
                     || completionContext.type === COMPLETION_TYPES.all;
                 if (!hasPinyinQuery || !permitsVariables) return;
                 const hasHanVariable = variableSuggestions
-                    .getVariablesForCompletion(activeEditor.document)
-                    .some(variable => /\p{Script=Han}/u.test(variable));
+                    .getVariableCandidatesForCompletion(activeEditor.document)
+                    .some(variable => /\p{Script=Han}/u.test(
+                        `${variable.name} ${variable.variableLabel}`
+                    ));
                 if (!hasHanVariable) return;
+            }
+
+            const matches = selectCompletionCandidates(
+                completionContext,
+                getCompletionPools(activeEditor.document)
+            );
+            if (!matches.length) {
+                vscode.commands.executeCommand('hideSuggestWidget');
+                return;
             }
 
             // An open native suggest widget may keep filtering the stale item

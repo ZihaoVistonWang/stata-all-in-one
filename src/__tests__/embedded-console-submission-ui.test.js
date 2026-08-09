@@ -66,7 +66,8 @@ test('highlights only matched autocomplete characters with safe DOM text', () =>
     assert.equal(panelSource.includes('new Set(Array.isArray(matchIndexes) ? matchIndexes : [])'), true);
     assert.equal(panelSource.includes("span.className = 'autocomplete-label-match'"), true);
     assert.equal(panelSource.includes('span.textContent = chunk'), true);
-    assert.equal(panelSource.includes('appendAutocompleteLabel(text, label, m.matchIndexes)'), true);
+    assert.equal(panelSource.includes("appendAutocompleteLabel(text, label, m.matchedOn === 'label' ? [] : m.matchIndexes)"), true);
+    assert.equal(panelSource.includes('m.labelDisplayMatchIndexes || []'), true);
     assert.equal(panelSource.includes('text.innerHTML = label'), false);
 });
 

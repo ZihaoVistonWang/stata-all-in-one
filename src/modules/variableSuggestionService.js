@@ -2,9 +2,12 @@ const vscode = require('vscode');
 const { STATA_IDENTIFIER_BODY, isStataIdentifier } = require('./stataIdentifier');
 
 const documentVars = new Map();
-let memoryVars = [];
+let memoryVariables = [];
 let lastStataDocumentKey = null;
 const listeners = new Set();
+const VARIABLE_META_BEGIN = '__SAIO_VAR_META_BEGIN__';
+const VARIABLE_META_END = '__SAIO_VAR_META_END__';
+const UNIT_SEPARATOR = String.fromCharCode(31);
 
 // Use the same direct getActiveSession import as Data Viewer's provider.js
 const { getActiveSession } = require('./runCode/embeddedConsole/session');
@@ -36,6 +39,45 @@ function normalizeVarNames(values) {
         }
     }
     return result;
+}
+
+function normalizeVariableEntries(values) {
+    const result = [];
+    const seen = new Map();
+    for (const value of Array.isArray(values) ? values : []) {
+        const name = String(value && typeof value === 'object'
+            ? (value.name || value.variableName || '')
+            : value || '').trim();
+        if (!isStataIdentifier(name)) continue;
+        const variableLabel = String(value && typeof value === 'object'
+            ? (value.variableLabel ?? value.label ?? '')
+            : '').trim();
+        const key = name.toLowerCase();
+        if (!seen.has(key)) {
+            seen.set(key, result.length);
+            result.push({ name, variableLabel });
+        } else if (variableLabel && !result[seen.get(key)].variableLabel) {
+            result[seen.get(key)].variableLabel = variableLabel;
+        }
+    }
+    return result;
+}
+
+function mergeVariableEntries(...lists) {
+    const merged = [];
+    const indexes = new Map();
+    for (const list of lists) {
+        for (const entry of normalizeVariableEntries(list)) {
+            const key = entry.name.toLowerCase();
+            if (!indexes.has(key)) {
+                indexes.set(key, merged.length);
+                merged.push(entry);
+            } else if (entry.variableLabel && !merged[indexes.get(key)].variableLabel) {
+                merged[indexes.get(key)].variableLabel = entry.variableLabel;
+            }
+        }
+    }
+    return merged;
 }
 
 function mergeVarLists(...lists) {
@@ -141,7 +183,7 @@ function notifyVariablesChanged() {
 function getVariables(document) {
     const key = documentKey(document);
     const docVars = key ? documentVars.get(key) || [] : [];
-    return mergeVarLists(docVars, memoryVars);
+    return mergeVariableEntries(docVars, memoryVariables).map(entry => entry.name);
 }
 
 function getVariablesForCompletion(document) {
@@ -149,7 +191,14 @@ function getVariablesForCompletion(document) {
         return getVariables(document);
     }
     const docVars = normalizeVarNames([...extractVariableNames(document)]);
-    return mergeVarLists(docVars, memoryVars);
+    return mergeVariableEntries(docVars, memoryVariables).map(entry => entry.name);
+}
+
+function getVariableCandidatesForCompletion(document) {
+    const docVars = isStataDocument(document)
+        ? normalizeVarNames([...extractVariableNames(document)])
+        : (documentVars.get(documentKey(document)) || []);
+    return mergeVariableEntries(docVars, memoryVariables);
 }
 
 function getActiveVariables() {
@@ -159,7 +208,17 @@ function getActiveVariables() {
         return getVariables(editor.document);
     }
     const docVars = lastStataDocumentKey ? documentVars.get(lastStataDocumentKey) || [] : [];
-    return mergeVarLists(docVars, memoryVars);
+    return mergeVariableEntries(docVars, memoryVariables).map(entry => entry.name);
+}
+
+function getActiveVariableCandidates() {
+    const editor = vscode.window.activeTextEditor;
+    if (editor && isStataDocument(editor.document)) {
+        lastStataDocumentKey = documentKey(editor.document);
+        return mergeVariableEntries(documentVars.get(lastStataDocumentKey) || [], memoryVariables);
+    }
+    const docVars = lastStataDocumentKey ? documentVars.get(lastStataDocumentKey) || [] : [];
+    return mergeVariableEntries(docVars, memoryVariables);
 }
 
 function refreshDocument(document) {
@@ -178,7 +237,11 @@ function refreshDocument(document) {
 }
 
 function getMemoryVars() {
-    return memoryVars;
+    return memoryVariables.map(entry => entry.name);
+}
+
+function getMemoryVariables() {
+    return memoryVariables.map(entry => ({ ...entry }));
 }
 
 function parseVarListOutput(output) {
@@ -189,16 +252,20 @@ function parseVarListOutput(output) {
     return normalizeVarNames(text.split(/\s+/));
 }
 
-function parseMataVarNameLines(output) {
-    const names = [];
-    const lines = String(output || '').split(/\r?\n/);
-    for (const rawLine of lines) {
-        const line = rawLine.trim();
-        if (isStataIdentifier(line)) {
-            names.push(line);
-        }
+function parseMataVariableMetadata(output) {
+    const text = String(output || '');
+    const reassembledText = text.replace(/\r?\n\s*>\s?/g, '');
+    const entries = [];
+    const framedPattern = new RegExp(`${VARIABLE_META_BEGIN}([\\s\\S]*?)${VARIABLE_META_END}`, 'g');
+    let match;
+    while ((match = framedPattern.exec(reassembledText)) !== null) {
+        const fields = match[1].split(UNIT_SEPARATOR);
+        entries.push({
+            name: String(fields.shift() || '').trim(),
+            variableLabel: fields.join(UNIT_SEPARATOR).trim()
+        });
     }
-    return normalizeVarNames(names);
+    return normalizeVariableEntries(entries);
 }
 
 async function refreshMemoryVars(_context) {
@@ -208,16 +275,19 @@ async function refreshMemoryVars(_context) {
             return [];
         }
         let vars = [];
-        const mataResult = await session.execute('mata: for(i=1;i<=st_nvar();i++) printf("%s\\n", st_varname(i))', false);
+        const mataResult = await session.execute(
+            `mata: for(i=1;i<=st_nvar();i++) printf("${VARIABLE_META_BEGIN}%s%s%s${VARIABLE_META_END}\\n", st_varname(i), char(31), st_varlabel(i))`,
+            false
+        );
         if (mataResult && mataResult.success) {
-            vars = parseMataVarNameLines(mataResult.output);
+            vars = parseMataVariableMetadata(mataResult.output);
         }
 
         if (!vars.length) {
             const describeResult = await session.execute('quietly describe, varlist\n' +
                 "display \"__SAIO_VARLIST__ \" \"`r(varlist)'\"", false);
             if (describeResult && describeResult.success) {
-                vars = parseVarListOutput(describeResult.output);
+                vars = parseVarListOutput(describeResult.output).map(name => ({ name, variableLabel: '' }));
             }
         }
 
@@ -225,20 +295,23 @@ async function refreshMemoryVars(_context) {
             return [];
         }
 
-        if (!sameVarList(memoryVars, vars)) {
-            memoryVars = vars;
+        if (!sameVarList(
+            memoryVariables.map(entry => `${entry.name}\u0000${entry.variableLabel}`),
+            vars.map(entry => `${entry.name}\u0000${entry.variableLabel}`)
+        )) {
+            memoryVariables = vars;
             notifyVariablesChanged();
         }
-        return memoryVars;
+        return getMemoryVars();
     } catch (_e) {
         return [];
     }
 }
 
 function setMemoryVars(vars) {
-    memoryVars = normalizeVarNames(vars);
+    memoryVariables = normalizeVariableEntries(vars);
     notifyVariablesChanged();
-    return memoryVars;
+    return getMemoryVars();
 }
 
 function refreshDocumentOnly(document) {
@@ -287,12 +360,17 @@ module.exports = {
     extractVariableNames,
     getVariables,
     getVariablesForCompletion,
+    getVariableCandidatesForCompletion,
     getActiveVariables,
+    getActiveVariableCandidates,
     getMemoryVars,
+    getMemoryVariables,
     refreshDocument,
     refreshMemoryVars,
     setMemoryVars,
     registerVariableSuggestionService,
     onDidChangeVariables,
-    mergeVarLists
+    mergeVarLists,
+    mergeVariableEntries,
+    parseMataVariableMetadata
 };

@@ -11,11 +11,37 @@ function mergeVariableLists(...lists) {
     const seen = new Set();
     for (const list of lists) {
         for (const rawValue of Array.isArray(list) ? list : []) {
-            const value = String(rawValue || '').trim();
+            const value = String(rawValue && typeof rawValue === 'object'
+                ? (rawValue.name || rawValue.variableName || '')
+                : rawValue || '').trim();
             const key = value.toLowerCase();
             if (!value || seen.has(key)) continue;
             seen.add(key);
             result.push(value);
+        }
+    }
+    return result;
+}
+
+function mergeVariableCandidates(...lists) {
+    const result = [];
+    const indexes = new Map();
+    for (const list of lists) {
+        for (const rawValue of Array.isArray(list) ? list : []) {
+            const name = String(rawValue && typeof rawValue === 'object'
+                ? (rawValue.name || rawValue.variableName || '')
+                : rawValue || '').trim();
+            if (!name) continue;
+            const variableLabel = String(rawValue && typeof rawValue === 'object'
+                ? (rawValue.variableLabel ?? rawValue.label ?? '')
+                : '').trim();
+            const key = name.toLowerCase();
+            if (!indexes.has(key)) {
+                indexes.set(key, result.length);
+                result.push({ name, variableLabel });
+            } else if (variableLabel && !result[indexes.get(key)].variableLabel) {
+                result[indexes.get(key)].variableLabel = variableLabel;
+            }
         }
     }
     return result;
@@ -26,7 +52,7 @@ function selectDataViewerCandidates(prefix, variables, limit = MAX_COMPLETION_CA
         type: COMPLETION_TYPES.all,
         prefix: String(prefix || '')
     }, {
-        variables: mergeVariableLists(variables),
+        variables: mergeVariableCandidates(variables),
         commands: FILTER_KEYWORDS,
         functions: [],
         options: []
@@ -38,7 +64,7 @@ function selectVariableTableCandidates(prefix, variables, limit = MAX_COMPLETION
         type: COMPLETION_TYPES.variable,
         prefix: String(prefix || '')
     }, {
-        variables: mergeVariableLists(variables),
+        variables: mergeVariableCandidates(variables),
         commands: [],
         functions: [],
         options: []
@@ -91,6 +117,7 @@ function expandVariableTableVarlist(varList, variables) {
 module.exports = {
     FILTER_KEYWORDS,
     mergeVariableLists,
+    mergeVariableCandidates,
     selectDataViewerCandidates,
     selectVariableTableCandidates,
     expandVariableTableVarlist

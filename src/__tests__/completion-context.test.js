@@ -354,4 +354,60 @@ describe('completion fuzzy matching', () => {
         }, Infinity);
         assert.strictEqual(candidates.length, MAX_COMPLETION_CANDIDATES);
     });
+
+    it('matches variable labels directly and by pinyin with label highlighting', () => {
+        const variables = [{
+            name: 'formula_result',
+            variableLabel: '这个变量代表了公式 ln(a+b) 的计算结果'
+        }];
+        const direct = selectCompletionCandidates({
+            type: COMPLETION_TYPES.variable,
+            prefix: '公式'
+        }, { commands: [], variables, functions: [], options: [] })[0];
+        assert.strictEqual(direct.label, 'formula_result');
+        assert.strictEqual(direct.matchedOn, 'label');
+        assert.deepStrictEqual(direct.labelDisplayMatchIndexes, [7, 8]);
+
+        const pinyin = selectCompletionCandidates({
+            type: COMPLETION_TYPES.variable,
+            prefix: 'gongshi'
+        }, { commands: [], variables, functions: [], options: [] })[0];
+        assert.strictEqual(pinyin.label, 'formula_result');
+        assert.strictEqual(pinyin.matchedOn, 'label');
+        assert.strictEqual(pinyin.matchType, COMPLETION_MATCH_TYPES.pinyin);
+        assert.deepStrictEqual(pinyin.labelDisplayMatchIndexes, [7, 8]);
+        assert.match(pinyin.displayLabel, /gongshi → 公式/);
+    });
+
+    it('places a label match ahead of an ordinary variable-name fuzzy match', () => {
+        const candidates = selectCompletionCandidates({
+            type: COMPLETION_TYPES.variable,
+            prefix: 'formula'
+        }, {
+            commands: [],
+            variables: [
+                { name: 'xformula', variableLabel: '' },
+                { name: 'result', variableLabel: 'Formula result' }
+            ],
+            functions: [],
+            options: []
+        });
+        assert.deepStrictEqual(candidates.map(candidate => candidate.label), ['result', 'xformula']);
+    });
+
+    it('keeps editor variable-name and label matching in separate display fields', () => {
+        const candidate = selectCompletionCandidates({
+            type: COMPLETION_TYPES.variable,
+            prefix: 'mi'
+        }, {
+            commands: [],
+            variables: [{ name: 'mpg', variableLabel: 'Mileage (mpg)' }],
+            functions: [],
+            options: []
+        })[0];
+        assert.strictEqual(candidate.matchedOn, 'label');
+        assert.strictEqual(candidate.nameDisplay, 'mpg');
+        assert.strictEqual(candidate.labelDetail, 'Mileage (mpg)');
+        assert.match(getCompletionFilterText(candidate), /^_+Mi/);
+    });
 });

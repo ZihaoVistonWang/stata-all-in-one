@@ -5,7 +5,7 @@ const { msg, showInfo, showError } = require('../../../../utils/common');
 const { StataTerminalRenderer, getWebviewThemeVariables } = require('../renderer');
 const variableSuggestions = require('../../../variableSuggestionService');
 const {
-    mergeVariableLists: mergeAutocompleteVariables,
+    mergeVariableCandidates: mergeAutocompleteVariableCandidates,
     selectDataViewerCandidates,
     selectVariableTableCandidates,
     expandVariableTableVarlist
@@ -28,6 +28,20 @@ const VIEW_WINDOW_SIZE = 700;
 const VIEW_WINDOW_LEAD = 100;
 
 const CODICON_RESOURCE_ROOT = vscode.Uri.joinPath(vscode.Uri.file(vscode.env.appRoot), 'out', 'media');
+
+function getDatasetVariableCandidates(data) {
+    const metadata = Array.isArray(data && data.vars) ? data.vars : [];
+    const labelsByName = new Map(metadata.map(variable => [
+        String(variable && variable.name || '').toLowerCase(),
+        String(variable && (variable.label || variable.variableLabel) || '')
+    ]));
+    const names = (data && (data.allVarNames || data.dataColumns))
+        || metadata.map(variable => variable.name);
+    return mergeAutocompleteVariableCandidates(names.map(name => ({
+        name,
+        variableLabel: labelsByName.get(String(name || '').toLowerCase()) || ''
+    })), metadata);
+}
 
 function getExtensionUri() {
     try {
@@ -283,6 +297,8 @@ function getDataViewerHtml(webview) {
             font-size: var(--vscode-editor-font-size, 13px);
             line-height: 1.5;
             min-width: 160px;
+            width: calc(100% - 24px);
+            max-width: 720px;
             display: none;
         }
         .filter-autocomplete.visible {
@@ -303,6 +319,24 @@ function getDataViewerHtml(webview) {
         .filter-autocomplete-match {
             color: var(--vscode-list-highlightForeground);
             font-weight: 600;
+        }
+        .filter-autocomplete-label {
+            flex: 0 0 auto;
+            white-space: nowrap;
+        }
+        .filter-autocomplete-variable-label {
+            flex: 1 1 auto;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: var(--vscode-descriptionForeground);
+        }
+        .filter-autocomplete-kind {
+            flex: 0 0 auto;
+            margin-left: auto;
+            color: var(--vscode-descriptionForeground);
+            white-space: nowrap;
         }
         .filter-autocomplete-icon {
             font-family: "codicon";
@@ -865,9 +899,25 @@ function getDataViewerHtml(webview) {
                 appendFilterAutocompleteLabel(
                     text,
                     label,
-                    (typeof m === 'object' && m.matchIndexes) || []
+                    (typeof m === 'object' && m.matchedOn !== 'label' && m.matchIndexes) || []
                 );
                 item.appendChild(text);
+                if (kind === 'var') {
+                    if (m.variableLabel) {
+                        var variableLabel = document.createElement('span');
+                        variableLabel.className = 'filter-autocomplete-variable-label';
+                        appendFilterAutocompleteLabel(
+                            variableLabel,
+                            m.labelDisplay || m.variableLabel,
+                            m.labelDisplayMatchIndexes || []
+                        );
+                        item.appendChild(variableLabel);
+                    }
+                    var variableKind = document.createElement('span');
+                    variableKind.className = 'filter-autocomplete-kind';
+                    variableKind.textContent = 'Variable';
+                    item.appendChild(variableKind);
+                }
                 item.addEventListener('mousedown', function (e) {
                     e.preventDefault();
                     applyFilterAutocomplete(this.dataset.label, wordStart);
@@ -2250,9 +2300,9 @@ function attachPanel(panel, mode) {
             }
         } else if (message.type === 'filterAutocomplete') {
             const prefix = String(message.prefix || '');
-            const variables = mergeAutocompleteVariables(
+            const variables = mergeAutocompleteVariableCandidates(
                 _datasetAutocompleteVariables[mode],
-                variableSuggestions.getActiveVariables()
+                variableSuggestions.getActiveVariableCandidates()
             );
             const matches = selectDataViewerCandidates(prefix, variables);
             if (_panels[mode] === panel) {
@@ -2482,13 +2532,11 @@ async function refreshDataViewer(mode, filterText, targetPanel, options = {}) {
                 windowStart,
                 VIEW_WINDOW_SIZE
             );
-            if (data && Array.isArray(data.allVarNames) && data.allVarNames.length) {
-                variableSuggestions.setMemoryVars(data.allVarNames);
-            }
         }
-        _datasetAutocompleteVariables[mode] = mergeAutocompleteVariables(
-            data.allVarNames || data.dataColumns || []
-        );
+        if (mode === 'console' && data && Array.isArray(data.allVarNames) && data.allVarNames.length) {
+            variableSuggestions.setMemoryVars(getDatasetVariableCandidates(data));
+        }
+        _datasetAutocompleteVariables[mode] = getDatasetVariableCandidates(data);
         data.variableSuggestions = variableSuggestions.getActiveVariables();
         panel.webview.postMessage({ type: 'setData', data, viewport });
         if (mode === 'console') {
@@ -2602,9 +2650,7 @@ async function openDtaFile(context, uri, panel) {
     try {
         const data = await directDtaStore.getSnapshot(filePath, 500, '');
         if (data && !data.error) {
-            _datasetAutocompleteVariables.file = mergeAutocompleteVariables(
-                data.allVarNames || data.dataColumns || []
-            );
+            _datasetAutocompleteVariables.file = getDatasetVariableCandidates(data);
             data.variableSuggestions = variableSuggestions.getActiveVariables();
             // Send initial data immediately — webview processes setData before ready message
             if (targetPanel) {

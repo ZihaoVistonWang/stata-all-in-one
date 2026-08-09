@@ -145,4 +145,8 @@ test('keeps Unicode names through discovery and all three input surfaces', () =>
     assert.match(completionProviderSource, /}, 25\);/);
     assert.match(consolePanelSource, /function isAutocompleteWordCharacter/);
     assert.match(dataViewerPanelSource, /function isFilterWordCharacter/);
+    assert.match(completionProviderSource, /description: 'Variable'/);
+    assert.match(completionProviderSource, /detail: candidate\.labelDetail/);
+    assert.match(completionProviderSource, /if \(!matches\.length\) \{/);
+    assert.match(completionProviderSource, /executeCommand\('hideSuggestWidget'\);/);
 });

@@ -58,6 +58,17 @@ describe('Data Viewer filter autocomplete', () => {
         assert.deepStrictEqual(selectVariableTableCandidates('in', []), []);
     });
 
+    it('finds Data Viewer variables through Chinese and pinyin label text', () => {
+        const variables = [{ name: 'formula_result', label: '这个变量代表了公式计算结果' }];
+        const direct = selectVariableTableCandidates('公式', variables)[0];
+        const pinyin = selectVariableTableCandidates('gongshi', variables)[0];
+        assert.strictEqual(direct.label, 'formula_result');
+        assert.deepStrictEqual(direct.labelDisplayMatchIndexes, [7, 8]);
+        assert.strictEqual(pinyin.label, 'formula_result');
+        assert.strictEqual(pinyin.matchType, 'pinyin');
+        assert.deepStrictEqual(pinyin.labelDisplayMatchIndexes, [7, 8]);
+    });
+
     it('expands a Stata variable list for the variables table', () => {
         const variables = ['price', 'weight', 'length', 'gear_ratio', '这是一个变量'];
         assert.deepStrictEqual(

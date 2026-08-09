@@ -48,6 +48,8 @@ const MATCH_TYPE_PRIORITY = Object.freeze({
     [COMPLETION_MATCH_TYPES.fuzzy]: 3,
     [COMPLETION_MATCH_TYPES.pinyin]: 4
 });
+const LABEL_MATCH_SCORE = 2500000;
+const MAX_VARIABLE_LABEL_DISPLAY_LENGTH = 52;
 
 const SIMPLE_COMMAND_PREFIXES = new Set([
     'capture', 'cap', 'quietly', 'qui', 'noisily', 'noi'
@@ -484,6 +486,83 @@ function compareCompletionCandidates(left, right) {
     return 0;
 }
 
+function createVariableLabelSnippet(variableLabel, matchIndexes) {
+    const text = String(variableLabel || '');
+    const indexes = Array.isArray(matchIndexes) ? matchIndexes : [];
+    if (!text || !indexes.length || text.length <= MAX_VARIABLE_LABEL_DISPLAY_LENGTH) {
+        return { text, matchIndexes: indexes };
+    }
+    const first = indexes[0];
+    const last = indexes[indexes.length - 1];
+    const matchLength = last - first + 1;
+    const contextBudget = Math.max(8, MAX_VARIABLE_LABEL_DISPLAY_LENGTH - matchLength - 2);
+    let start = Math.max(0, first - Math.floor(contextBudget / 2));
+    let end = Math.min(text.length, last + 1 + Math.ceil(contextBudget / 2));
+    if (start === 0) end = Math.min(text.length, MAX_VARIABLE_LABEL_DISPLAY_LENGTH - 1);
+    if (end === text.length) start = Math.max(0, text.length - MAX_VARIABLE_LABEL_DISPLAY_LENGTH + 1);
+    const leading = start > 0 ? '…' : '';
+    const trailing = end < text.length ? '…' : '';
+    return {
+        text: leading + text.slice(start, end) + trailing,
+        matchIndexes: indexes.map(index => index - start + leading.length)
+    };
+}
+
+function getVariableSourceValue(rawValue) {
+    if (!rawValue || typeof rawValue !== 'object') {
+        return { name: String(rawValue || '').trim(), variableLabel: '' };
+    }
+    return {
+        name: String(rawValue.name || rawValue.variableName || '').trim(),
+        variableLabel: String(rawValue.variableLabel ?? rawValue.label ?? '').trim()
+    };
+}
+
+function createVariableCandidate(rawValue, prefix) {
+    const { name, variableLabel } = getVariableSourceValue(rawValue);
+    if (!name) return null;
+    const nameMatch = matchCompletionLabel(name, prefix) || matchPinyinCompletionLabel(name, prefix);
+    const rawLabelMatch = variableLabel
+        ? (matchCompletionLabel(variableLabel, prefix) || matchPinyinCompletionLabel(variableLabel, prefix))
+        : null;
+    let labelMatch = null;
+    if (rawLabelMatch) {
+        const snippet = createVariableLabelSnippet(variableLabel, rawLabelMatch.matchIndexes);
+        labelMatch = {
+            ...rawLabelMatch,
+            // Keep label matches between normalized-prefix and ordinary fuzzy
+            // name matches while preserving the label match's internal order.
+            score: LABEL_MATCH_SCORE + Math.floor(rawLabelMatch.score / 10),
+            labelDisplay: snippet.text,
+            labelDisplayMatchIndexes: snippet.matchIndexes,
+            labelMatchIndexes: rawLabelMatch.matchIndexes,
+            matchedOn: 'label'
+        };
+    }
+    const match = !nameMatch || (labelMatch && labelMatch.score < nameMatch.score)
+        ? labelMatch
+        : { ...nameMatch, matchedOn: 'name' };
+    if (!match) return null;
+
+    const labelDisplay = match.labelDisplay || variableLabel;
+    const nameDisplay = match.matchedOn === 'label' ? name : (match.displayLabel || name);
+    let labelDetail = labelDisplay;
+    if (match.matchedOn === 'label' && match.matchType === COMPLETION_MATCH_TYPES.pinyin) {
+        const matchedText = match.labelMatchIndexes.map(index => variableLabel[index]).join('');
+        labelDetail += ` · ${String(prefix || '').toLowerCase()} → ${matchedText}`;
+    }
+    const displayLabel = labelDetail ? `${nameDisplay}    ${labelDetail}` : nameDisplay;
+    return {
+        ...match,
+        label: name,
+        kind: 'var',
+        variableLabel,
+        nameDisplay,
+        labelDetail,
+        displayLabel
+    };
+}
+
 function selectCompletionCandidates(context, pools, limit = MAX_COMPLETION_CANDIDATES) {
     if (!context || context.type === COMPLETION_TYPES.none) return [];
     const prefix = String(context.prefix || '').toLowerCase();
@@ -517,14 +596,19 @@ function selectCompletionCandidates(context, pools, limit = MAX_COMPLETION_CANDI
     const seen = new Set();
     for (const source of sources) {
         for (const rawValue of Array.isArray(source.values) ? source.values : []) {
-            const label = String(rawValue || '').trim();
+            const variableValue = source.kind === 'var' ? getVariableSourceValue(rawValue) : null;
+            const label = source.kind === 'var' ? variableValue.name : String(rawValue || '').trim();
             const key = label.toLowerCase();
             if (!label || seen.has(key)) continue;
-            const match = matchCompletionLabel(label, prefix)
-                || (source.kind === 'var' ? matchPinyinCompletionLabel(label, prefix) : null);
+            const candidate = source.kind === 'var'
+                ? createVariableCandidate(variableValue, prefix)
+                : null;
+            const match = source.kind === 'var'
+                ? candidate
+                : matchCompletionLabel(label, prefix);
             if (!match) continue;
             seen.add(key);
-            result.push({ label, kind: source.kind, ...match });
+            result.push(source.kind === 'var' ? candidate : { label, kind: source.kind, ...match });
         }
     }
     result.sort(compareCompletionCandidates);
@@ -545,7 +629,28 @@ function getCompletionFilterText(candidate) {
         ? candidate.matchIndexes
         : [];
     if (candidate && candidate.matchType === COMPLETION_MATCH_TYPES.pinyin) {
-        return String(candidate.filterText || label);
+        return String(candidate.displayLabel || candidate.filterText || label);
+    }
+    if (candidate && candidate.matchedOn === 'label') {
+        const displayLabel = String(candidate.displayLabel || label);
+        const labelDisplay = String(candidate.labelDisplay || '');
+        const offset = labelDisplay ? displayLabel.indexOf(labelDisplay) : -1;
+        if (offset < 0) return displayLabel;
+        const matched = new Set((candidate.labelDisplayMatchIndexes || []).map(index => index + offset));
+        let filterText = '';
+        for (let index = 0; index < displayLabel.length; index++) {
+            filterText += matched.has(index) ? displayLabel[index] : '_';
+        }
+        return filterText;
+    }
+    if (candidate && candidate.kind === 'var' && candidate.variableLabel && candidate.displayLabel) {
+        const displayLabel = String(candidate.displayLabel);
+        const matched = new Set(matchIndexes);
+        let filterText = '';
+        for (let index = 0; index < displayLabel.length; index++) {
+            filterText += index < label.length && matched.has(index) ? displayLabel[index] : '_';
+        }
+        return filterText;
     }
     if (!label || !matchIndexes.length) return label;
 
@@ -569,6 +674,7 @@ module.exports = {
     analyzeCompletionContext,
     matchCompletionLabel,
     matchPinyinCompletionLabel,
+    createVariableLabelSnippet,
     selectCompletionCandidates,
     getCompletionSortText,
     getCompletionFilterText

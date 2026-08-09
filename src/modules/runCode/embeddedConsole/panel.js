@@ -159,7 +159,7 @@ function getConsoleAutocomplete(text, cursor) {
         context: completionContext,
         matches: selectCompletionCandidates(completionContext, {
             commands: [...new Set([...StataBuiltinCommands, ...StataKeywords, ...config.getCustomCommands()])],
-            variables: variableSuggestions.getActiveVariables(),
+            variables: variableSuggestions.getActiveVariableCandidates(),
             functions: StataFunctions,
             options: StataOptions
         })
@@ -2116,6 +2116,8 @@ function getWebviewHtml(webview) {
             font-size: var(--vscode-editor-font-size, 13px);
             line-height: 1.5;
             min-width: 160px;
+            width: calc(100% - 24px);
+            max-width: 720px;
             display: none;
         }
         .autocomplete-dropdown.visible {
@@ -2136,6 +2138,24 @@ function getWebviewHtml(webview) {
         .autocomplete-label-match {
             color: var(--vscode-editorSuggestWidget-highlightForeground, var(--vscode-list-highlightForeground));
             font-weight: 600;
+        }
+        .autocomplete-label {
+            flex: 0 0 auto;
+            white-space: nowrap;
+        }
+        .autocomplete-variable-label {
+            flex: 1 1 auto;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: var(--vscode-descriptionForeground);
+        }
+        .autocomplete-kind {
+            flex: 0 0 auto;
+            margin-left: auto;
+            color: var(--vscode-descriptionForeground);
+            white-space: nowrap;
         }
         .autocomplete-icon {
             font-family: "codicon";
@@ -2690,8 +2710,24 @@ function getWebviewHtml(webview) {
                 item.appendChild(icon);
                 var text = document.createElement('span');
                 text.className = 'autocomplete-label';
-                appendAutocompleteLabel(text, label, m.matchIndexes);
+                appendAutocompleteLabel(text, label, m.matchedOn === 'label' ? [] : m.matchIndexes);
                 item.appendChild(text);
+                if (kind === 'var') {
+                    if (m.variableLabel) {
+                        var variableLabel = document.createElement('span');
+                        variableLabel.className = 'autocomplete-variable-label';
+                        appendAutocompleteLabel(
+                            variableLabel,
+                            m.labelDisplay || m.variableLabel,
+                            m.labelDisplayMatchIndexes || []
+                        );
+                        item.appendChild(variableLabel);
+                    }
+                    var variableKind = document.createElement('span');
+                    variableKind.className = 'autocomplete-kind';
+                    variableKind.textContent = 'Variable';
+                    item.appendChild(variableKind);
+                }
                 item.addEventListener('mousedown', function (e) {
                     e.preventDefault();
                     applyAutocomplete(this.dataset.label, wordStart);
