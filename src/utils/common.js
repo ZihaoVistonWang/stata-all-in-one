@@ -144,6 +144,7 @@ const UI_TEXT = {
         webviewNewline: 'newline',
         webviewHistory: 'history',
         webviewDragResizeTip: 'Drag to resize input area height',
+        webviewFontSizeUpdated: ({ previousSize, fontSize }) => `Console and Data Viewer font size adjusted from ${previousSize} to ${fontSize}.`,
         composerTips: [
             'Tip: Drag the "Console | Stata All in One" tab to the bottom if your screen is too narrow for side-by-side layout.',
             'Tip: In the editor, Ctrl/Cmd+D runs the current line or selection.',
@@ -404,6 +405,7 @@ const UI_TEXT = {
         webviewNewline: '换行',
         webviewHistory: '历史记录',
         webviewDragResizeTip: '拖拽调整输入区高度',
+        webviewFontSizeUpdated: ({ previousSize, fontSize }) => `Console 和 Data Viewer 字号已由 ${previousSize} 调整为 ${fontSize}。`,
         composerTips: [
             '提示：如果屏幕不够宽，可以拖动“控制台 | Stata All in One”标签页到下方，改为纵向分布。',
             '提示：在编辑器中，Ctrl/Cmd+D 运行当前行或选中代码。',

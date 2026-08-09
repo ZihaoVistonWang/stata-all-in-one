@@ -130,6 +130,33 @@ const getConsoleCustomFontFamily = () => {
 };
 
 /**
+ * Get the shared Embedded Console and Data Viewer font size.
+ */
+const getExplicitConsoleAndDataViewerFontSize = () => {
+    const extensionConfig = getConfig();
+    const inspected = typeof extensionConfig.inspect === 'function'
+        ? extensionConfig.inspect('consoleAndDataViewerFontSize')
+        : null;
+    return inspected && [
+        inspected.workspaceFolderValue,
+        inspected.workspaceValue,
+        inspected.globalValue
+    ].find(value => value !== undefined && value !== null);
+};
+
+const normalizeWebviewFontSize = value =>
+    typeof value === 'number' && Number.isFinite(value) && value >= 6
+        ? Math.min(72, value)
+        : 14;
+
+const getConsoleAndDataViewerFontSize = () => {
+    const explicitValue = getExplicitConsoleAndDataViewerFontSize();
+    const editorValue = vscode.workspace.getConfiguration('editor').get('fontSize', 14);
+    const value = explicitValue !== undefined ? explicitValue : editorValue;
+    return normalizeWebviewFontSize(value);
+};
+
+/**
  * Get PNG export DPI for embedded console graphs
  */
 const getGraphPngDpi = () => {
@@ -172,6 +199,7 @@ module.exports = {
     getRunMode,
     getConsoleFontMode,
     getConsoleCustomFontFamily,
+    getConsoleAndDataViewerFontSize,
     getGraphPngDpi,
     getAdditionalAdoPaths
 };

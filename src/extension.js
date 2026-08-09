@@ -26,6 +26,7 @@ const {
 const { syncConsoleTerminalTheme } = require('./modules/runCode/embeddedConsole/renderer');
 const { prewarmConsoleTextmateTokenizer } = require('./modules/runCode/embeddedConsole/textmateTokenizer');
 const { closeRestoredDataViewerTabs, registerDtaDataViewer } = require('./modules/runCode/embeddedConsole/dataViewer/dtaEditor');
+const { setDataViewerFontSize } = require('./modules/runCode/embeddedConsole/dataViewer/panel');
 const { registerHoverProvider, buildHelpIndex, createHoverProvider, DocumentCache } = require('./modules/hoverProvider');
 const { isWindows, isMacOS, showError, showInfo, showWarn, showConsoleUnavailableToast, msg } = require('./utils/common');
 
@@ -345,8 +346,12 @@ async function activate(context) {
     }));
 
     const refreshConsoleFontOptions = () => {
-        setConsoleFontOptions(getConsoleFontWebviewOptions(context));
+        const options = getConsoleFontWebviewOptions(context);
+        setConsoleFontOptions(options);
+        setDataViewerFontSize(options.fontSize);
+        return options.fontSize;
     };
+    let currentWebviewFontSize;
     
     // Initialize execution session context to false
     vscode.commands.executeCommand('setContext', CONSOLE_SESSION_ACTIVE_KEY, false);
@@ -503,14 +508,26 @@ async function activate(context) {
             outputMode: config.RUN_MODES.embeddedConsole
         });
     });
-    refreshConsoleFontOptions();
+    currentWebviewFontSize = refreshConsoleFontOptions();
     registerWebviewPanelSerializer(context);
     setOverflowNoticeSuppressed(Boolean(context.globalState.get(EMBEDDED_CONSOLE_OVERFLOW_NOTICE_SUPPRESSED_KEY, false)));
     context.subscriptions.push(vscode.workspace.onDidChangeConfiguration((event) => {
         if (event.affectsConfiguration('editor.fontFamily')
+            || event.affectsConfiguration('editor.fontSize')
             || event.affectsConfiguration('stata-all-in-one.consoleFontMode')
-            || event.affectsConfiguration('stata-all-in-one.consoleCustomFontFamily')) {
-            refreshConsoleFontOptions();
+            || event.affectsConfiguration('stata-all-in-one.consoleCustomFontFamily')
+            || event.affectsConfiguration('stata-all-in-one.consoleAndDataViewerFontSize')) {
+            const previousFontSize = currentWebviewFontSize;
+            currentWebviewFontSize = refreshConsoleFontOptions();
+            if (previousFontSize !== undefined
+                && previousFontSize !== currentWebviewFontSize
+                && (event.affectsConfiguration('editor.fontSize')
+                    || event.affectsConfiguration('stata-all-in-one.consoleAndDataViewerFontSize'))) {
+                showInfo(msg('webviewFontSizeUpdated', {
+                    previousSize: previousFontSize,
+                    fontSize: currentWebviewFontSize
+                }));
+            }
         }
     }));
     setWebviewActionHandler(async (action) => {

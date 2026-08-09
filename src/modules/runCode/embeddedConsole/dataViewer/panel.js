@@ -24,6 +24,7 @@ const _consoleSnapshot = { pinned: false, data: null, entry: null };
 const _filePaths = new WeakMap();
 const _datasetAutocompleteVariables = { console: [], file: [] };
 const _renderer = new StataTerminalRenderer();
+let _fontSize = 14;
 const VIEW_WINDOW_SIZE = 700;
 const VIEW_WINDOW_LEAD = 100;
 
@@ -100,6 +101,7 @@ function getDataViewerHtml(webview) {
     const nonce = String(Date.now());
     const codiconFontUri = getCodiconFontUri(webview);
     const themeVars = getWebviewThemeVariables();
+    const fontSizeCss = `${_fontSize}px`;
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -109,6 +111,7 @@ function getDataViewerHtml(webview) {
     <title>${escHtml(msg('dataViewerPanelTitle'))}</title>
     <style>
         :root {
+            --data-viewer-font-size: ${fontSizeCss};
             color-scheme: light dark;
             --stata-command: ${themeVars.command || 'var(--vscode-editor-foreground)'};
             --stata-function: ${themeVars.function || 'var(--vscode-editor-foreground)'};
@@ -134,7 +137,7 @@ function getDataViewerHtml(webview) {
             background: var(--vscode-editor-background);
             color: var(--vscode-editor-foreground);
             font-family: var(--vscode-font-family);
-            font-size: var(--vscode-editor-font-size, 13px);
+            font-size: var(--data-viewer-font-size);
             display: flex;
             flex-direction: column;
         }
@@ -236,7 +239,7 @@ function getDataViewerHtml(webview) {
             border-radius: 4px;
             padding: 5px 64px 5px 8px;
             font-family: var(--vscode-editor-font-family, monospace);
-            font-size: var(--vscode-editor-font-size, 13px);
+            font-size: var(--data-viewer-font-size);
             line-height: 18px;
             white-space: pre;
             overflow: hidden;
@@ -294,7 +297,7 @@ function getDataViewerHtml(webview) {
             overflow-y: auto;
             box-shadow: 0 2px 12px rgba(0,0,0,0.3);
             font-family: var(--vscode-editor-font-family, monospace);
-            font-size: var(--vscode-editor-font-size, 13px);
+            font-size: var(--data-viewer-font-size);
             line-height: 1.5;
             min-width: 160px;
             width: calc(100% - 24px);
@@ -377,7 +380,7 @@ function getDataViewerHtml(webview) {
             width: max-content;
             border-collapse: separate;
             border-spacing: 0;
-            font-size: var(--vscode-editor-font-size, 13px);
+            font-size: var(--data-viewer-font-size);
         }
         #table-data, #table-vars {
             table-layout: fixed;
@@ -392,7 +395,7 @@ function getDataViewerHtml(webview) {
             padding: 4px 10px;
             text-align: left;
             white-space: nowrap;
-            line-height: 20px;
+            line-height: 1.5;
             box-sizing: border-box;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -542,7 +545,7 @@ function getDataViewerHtml(webview) {
             border-radius: 4px;
             box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28);
             font-family: var(--vscode-editor-font-family, monospace);
-            font-size: var(--vscode-editor-font-size, 13px);
+            font-size: var(--data-viewer-font-size);
             line-height: 1.45;
             white-space: pre-wrap;
             overflow-wrap: anywhere;
@@ -821,6 +824,31 @@ function getDataViewerHtml(webview) {
                 columnIndex: columnIndex,
                 columnOffset: Math.max(0, contentEl.scrollLeft - getCumulWidth(columnIndex))
             };
+        }
+
+        function applyFontSize(value) {
+            var viewport = currentTab === 'data' ? captureViewport() : null;
+            document.documentElement.style.setProperty(
+                '--data-viewer-font-size',
+                String(value || 'var(--vscode-editor-font-size, 13px)')
+            );
+            requestAnimationFrame(function () {
+                tableFontSize = parseFloat(window.getComputedStyle(document.body).fontSize) || 13;
+                virtualRowHeight = Math.max(28, Math.ceil(tableFontSize * 1.5 + 8));
+                measureTableText._fonts = {};
+                for (var col = 0; col < columnNaturalWidths.length; col++) {
+                    if (!columnManualWidths[col]) columnNaturalWidths[col] = colMinWidth;
+                }
+                for (var varsCol = 0; varsCol < varsColumnNaturalWidths.length; varsCol++) {
+                    if (!varsColumnManualWidths[varsCol]) varsColumnNaturalWidths[varsCol] = colMinWidth;
+                }
+                autoSizeVarsColumns();
+                autoSizeDataColumns(dataRowsCache);
+                if (viewport) pendingViewportRestore = viewport;
+                scheduleDataRender(true);
+                fitInfoSourcePath();
+                scheduleOverflowTitleUpdate();
+            });
         }
 
         var viewportPersistQueued = false;
@@ -1168,7 +1196,8 @@ function getDataViewerHtml(webview) {
         var dataColumnsCache = [];
         var dataColumnTypesCache = [];
         var dataRowsCache = [];
-        var virtualRowHeight = 28;
+        var tableFontSize = parseFloat(window.getComputedStyle(document.body).fontSize) || 13;
+        var virtualRowHeight = Math.max(28, Math.ceil(tableFontSize * 1.5 + 8));
         var virtualOverscan = 80;
         var columnWidths = [];
         var columnNaturalWidths = [];
@@ -2193,6 +2222,8 @@ function getDataViewerHtml(webview) {
                 sharedAutocompleteVariables = message.variables || [];
                 autocompleteVariables = mergeVariableLists(dataColumnsCache, sharedAutocompleteVariables);
                 updateFilterHighlight();
+            } else if (message.type === 'fontSize') {
+                applyFontSize(message.value);
             } else if (
                 message.type === 'autoFitColumnResult'
                 && dataColumnsCache[message.colIndex] === message.column
@@ -2632,6 +2663,19 @@ async function resetConsoleData() {
     }
 }
 
+function setDataViewerFontSize(fontSize) {
+    const value = Number(fontSize);
+    _fontSize = Number.isFinite(value) && value >= 6 ? Math.min(72, value) : 14;
+    for (const mode of ['console', 'file']) {
+        const panel = _panels[mode];
+        if (!panel) continue;
+        panel.webview.postMessage({
+            type: 'fontSize',
+            value: `${_fontSize}px`
+        });
+    }
+}
+
 // ── open a .dta file in its own independent data viewer ────────────────────────
 async function openDtaFile(context, uri, panel) {
     if (!uri || uri.scheme !== 'file') {
@@ -2673,6 +2717,7 @@ module.exports = {
     openDtaFileInDataViewer: openDtaFile,
     updateDataViewerData: updateData,
     resetConsoleDataViewer: resetConsoleData,
+    setDataViewerFontSize,
     getDataViewerPanel: () => _panels['console'],
     getPanelViewType: () => PANEL_VIEW_TYPE,
     postDataViewerVariables: postVariables,

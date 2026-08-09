@@ -62,6 +62,7 @@ let _webviewAppendSequence = 0;
 let _webviewNeedsTailSync = false;
 let _consoleFontOptions = {
     fontMode: 'online',
+    fontSize: 14,
     editorFontFamily: '',
     customFontFamily: '',
     systemFallbackFamily: 'monospace'
@@ -1304,10 +1305,22 @@ function registerWebviewPanelSerializer(context) {
 }
 
 function setConsoleFontOptions(options) {
-    _consoleFontOptions = Object.assign({}, _consoleFontOptions, options || {});
-    if (_panel) {
+    const previous = _consoleFontOptions;
+    const next = Object.assign({}, previous, options || {});
+    const fontFamilyChanged = previous.fontMode !== next.fontMode
+        || previous.editorFontFamily !== next.editorFontFamily
+        || previous.customFontFamily !== next.customFontFamily
+        || previous.systemFallbackFamily !== next.systemFallbackFamily;
+    const fontSizeChanged = previous.fontSize !== next.fontSize;
+    _consoleFontOptions = next;
+    if (_panel && fontFamilyChanged) {
         _panel.webview.html = getWebviewHtml(_panel.webview);
         postState();
+    } else if (_panel && fontSizeChanged) {
+        _panel.webview.postMessage({
+            type: 'fontSize',
+            value: `${next.fontSize}px`
+        });
     }
 }
 
@@ -1353,6 +1366,7 @@ function getWebviewHtml(webview) {
     const asciiLogoBottom = escapeHtml(asciiLogo.down);
     const fontOptions = {
         fontMode: String(_consoleFontOptions.fontMode || 'online'),
+        fontSize: Number(_consoleFontOptions.fontSize) || 14,
         editorFontFamily: String(_consoleFontOptions.editorFontFamily || ''),
         customFontFamily: String(_consoleFontOptions.customFontFamily || ''),
         systemFallbackFamily: String(_consoleFontOptions.systemFallbackFamily || 'monospace')
@@ -1402,6 +1416,7 @@ function getWebviewHtml(webview) {
             --stata-time: ${themeVars.time || 'var(--vscode-editor-foreground)'};
             --stata-time-value: ${themeVars.timeValue || 'var(--stata-number)'};
             --console-editor-font-family: var(--vscode-editor-font-family, monospace);
+            --console-font-size: ${fontOptions.fontSize}px;
             --console-custom-font-family: var(--console-editor-font-family);
             --console-system-fallback-family: ${escapeHtml(fontOptions.systemFallbackFamily)};
             --console-online-font-family: "Maple Mono", "Maple Mono NF CN", var(--console-system-fallback-family);
@@ -1620,7 +1635,7 @@ function getWebviewHtml(webview) {
             padding: 12px 18px 18px 0;
             font-family: var(--console-active-font-family);
             font-synthesis: weight style;
-            font-size: var(--vscode-editor-font-size, 13px);
+            font-size: var(--console-font-size);
             line-height: 1.5;
             white-space: normal;
             word-break: normal;
@@ -2067,7 +2082,7 @@ function getWebviewHtml(webview) {
             margin: 0;
             font-family: var(--console-active-font-family);
             font-synthesis: weight style;
-            font-size: var(--vscode-editor-font-size, 13px);
+            font-size: var(--console-font-size);
             line-height: 1.5;
             tab-size: 4;
             white-space: pre-wrap;
@@ -2092,7 +2107,7 @@ function getWebviewHtml(webview) {
             outline: none;
             font-family: var(--console-active-font-family);
             font-synthesis: weight style;
-            font-size: var(--vscode-editor-font-size, 13px);
+            font-size: var(--console-font-size);
             line-height: 1.5;
             tab-size: 4;
             overflow-y: auto;
@@ -2121,7 +2136,7 @@ function getWebviewHtml(webview) {
             overflow-y: auto;
             box-shadow: 0 -2px 12px rgba(0,0,0,0.3);
             font-family: var(--console-active-font-family);
-            font-size: var(--vscode-editor-font-size, 13px);
+            font-size: var(--console-font-size);
             line-height: 1.5;
             min-width: 160px;
             width: calc(100% - 24px);
@@ -4647,6 +4662,13 @@ function getWebviewHtml(webview) {
                 }
             } else if (message.type === 'variablesUpdate') {
                 // Variables are read by the extension host when each completion is requested.
+            } else if (message.type === 'fontSize') {
+                document.documentElement.style.setProperty(
+                    '--console-font-size',
+                    String(message.value || 'var(--vscode-editor-font-size, 13px)')
+                );
+                positionRunNavigation();
+                positionJumpToBottomButton();
             } else if (message.type === 'overflowNoticePreference') {
                 overflowNoticeSuppressed = Boolean(message.suppressed);
                 if (overflowNoticeSuppressed) {

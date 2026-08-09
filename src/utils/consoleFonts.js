@@ -101,6 +101,7 @@ function getConsoleFontWebviewOptions(context) {
     const availableStacks = Array.isArray(cached && cached.availableStacks) ? cached.availableStacks : [];
     return {
         fontMode: config.getConsoleFontMode(),
+        fontSize: config.getConsoleAndDataViewerFontSize(),
         editorFontFamily: getEditorFontFamily(),
         customFontFamily: config.getConsoleCustomFontFamily(),
         systemFallbackFamily: availableStacks[0] || getDefaultPlatformFallbackStack(platform)

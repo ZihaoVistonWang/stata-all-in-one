@@ -150,6 +150,16 @@
           "default": "",
           "markdownDescription": "%config.consoleCustomFontFamily.description%"
         },
+        "stata-all-in-one.consoleAndDataViewerFontSize": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "default": null,
+          "minimum": 6,
+          "maximum": 72,
+          "markdownDescription": "%config.consoleAndDataViewerFontSize.description%"
+        },
         "stata-all-in-one.graphPngDpi": {
           "type": "number",
           "default": 600,
