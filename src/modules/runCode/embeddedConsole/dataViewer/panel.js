@@ -4,6 +4,10 @@ const consoleStore = require('./consoleStore');
 const { msg, showInfo, showError } = require('../../../../utils/common');
 const { StataTerminalRenderer, getWebviewThemeVariables } = require('../renderer');
 const variableSuggestions = require('../../../variableSuggestionService');
+const {
+    mergeVariableLists: mergeAutocompleteVariables,
+    selectDataViewerCandidates
+} = require('./autocomplete');
 
 const PANEL_VIEW_TYPE = 'stata-all-in-one.dataViewer';
 
@@ -16,6 +20,7 @@ const _nextActivationPreserve = { console: true, file: true };
 const _lastViewport = { console: null, file: null };
 const _consoleSnapshot = { pinned: false, data: null, entry: null };
 const _filePaths = new WeakMap();
+const _datasetAutocompleteVariables = { console: [], file: [] };
 const _renderer = new StataTerminalRenderer();
 const VIEW_WINDOW_SIZE = 700;
 const VIEW_WINDOW_LEAD = 100;
@@ -292,6 +297,10 @@ function getDataViewerHtml(webview) {
         .filter-autocomplete-item.active {
             background: var(--vscode-list-activeSelectionBackground);
             color: var(--vscode-list-activeSelectionForeground);
+        }
+        .filter-autocomplete-match {
+            color: var(--vscode-list-highlightForeground);
+            font-weight: 600;
         }
         .filter-autocomplete-icon {
             font-family: "codicon";
@@ -580,6 +589,7 @@ function getDataViewerHtml(webview) {
         var sharedAutocompleteVariables = [];
         var filterAutocompleteIndex = -1;
         var filterAutocompleteVisible = false;
+        var filterAutocompleteRequestId = 0;
 
         document.querySelectorAll('.tab').forEach(function (tab) {
             tab.addEventListener('click', function () {
@@ -772,7 +782,7 @@ function getDataViewerHtml(webview) {
                 hideFilterAutocomplete();
                 return;
             }
-            filterAutocomplete.innerHTML = '';
+            filterAutocomplete.replaceChildren();
             for (var i = 0; i < matches.length; i++) {
                 var m = matches[i];
                 var label = typeof m === 'string' ? m : m.label;
@@ -785,7 +795,11 @@ function getDataViewerHtml(webview) {
                 item.appendChild(icon);
                 var text = document.createElement('span');
                 text.className = 'filter-autocomplete-label';
-                text.textContent = label;
+                appendFilterAutocompleteLabel(
+                    text,
+                    label,
+                    (typeof m === 'object' && m.matchIndexes) || []
+                );
                 item.appendChild(text);
                 item.addEventListener('mousedown', function (e) {
                     e.preventDefault();
@@ -799,9 +813,27 @@ function getDataViewerHtml(webview) {
             filterAutocompleteVisible = true;
         }
 
+        function appendFilterAutocompleteLabel(container, label, matchIndexes) {
+            var matched = {};
+            for (var i = 0; i < matchIndexes.length; i++) {
+                matched[matchIndexes[i]] = true;
+            }
+            var start = 0;
+            while (start < label.length) {
+                var isMatch = !!matched[start];
+                var end = start + 1;
+                while (end < label.length && !!matched[end] === isMatch) end++;
+                var span = document.createElement('span');
+                if (isMatch) span.className = 'filter-autocomplete-match';
+                span.textContent = label.slice(start, end);
+                container.appendChild(span);
+                start = end;
+            }
+        }
+
         function hideFilterAutocomplete() {
             filterAutocomplete.classList.remove('visible');
-            filterAutocomplete.innerHTML = '';
+            filterAutocomplete.replaceChildren();
             filterAutocompleteIndex = -1;
             filterAutocompleteVisible = false;
         }
@@ -819,36 +851,18 @@ function getDataViewerHtml(webview) {
 
         function triggerFilterAutocomplete() {
             var current = getCurrentFilterWord();
+            filterAutocompleteRequestId++;
             if (!current.word) {
                 hideFilterAutocomplete();
                 return;
             }
-            var prefix = current.word.toLowerCase();
-            var keywords = ['if', 'in', 'nolabel'];
-            var variables = mergeVariableLists(autocompleteVariables, sharedAutocompleteVariables);
-            var matches = [];
-            var seen = {};
-            for (var i = 0; i < keywords.length && matches.length < 8; i++) {
-                var kw = keywords[i];
-                var kwk = kw.toLowerCase();
-                if (kwk.indexOf(prefix) === 0 && !seen[kwk]) {
-                    seen[kwk] = true;
-                    matches.push({ label: kw, kind: 'cmd' });
-                }
-            }
-            for (var i = 0; i < variables.length && matches.length < 8; i++) {
-                var v = variables[i];
-                var vk = v.toLowerCase();
-                if (vk.indexOf(prefix) === 0 && !seen[vk]) {
-                    seen[vk] = true;
-                    matches.push({ label: v, kind: 'var' });
-                }
-            }
-            if (matches.length === 1 && matches[0].label.toLowerCase() === prefix) {
-                hideFilterAutocomplete();
-                return;
-            }
-            showFilterAutocomplete(matches, current.start);
+            hideFilterAutocomplete();
+            vscode.postMessage({
+                type: 'filterAutocomplete',
+                requestId: filterAutocompleteRequestId,
+                prefix: current.word,
+                wordStart: current.start
+            });
         }
 
         function navigateFilterAutocomplete(direction) {
@@ -1960,6 +1974,17 @@ function getDataViewerHtml(webview) {
                 );
             } else if (message.type === 'filterHighlightResult') {
                 renderFilterHighlight(message.segments || []);
+            } else if (
+                message.type === 'filterAutocompleteResult'
+                && message.requestId === filterAutocompleteRequestId
+            ) {
+                var matches = message.matches || [];
+                var prefix = String(message.prefix || '').toLowerCase();
+                if (matches.length === 1 && matches[0].label.toLowerCase() === prefix) {
+                    hideFilterAutocomplete();
+                } else {
+                    showFilterAutocomplete(matches, message.wordStart || 0);
+                }
             } else if (message.type === 'setStatus') {
                 // Could show loading indicator
             } else if (message.type === 'variablesUpdate') {
@@ -2030,6 +2055,7 @@ function attachPanel(panel, mode) {
                 const filePath = _filePaths.get(panel);
                 if (filePath) directDtaStore.dispose(filePath);
                 _filePaths.delete(panel);
+                _datasetAutocompleteVariables.file = [];
             } else {
                 _consoleSnapshot.pinned = false;
                 _consoleSnapshot.data = null;
@@ -2037,6 +2063,7 @@ function attachPanel(panel, mode) {
                 _consoleSnapshot.entry = null;
                 consoleStore.invalidateLive().catch(() => {});
                 _lastViewport.console = null;
+                _datasetAutocompleteVariables.console = [];
             }
         }
     });
@@ -2070,6 +2097,22 @@ function attachPanel(panel, mode) {
             const p = _panels[mode];
             if (p) {
                 p.webview.postMessage({ type: 'filterHighlightResult', segments: highlightFilterText(message.text || '') });
+            }
+        } else if (message.type === 'filterAutocomplete') {
+            const prefix = String(message.prefix || '');
+            const variables = mergeAutocompleteVariables(
+                _datasetAutocompleteVariables[mode],
+                variableSuggestions.getActiveVariables()
+            );
+            const matches = selectDataViewerCandidates(prefix, variables);
+            if (_panels[mode] === panel) {
+                panel.webview.postMessage({
+                    type: 'filterAutocompleteResult',
+                    requestId: message.requestId,
+                    prefix,
+                    wordStart: message.wordStart,
+                    matches
+                });
             }
         } else if (message.type === 'loadWindow') {
             await handleLoadWindow(mode, message);
@@ -2264,6 +2307,9 @@ async function refreshDataViewer(mode, filterText, targetPanel, options = {}) {
                 variableSuggestions.setMemoryVars(data.allVarNames);
             }
         }
+        _datasetAutocompleteVariables[mode] = mergeAutocompleteVariables(
+            data.allVarNames || data.dataColumns || []
+        );
         data.variableSuggestions = variableSuggestions.getActiveVariables();
         panel.webview.postMessage({ type: 'setData', data, viewport });
         if (mode === 'console') {
@@ -2342,6 +2388,7 @@ async function resetConsoleData() {
     _pendingFilter.console = '';
     _dirty.console = false;
     _lastViewport.console = null;
+    _datasetAutocompleteVariables.console = [];
 
     const panel = _panels.console;
     if (panel) {
@@ -2372,9 +2419,13 @@ async function openDtaFile(context, uri, panel) {
 
     const filePath = uri.fsPath;
     _filePaths.set(targetPanel, filePath);
+    _datasetAutocompleteVariables.file = [];
     try {
         const data = await directDtaStore.getSnapshot(filePath, 500, '');
         if (data && !data.error) {
+            _datasetAutocompleteVariables.file = mergeAutocompleteVariables(
+                data.allVarNames || data.dataColumns || []
+            );
             data.variableSuggestions = variableSuggestions.getActiveVariables();
             // Send initial data immediately — webview processes setData before ready message
             if (targetPanel) {
