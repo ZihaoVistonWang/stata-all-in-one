@@ -9,7 +9,7 @@ Stata All in One
 </h1>
 
 <p align="center">
-   One <b>VS Code</b> extension tailored for Stata users
+   An integrated Stata productivity environment in VS Code
 </p>
 
 <p align="center">
