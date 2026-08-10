@@ -35,6 +35,7 @@ const {
 const { formatWorkingElapsedSeconds } = require('./workingTimer');
 const { TemporaryDoFileOutputFilter } = require('./temporaryDoFileOutput');
 const { PrimaryEchoGrouper } = require('./echoGrouping');
+const { imagePreviewManager } = require('./imagePreviewManager');
 
 const _renderer = new StataTerminalRenderer();
 
@@ -263,6 +264,21 @@ function attachPanel(panel) {
             await exportConsoleHistory();
         } else if (message && message.type === 'saveGraph') {
             await saveGraphAs(message.filePath, message.graphName, message.format);
+        } else if (message && message.type === 'openGraphPreview') {
+            const previewOpened = await imagePreviewManager.showImage({
+                imageUri: String(message.src || ''),
+                filePath: String(message.filePath || ''),
+                title: String(message.graphName || 'Graph'),
+                panelTitle: 'Image Preview',
+                closeLabel: msg('graphClose')
+            });
+            if (!previewOpened && _panel === panel) {
+                panel.webview.postMessage({
+                    type: 'showGraphFullscreenFallback',
+                    src: String(message.src || ''),
+                    graphName: String(message.graphName || 'Graph')
+                });
+            }
         } else if (message && message.type === 'openConsoleFile') {
             if (message.link) {
                 await openConsoleLink(message.link);
@@ -3977,7 +3993,12 @@ function getWebviewHtml(webview) {
                 });
             }));
             actions.appendChild(createGraphAction('screen-full', GRAPH_LABELS.fullScreen, function () {
-                showGraphFullscreen(entry);
+                vscode.postMessage({
+                    type: 'openGraphPreview',
+                    src: String(entry.src || ''),
+                    filePath: String(entry.filePath || ''),
+                    graphName: graphName
+                });
             }));
             frame.appendChild(actions);
             shell.appendChild(frame);
@@ -4656,6 +4677,11 @@ function getWebviewHtml(webview) {
                     overflowNoticeDismissedForCurrentView = true;
                 }
                 updateOverflowNotice();
+            } else if (message.type === 'showGraphFullscreenFallback') {
+                showGraphFullscreen({
+                    src: String(message.src || ''),
+                    graphName: String(message.graphName || 'Graph')
+                });
             } else if (message.type === 'requestGraphImageDataUrl') {
                 const requestId = String(message.requestId || '');
                 const entry = findGraphEntryByFilePath(message.filePath) || {
