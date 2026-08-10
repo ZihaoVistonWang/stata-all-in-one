@@ -1020,7 +1020,7 @@ class StataTerminalRenderer {
             return rendered;
         }
 
-        if (/^[.>]\s+\*{2,}#/.test(line) || /^[.>]\s+\*{2,}\s+/.test(line)) {
+        if (/^[.>]\s+\*/.test(line)) {
             this._describeMode = false;
             lineKind = 'comment-command';
             const rendered = this._segmentCommentCommandLine(line);
@@ -1324,7 +1324,7 @@ class StataTerminalRenderer {
             return rendered;
         }
 
-        if (/^[.>]\s+\*{2,}#/.test(line) || /^[.>]\s+\*{2,}\s+/.test(line)) {
+        if (/^[.>]\s+\*/.test(line)) {
             this._describeMode = false;
             lineKind = 'comment-command';
             const rendered = this._renderCommentCommandLine(line);
@@ -1624,7 +1624,11 @@ class StataTerminalRenderer {
                 continue;
             }
 
-            if (text[i] === '/' && text[i + 1] === '/' && text[i + 2] !== '/') {
+            const hasCommentBoundary = i === 0 || /\s/.test(text[i - 1]);
+            if (hasCommentBoundary
+                && text[i] === '/'
+                && text[i + 1] === '/'
+                && text[i + 2] !== '/') {
                 return i;
             }
         }
@@ -1893,7 +1897,7 @@ class StataTerminalRenderer {
                 continue;
             }
 
-            if (line.startsWith('//', i)) {
+            if (line.startsWith('//', i) && (i === 0 || /\s/.test(line[i - 1]))) {
                 tokens.push({ type: 'comment', value: line.slice(i), startIndex: i });
                 break;
             }

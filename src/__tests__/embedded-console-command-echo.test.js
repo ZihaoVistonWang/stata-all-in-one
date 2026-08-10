@@ -29,15 +29,32 @@ test('separates submitted input from direct and temporary do-file command echoes
     }
 });
 
-test('adds one blank line before later primary echoes without splitting continuations', () => {
+test('routes primary echoes through comment-aware run grouping', () => {
     const panelSource = fs.readFileSync(
         path.join(__dirname, '../modules/runCode/embeddedConsole/panel.js'),
         'utf8'
     );
 
-    assert.match(panelSource, /const isPrimaryEcho = \(kind === 'command' \|\| kind === 'comment-command'\)[\s\S]*text\.startsWith\('\. '\)/);
-    assert.match(panelSource, /this\._primaryEchoCount > 0 && !this\._lastEchoEntryWasBlank/);
-    assert.match(panelSource, /spaced\.push\(\{ kind: 'blank', segments: \[\] \}\)/);
-    assert.match(panelSource, /writeCommand\(command\) \{[\s\S]*this\._insertPrimaryEchoSpacing\(rendered\)/);
-    assert.match(panelSource, /_appendOutputEntries\(entries\) \{[\s\S]*this\._insertPrimaryEchoSpacing\(entries\)/);
+    assert.match(panelSource, /const \{ PrimaryEchoGrouper \} = require\('\.\/echoGrouping'\)/);
+    assert.match(panelSource, /this\._primaryEchoGrouper = new PrimaryEchoGrouper\(\)/);
+    assert.match(panelSource, /writeCommand\(command\) \{[\s\S]*this\._primaryEchoGrouper\.push\(rendered\)/);
+    assert.match(panelSource, /_appendOutputEntries\(entries\) \{[\s\S]*this\._primaryEchoGrouper\.push\(entries\)/);
+    assert.match(panelSource, /flushOutput\(\) \{[\s\S]*this\._primaryEchoGrouper\.flush\(\)/);
+});
+
+test('macOS keeps full-line comments in a temporary do-file for native echo', () => {
+    const macSource = fs.readFileSync(
+        path.join(__dirname, '../modules/runCode/embeddedConsole/mac.js'),
+        'utf8'
+    );
+
+    assert.match(macSource, /const preserveFullLineCommentEcho = hasDisplayableFullLineComment\(lines\)/);
+    assert.match(
+        macSource,
+        /if \(!preserveFullLineCommentEcho[\s\S]*?directLines\.length === 1/
+    );
+    assert.match(
+        macSource,
+        /if \(!preserveFullLineCommentEcho[\s\S]*?directLines\.length > 0/
+    );
 });

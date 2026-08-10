@@ -4,7 +4,7 @@
  * macOS 外部 Stata 应用运行
  */
 
-const { exec, execSync } = require('child_process');
+const { execFile, execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const vscode = require('vscode');
@@ -104,11 +104,19 @@ function findStataApp(preferredName, savedPath = null) {
  */
 function isStataRunning(appName) {
     try {
-        const result = execSync(`pgrep -x "${appName}"`, { encoding: 'utf8' });
+        const result = execFileSync('pgrep', ['-x', appName], { encoding: 'utf8' });
         return result.trim().length > 0;
     } catch {
         return false;
     }
+}
+
+function isSafeStataAppName(appName) {
+    return /^Stata(?:MP|SE|BE|IC)?$/.test(String(appName || ''));
+}
+
+function escapeForAppleScript(value) {
+    return String(value).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
 
 /**
@@ -158,6 +166,11 @@ function runOnMac(codeToRun, tmpFilePath, isHelpCommand = false, docDir = null, 
         }
     }
 
+    if (!isSafeStataAppName(appName)) {
+        showError(msg('stataNotFoundConfigured', { stataVersion: appName || stataVersion || '' }));
+        return;
+    }
+
     const cdEnabled = config.getCdToDoFileDir ? config.getCdToDoFileDir() : false;
     const running = isStataRunning(appName);
     let finalCode = codeToRun;
@@ -167,19 +180,12 @@ function runOnMac(codeToRun, tmpFilePath, isHelpCommand = false, docDir = null, 
     }
     fs.writeFileSync(tmpFilePath, finalCode, 'utf8');
 
-    let stataCommand = `osascript -e 'tell application "${appName}" to activate' && `;
-    
-    stataCommand += `osascript -e 'tell application "${appName}" to DoCommandAsync "do \\"${tmpFilePath}\\""'`;
+    const appNameLiteral = escapeForAppleScript(appName);
+    const doCommandLiteral = escapeForAppleScript(`do "${tmpFilePath}"`);
+    const activateScript = `tell application "${appNameLiteral}" to activate`;
+    const runScript = `tell application "${appNameLiteral}" to DoCommandAsync "${doCommandLiteral}"`;
 
-    exec(stataCommand, (error, stdout, stderr) => {
-        setTimeout(() => {
-            try {
-                fs.unlinkSync(tmpFilePath);
-            } catch (e) {
-                console.error('Failed to delete temporary file:', e);
-            }
-        }, 2000);
-        
+    execFile('osascript', ['-e', activateScript, '-e', runScript], (error) => {
         if (error) {
             showError(msg('runFailed', { message: error.message }));
             return;
@@ -191,5 +197,7 @@ function runOnMac(codeToRun, tmpFilePath, isHelpCommand = false, docDir = null, 
 
 module.exports = {
     runOnMac,
-    findStataApp
+    findStataApp,
+    escapeForAppleScript,
+    isSafeStataAppName
 };

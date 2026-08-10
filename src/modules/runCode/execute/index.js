@@ -28,8 +28,9 @@ const { routeConsoleUnsupportedCommand } = require('../consoleCompatibility');
 const { containsSaioCommand } = require('../saioCommandGuard');
 
 // 临时文件处理
-const { cleanupTempFile } = require('./tempfile');
+const { cleanupTempFile, getTempFilePath } = require('./tempfile');
 const {
+    getAttachedCommentRunRange,
     getInclusiveSelectionEndLine,
     getRunTarget,
     isCursorOnHeading,
@@ -127,10 +128,11 @@ function getCodeToRun(editor) {
             
             return document.getText(new vscode.Range(startPos, endPos));
         } else {
-            // 当前行不是标题：只运行当前行
-            const lineObj = document.lineAt(currentLine);
-            const startPos = new vscode.Position(currentLine, 0);
-            const endPos = new vscode.Position(currentLine, lineObj.text.length);
+            // 普通注释与紧随其后的代码共享一个 run；代码行也携带紧邻的前置注释。
+            const { startLine, endLine } = getAttachedCommentRunRange(document, currentLine);
+            const endLineObj = document.lineAt(endLine);
+            const startPos = new vscode.Position(startLine, 0);
+            const endPos = new vscode.Position(endLine, endLineObj.text.length);
             
             return document.getText(new vscode.Range(startPos, endPos));
         }
@@ -213,7 +215,7 @@ async function runCurrentSection(context, editor = null) {
     const docDir = path.dirname(document.fileName);
     
     // 创建临时文件路径（用于 External App 模式）
-    const tmpFilePath = path.join(docDir, 'stata_all_in_one_temp.do');
+    const tmpFilePath = getTempFilePath();
     
     try {
         // === 调度逻辑 ===
@@ -351,7 +353,7 @@ async function runArbitraryCode(context, code, options = {}) {
     }
 
     const docDir = options.docDir || resolveExecutionDirectory();
-    const tmpFilePath = path.join(docDir, 'stata_all_in_one_temp.do');
+    const tmpFilePath = getTempFilePath();
 
     try {
         let result = null;

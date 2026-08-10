@@ -151,12 +151,6 @@ function _fallbackKeystrokeExecution(code, tmpFilePath, stataPath, docDir) {
     ].join(' ');
 
     exec(psCommand, (error, stdout, stderr) => {
-        setTimeout(() => {
-            try { fs.unlinkSync(tmpFilePath); } catch (e) {
-                console.error('Failed to delete temporary file:', e);
-            }
-        }, 2000);
-
         if (error) {
             const detail = stderr && stderr.trim() ? ` Details: ${stderr.trim()}` : '';
             showError(msg('winRunFailed', { message: error.message, detail }));

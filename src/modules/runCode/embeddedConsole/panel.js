@@ -34,6 +34,7 @@ const {
 } = require('./historyWindow');
 const { formatWorkingElapsedSeconds } = require('./workingTimer');
 const { TemporaryDoFileOutputFilter } = require('./temporaryDoFileOutput');
+const { PrimaryEchoGrouper } = require('./echoGrouping');
 
 const _renderer = new StataTerminalRenderer();
 
@@ -853,8 +854,7 @@ class WebviewTerminalSink {
         this._linkQueuePromise = Promise.resolve();
         this._submissionHistoryIndex = -1;
         this._temporaryDoFileOutputFilter = null;
-        this._primaryEchoCount = 0;
-        this._lastEchoEntryWasBlank = false;
+        this._primaryEchoGrouper = new PrimaryEchoGrouper();
     }
 
     async prepareForExecution() {
@@ -863,8 +863,7 @@ class WebviewTerminalSink {
         setWorkingDetail(null);
         await revealPanel(true);
         this._renderer.beginExecution();
-        this._primaryEchoCount = 0;
-        this._lastEchoEntryWasBlank = false;
+        this._primaryEchoGrouper.reset();
         this._runToken += 1;
         this._runHistoryStart = _history.length;
         setStatus('running');
@@ -880,14 +879,13 @@ class WebviewTerminalSink {
 
     writeCommand(command) {
         const rendered = this._renderer.renderCommandSegments(command, this._width);
-        const spaced = this._insertPrimaryEchoSpacing(rendered);
+        const spaced = this._primaryEchoGrouper.push(rendered);
         appendEntries(decorateCommandEntries(spaced, this._workingDirectory).entries);
     }
 
     writeSubmission(code) {
         const normalized = String(code || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-        this._primaryEchoCount = 0;
-        this._lastEchoEntryWasBlank = false;
+        this._primaryEchoGrouper.reset();
         const executionNumber = _history.reduce(
             (count, entry) => count + (String(entry && entry.kind || '') === 'submission' ? 1 : 0),
             0
@@ -1003,7 +1001,12 @@ class WebviewTerminalSink {
     }
 
     _appendOutputEntries(entries) {
-        const normalized = this._insertPrimaryEchoSpacing(entries);
+        const normalized = this._primaryEchoGrouper.push(entries);
+        this._appendNormalizedOutputEntries(normalized);
+    }
+
+    _appendNormalizedOutputEntries(entries) {
+        const normalized = Array.isArray(entries) ? entries.filter(Boolean) : [];
         if (!normalized.length) return;
         const start = _history.length;
         appendEntries(normalized);
@@ -1014,29 +1017,6 @@ class WebviewTerminalSink {
             runToken: this._runToken
         });
         this._scheduleLinkQueue();
-    }
-
-    _insertPrimaryEchoSpacing(entries) {
-        const normalized = Array.isArray(entries) ? entries.filter(Boolean) : [];
-        const spaced = [];
-        for (const entry of normalized) {
-            const kind = String(entry && entry.kind || '');
-            const text = Array.isArray(entry && entry.segments)
-                ? entry.segments.map(segment => String(segment && segment.text || '')).join('')
-                : '';
-            const isPrimaryEcho = (kind === 'command' || kind === 'comment-command')
-                && text.startsWith('. ');
-            if (isPrimaryEcho) {
-                if (this._primaryEchoCount > 0 && !this._lastEchoEntryWasBlank) {
-                    spaced.push({ kind: 'blank', segments: [] });
-                    this._lastEchoEntryWasBlank = true;
-                }
-                this._primaryEchoCount += 1;
-            }
-            spaced.push(entry);
-            this._lastEchoEntryWasBlank = kind === 'blank';
-        }
-        return spaced;
     }
 
     enqueueSemanticLinks(links) {
@@ -1190,6 +1170,7 @@ class WebviewTerminalSink {
     flushOutput() {
         const flushed = this._renderer.flushPendingOutputSegments(this._width);
         this._appendOutputEntries(flushed);
+        this._appendNormalizedOutputEntries(this._primaryEchoGrouper.flush());
     }
 
     discardBufferedOutput() {

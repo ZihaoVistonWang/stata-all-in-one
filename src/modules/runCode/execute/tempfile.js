@@ -3,17 +3,57 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const crypto = require('crypto');
 
-const TEMP_DO_FILENAME = 'stata_all_in_one_temp.do';
+const TEMP_DO_PREFIX = 'stata-all-in-one-';
+const TEMP_DO_SUFFIX = '.do';
+const STALE_TEMP_FILE_AGE_MS = 24 * 60 * 60 * 1000;
+
+function isOwnedTempFileName(fileName) {
+    return fileName.startsWith(TEMP_DO_PREFIX) && fileName.endsWith(TEMP_DO_SUFFIX);
+}
+
+function cleanupStaleTempFiles(options = {}) {
+    const tempDirectory = options.tempDirectory || os.tmpdir();
+    const now = options.now ?? Date.now();
+    const maxAgeMs = options.maxAgeMs ?? STALE_TEMP_FILE_AGE_MS;
+    let entries;
+    try {
+        entries = fs.readdirSync(tempDirectory, { withFileTypes: true });
+    } catch {
+        return 0;
+    }
+
+    let removed = 0;
+    for (const entry of entries) {
+        if (!entry.isFile() || !isOwnedTempFileName(entry.name)) continue;
+        const filePath = path.join(tempDirectory, entry.name);
+        try {
+            const stat = fs.statSync(filePath);
+            if (now - stat.mtimeMs < maxAgeMs) continue;
+            fs.unlinkSync(filePath);
+            removed += 1;
+        } catch (error) {
+            if (error.code !== 'ENOENT') {
+                console.warn(`Stata All in One: failed to clean stale temporary do-file: ${error.message}`);
+            }
+        }
+    }
+    return removed;
+}
 
 /**
  * 生成临时文件名
- * @param {string|null} targetDir - 优先写入的目录；为空时回退到系统临时目录
+ * @param {string|null} _targetDir - 保留的兼容参数；临时文件始终写入系统临时目录
  * @returns {string} 临时文件的绝对路径
  */
-function getTempFilePath(targetDir = null) {
-    const tmpDir = targetDir && fs.existsSync(targetDir) ? targetDir : os.tmpdir();
-    return path.join(tmpDir, TEMP_DO_FILENAME);
+function getTempFilePath(_targetDir = null) {
+    const tmpDir = os.tmpdir();
+    cleanupStaleTempFiles({ tempDirectory: tmpDir });
+    return path.join(
+        tmpDir,
+        `${TEMP_DO_PREFIX}${process.pid}-${crypto.randomUUID()}${TEMP_DO_SUFFIX}`
+    );
 }
 
 /**
@@ -43,25 +83,34 @@ function generateTempDoFile(code, docDir, isFirstRun) {
 /**
  * 延迟清理临时文件
  * @param {string} filePath - 要删除的文件路径
- * @param {number} delayMs - 延迟删除的时间（毫秒），默认 2000ms
+ * @param {number} delayMs - 延迟删除的时间（毫秒），默认立即删除
  * @returns {Promise<void>} 异步清理操作
  */
-function cleanupTempFile(filePath, delayMs = 2000) {
+function cleanupTempFile(filePath, delayMs = 0) {
     return new Promise((resolve) => {
-        setTimeout(() => {
+        const remove = () => {
             try {
                 fs.unlinkSync(filePath);
             } catch (e) {
-                // 静默处理删除错误
-                console.error('Failed to delete temporary file:', e);
+                if (e.code !== 'ENOENT') {
+                    console.error('Failed to delete temporary file:', e);
+                }
             }
             resolve();
-        }, delayMs);
+        };
+        if (delayMs > 0) {
+            setTimeout(remove, delayMs);
+        } else {
+            remove();
+        }
     });
 }
 
 module.exports = {
     generateTempDoFile,
     cleanupTempFile,
-    getTempFilePath
+    cleanupStaleTempFiles,
+    getTempFilePath,
+    isOwnedTempFileName,
+    STALE_TEMP_FILE_AGE_MS
 };

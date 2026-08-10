@@ -20,7 +20,12 @@ const { ensureStataConfigured } = require('../stataInstallationResolver');
 const { getWebviewTerminalSink, setGraphResourceRoot, convertGraphSvgToBitmap } = require('./panel');
 const { beginGraphCapture, endGraphCapture, executeBitmapGraphExport, exportCapturedGraphs, getGraphCacheDir } = require('./graphs');
 const { startSmclSidecar } = require('./smclLinks');
-const { normalizeStandaloneCdCommand } = require('./commandParsing');
+const {
+    findLineContinuationIndex,
+    hasDisplayableFullLineComment,
+    normalizeStandaloneCdCommand,
+    stripTrailingLineComment
+} = require('./commandParsing');
 
 let _activeOutputSink = null;
 
@@ -913,8 +918,12 @@ function createExecutionPlan(codeToRun, workingDirectory) {
     }
 
     const directLines = buildDirectExecutionLines(lines);
+    const preserveFullLineCommentEcho = hasDisplayableFullLineComment(lines);
 
-    if (directLines.length === 1 && lines.length === 1 && canExecuteLineByLine(directLines)) {
+    if (!preserveFullLineCommentEcho
+        && directLines.length === 1
+        && lines.length === 1
+        && canExecuteLineByLine(directLines)) {
         return {
             command: directLines[0],
             commands: null,
@@ -923,7 +932,9 @@ function createExecutionPlan(codeToRun, workingDirectory) {
         };
     }
 
-    if (directLines.length > 0 && canExecuteLineByLine(directLines)) {
+    if (!preserveFullLineCommentEcho
+        && directLines.length > 0
+        && canExecuteLineByLine(directLines)) {
         return {
             command: directLines.join('\n'),
             commands: directLines,
@@ -1008,44 +1019,6 @@ function appendCommandSegment(current, segment) {
         return current;
     }
     return current ? `${current} ${cleanSegment}` : cleanSegment;
-}
-
-function findLineContinuationIndex(line) {
-    let inDoubleQuote = false;
-    for (let index = 0; index < line.length - 2; index += 1) {
-        const char = line[index];
-        if (char === '"') {
-            if (inDoubleQuote && line[index + 1] === '"') {
-                index += 1;
-                continue;
-            }
-            inDoubleQuote = !inDoubleQuote;
-            continue;
-        }
-        if (!inDoubleQuote && line[index] === '/' && line[index + 1] === '/' && line[index + 2] === '/') {
-            return index;
-        }
-    }
-    return -1;
-}
-
-function stripTrailingLineComment(line) {
-    let inDoubleQuote = false;
-    for (let index = 0; index < line.length - 1; index += 1) {
-        const char = line[index];
-        if (char === '"') {
-            if (inDoubleQuote && line[index + 1] === '"') {
-                index += 1;
-                continue;
-            }
-            inDoubleQuote = !inDoubleQuote;
-            continue;
-        }
-        if (!inDoubleQuote && char === '/' && line[index + 1] === '/') {
-            return line.slice(0, index);
-        }
-    }
-    return line;
 }
 
 function shouldUseDoFileForSingleLine(line) {

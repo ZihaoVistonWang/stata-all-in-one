@@ -7,6 +7,7 @@
 const vscode = require('vscode');
 const fs = require('fs');
 const path = require('path');
+const { getTempFilePath } = require('./runCode/execute/tempfile');
 const { isWindows, isMacOS, showError, msg } = require('../utils/common');
 const config = require('../utils/config');
 const { runOnMac } = require('./runCode/externalApp/mac');
@@ -108,7 +109,7 @@ async function runHelpCommand(context) {
     // Create temporary file
     const document = editor.document;
     const docDir = path.dirname(document.fileName);
-    const tmpFilePath = path.join(docDir, 'stata_all_in_one_temp.do');
+    const tmpFilePath = getTempFilePath();
 
     try {
         fs.writeFileSync(tmpFilePath, helpCode, 'utf8');

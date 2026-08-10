@@ -21,7 +21,11 @@ const { ensureStataConfigured } = require('../stataInstallationResolver');
 const { getWebviewTerminalSink, setGraphResourceRoot, convertGraphSvgToBitmap } = require('./panel');
 const { beginGraphCapture, endGraphCapture, executeBitmapGraphExport, exportCapturedGraphs, getGraphCacheDir } = require('./graphs');
 const { startSmclSidecar } = require('./smclLinks');
-const { normalizeStandaloneCdCommand } = require('./commandParsing');
+const {
+    findLineContinuationIndex,
+    normalizeStandaloneCdCommand,
+    stripTrailingLineComment
+} = require('./commandParsing');
 
 let _activeOutputSink = null;
 
@@ -909,44 +913,6 @@ function appendCommandSegment(current, segment) {
         return current;
     }
     return current ? `${current} ${cleanSegment}` : cleanSegment;
-}
-
-function findLineContinuationIndex(line) {
-    let inDoubleQuote = false;
-    for (let index = 0; index < line.length - 2; index += 1) {
-        const char = line[index];
-        if (char === '"') {
-            if (inDoubleQuote && line[index + 1] === '"') {
-                index += 1;
-                continue;
-            }
-            inDoubleQuote = !inDoubleQuote;
-            continue;
-        }
-        if (!inDoubleQuote && line[index] === '/' && line[index + 1] === '/' && line[index + 2] === '/') {
-            return index;
-        }
-    }
-    return -1;
-}
-
-function stripTrailingLineComment(line) {
-    let inDoubleQuote = false;
-    for (let index = 0; index < line.length - 1; index += 1) {
-        const char = line[index];
-        if (char === '"') {
-            if (inDoubleQuote && line[index + 1] === '"') {
-                index += 1;
-                continue;
-            }
-            inDoubleQuote = !inDoubleQuote;
-            continue;
-        }
-        if (!inDoubleQuote && char === '/' && line[index + 1] === '/') {
-            return line.slice(0, index);
-        }
-    }
-    return line;
 }
 
 function shouldUseDoFileForSingleLine(line) {

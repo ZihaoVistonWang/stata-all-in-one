@@ -114,6 +114,52 @@ test('keeps every line of a block comment in the comment style', () => {
     assert.ok(entries[4].segments.some(segment => segment.tokenType === 'command'));
 });
 
+test('classifies ordinary and Section do-file echoes as comment commands', () => {
+    const renderer = new StataTerminalRenderer();
+    renderer.beginExecution();
+    const entries = renderer.renderOutputChunkSegments([
+        '. * ordinary comment',
+        '. **# Section marker',
+        '. display 1'
+    ].join('\n') + '\n', 88);
+
+    assert.deepEqual(entries.map(entry => entry.kind), [
+        'comment-command',
+        'comment-command',
+        'command'
+    ]);
+});
+
+test('does not style URL double slashes as comments in submissions or native echoes', () => {
+    const renderer = new StataTerminalRenderer();
+    const command = 'use https://www.stata-press.com/data/r18/auto.dta, clear';
+    const submission = renderer.renderSubmissionLines(command);
+
+    assert.equal(
+        submission.flatMap(entry => entry.segments).some(segment => segment.tokenType === 'comment'),
+        false
+    );
+
+    renderer.beginExecution();
+    const output = renderer.renderOutputChunkSegments(`. ${command}\n`, 88);
+    assert.equal(
+        output.flatMap(entry => entry.segments).some(segment => segment.tokenType === 'comment'),
+        false
+    );
+});
+
+test('still styles whitespace-delimited double slashes as inline comments', () => {
+    const renderer = new StataTerminalRenderer();
+    const submission = renderer.renderSubmissionLines('display 1 // valid comment');
+    const segments = submission.flatMap(entry => entry.segments);
+
+    assert.ok(segments.some(segment => segment.tokenType === 'comment'));
+    assert.equal(
+        segments.filter(segment => segment.tokenType === 'comment').map(segment => segment.text).join(''),
+        '// valid comment'
+    );
+});
+
 test('keeps every input-cell block comment line in the comment style', () => {
     const renderer = new StataTerminalRenderer();
     const lines = renderer.renderSubmissionLines(
