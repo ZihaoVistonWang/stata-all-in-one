@@ -12,6 +12,15 @@ function isOutlineHeadingLine(lineText) {
     return /^\*\*\s*#+/.test(String(lineText || ''));
 }
 
+function getInclusiveSelectionEndLine(selection) {
+    const endsAtNextLineStart = selection.end.line > selection.start.line
+        && selection.end.character === 0;
+
+    return endsAtNextLineStart
+        ? selection.end.line - 1
+        : selection.end.line;
+}
+
 function getRunTarget(editor) {
     if (!editor || !editor.document || editor.document.languageId !== 'stata') {
         return RUN_TARGETS.line;
@@ -39,6 +48,7 @@ function isCursorOnHeading(editor) {
 
 module.exports = {
     RUN_TARGETS,
+    getInclusiveSelectionEndLine,
     getRunTarget,
     isCursorOnHeading,
     isOutlineHeadingLine,

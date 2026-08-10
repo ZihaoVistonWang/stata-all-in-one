@@ -3,11 +3,30 @@ const assert = require('node:assert/strict');
 
 const {
     RUN_TARGETS,
+    getInclusiveSelectionEndLine,
     getRunTarget,
     isCursorOnHeading,
     isOutlineHeadingLine,
     isSectionHeaderLine
 } = require('../modules/runCode/execute/runTarget');
+
+test('excludes the next line when a whole-line selection ends at column zero', () => {
+    const selection = {
+        start: { line: 2, character: 0 },
+        end: { line: 3, character: 0 }
+    };
+
+    assert.equal(getInclusiveSelectionEndLine(selection), 2);
+});
+
+test('includes the final line when the selection ends within its text', () => {
+    const selection = {
+        start: { line: 2, character: 4 },
+        end: { line: 3, character: 5 }
+    };
+
+    assert.equal(getInclusiveSelectionEndLine(selection), 3);
+});
 
 function createEditor(lineText, isEmpty = true) {
     return {

@@ -29,7 +29,12 @@ const { containsSaioCommand } = require('../saioCommandGuard');
 
 // 临时文件处理
 const { cleanupTempFile } = require('./tempfile');
-const { getRunTarget, isCursorOnHeading, isSectionHeaderLine } = require('./runTarget');
+const {
+    getInclusiveSelectionEndLine,
+    getRunTarget,
+    isCursorOnHeading,
+    isSectionHeaderLine
+} = require('./runTarget');
 
 const RUN_TARGET_CONTEXT_KEY = 'stata-all-in-one.runTarget';
 const CURSOR_ON_HEADING_CONTEXT_KEY = 'stata-all-in-one.cursorOnHeading';
@@ -63,7 +68,7 @@ function getCodeToRun(editor) {
     if (!selection.isEmpty) {
         // 运行选中的代码（完整行）
         const startLine = selection.start.line;
-        const endLine = selection.end.line;
+        const endLine = getInclusiveSelectionEndLine(selection);
         
         const startPos = new vscode.Position(startLine, 0);
         const endLineText = document.lineAt(endLine);
