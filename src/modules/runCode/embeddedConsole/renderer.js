@@ -869,6 +869,14 @@ class StataTerminalRenderer {
             defaultStyle: { fg: CURRENT_THEME_SLOT_MAP.default },
             matchers: [
                 {
+                    regex: /(?<=\s{2})[A-Za-z][A-Za-z0-9 .><|()%-]*?(?=\s=\s)/g,
+                    style: { fg: CURRENT_THEME_SLOT_MAP.header, bold: true }
+                },
+                {
+                    regex: /=/g,
+                    style: { fg: CURRENT_THEME_SLOT_MAP.separator }
+                },
+                {
                     regex: VALUE_NUMBER_REGEX,
                     style: { fg: CURRENT_THEME_SLOT_MAP.number, bold: true }
                 }
@@ -920,6 +928,14 @@ class StataTerminalRenderer {
         segments.push(...this._segmentInline(value, {
             defaultStyle: this._styleForTokenType('default'),
             matchers: [
+                {
+                    regex: /(?<=\s{2})[A-Za-z][A-Za-z0-9 .><|()%-]*?(?=\s=\s)/g,
+                    style: this._styleForTokenType('header', { bold: true })
+                },
+                {
+                    regex: /=/g,
+                    style: this._styleForTokenType('separator')
+                },
                 {
                     regex: VALUE_NUMBER_REGEX,
                     style: this._styleForTokenType('number', { bold: true })
@@ -1189,16 +1205,6 @@ class StataTerminalRenderer {
             return rendered;
         }
 
-        if (this._isSummaryLine(line)) {
-            lineKind = 'summary';
-            const rendered = {
-                kind: lineKind,
-                segments: this._segmentSummaryLine(line)
-            };
-            this._lastRenderedLineKind = lineKind;
-            return rendered;
-        }
-
         if (this._isTableHeaderLine(line)) {
             lineKind = 'table-header';
             const rendered = {
@@ -1216,6 +1222,16 @@ class StataTerminalRenderer {
                         }
                     ]
                 })
+            };
+            this._lastRenderedLineKind = lineKind;
+            return rendered;
+        }
+
+        if (this._isSummaryLine(line)) {
+            lineKind = 'summary';
+            const rendered = {
+                kind: lineKind,
+                segments: this._segmentSummaryLine(line)
             };
             this._lastRenderedLineKind = lineKind;
             return rendered;
@@ -1428,16 +1444,16 @@ class StataTerminalRenderer {
             return rendered;
         }
 
-        if (this._isSummaryLine(line)) {
-            lineKind = 'summary';
-            const rendered = this._renderSummaryLine(line);
+        if (this._isTableHeaderLine(line)) {
+            lineKind = 'table-header';
+            const rendered = this._renderTableHeaderLine(line);
             this._lastRenderedLineKind = lineKind;
             return rendered;
         }
 
-        if (this._isTableHeaderLine(line)) {
-            lineKind = 'table-header';
-            const rendered = this._renderTableHeaderLine(line);
+        if (this._isSummaryLine(line)) {
+            lineKind = 'summary';
+            const rendered = this._renderSummaryLine(line);
             this._lastRenderedLineKind = lineKind;
             return rendered;
         }

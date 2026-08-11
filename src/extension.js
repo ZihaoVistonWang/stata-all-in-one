@@ -552,10 +552,12 @@ async function activate(context) {
             return;
         }
 
-        if (action === 'showOverflowNotice') {
+        if (action === 'showOverflowNotice' || action === 'showOverflowNoticeWithPreview') {
             const dismissForeverLabel = msg('webviewOverflowDismissForever');
             const choice = await showInfo(
-                msg('webviewOverflowNotice'),
+                msg(action === 'showOverflowNoticeWithPreview'
+                    ? 'webviewOverflowNoticeWithPreview'
+                    : 'webviewOverflowNotice'),
                 msg('webviewOverflowConfirm'),
                 dismissForeverLabel
             );

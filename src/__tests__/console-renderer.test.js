@@ -237,3 +237,22 @@ test('does not treat numbered result text as a continuation prompt', () => {
 
     assert.deepEqual(entries.map(entry => entry.kind), ['command', 'default']);
 });
+
+test('highlights every label in multi-column summaries and table headers containing equals', () => {
+    const renderer = new StataTerminalRenderer();
+    const entries = renderer.renderOutputChunkSegments([
+        'Number of clusters (symbol) =        626        Root MSE        =     .5195',
+        'Absorbed FE | Categories - Redundant = Num. Coefs |'
+    ].join('\n') + '\n', 120);
+
+    const rootMse = entries[0].segments.find(segment => segment.text.trim() === 'Root MSE');
+    assert.equal(entries[0].kind, 'summary');
+    assert.equal(rootMse && rootMse.tokenType, 'header');
+    assert.equal(entries[1].kind, 'table-header');
+    assert.equal(
+        entries[1].segments
+            .filter(segment => segment.text.includes('Num. Coefs'))
+            .every(segment => segment.tokenType === 'header'),
+        true
+    );
+});

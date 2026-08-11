@@ -36,6 +36,7 @@ const { formatWorkingElapsedSeconds } = require('./workingTimer');
 const { TemporaryDoFileOutputFilter } = require('./temporaryDoFileOutput');
 const { PrimaryEchoGrouper } = require('./echoGrouping');
 const { imagePreviewManager } = require('./imagePreviewManager');
+const { collectResultPreview, resultPreviewManager } = require('./resultPreviewManager');
 
 const _renderer = new StataTerminalRenderer();
 
@@ -87,6 +88,29 @@ function getLocalResourceRoots() {
         roots.push(vscode.Uri.file(_graphResourceRoot));
     }
     return roots;
+}
+
+function getResultPreviewAppearance() {
+    return {
+        themeVars: getWebviewThemeVariables(),
+        fontOptions: {
+            fontMode: String(_consoleFontOptions.fontMode || 'online'),
+            fontSize: Number(_consoleFontOptions.fontSize) || 14,
+            editorFontFamily: String(_consoleFontOptions.editorFontFamily || ''),
+            customFontFamily: String(_consoleFontOptions.customFontFamily || ''),
+            systemFallbackFamily: String(_consoleFontOptions.systemFallbackFamily || 'monospace')
+        }
+    };
+}
+
+async function postResultPreviewCapability(panel) {
+    const supported = await resultPreviewManager.isSupported();
+    if (_panel === panel) {
+        panel.webview.postMessage({
+            type: 'resultPreviewCapability',
+            supported
+        });
+    }
 }
 
 function getPanelTitle() {
@@ -220,6 +244,7 @@ function attachPanel(panel) {
         if (message && message.type === 'ready') {
             postState();
             postVariables();
+            postResultPreviewCapability(panel);
         } else if (message && message.type === 'historyBatchRendered') {
             acknowledgeWebviewHistoryBatch(message);
         } else if (message && message.type === 'requestHistoryPage') {
@@ -279,6 +304,30 @@ function attachPanel(panel) {
                     graphName: String(message.graphName || 'Graph')
                 });
             }
+        } else if (message && message.type === 'openResultPreview') {
+            const historyIndex = Number(message.historyIndex);
+            const preview = collectResultPreview(
+                _history,
+                Number.isInteger(historyIndex) ? historyIndex : -1
+            );
+            if (!preview.entries.length) {
+                return;
+            }
+            const previewOpened = await resultPreviewManager.showResult({
+                commandLines: preview.commandLines,
+                entries: preview.entries,
+                panelTitle: msg('consoleResultPreviewTitle'),
+                closeLabel: msg('graphClose'),
+                openFileLabel: msg('consoleOpenFile'),
+                appearance: getResultPreviewAppearance(),
+                openLink: openConsoleLink
+            });
+            if (!previewOpened && _panel === panel) {
+                panel.webview.postMessage({
+                    type: 'resultPreviewCapability',
+                    supported: false
+                });
+            }
         } else if (message && message.type === 'openConsoleFile') {
             if (message.link) {
                 await openConsoleLink(message.link);
@@ -292,7 +341,11 @@ function attachPanel(panel) {
             showWarn(msg('graphCopyPngFailed', { detail: detail ? ` ${detail}` : '' }));
         } else if (message && (message.type === 'graphImageDataUrl' || message.type === 'graphImageDataUrlFailed')) {
             resolveGraphImageDataUrlRequest(message);
-        } else if (message && (message.type === 'stopExecution' || message.type === 'clearConsole' || message.type === 'showOverflowNotice') && typeof _actionHandler === 'function') {
+        } else if (message && (message.type === 'stopExecution'
+            || message.type === 'clearConsole'
+            || message.type === 'showOverflowNotice'
+            || message.type === 'showOverflowNoticeWithPreview')
+            && typeof _actionHandler === 'function') {
             try {
                 await _actionHandler(message.type);
             } catch (error) {
@@ -2193,6 +2246,7 @@ function getWebviewHtml(webview) {
         .autocomplete-icon.fn-icon  { color: var(--vscode-symbolIcon-methodForeground, var(--stata-function)); }
         .result-block-shell {
             position: relative;
+            display: grid;
             min-width: 0;
             margin: 0.15rem 0 0.35rem;
         }
@@ -2229,6 +2283,7 @@ function getWebviewHtml(webview) {
             opacity: 1;
         }
         .result-block-scroll {
+            grid-area: 1 / 1;
             overflow-x: auto;
             overflow-y: hidden;
             scrollbar-color: var(--vscode-scrollbarSlider-background) transparent;
@@ -2264,6 +2319,47 @@ function getWebviewHtml(webview) {
             min-width: max-content;
             white-space: pre;
             word-break: normal;
+        }
+        .result-expand-button {
+            position: sticky;
+            grid-area: 1 / 1;
+            align-self: start;
+            justify-self: end;
+            z-index: 3;
+            top: 6px;
+            margin: 6px;
+            width: 26px;
+            height: 26px;
+            padding: 0;
+            border: 1px solid var(--vscode-focusBorder);
+            border-radius: 6px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            color: var(--vscode-foreground);
+            background: color-mix(in srgb, var(--vscode-editor-background) 88%, transparent);
+            font-family: "codicon";
+            font-size: 15px;
+            line-height: 1;
+            cursor: pointer;
+            transition: opacity 120ms ease, background-color 120ms ease;
+        }
+        .result-expand-button[hidden] {
+            display: none;
+        }
+        .result-block-shell.has-horizontal-overflow:hover .result-expand-button,
+        .result-expand-button:focus-visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .result-expand-button:hover {
+            background: var(--vscode-toolbar-hoverBackground);
+        }
+        .result-expand-button:focus-visible {
+            outline: 1px solid var(--vscode-focusBorder);
+            outline-offset: 1px;
         }
         #run-nav {
             position: fixed;
@@ -2631,6 +2727,8 @@ function getWebviewHtml(webview) {
         let highlightSuppressed = false;
         let pendingFocus = false;
         let wasRunning = false;
+        let resultPreviewSupported = false;
+        let resultPreviewCapabilityKnown = false;
         const graphImageCache = new Map();
         const HISTORY_PAGE_SIZE = ${DEFAULT_HISTORY_PAGE_SIZE};
         const HISTORY_WINDOW_SIZE = ${DEFAULT_HISTORY_WINDOW_SIZE};
@@ -2649,6 +2747,9 @@ function getWebviewHtml(webview) {
         const SUBMISSION_LABELS = {
             expand: ${JSON.stringify(msg('consoleExpandInput'))},
             collapse: ${JSON.stringify(msg('consoleCollapseInput'))}
+        };
+        const RESULT_LABELS = {
+            expand: ${JSON.stringify(msg('consoleExpandResult'))}
         };
         const GRAPH_LABELS = {
             copy: ${JSON.stringify(msg('graphCopyImage'))},
@@ -3166,7 +3267,8 @@ function getWebviewHtml(webview) {
         }
 
         function updateOverflowNotice() {
-            const shouldShow = !overflowNoticeSuppressed
+            const shouldShow = resultPreviewCapabilityKnown
+                && !overflowNoticeSuppressed
                 && !overflowNoticeDismissedForCurrentView
                 && outputShell.childElementCount > 1
                 && hasOverflowingScrollableResultBlock();
@@ -3175,7 +3277,11 @@ function getWebviewHtml(webview) {
             }
 
             overflowNoticeDismissedForCurrentView = true;
-            vscode.postMessage({ type: 'showOverflowNotice' });
+            vscode.postMessage({
+                type: resultPreviewSupported
+                    ? 'showOverflowNoticeWithPreview'
+                    : 'showOverflowNotice'
+            });
         }
 
         function isOutputAtBottom() {
@@ -3537,6 +3643,7 @@ function getWebviewHtml(webview) {
                     currentResultBlock = document.createElement('div');
                     currentResultBlock.className = 'result-block-scroll';
                     resultBlockShell.appendChild(currentResultBlock);
+                    resultBlockShell.appendChild(createResultExpandButton(currentResultBlock));
                     fragment.appendChild(resultBlockShell);
                 }
 
@@ -3558,12 +3665,41 @@ function getWebviewHtml(webview) {
                 return;
             }
             const maxScrollLeft = Math.max(0, block.scrollWidth - block.clientWidth);
-            block.classList.toggle('has-horizontal-overflow', maxScrollLeft > 1);
+            const hasHorizontalOverflow = maxScrollLeft > 1;
+            block.classList.toggle('has-horizontal-overflow', hasHorizontalOverflow);
+            shell.classList.toggle('has-horizontal-overflow', hasHorizontalOverflow);
             shell.classList.toggle('has-hidden-left', block.scrollLeft > 1);
             shell.classList.toggle(
                 'has-hidden-right',
-                maxScrollLeft > 1 && block.scrollLeft < maxScrollLeft - 1
+                hasHorizontalOverflow && block.scrollLeft < maxScrollLeft - 1
             );
+            const expandButton = shell.querySelector('.result-expand-button');
+            if (expandButton) {
+                expandButton.hidden = !hasHorizontalOverflow || !resultPreviewSupported;
+            }
+        }
+
+        function createResultExpandButton(block) {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'result-expand-button codicon-screen-full';
+            button.title = RESULT_LABELS.expand;
+            button.setAttribute('aria-label', RESULT_LABELS.expand);
+            button.hidden = true;
+            button.addEventListener('click', event => {
+                event.preventDefault();
+                event.stopPropagation();
+                const firstLine = block.querySelector('.line[data-history-index]');
+                const historyIndex = Number(firstLine && firstLine.dataset.historyIndex);
+                if (!resultPreviewSupported || !Number.isInteger(historyIndex)) {
+                    return;
+                }
+                vscode.postMessage({
+                    type: 'openResultPreview',
+                    historyIndex
+                });
+            });
+            return button;
         }
 
         function configureResultScrollHints() {
@@ -4676,6 +4812,11 @@ function getWebviewHtml(webview) {
                 if (overflowNoticeSuppressed) {
                     overflowNoticeDismissedForCurrentView = true;
                 }
+                updateOverflowNotice();
+            } else if (message.type === 'resultPreviewCapability') {
+                resultPreviewCapabilityKnown = true;
+                resultPreviewSupported = Boolean(message.supported);
+                configureResultScrollHints();
                 updateOverflowNotice();
             } else if (message.type === 'showGraphFullscreenFallback') {
                 showGraphFullscreen({
