@@ -10,6 +10,10 @@ const { getUserLanguage } = require('../utils/common');
 // Update changelog: version -> changelog text
 const CHANGELOG = {
     en: {
+        '0.3.11': {
+            ver_info: '✨ Stata All in One (0.3.11): Upgraded fuzzy completion with Chinese pinyin and variable-label matching, added Data Viewer variable filtering and Console Floating Window previews, and fixed code selections, comment echoes, and macOS external-execution security.',
+            more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0311-2026-08-11'
+        },
         '0.3.10': {
             ver_info: '✨ Stata All in One (0.3.10): Added theme-aware tab icons; fixed macOS Embedded Console crashes in complex prediction workflows, Console path highlighting, and run navigation.',
             more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0310-2026-08-06'
@@ -120,6 +124,10 @@ const CHANGELOG = {
         }
     },
     zh: {
+        '0.3.11': {
+            ver_info: '✨ Stata All in One (0.3.11)：升级中文拼音、变量标签与模糊补全，新增数据查看器变量筛选及控制台浮动窗口预览；修复代码选区、注释回显与 macOS 外部执行安全问题。',
+            more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0311-2026-08-11'
+        },
         '0.3.10': {
             ver_info: '✨ Stata All in One (0.3.10)：新增明暗主题自适应标签图标；修复 macOS 嵌入式控制台复杂预测崩溃，以及控制台路径高亮与运行导航问题。',
             more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0310-2026-08-06'

@@ -13,7 +13,7 @@ Stata All in One
 </p>
 
 <p align="center">
-   | <b>Version:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.3.10</a> | <b>Author:</b> <a href="https://zihaowang.cn">Zihao Viston Wang</a> | <b>Translate:</b>
+   | <b>Version:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.3.11</a> | <b>Author:</b> <a href="https://zihaowang.cn">Zihao Viston Wang</a> | <b>Translate:</b>
   <a href="https://gitee.com/ZihaoVistonWang/stata-all-in-one">中文版本</a> |
 </p>
 
@@ -73,7 +73,7 @@ Stata All in One
 
 - **Full Syntax Highlighting and Code Completion Support**: Integrates [Stata Enhanced](https://github.com/kylebarron/language-stata) syntax engine[^1], providing precise syntax highlighting and code completion for `.do` files (under [MIT](https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/THIRD_PARTY_NOTICES.md) License).
 - **Custom Command Highlighting**: Supports highlighting for commonly used third-party commands (e.g., `reghdfe`, `ivreghdfe`, `gtools`), freely configurable in settings.
-- **Dataset Variable Autocompletion**: (After running code that loads a dataset once) Provides intelligent autocomplete suggestions based on the current dataset when typing variable names in the editor and console, boosting coding efficiency.
+- **Smart Variable Completion**: (After loading a dataset) The editor, Console, and Data Viewer support fuzzy matching and highlighting by variable name, label, Chinese text, and pinyin.
 
 [^1]: [Stata Enhanced](https://github.com/kylebarron/language-stata) syntax engine was developed by Kyle Barron, providing comprehensive support for the Stata language. This extension follows the [MIT](https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/THIRD_PARTY_NOTICES.md) License. Thanks to Kyle Barron for his contribution!
     
@@ -123,7 +123,7 @@ Stata All in One
 
      - **Direct Display**: Render Stata graph output directly in the embedded console.
      - **Export Options**: Save graphs as SVG, PNG (configurable DPI), or copy to clipboard.
-     - **Fullscreen View**: Click a graph to view it in fullscreen mode for detailed inspection.
+     - **Floating Preview**: Click a graph to view it in a floating window.
    - **Progress Display**
 
      - **Command Execution Status**: For long-running commands like `bootstrap`, `bdiff`, and `xthreg`, the console shows real-time progress (e.g. 50/2000) and estimated time remaining. Other commands display elapsed time.
@@ -131,9 +131,11 @@ Stata All in One
 
      - **Online (Default)**: Load Maple Mono for Latin text and Maple Mono NF CN for Chinese text.
      - **Font Settings**: Use `stata-all-in-one.consoleFontMode` and `stata-all-in-one.consoleCustomFontFamily` to customize the console font for a better reading experience.
+     - **Shared Font Size**: The Console and Data Viewer share a font size and can follow the editor setting.
    - **Run Presentation**
 
      - **Grouped Display**: Show each run as a collapsible input cell with clearly grouped command echoes and results.
+     - **Collapsible Input**: Collapse the command input to its title bar.
      - **Quick Navigation**: Quickly locate output using the Embedded Console's right-side navigation and jump-to-bottom button.
    - **Large Output & Run Control**
 
@@ -144,6 +146,7 @@ Stata All in One
 
      - **Complete Exports**: Preserve the entire Console history when exporting results to HTML, Markdown, or Notebook.
      - **Consistent Layout**: Keep command grouping aligned across HTML, Markdown, and Notebook; HTML also provides code previews, continuous navigation, aligned numbering, and horizontal-scroll cues.
+     - **Wide Result Preview**: View horizontally overflowing results in a floating window.
      - **Reliable File Links**: Recognize and validate file and directory paths in results, including Chinese, multi-line, and repeated paths, and open them with one click.
    - **Data Viewer Integration**
 
@@ -262,35 +265,41 @@ If automatic discovery cannot find Stata, choose `Stata not found? Configure it 
 
     - When font mode is set to `custom`, the CSS `font-family` list used by the console.
     - Example: `"Maple Mono NF CN", Menlo, Monaco, monospace`
-13. **Graph Export DPI** (`stata-all-in-one.graphPngDpi`)
+13. **Console and Data Viewer Font Size** (`stata-all-in-one.consoleAndDataViewerFontSize`)
+
+    - Follows the VS Code editor font size when empty.
+14. **Graph Export DPI** (`stata-all-in-one.graphPngDpi`)
 
     - DPI value for saving embedded console graphs as PNG. Default `600`, range 72–1200.
 
 ### Syntax Highlighting and Code Completion
 
-14. **Custom Command Highlighting** (`stata-all-in-one.customCommands`)
+15. **Custom Command Highlighting** (`stata-all-in-one.customCommands`)
     - User-defined Stata commands to highlight as keywords (array of strings). Default: `reghdfe`.
     - Example: `["reghdfe", "ivreghdfe", "gtools", "winsor2", "outreg2"]`
     - **Requires reloading window** after configuration.
+16. **Pinyin Variable Matching** (`stata-all-in-one.enablePinyinVariableMatching`)
+
+    - `true` (default): Enable pinyin fuzzy matching for variable names and labels.
 
 ### Hover Help
 
-15. **Enable Hover Docs** (`stata-all-in-one.enableHoverDocs`)
+17. **Enable Hover Docs** (`stata-all-in-one.enableHoverDocs`)
 
     - `true` (default): Show official Stata help information when hovering over Stata commands.
     - `false`: Disable hover help.
-16. **Additional ADO Paths** (`stata-all-in-one.additionalAdoPaths`)
+18. **Additional ADO Paths** (`stata-all-in-one.additionalAdoPaths`)
 
     - Extra Stata ADO paths for scanning help files of community-contributed commands.
     - Example: `["/Users/username/ado/personal", "C:\\Users\\username\\ado\\personal"]`
 
 ### Outline & Navigation
 
-17. **Display Multi-level Numbering** (`stata-all-in-one.numberingShow`)
+19. **Display Multi-level Numbering** (`stata-all-in-one.numberingShow`)
 
     - `true`: Outline displays `1.1`, `1.2.1` style numbering.
     - `false` (default): Displays original headings.
-18. **Auto-update Heading Numbering** (`stata-all-in-one.numberingAdd`)
+20. **Auto-update Heading Numbering** (`stata-all-in-one.numberingAdd`)
 
     - `true`: **When numbering is enabled**, automatically update section titles in `.do` files to include numbers.
     - `false` (default): Only displays numbering in outline, doesn't modify file.
@@ -299,16 +308,16 @@ If automatic discovery cannot find Stata, choose `Stata not found? Configure it 
 
 ### Code Style
 
-19. **Comment Style** (`stata-all-in-one.commentStyle`)
+21. **Comment Style** (`stata-all-in-one.commentStyle`)
 
     - `// ` (default): Comment style used for toggling comments. Options include `//`, `*`, or `/* ... */`
-20. **Separator Length** (`stata-all-in-one.separatorLength`)
+22. **Separator Length** (`stata-all-in-one.separatorLength`)
 
     - Total character length of the separator line (including the `** #` prefix and separators). Default: `60`
 
 <a id="separatorSymmetric"></a>
 
-21. **Separator Symmetric** (`stata-all-in-one.separatorSymmetric`)
+23. **Separator Symmetric** (`stata-all-in-one.separatorSymmetric`)
     - `true`: Add ` **` at the end of separator lines to ensure visual symmetry (e.g., `** === Title === **`).
     - `false` (default): Separator lines without the suffix.
 
@@ -328,6 +337,7 @@ If this extension has been helpful to you, feel free to scan the **Alipay** (lef
 
 | Version | Changes                                                                                                                                                                                               | Release Date |
 | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| 0.3.11  | Upgraded fuzzy completion with Chinese pinyin and variable-label matching, added Data Viewer variable filtering and Console Floating Window previews, and fixed code selections, comment echoes, and macOS external-execution security. | 2026-08-11   |
 | 0.3.10  | Added theme-aware tab icons; fixed macOS Embedded Console crashes in complex prediction workflows, Console path highlighting, and run navigation.                                                     | 2026-08-06   |
 | 0.3.9   | Added staged icon transitions for editor title actions to save title-bar space; fixed the Data Viewer failing to refresh after editor runs and auto-collapsing bottom-right notifications.            | 2026-07-29   |
 | 0.3.8   | Added Stata editor context menus, redesigned Embedded Console runs and navigation, and improved Data Viewer refresh; fixed some file paths not opening, execution stopping, and large-output freezes. | 2026-07-28   |

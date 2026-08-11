@@ -3,6 +3,19 @@
 All notable changes to the Stata All in One extension will be documented in this file.
 本文件记录 Stata All in One 扩展的所有重要更改。
 
+## 0.3.11 (2026-08-11)
+
+- **Feat**: Upgraded autocomplete across the editor, Embedded Console, and Data Viewer with Unicode-aware fuzzy matching, Chinese pinyin and variable-label search, highlighted matches, adaptive performance safeguards, and the missing `label` command candidate.
+- **Feat**: Added Stata varlist filtering to the Data Viewer variable table, including ranges, wildcards, `_all`, fuzzy suggestions, and protection against stale asynchronous results.
+- **Feat**: Added reusable Floating Window previews for images and horizontally overflowing Console results, a collapsible Console command input, and shared hot-reloadable font sizing for the Console and Data Viewer.
+- **Fixed**: Prevented whole-line selections from running the next line, secured macOS external execution against shell metacharacters, made temporary do-files unique and race-safe, and preserved Stata comment echoes without truncating URLs.
+- **Improved**: Refined Console table styling and run previews, matched exported HTML favicons to the active theme, and refreshed bilingual documentation, purchase links, and the English feature image.
+- **新增**：升级编辑器、嵌入式控制台和数据查看器的智能补全，支持 Unicode 模糊匹配、中文拼音与变量标签搜索、命中高亮、自适应性能保护，并补充缺失的 `label` 命令候选。
+- **新增**：数据查看器变量表支持 Stata varlist 筛选，包括变量范围、通配符、`_all`、模糊提示及异步过期结果保护。
+- **新增**：为图片和横向溢出的控制台结果提供可复用的 Floating Window 预览，并支持折叠控制台命令输入区及热更新控制台与数据查看器共用字号。
+- **修复**：避免整行选区误运行下一行；增强 macOS 外部执行的 Shell 字符安全；使用唯一临时 do 文件避免并发冲突；保留 Stata 注释回显且不再截断 URL。
+- **优化**：改进控制台表格着色与运行预览，使导出 HTML 的标签图标匹配当前主题，并更新双语文档、购买链接及英文功能示例图。
+
 ## 0.3.10 (2026-08-06)
 
 - **Feat**: Added light- and dark-theme-aware tab icons for editor title actions, the Embedded Console, the Data Viewer, and exported HTML reports.
