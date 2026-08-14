@@ -7,7 +7,10 @@ const {
     splitBrowseCommandSegments,
     routeBrowseCommand
 } = require('../modules/runCode/browseCommand');
-const { splitFilterSpec } = require('../modules/runCode/embeddedConsole/dataViewer/provider');
+const {
+    isFilterMissingIf,
+    splitFilterSpec
+} = require('../modules/runCode/embeddedConsole/dataViewer/provider');
 
 test('recognizes br and browse as standalone data viewer commands', () => {
     assert.deepEqual(parseBrowseCommand('br'), { command: 'br', filterText: '' });
@@ -93,4 +96,11 @@ test('ignores if and in tokens inside strings and nested expressions', () => {
         inClause: '2/10',
         nolabel: false
     });
+});
+
+test('rejects condition expressions that omit the if qualifier', () => {
+    assert.equal(isFilterMissingIf('foreign == 1 & price < 10000'), true);
+    assert.equal(isFilterMissingIf('foreign price if foreign == 1 & price < 10000'), false);
+    assert.equal(isFilterMissingIf('if foreign == 1 & price < 10000'), false);
+    assert.equal(isFilterMissingIf('foreign'), false);
 });

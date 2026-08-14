@@ -1,6 +1,7 @@
 const vscode = require('vscode');
 const directDtaStore = require('./directDtaStore');
 const consoleStore = require('./consoleStore');
+const { isFilterMissingIf } = require('./provider');
 const { msg, showInfo, showError } = require('../../../../utils/common');
 const { StataTerminalRenderer, getWebviewThemeVariables } = require('../renderer');
 const variableSuggestions = require('../../../variableSuggestionService');
@@ -386,6 +387,9 @@ function getDataViewerHtml(webview) {
             table-layout: fixed;
         }
         #table-vars {
+            min-width: unset;
+        }
+        #table-data {
             min-width: unset;
         }
         #table-vars th {
@@ -1507,7 +1511,7 @@ function getDataViewerHtml(webview) {
 
         function updateDataTableWidth(table) {
             var dataTable = table || document.getElementById('table-data');
-            dataTable.style.width = Math.max(contentEl.clientWidth, rowNumberColumnWidth + getCumulWidth(dataColumnsCache.length)) + 'px';
+            dataTable.style.width = rowNumberColumnWidth + getCumulWidth(dataColumnsCache.length) + 'px';
         }
 
         function replaceDataRows(rows, windowStart) {
@@ -2530,6 +2534,11 @@ function ensurePanel(mode) {
 async function refreshDataViewer(mode, filterText, targetPanel, options = {}) {
     const panel = targetPanel || _panels[mode];
     if (!panel || !_ready[mode]) return;
+    if (isFilterMissingIf(filterText)) {
+        showError(msg('dataViewerFilterRequiresIf', { expression: filterText }));
+        panel.webview.postMessage({ type: 'setStatus', status: 'ready' });
+        return;
+    }
     _pendingFilter[mode] = filterText || '';
     panel.webview.postMessage({ type: 'setStatus', status: 'loading' });
     const viewport = options.viewport || null;

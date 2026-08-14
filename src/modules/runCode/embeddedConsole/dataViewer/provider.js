@@ -103,6 +103,13 @@ function splitFilterSpec(text) {
     return { raw, varList, ifClause, inClause, nolabel };
 }
 
+function isFilterMissingIf(text) {
+    const spec = splitFilterSpec(text);
+    return !spec.ifClause
+        && !spec.inClause
+        && /(?:==|!=|~=|<=|>=|<|>|=|&|\|)/.test(spec.varList);
+}
+
 async function resolveVarNames(session, varList, allVarNames) {
     if (!varList) return allVarNames;
     await execStata(session, 'quietly unab __dvvars : ' + varList);
@@ -285,4 +292,4 @@ async function fetchMoreRows(startObs, count, filterText) {
     }
 }
 
-module.exports = { fetchDataSnapshot, fetchMoreRows, splitFilterSpec };
+module.exports = { fetchDataSnapshot, fetchMoreRows, isFilterMissingIf, splitFilterSpec };

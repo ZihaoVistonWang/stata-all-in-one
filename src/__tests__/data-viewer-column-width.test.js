@@ -26,6 +26,25 @@ test('uses the requested hard minimum and automatic maximum column widths', () =
     );
 });
 
+test('keeps filtered columns at their calculated widths instead of stretching them', () => {
+    assert.match(panelSource, /#table-data\s*\{\s*min-width:\s*unset;/);
+    assert.match(
+        panelSource,
+        /dataTable\.style\.width = rowNumberColumnWidth \+ getCumulWidth\(dataColumnsCache\.length\) \+ 'px';/
+    );
+    assert.doesNotMatch(
+        panelSource,
+        /dataTable\.style\.width = Math\.max\(contentEl\.clientWidth/
+    );
+});
+
+test('shows a localized error instead of applying a condition without if', () => {
+    assert.match(panelSource, /if \(isFilterMissingIf\(filterText\)\)/);
+    assert.match(panelSource, /showError\(msg\('dataViewerFilterRequiresIf'/);
+    assert.match(commonSource, /dataViewerFilterRequiresIf: \(\{ expression \}\) => `Invalid filter/);
+    assert.match(commonSource, /dataViewerFilterRequiresIf: \(\{ expression \}\) => `筛选条件/);
+});
+
 test('keeps manual resizing independent from the automatic maximum', () => {
     assert.match(panelSource, /var newWidth = Math\.max\(colMinWidth, resizeStartWidth \+ delta\);/);
     assert.match(panelSource, /varsColumnManualWidths\[resizeCol\] = true;/);
