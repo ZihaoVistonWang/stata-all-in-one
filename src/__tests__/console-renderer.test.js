@@ -130,6 +130,17 @@ test('classifies ordinary and Section do-file echoes as comment commands', () =>
     ]);
 });
 
+test('classifies native slash-comment echoes as comment commands', () => {
+    const renderer = new StataTerminalRenderer();
+    renderer.beginExecution();
+    const entries = renderer.renderOutputChunkSegments([
+        '. // Basic data exploration',
+        '. describe'
+    ].join('\n') + '\n', 88);
+
+    assert.deepEqual(entries.map(entry => entry.kind), ['comment-command', 'command']);
+});
+
 test('does not style URL double slashes as comments in submissions or native echoes', () => {
     const renderer = new StataTerminalRenderer();
     const command = 'use https://www.stata-press.com/data/r18/auto.dta, clear';

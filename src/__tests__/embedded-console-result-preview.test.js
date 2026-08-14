@@ -128,24 +128,40 @@ test('collects a complete result block and stops at every non-result boundary', 
     assert.deepEqual(collectResultBlock(history, 0), []);
 });
 
-test('adds the nearest submitted run command and removes timing footer rows', () => {
+test('uses only the adjacent comment and command group and removes timing footer rows', () => {
     const { collectResultPreview } = createHarness();
-    const submission = {
-        kind: 'submission',
-        code: 'regress y x',
-        lines: [{ segments: [{ text: 'regress y x', className: 'tok tok-command' }] }]
-    };
     const history = [
-        submission,
-        { kind: 'command', segments: [{ text: '. regress y x' }] },
-        { kind: 'default', segments: [{ text: 'Linear regression' }] },
+        {
+            kind: 'submission',
+            code: '// every earlier input\nsysuse auto, clear\n// Basic data exploration\ndescribe'
+        },
+        { kind: 'command', segments: [{ text: '. sysuse auto, clear', tokenType: 'prompt' }] },
+        { kind: 'default', segments: [{ text: '(1978 automobile data)' }] },
         { kind: 'blank', segments: [] },
+        {
+            kind: 'comment-command',
+            segments: [
+                { text: '. ', tokenType: 'prompt' },
+                { text: '// Basic data exploration', tokenType: 'comment' }
+            ]
+        },
+        {
+            kind: 'command',
+            segments: [
+                { text: '. ', tokenType: 'prompt' },
+                { text: 'describe', tokenType: 'command' }
+            ]
+        },
+        { kind: 'default', segments: [{ text: 'Contains data from auto.dta' }] },
         { kind: 'footer', segments: [{ text: 'Worked for 0.3s' }] },
         { kind: 'blank', segments: [] }
     ];
-    const result = collectResultPreview(history, 2);
-    assert.deepEqual(result.commandLines, submission.lines);
-    assert.deepEqual(result.entries, [history[2]]);
+    const result = collectResultPreview(history, 6);
+    assert.deepEqual(
+        result.commandLines.map(line => line.segments.map(segment => segment.text).join('')),
+        ['// Basic data exploration', 'describe']
+    );
+    assert.deepEqual(result.entries, [history[6]]);
     assert.equal(
         result.entries.some(entry => entry.kind === 'footer'
             || entry.segments.some(segment => String(segment.text).includes('Worked for'))),

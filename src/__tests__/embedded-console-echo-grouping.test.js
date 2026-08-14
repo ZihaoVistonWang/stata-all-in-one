@@ -57,3 +57,22 @@ test('flushes a comment-only submission instead of losing it', () => {
     assert.deepEqual(outputTexts(visible), ['. * comment only']);
     assert.deepEqual(grouper.flush(), []);
 });
+
+test('keeps an executed source blank as a prompt-only separator', () => {
+    const grouper = new PrimaryEchoGrouper();
+    const grouped = grouper.push([
+        entry('command', '. sysuse auto, clear'),
+        entry('default', '(1978 automobile data)'),
+        entry('command', '. '),
+        entry('comment-command', '. // Basic data exploration'),
+        entry('command', '. describe')
+    ]);
+
+    assert.deepEqual(outputTexts(grouped), [
+        '. sysuse auto, clear',
+        '(1978 automobile data)',
+        '. ',
+        '. // Basic data exploration',
+        '. describe'
+    ]);
+});

@@ -22,8 +22,10 @@ const { beginGraphCapture, endGraphCapture, executeBitmapGraphExport, exportCapt
 const { startSmclSidecar } = require('./smclLinks');
 const {
     findLineContinuationIndex,
+    hasDisplayableBlankLine,
     hasDisplayableFullLineComment,
     normalizeStandaloneCdCommand,
+    splitExecutionSourceLines,
     stripTrailingLineComment
 } = require('./commandParsing');
 
@@ -891,12 +893,9 @@ async function ensureWebviewBootstrap(consoleSession) {
 }
 
 function createExecutionPlan(codeToRun, workingDirectory) {
-    const lines = String(codeToRun || '')
-        .replace(/\r\n/g, '\n')
-        .split('\n')
-        .filter(line => line.trim().length > 0);
+    const lines = splitExecutionSourceLines(codeToRun);
 
-    if (lines.length === 0) {
+    if (!lines.some(line => line.trim().length > 0)) {
         return {
             command: '',
             commands: null,
@@ -918,9 +917,10 @@ function createExecutionPlan(codeToRun, workingDirectory) {
     }
 
     const directLines = buildDirectExecutionLines(lines);
-    const preserveFullLineCommentEcho = hasDisplayableFullLineComment(lines);
+    const preserveSourceLayoutEcho = hasDisplayableFullLineComment(lines)
+        || hasDisplayableBlankLine(lines);
 
-    if (!preserveFullLineCommentEcho
+    if (!preserveSourceLayoutEcho
         && directLines.length === 1
         && lines.length === 1
         && canExecuteLineByLine(directLines)) {
@@ -932,7 +932,7 @@ function createExecutionPlan(codeToRun, workingDirectory) {
         };
     }
 
-    if (!preserveFullLineCommentEcho
+    if (!preserveSourceLayoutEcho
         && directLines.length > 0
         && canExecuteLineByLine(directLines)) {
         return {

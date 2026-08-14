@@ -42,19 +42,23 @@ test('routes primary echoes through comment-aware run grouping', () => {
     assert.match(panelSource, /flushOutput\(\) \{[\s\S]*this\._primaryEchoGrouper\.flush\(\)/);
 });
 
-test('macOS keeps full-line comments in a temporary do-file for native echo', () => {
+test('both platforms keep source comments and blank lines in a temporary do-file for native echo', () => {
     const macSource = fs.readFileSync(
         path.join(__dirname, '../modules/runCode/embeddedConsole/mac.js'),
         'utf8'
     );
+    const windowsSource = fs.readFileSync(
+        path.join(__dirname, '../modules/runCode/embeddedConsole/windows.js'),
+        'utf8'
+    );
 
-    assert.match(macSource, /const preserveFullLineCommentEcho = hasDisplayableFullLineComment\(lines\)/);
-    assert.match(
-        macSource,
-        /if \(!preserveFullLineCommentEcho[\s\S]*?directLines\.length === 1/
-    );
-    assert.match(
-        macSource,
-        /if \(!preserveFullLineCommentEcho[\s\S]*?directLines\.length > 0/
-    );
+    for (const source of [macSource, windowsSource]) {
+        assert.match(source, /const lines = splitExecutionSourceLines\(codeToRun\)/);
+        assert.match(
+            source,
+            /const preserveSourceLayoutEcho = hasDisplayableFullLineComment\(lines\)[\s\S]*?hasDisplayableBlankLine\(lines\)/
+        );
+        assert.match(source, /if \(!preserveSourceLayoutEcho[\s\S]*?directLines\.length === 1/);
+        assert.match(source, /if \(!preserveSourceLayoutEcho[\s\S]*?directLines\.length > 0/);
+    }
 });

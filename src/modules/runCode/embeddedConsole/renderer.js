@@ -1036,7 +1036,7 @@ class StataTerminalRenderer {
             return rendered;
         }
 
-        if (/^[.>]\s+\*/.test(line)) {
+        if (/^[.>]\s+(?:\*|\/\/)/.test(line)) {
             this._describeMode = false;
             lineKind = 'comment-command';
             const rendered = this._segmentCommentCommandLine(line);
@@ -1340,7 +1340,7 @@ class StataTerminalRenderer {
             return rendered;
         }
 
-        if (/^[.>]\s+\*/.test(line)) {
+        if (/^[.>]\s+(?:\*|\/\/)/.test(line)) {
             this._describeMode = false;
             lineKind = 'comment-command';
             const rendered = this._renderCommentCommandLine(line);

@@ -12,8 +12,10 @@ const {
 } = require('../modules/runCode/execute/tempfile');
 const {
     findLineContinuationIndex,
+    hasDisplayableBlankLine,
     hasDisplayableFullLineComment,
     normalizeStandaloneCdCommand,
+    splitExecutionSourceLines,
     stripTrailingLineComment
 } = require('../modules/runCode/embeddedConsole/commandParsing');
 
@@ -76,6 +78,15 @@ test('detects full-line comments whose native echo must be preserved', () => {
         ]),
         false
     );
+});
+
+test('preserves intentional source blank lines but ignores the final line ending', () => {
+    assert.deepEqual(
+        splitExecutionSourceLines('// Basic data exploration\n\ndescribe\n'),
+        ['// Basic data exploration', '', 'describe']
+    );
+    assert.equal(hasDisplayableBlankLine(['describe']), false);
+    assert.equal(hasDisplayableBlankLine(['describe', '', 'summarize']), true);
 });
 
 function loadMacRunner(childProcess, errors) {

@@ -10,6 +10,11 @@ function isPrimaryEcho(entry) {
         && entryText(entry).startsWith('. ');
 }
 
+function isPrimaryBlankEcho(entry) {
+    return String(entry && entry.kind || '') === 'command'
+        && /^\.\s*$/.test(entryText(entry));
+}
+
 class PrimaryEchoGrouper {
     constructor() {
         this.reset();
@@ -26,6 +31,7 @@ class PrimaryEchoGrouper {
         for (const entry of Array.isArray(entries) ? entries.filter(Boolean) : []) {
             const kind = String(entry && entry.kind || '');
             const primary = isPrimaryEcho(entry);
+            const primaryBlank = isPrimaryBlankEcho(entry);
 
             if (this._attachNextCommand) {
                 if (kind === 'blank' || (kind === 'default' && entryText(entry) === '')) {
@@ -37,7 +43,7 @@ class PrimaryEchoGrouper {
                     this._lastOutputWasBlank = false;
                     continue;
                 }
-                if (primary && kind === 'command') {
+                if (primary && kind === 'command' && !primaryBlank) {
                     output.push(entry);
                     this._primaryEchoCount += 1;
                     this._attachNextCommand = false;
@@ -46,6 +52,13 @@ class PrimaryEchoGrouper {
                 }
 
                 this._attachNextCommand = false;
+            }
+
+            if (primaryBlank) {
+                output.push(entry);
+                this._primaryEchoCount += 1;
+                this._lastOutputWasBlank = true;
+                continue;
             }
 
             if (primary && kind === 'comment-command') {
@@ -82,5 +95,6 @@ class PrimaryEchoGrouper {
 module.exports = {
     PrimaryEchoGrouper,
     entryText,
+    isPrimaryBlankEcho,
     isPrimaryEcho
 };

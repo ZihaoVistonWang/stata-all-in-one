@@ -45,6 +45,45 @@ function collectResultBlock(history, historyIndex) {
     return history.slice(start, end + 1);
 }
 
+function entryText(entry) {
+    return Array.isArray(entry && entry.segments)
+        ? entry.segments.map(segment => String((segment && segment.text) || '')).join('')
+        : '';
+}
+
+function isPromptOnlyCommand(entry) {
+    return String((entry && entry.kind) || '') === 'command'
+        && /^(?:[.>]\s*|\s*\d+\.\s*)$/.test(entryText(entry));
+}
+
+function stripCommandPrompt(entry) {
+    const segments = Array.isArray(entry && entry.segments)
+        ? entry.segments.map(segment => ({ ...segment }))
+        : [];
+    if (segments.length && String(segments[0].tokenType || '') === 'prompt') {
+        segments.shift();
+    } else if (segments.length) {
+        segments[0].text = String(segments[0].text || '').replace(/^(?:[.>]\s+|\s*\d+\.\s+)/, '');
+        if (!segments[0].text) {
+            segments.shift();
+        }
+    }
+    return { segments };
+}
+
+function collectPrecedingCommandLines(history, blockStart) {
+    const commandLines = [];
+    for (let index = blockStart - 1; index >= 0; index -= 1) {
+        const entry = history[index];
+        const kind = String((entry && entry.kind) || '');
+        if (!['command', 'comment-command'].includes(kind) || isPromptOnlyCommand(entry)) {
+            break;
+        }
+        commandLines.unshift(stripCommandPrompt(entry));
+    }
+    return commandLines;
+}
+
 function collectResultPreview(history, historyIndex) {
     const resultBlock = collectResultBlock(history, historyIndex);
     if (!resultBlock.length) {
@@ -52,27 +91,15 @@ function collectResultPreview(history, historyIndex) {
     }
 
     const blockStart = history.indexOf(resultBlock[0]);
-    let submission = null;
-    for (let index = blockStart - 1; index >= 0; index -= 1) {
-        if (String((history[index] && history[index].kind) || '') === 'submission') {
-            submission = history[index];
-            break;
-        }
-    }
+    const commandLines = collectPrecedingCommandLines(history, blockStart);
 
     const entries = resultBlock.filter(entry => String((entry && entry.kind) || '') !== 'footer');
     while (entries.length && String((entries.at(-1) && entries.at(-1).kind) || '') === 'blank') {
         entries.pop();
     }
 
-    const fallbackCode = String((submission && submission.code) || '');
-    const commandLines = Array.isArray(submission && submission.lines) && submission.lines.length
-        ? submission.lines
-        : (fallbackCode ? fallbackCode.split('\n').map(text => ({
-            segments: [{ text, className: 'tok tok-plain', style: {} }]
-        })) : []);
     return {
-        commandLines: submission ? commandLines : [],
+        commandLines,
         entries
     };
 }
@@ -641,7 +668,9 @@ module.exports = {
     ResultPreviewManager,
     collectResultBlock,
     collectResultPreview,
+    collectPrecedingCommandLines,
     isResultBoundary,
+    isPromptOnlyCommand,
     resultPreviewManager,
     MOVE_TO_NEW_WINDOW_COMMAND,
     PREVIEW_VIEW_TYPE

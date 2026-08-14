@@ -61,10 +61,27 @@ function hasDisplayableFullLineComment(lines) {
     });
 }
 
+function splitExecutionSourceLines(code) {
+    const lines = String(code || '')
+        .replace(/\r\n/g, '\n')
+        .replace(/\r/g, '\n')
+        .split('\n');
+    if (lines.length > 1 && lines.at(-1) === '') {
+        lines.pop();
+    }
+    return lines;
+}
+
+function hasDisplayableBlankLine(lines) {
+    return (Array.isArray(lines) ? lines : [lines]).some(line => /^\s*$/.test(String(line || '')));
+}
+
 module.exports = {
     findLineContinuationIndex,
+    hasDisplayableBlankLine,
     hasDisplayableFullLineComment,
     isStataSlashCommentAt,
     normalizeStandaloneCdCommand,
+    splitExecutionSourceLines,
     stripTrailingLineComment
 };
