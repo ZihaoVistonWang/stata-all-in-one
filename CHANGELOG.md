@@ -3,6 +3,15 @@
 All notable changes to the Stata All in One extension will be documented in this file.
 本文件记录 Stata All in One 扩展的所有重要更改。
 
+## 0.3.12 (2026-08-16)
+
+- **Fixed**: Preserved source blank lines and comment grouping in the Embedded Console, corrected slash-comment native echoes and spacing, and limited Result Preview to the comments and commands belonging to the current result.
+- **Fixed**: Validated Data Viewer filter syntax before execution and preserved automatic column widths when filtering to a small number of variables.
+- **Docs**: Added HTML, Markdown, and Jupyter Notebook export demos.
+- **修复**：保留嵌入式控制台源码空行与注释分组，修正斜杠注释原生回显和命令间距，并将结果预览限制为当前结果对应的注释与命令。
+- **修复**：执行前校验数据查看器筛选语法，并在筛选少量变量时保留自动列宽。
+- **文档**：新增 HTML、Markdown 和 Jupyter Notebook 导出演示。
+
 ## 0.3.11 (2026-08-11)
 
 - **Feat**: Upgraded autocomplete across the editor, Embedded Console, and Data Viewer with Unicode-aware fuzzy matching, Chinese pinyin and variable-label search, highlighted matches, adaptive performance safeguards, and the missing `label` command candidate.

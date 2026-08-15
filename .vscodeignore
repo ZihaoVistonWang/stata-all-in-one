@@ -21,6 +21,7 @@ node_modules/pinyin-pro/types/**
 node_modules/pinyin-pro/README.md
 native/stata_bridge/build/**
 output/**
+export_demos/**
 CHANGELOG_prerelease.md
 SHORTCUT.md
 THIRD_PARTY_NOTICES.md

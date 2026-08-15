@@ -10,6 +10,10 @@ const { getUserLanguage } = require('../utils/common');
 // Update changelog: version -> changelog text
 const CHANGELOG = {
     en: {
+        '0.3.12': {
+            ver_info: '✨ Stata All in One (0.3.12): Fixed Console source grouping and result-preview scope, plus Data Viewer filter and column-width issues.',
+            more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0312-2026-08-16'
+        },
         '0.3.11': {
             ver_info: '✨ Stata All in One (0.3.11): Upgraded fuzzy completion with Chinese pinyin and variable-label matching, added Data Viewer variable filtering and Console Floating Window previews, and fixed code selections, comment echoes, and macOS external-execution security.',
             more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0311-2026-08-11'
@@ -124,6 +128,10 @@ const CHANGELOG = {
         }
     },
     zh: {
+        '0.3.12': {
+            ver_info: '✨ Stata All in One (0.3.12)：修复控制台源码分组与结果预览范围，以及数据查看器筛选与列宽问题。',
+            more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0312-2026-08-16'
+        },
         '0.3.11': {
             ver_info: '✨ Stata All in One (0.3.11)：升级中文拼音、变量标签与模糊补全，新增数据查看器变量筛选及控制台浮动窗口预览；修复代码选区、注释回显与 macOS 外部执行安全问题。',
             more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0311-2026-08-11'

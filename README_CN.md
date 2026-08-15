@@ -13,7 +13,7 @@ Stata All in One
 </p>
 
 <p align="center">
-   | <b>版本:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.3.11</a> | <b>作者:</b> <a href="https://zihaowang.cn">王梓豪</a> | <b>Translate:</b>
+   | <b>版本:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.3.12</a> | <b>作者:</b> <a href="https://zihaowang.cn">王梓豪</a> | <b>Translate:</b>
   <a href="https://github.com/ZihaoVistonWang/stata-all-in-one">English Version</a> |
 </p>
 
@@ -75,6 +75,8 @@ Stata All in One
 - **自定义命令高亮**：支持为用户常用的第三方命令（如 `reghdfe`、`ivreghdfe`、`gtools` 等）添加关键字高亮，可在设置中自由配置。
 - **变量智能补全**：（加载数据集后）编辑器、控制台和数据查看器支持变量名、标签、中文及拼音模糊匹配与高亮。
 
+[^1]: [Stata Enhanced](https://github.com/kylebarron/language-stata) 语法引擎由 Kyle Barron 开发，提供了对 Stata 语言的全面支持。本拓展遵循 [MIT](https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/THIRD_PARTY_NOTICES.md) 许可协议，感谢 Kyle Barron 的贡献！
+
 ### 4. 智能大纲与结构导航
 
 - **多级大纲识别**：自动识别 `**#` 至 `**######` 格式的注释行，最高支持 _6 级层级标题_。
@@ -84,6 +86,8 @@ Stata All in One
 - **多级逻辑序号**：支持在大纲中显示 `1.1`、`1.2.1` 等格式的序号（需在设置中开启）。
 - **自动同步序号**：插件会根据大纲结构自动在 `.do` 文件中插入或删除序号（需在设置中开启）。
 - **支持`program define`块**：在大纲视图中显示 program 名称，方便导航和管理自定义程序。<a id="code_execution"></a>
+
+[^2]: 抱歉～此为VS Code的GUI设置，我无法通过插件控制它。
 
 ### 5. 数据查看器 🛠️
 
@@ -256,6 +260,8 @@ Stata All in One
 - `system`：直接使用系统等宽字体。
 - `custom`：使用下方自定义字体设置。
 
+[^3]: 字体致谢：[subframe7536/maple-font](https://github.com/subframe7536/maple-font)、[fontsource](https://fontsource.org/fonts/maple-mono) 和 ZeoSeven Fonts（[443](https://fonts.zeoseven.com/items/443/)、[442](https://fonts.zeoseven.com/items/442/)）。
+
 12. **控制台自定义字体** (`stata-all-in-one.consoleCustomFontFamily`)
     - 当字体模式设为 `custom` 时，控制台使用的 CSS `font-family` 列表。
     - 示例：`"Maple Mono NF CN", Menlo, Monaco, monospace`
@@ -328,6 +334,7 @@ Stata All in One
 
 | 版本   | 更新内容                                                                                                                                | 发布日期   |
 | ------ | --------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| 0.3.12 | 修复控制台源码分组与结果预览范围，以及数据查看器筛选与列宽问题。                                                                        | 2026-08-16 |
 | 0.3.11 | 升级中文拼音、变量标签与模糊补全，新增数据查看器变量筛选及控制台浮动窗口预览；修复代码选区、注释回显与 macOS 外部执行安全问题。         | 2026-08-11 |
 | 0.3.10 | 新增明暗主题自适应标签图标；修复 macOS 嵌入式控制台复杂预测崩溃，以及控制台路径高亮与运行导航问题。                                     | 2026-08-06 |
 | 0.3.9  | 新增编辑器标题栏操作按钮的分阶段图标切换以节省标题栏空间；修复编辑器运行后无法刷新数据查看器及右下角通知自动折叠问题。                  | 2026-07-29 |
@@ -342,9 +349,3 @@ Stata All in One
 | 0.3.0  | 正式版：修复预览版中的已知问题                                                                                                          | 2026-07-06 |
 
 详见 [CHANGELOG.md](CHANGELOG.md) 完整版本记录。
-
-[^1]: [Stata Enhanced](https://github.com/kylebarron/language-stata) 语法引擎由 Kyle Barron 开发，提供了对 Stata 语言的全面支持。本拓展遵循 [MIT](https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/THIRD_PARTY_NOTICES.md) 许可协议，感谢 Kyle Barron 的贡献！
-    
-[^2]: 抱歉～此为VS Code的GUI设置，我无法通过插件控制它。
-    
-[^3]: 字体致谢：[subframe7536/maple-font](https://github.com/subframe7536/maple-font)、[fontsource](https://fontsource.org/fonts/maple-mono) 和 ZeoSeven Fonts（[443](https://fonts.zeoseven.com/items/443/)、[442](https://fonts.zeoseven.com/items/442/)）。
