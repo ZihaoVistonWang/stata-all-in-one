@@ -3,6 +3,11 @@
 All notable changes to the Stata All in One extension will be documented in this file.
 本文件记录 Stata All in One 扩展的所有重要更改。
 
+## 0.3.13 (2026-08-20)
+
+- **Fixed**: Fixed the installation script used to configure Stata All in One from Stata by running the generated `installation.do` from its normalized absolute path when VS Code and Stata use different temporary directories.
+- **修复**：改用规范化后的绝对路径运行生成的 `installation.do`，修复 VS Code 与 Stata 临时目录不一致时无法从 Stata 配置 Stata All in One 的问题。
+
 ## 0.3.12 (2026-08-16)
 
 - **Fixed**: Preserved source blank lines and comment grouping in the Embedded Console, corrected slash-comment native echoes and spacing, and limited Result Preview to the comments and commands belonging to the current result.

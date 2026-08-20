@@ -13,7 +13,7 @@ Stata All in One
 </p>
 
 <p align="center">
-   | <b>版本:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.3.12</a> | <b>作者:</b> <a href="https://zihaowang.cn">王梓豪</a> | <b>Translate:</b>
+   | <b>版本:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.3.13</a> | <b>作者:</b> <a href="https://zihaowang.cn">王梓豪</a> | <b>Translate:</b>
   <a href="https://github.com/ZihaoVistonWang/stata-all-in-one">English Version</a> |
 </p>
 
@@ -334,6 +334,7 @@ Stata All in One
 
 | 版本   | 更新内容                                                                                                                                | 发布日期   |
 | ------ | --------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| 0.3.13 | 修复临时目录不一致时无法从 Stata 配置 Stata All in One 的问题。                                                                         | 2026-08-20 |
 | 0.3.12 | 修复控制台源码分组与结果预览范围，以及数据查看器筛选与列宽问题。                                                                        | 2026-08-16 |
 | 0.3.11 | 升级中文拼音、变量标签与模糊补全，新增数据查看器变量筛选及控制台浮动窗口预览；修复代码选区、注释回显与 macOS 外部执行安全问题。         | 2026-08-11 |
 | 0.3.10 | 新增明暗主题自适应标签图标；修复 macOS 嵌入式控制台复杂预测崩溃，以及控制台路径高亮与运行导航问题。                                     | 2026-08-06 |

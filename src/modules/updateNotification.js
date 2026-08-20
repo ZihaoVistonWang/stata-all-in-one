@@ -10,6 +10,10 @@ const { getUserLanguage } = require('../utils/common');
 // Update changelog: version -> changelog text
 const CHANGELOG = {
     en: {
+        '0.3.13': {
+            ver_info: '✨ Stata All in One (0.3.13): Fixed extension configuration from Stata when temporary directories differ.',
+            more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0313-2026-08-20'
+        },
         '0.3.12': {
             ver_info: '✨ Stata All in One (0.3.12): Fixed Console source grouping and result-preview scope, plus Data Viewer filter and column-width issues.',
             more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0312-2026-08-16'
@@ -128,6 +132,10 @@ const CHANGELOG = {
         }
     },
     zh: {
+        '0.3.13': {
+            ver_info: '✨ Stata All in One (0.3.13)：修复临时目录不一致时无法从 Stata 完成扩展配置的问题。',
+            more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0313-2026-08-20'
+        },
         '0.3.12': {
             ver_info: '✨ Stata All in One (0.3.12)：修复控制台源码分组与结果预览范围，以及数据查看器筛选与列宽问题。',
             more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0312-2026-08-16'
