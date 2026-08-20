@@ -104,8 +104,12 @@ function getStataInstallationTempDirectory(systemTempDirectory = os.tmpdir()) {
     return systemTempDirectory;
 }
 
-function buildStataInstallationDoCommand() {
-    return 'do "`c(tmpdir)\'/installation.do"';
+function buildStataInstallationDoCommand(installationDoPath, platform = os.platform()) {
+    const nativePath = platform === 'win32'
+        ? String(installationDoPath).replace(/\//g, '\\')
+        : String(installationDoPath).replace(/\\/g, '/');
+    const stataPath = nativePath.replace(/"/g, '""');
+    return `do "${stataPath}"`;
 }
 
 function createStataInstallationDo(script) {
@@ -113,7 +117,7 @@ function createStataInstallationDo(script) {
     fs.writeFileSync(installationDoPath, `${script}\n`, 'utf8');
     return {
         installationDoPath,
-        command: buildStataInstallationDoCommand(installationDoPath)
+        command: buildStataInstallationDoCommand(installationDoPath, os.platform())
     };
 }
 

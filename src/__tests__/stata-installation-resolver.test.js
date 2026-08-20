@@ -146,7 +146,7 @@ function loadResolver(options = {}) {
             if (request === 'vscode') return vscodeMock;
             if (request === 'os') {
                 return {
-                    platform: () => 'win32',
+                    platform: () => options.platform || process.platform,
                     tmpdir: () => options.installationTempPath || TEST_INSTALLATION_TEMP_PATH
                 };
             }
@@ -207,12 +207,13 @@ test('concurrent configuration callers share one Windows discovery promise', asy
     assert.equal(secondResult.executablePath, candidate.executablePath);
 });
 
-test('installation do-file command keeps the system temporary path out of the clipboard', () => {
+test('installation do-file command uses the generated file absolute path', () => {
     const { resolver } = loadResolver();
     assert.equal(resolver.getStataInstallationTempDirectory('/var/folders/long/T'), '/var/folders/long/T');
     assert.equal(resolver.getStataInstallationTempDirectory('C:\\Users\\test\\AppData\\Local\\Temp'), 'C:\\Users\\test\\AppData\\Local\\Temp');
-    assert.equal(resolver.buildStataInstallationDoCommand('/var/folders/long/T/installation.do', 'darwin'), 'do "`c(tmpdir)\'/installation.do"');
-    assert.equal(resolver.buildStataInstallationDoCommand('C:\\Users\\test\\AppData\\Local\\Temp\\installation.do', 'win32'), 'do "`c(tmpdir)\'/installation.do"');
+    assert.equal(resolver.buildStataInstallationDoCommand('/var/folders/long/T/installation.do', 'darwin'), 'do "/var/folders/long/T/installation.do"');
+    assert.equal(resolver.buildStataInstallationDoCommand('C:\\Users\\test\\AppData\\Local\\Temp\\installation.do', 'win32'), 'do "C:\\Users\\test\\AppData\\Local\\Temp\\installation.do"');
+    assert.equal(resolver.buildStataInstallationDoCommand('C:/Users/A "quoted" User/installation.do', 'win32'), 'do "C:\\Users\\A ""quoted"" User\\installation.do"');
 });
 
 test('Windows discovery failure opens the Stata command setup flow', async () => {
@@ -286,8 +287,8 @@ test('Stata setup QuickPick reveals setup only after a successful installation r
     assert.match(calls.setupQuickPickInstance.items[0].label, /stataSetupQuickPickInstallLabel/);
 
     await calls.setupQuickPickInstance.accept(0);
-    assert.equal(calls.clipboard[0], 'do "`c(tmpdir)\'/installation.do"');
     const installationDoPath = path.join(TEST_INSTALLATION_TEMP_PATH, 'installation.do');
+    assert.equal(calls.clipboard[0], `do "${installationDoPath}"`);
     const installationScript = fs.readFileSync(installationDoPath, 'utf8');
     assert.match(installationScript, /capture noisily net install saio, from\(".*\/stata\/saio"\) replace/);
     assert.match(installationScript, /if `__saio_install_rc' == 0 \{/);
