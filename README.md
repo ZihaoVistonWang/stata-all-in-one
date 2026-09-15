@@ -47,8 +47,13 @@ Stata All in One
 ## Features
 
 <p align="center">
-   <a href="https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/img/example-marked-en.jpg"><img src="img/example-marked-en.jpg" alt="Feature Showcase"/> Click to view full image </a>
+   <a href="https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/img/example-marked-en.jpg"><img src="img/example-marked-en.jpg" alt="Feature Showcase"/></a>
 </p>
+
+<p align="center">Figure 1. Features overview of SAiO </p>
+<!-- <p align="center">
+   (<a href="https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/img/example-marked-en.jpg"> Click to view full image </a>)
+</p> -->
 
 > ⚠️ Features marked with 🛠️ require **Stata 17 or later** and a `STATA.LIC` license file. Please support genuine Stata software to enjoy the full experience. You can contact Stata Corp, LLC's officially authorized partner [Beijing Uone Info&amp;Tech Co.,Ltd (Uone-Tech)](http://www.uone-tech.cn/Stata.html) to purchase genuine Stata software or request a trial.
 
@@ -320,6 +325,18 @@ If automatic discovery cannot find Stata, choose `Stata not found? Configure it 
 23. **Separator Symmetric** (`stata-all-in-one.separatorSymmetric`)
     - `true`: Add ` **` at the end of separator lines to ensure visual symmetry (e.g., `** === Title === **`).
     - `false` (default): Separator lines without the suffix.
+
+---
+
+## Architecture
+
+[Figure 2](#fig-architecture) presents the main components and technical routes of Stata All in One (SAiO).For clarity, the architecture is intentionally simplified and abstracted, and some labels represent logical components rather than one-to-one mappings to individual source modules. The complete implementation is available in the project repository on GitHub. More info plase refer to [ARCHITECTURE.md](./architecture/ARCHITECTURE.md).
+
+<a id="fig-architecture"></a>
+
+<p align="center"> <img src="./architecture/fig-architecture.png" width="100%" alt="Architecture and technical routes of SAiO"> </p>
+
+<p align="center">Figure 2. Architecture and technical routes of SAiO</p>
 
 ---
 

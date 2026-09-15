@@ -47,8 +47,13 @@ Stata All in One
 ## 功能概览
 
 <p align="center">
-   <a href="https://pan.zihaowang.cn/share/example-marked-cn.jpg"><img src="img/example-marked-cn.jpg" alt="功能展示图"/> 点击查看大图 </a>
+   <a href="https://pan.zihaowang.cn/share/example-marked-cn.jpg"><img src="img/example-marked-cn.jpg" alt="功能展示图"/></a>
 </p>
+
+<p align="center">图 1. SAiO 功能概览</p>
+<!-- <p align="center">
+   (<a href="https://pan.zihaowang.cn/share/example-marked-cn.jpg">点击查看大图</a>)
+</p> -->
 
 > ⚠️ 以下标注 🛠️ 的功能需要 **Stata 17 及以上版本**和 `STATA.LIC` 证书文件，请支持正版 Stata 软件以获得完整功能体验。您可以联系 Stata Corp, LLC 官方授权合作伙伴[北京友万信息科技有限公司（友万科技）](http://www.uone-tech.cn/Stata.html)采购正版软件或申请试用。
 
@@ -317,6 +322,18 @@ Stata All in One
 23. **分隔线对称性** (`stata-all-in-one.separatorSymmetric`)
     - `true`：在分割线末尾添加 ` **` 以保证视觉对称（例如 `** === 标题 === **`）。
     - `false`（默认）：分割线不添加末尾后缀。
+
+---
+
+## 系统架构
+
+[图 2](#fig-architecture) 展示了 Stata All in One（SAiO）的主要组件和技术路线。为便于理解，该架构图经过简化和抽象，部分标签表示逻辑组件，并不一定与单个源代码模块一一对应。完整实现请参阅 GitHub 项目仓库，更多信息请参阅 [ARCHITECTURE.md](./architecture/ARCHITECTURE.md)。
+
+<a id="fig-architecture"></a>
+
+<p align="center"> <img src="./architecture/fig-architecture.png" width="100%" alt="SAiO 架构与技术路线"> </p>
+
+<p align="center">图 2. SAiO 架构与技术路线</p>
 
 ---
 
