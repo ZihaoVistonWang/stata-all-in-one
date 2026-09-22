@@ -471,7 +471,13 @@ async function runBrowseExecutionPlan(context, segments, options = {}) {
         };
     }
 
-    return finishPlan(result);
+    const finished = finishPlan(result);
+    if (result.routedToDataViewer) {
+        // A later command in the same selection can reveal the Console again.
+        // Put the Data Viewer tab in front after the whole selection finishes.
+        require('../embeddedConsole/dataViewer/panel').activateDataViewerTab();
+    }
+    return finished;
 }
 
 async function refreshMemoryVarsAfterRun(context, result) {

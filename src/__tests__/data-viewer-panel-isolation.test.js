@@ -8,6 +8,7 @@ const DATA_VIEWER_DIR = path.resolve(
     '../modules/runCode/embeddedConsole/dataViewer'
 );
 const PANEL_PATH = path.join(DATA_VIEWER_DIR, 'panel.js');
+const CONSOLE_PANEL_PATH = path.resolve(DATA_VIEWER_DIR, '../panel.js');
 const MANGLED_MODULES = [
     'panel.js',
     'directDtaStore.js',
@@ -21,6 +22,7 @@ const MANGLED_MODULES = [
 ].map((name) => path.join(DATA_VIEWER_DIR, name));
 
 function createVscodeStub() {
+    const createdPanels = [];
     const vscodeStub = {
         env: { language: 'en', appRoot: '/tmp/appRoot' },
         Uri: {
@@ -29,13 +31,19 @@ function createVscodeStub() {
                 fsPath: parts.map((part) => (typeof part === 'string' ? part : part.fsPath)).join('/')
             })
         },
-        ViewColumn: { Two: 2 },
+        ViewColumn: { Active: -1, Beside: -2, Two: 2 },
         workspace: {
             getConfiguration: () => ({ get: () => '' }),
             onDidChangeConfiguration: () => ({ dispose() {} })
         },
         window: {
-            createWebviewPanel: () => createPanel(),
+            createWebviewPanel: (_viewType, _title, viewColumn) => {
+                const panel = createPanel();
+                panel.createdInColumn = viewColumn;
+                panel.viewColumn = viewColumn;
+                createdPanels.push(panel);
+                return panel;
+            },
             showInformationMessage: async () => undefined,
             showErrorMessage: async () => undefined,
             showWarningMessage: async () => undefined
@@ -72,7 +80,11 @@ function createVscodeStub() {
             },
             onDidChangeViewState() { return { dispose() {} }; },
             onDidDispose(handler) { panel._onDispose = handler; return { dispose() {} }; },
-            reveal() {},
+            reveal(viewColumn, preserveFocus) {
+                panel.revealedInColumn = viewColumn;
+                panel.lastPreserveFocus = preserveFocus;
+                panel.viewColumn = viewColumn;
+            },
             dispose() {
                 if (panel._onDispose) panel._onDispose();
             }
@@ -80,7 +92,7 @@ function createVscodeStub() {
         return panel;
     }
 
-    return { vscodeStub, createPanel };
+    return { vscodeStub, createPanel, createdPanels };
 }
 
 /**
@@ -88,10 +100,20 @@ function createVscodeStub() {
  * pristine require cache for the whole data-viewer module graph so every test
  * sees its own stubs.
  */
-function createHarness({ directDtaStore, consoleStore }) {
-    const { vscodeStub, createPanel } = createVscodeStub();
+function createHarness({ directDtaStore, consoleStore, getConsoleViewColumn = () => 3 }) {
+    const { vscodeStub, createPanel, createdPanels } = createVscodeStub();
     const originalLoad = Module._load;
     const srcRoot = path.resolve(__dirname, '..') + path.sep;
+    const previousConsolePanel = require.cache[CONSOLE_PANEL_PATH];
+    require.cache[CONSOLE_PANEL_PATH] = {
+        id: CONSOLE_PANEL_PATH,
+        filename: CONSOLE_PANEL_PATH,
+        loaded: true,
+        exports: {
+            getWebviewTerminalViewColumn: getConsoleViewColumn,
+            isWebviewTerminalRunning: () => false
+        }
+    };
 
     Module._load = function (request, parent, isMain) {
         const from = parent ? parent.filename : '';
@@ -129,6 +151,7 @@ function createHarness({ directDtaStore, consoleStore }) {
     return {
         panelModule,
         createPanel,
+        createdPanels,
         async deliver(panel, message) {
             for (const handler of panel.incoming.slice()) {
                 await handler(message);
@@ -138,6 +161,8 @@ function createHarness({ directDtaStore, consoleStore }) {
             for (const modulePath of MANGLED_MODULES) {
                 delete require.cache[modulePath];
             }
+            if (previousConsolePanel) require.cache[CONSOLE_PANEL_PATH] = previousConsolePanel;
+            else delete require.cache[CONSOLE_PANEL_PATH];
         }
     };
 }
@@ -170,6 +195,30 @@ function snapshotFor(source, value) {
         source
     };
 }
+
+test('Console Data Viewer opens and returns in the Console editor group', async () => {
+    let consoleColumn = 3;
+    const harness = createHarness({
+        directDtaStore: {},
+        consoleStore: createConsoleStoreStub(),
+        getConsoleViewColumn: () => consoleColumn
+    });
+    try {
+        await harness.panelModule.revealDataViewer('', { allowWhileRunning: true });
+        const panel = harness.panelModule.getDataViewerPanel();
+        assert.equal(panel.createdInColumn, 3);
+        assert.equal(panel.revealedInColumn, 3);
+        assert.equal(panel.lastPreserveFocus, false, 'the Data Viewer tab becomes active');
+
+        consoleColumn = 4;
+        await harness.panelModule.revealDataViewer('', { allowWhileRunning: true });
+        assert.equal(harness.createdPanels.length, 1, 'the existing viewer tab is reused');
+        assert.equal(panel.revealedInColumn, 4, 'the viewer follows the Console group');
+        assert.equal(panel.lastPreserveFocus, false);
+    } finally {
+        harness.cleanup();
+    }
+});
 
 test('pagination for file A never reads file B and never posts to B', async () => {
     const reads = [];
@@ -243,6 +292,75 @@ test('closing one file panel does not disturb another and drops only its own cac
             1,
             'the surviving panel keeps working'
         );
+    } finally {
+        harness.cleanup();
+    }
+});
+
+test('a command after br _all keeps the pinned view while its first refresh finishes', async () => {
+    let finishRead;
+    let disposed = 0;
+    let liveReads = 0;
+    const pinnedView = snapshotFor('Stata memory', 'original');
+    const store = {
+        ...createConsoleStoreStub(),
+        captureSnapshot: async () => ({ data: { meta: pinnedView.meta }, view: pinnedView }),
+        getSnapshot: () => new Promise((resolve) => { finishRead = resolve; }),
+        getLiveSnapshot: async () => { liveReads += 1; return snapshotFor('live', 'changed'); },
+        dispose: async () => { disposed += 1; }
+    };
+    const harness = createHarness({ directDtaStore: {}, consoleStore: store });
+    try {
+        await harness.panelModule.revealDataViewer('_all', {
+            allowWhileRunning: true,
+            captureSnapshot: true
+        });
+        const panel = harness.panelModule.getDataViewerPanel();
+        const ready = harness.deliver(panel, { type: 'ready' });
+        assert.equal(typeof finishRead, 'function');
+
+        // `count` is conservatively treated as a possible data change.
+        harness.panelModule.markConsoleDataStale();
+        finishRead(pinnedView);
+        await ready;
+
+        assert.equal(disposed, 0, 'the pinned snapshot must survive later commands');
+        assert.equal(liveReads, 0, 'the fixed view must not fall back to live data');
+        assert.equal(
+            panel.messages.filter((message) => message.type === 'setData').at(-1).data.dataRows[0].values[0],
+            'original'
+        );
+        assert.equal(panel.messages.filter((message) => message.type === 'setStatus').at(-1).status, 'ready');
+    } finally {
+        harness.cleanup();
+    }
+});
+
+test('a live read superseded by a data change retries and clears loading', async () => {
+    const pending = [];
+    const store = {
+        ...createConsoleStoreStub(),
+        getLiveSnapshot: () => new Promise((resolve) => pending.push(resolve))
+    };
+    const harness = createHarness({ directDtaStore: {}, consoleStore: store });
+    try {
+        await harness.panelModule.revealDataViewer('', { allowWhileRunning: true });
+        const panel = harness.panelModule.getDataViewerPanel();
+        const ready = harness.deliver(panel, { type: 'ready' });
+        assert.equal(pending.length, 1);
+
+        harness.panelModule.markConsoleDataStale();
+        pending.shift()(snapshotFor('old', 'stale'));
+        await new Promise((resolve) => setImmediate(resolve));
+        assert.equal(pending.length, 1, 'the stale request must be retried');
+        pending.shift()(snapshotFor('new', 'current'));
+        await ready;
+
+        assert.equal(
+            panel.messages.filter((message) => message.type === 'setData').at(-1).data.dataRows[0].values[0],
+            'current'
+        );
+        assert.equal(panel.messages.filter((message) => message.type === 'setStatus').at(-1).status, 'ready');
     } finally {
         harness.cleanup();
     }

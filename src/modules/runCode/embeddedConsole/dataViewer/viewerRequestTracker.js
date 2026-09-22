@@ -165,6 +165,10 @@ class ViewerRequestTracker {
         return this.inFlight[this._key(kind)] > 0;
     }
 
+    hasNewerPending(kind, ticket) {
+        return Boolean(ticket && this.inFlight[this._key(kind)] > ticket.sequence);
+    }
+
     _key(kind) {
         const key = String(kind || REQUEST_KINDS.REFRESH);
         if (!(key in this.sequences)) {

@@ -43,6 +43,7 @@ const _renderer = new StataTerminalRenderer();
 const PANEL_VIEW_TYPE = 'stata-all-in-one.webviewTerminal';
 
 let _panel = null;
+let _lastViewColumn = null;
 let _history = [];
 let _status = 'idle';
 let _commandHandler = null;
@@ -202,6 +203,7 @@ function attachPanel(panel) {
         return;
     }
     _panel = panel;
+    if (panel.viewColumn) _lastViewColumn = panel.viewColumn;
     _panel.title = getPanelTitle();
     _panel.iconPath = getPanelIconPath();
     try {
@@ -217,6 +219,7 @@ function attachPanel(panel) {
     _panel.onDidDispose(async () => {
         if (_panel === panel) {
             _panel = null;
+            _lastViewColumn = null;
             discardPendingWebviewAppends();
             // Clear all state — fresh console on next open
             _history = [];
@@ -238,6 +241,11 @@ function attachPanel(panel) {
                 const session = require('./session');
                 session.markSessionStale();
             } catch (_e) {}
+        }
+    });
+    _panel.onDidChangeViewState(() => {
+        if (_panel === panel && panel.viewColumn) {
+            _lastViewColumn = panel.viewColumn;
         }
     });
     _panel.webview.onDidReceiveMessage(async (message) => {
@@ -563,10 +571,16 @@ async function revealPanel(preserveFocus = true) {
     const existingPanel = _panel;
     const panel = ensurePanel();
     if (!(existingPanel && existingPanel.visible)) {
-        panel.reveal(vscode.ViewColumn.Beside, preserveFocus);
+        panel.reveal(getWebviewTerminalViewColumn() || vscode.ViewColumn.Beside, preserveFocus);
     }
     postState();
     return panel;
+}
+
+function getWebviewTerminalViewColumn() {
+    if (!_panel) return null;
+    if (_panel.viewColumn) _lastViewColumn = _panel.viewColumn;
+    return _lastViewColumn;
 }
 
 function setStatus(status) {
@@ -4874,6 +4888,7 @@ function escapeHtml(text) {
 
 module.exports = {
     revealWebviewTerminalPanel: revealPanel,
+    getWebviewTerminalViewColumn,
     getWebviewTerminalSink,
     setWebviewCommandHandler,
     setWebviewActionHandler,

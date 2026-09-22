@@ -74,7 +74,9 @@ function bumpDataVersion() {
     _dataVersion += 1;
     for (const panel of [_panels.console, _panels.file]) {
         const tracker = panel ? _viewTrackers.peek(panel) : null;
-        if (tracker) {
+        // A pinned browse view owns a complete, immutable copy. Later Stata
+        // commands cannot make a request against that copy stale.
+        if (tracker && !(panel === _panels.console && _consoleSnapshot.pinned)) {
             tracker.setDataVersion(_dataVersion);
         }
     }
@@ -132,6 +134,21 @@ function getConsolePanel() {
         console.error('Stata All in One: Console panel unavailable:', error.message);
     }
     return _consolePanelModule;
+}
+
+function getConsoleViewColumn() {
+    const terminal = getConsolePanel();
+    const column = terminal && typeof terminal.getWebviewTerminalViewColumn === 'function'
+        ? terminal.getWebviewTerminalViewColumn()
+        : null;
+    return column || vscode.ViewColumn.Active;
+}
+
+function activateDataViewerTab() {
+    const panel = _panels.console;
+    if (!panel) return false;
+    panel.reveal(getConsoleViewColumn(), false);
+    return true;
 }
 
 function isConsoleRunning() {
@@ -2862,7 +2879,7 @@ function ensurePanel(mode) {
     const panel = vscode.window.createWebviewPanel(
         PANEL_VIEW_TYPE,
         getPanelTitle(),
-        vscode.ViewColumn.Two,
+        mode === 'console' ? getConsoleViewColumn() : vscode.ViewColumn.Two,
         {
             enableScripts: true,
             retainContextWhenHidden: true,
@@ -2946,7 +2963,7 @@ async function refreshDataViewer(mode, filterText, targetPanel, options = {}) {
     let retriedAfterSupersede = Boolean(options.retriedAfterSupersede);
     const finishSuperseded = () => {
         // A newer refresh already owns this panel: stay quiet so it can render.
-        if (tracker.isPending(REQUEST_KINDS.REFRESH)) {
+        if (tracker.hasNewerPending(REQUEST_KINDS.REFRESH, refreshTicket)) {
             return {
                 success: false,
                 status: VIEWER_STATUS.STALE,
@@ -2954,6 +2971,12 @@ async function refreshDataViewer(mode, filterText, targetPanel, options = {}) {
                 filterText: filterText || '',
                 reason: 'superseded'
             };
+        }
+        // A data-version change can stale this very request without creating
+        // a replacement. Clear its pending slot before retrying; otherwise the
+        // duplicate-read guard rejects the retry and leaves "Loading" visible.
+        if (tracker.isPending(REQUEST_KINDS.REFRESH)) {
+            tracker.supersede([REQUEST_KINDS.REFRESH]);
         }
         panel.webview.postMessage({ type: 'setStatus', status: 'ready' });
         if (retriedAfterSupersede || tracker.isClosed()) {
@@ -3130,7 +3153,7 @@ async function reveal(filterText, options = {}) {
     const panel = ensurePanel('console');
     ensureDataChangeSubscription();
     _nextActivationPreserve.console = preservePosition;
-    panel.reveal(vscode.ViewColumn.Two, true);
+    activateDataViewerTab();
     if (_ready.console && _dirty.console) {
         const refreshResult = await refreshDataViewer(
             'console',
@@ -3194,18 +3217,23 @@ function markConsoleDataStale() {
     // Every open view (console AND file panels) may be affected: a command that
     // changed Stata's memory also invalidates any pending file read result that
     // was computed against the older data version.
+    const hasPinnedSnapshot = Boolean(_consoleSnapshot.pinned && _consoleSnapshot.entry);
     bumpDataVersion();
     for (const panel of [_panels.console, _panels.file]) {
-        if (panel) cancelPanelWork(panel);
+        if (panel && !(panel === _panels.console && hasPinnedSnapshot)) {
+            cancelPanelWork(panel);
+        }
     }
     consoleStore.invalidateLive().catch(() => {});
-    if (_consoleSnapshot.entry) {
-        consoleStore.dispose(_consoleSnapshot.entry).catch(() => {});
+    if (!hasPinnedSnapshot) {
+        if (_consoleSnapshot.entry) {
+            consoleStore.dispose(_consoleSnapshot.entry).catch(() => {});
+        }
+        _consoleSnapshot.pinned = false;
+        _consoleSnapshot.data = null;
+        _consoleSnapshot.entry = null;
+        _dirty.console = true;
     }
-    _consoleSnapshot.pinned = false;
-    _consoleSnapshot.data = null;
-    _consoleSnapshot.entry = null;
-    _dirty.console = true;
 }
 
 async function updateData() {
@@ -3351,6 +3379,7 @@ async function openDtaFile(context, uri, panel) {
 // ── exports ────────────────────────────────────────────────────────────────────
 module.exports = {
     revealDataViewer: reveal,
+    activateDataViewerTab,
     getLastRevealResult,
     getRevealSequence,
     openDtaFileInDataViewer: openDtaFile,
