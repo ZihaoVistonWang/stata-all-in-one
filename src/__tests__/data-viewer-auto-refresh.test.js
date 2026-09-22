@@ -60,6 +60,17 @@ test('preserves bare browse position and resets filtered browse views', () => {
     assert.match(panelSource, /viewport: webviewState\.viewport \|\| null/);
 });
 
+test('replaces the visible filter when browse runs again on an open data tab', () => {
+    const setDataSource = panelSource.slice(
+        panelSource.indexOf('function setData(data, viewport)'),
+        panelSource.indexOf('function getVarTypeMap(vars)')
+    );
+    assert.match(setDataSource, /dataFilterText && currentTab !== 'data'/);
+    const receivedFilter = setDataSource.indexOf("dataFilterText = data.filterText || '';");
+    const visibleFilter = setDataSource.indexOf('filterInput.value = dataFilterText;', receivedFilter);
+    assert.ok(receivedFilter >= 0 && visibleFilter > receivedFilter);
+});
+
 test('loads a target row window instead of all preceding pages', () => {
     assert.match(panelSource, /const VIEW_WINDOW_SIZE = 700;/);
     assert.match(panelSource, /const VIEW_WINDOW_LEAD = 100;/);

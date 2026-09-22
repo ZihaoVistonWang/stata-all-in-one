@@ -46,9 +46,22 @@ test('shows a localized error instead of applying a condition without if', () =>
 });
 
 test('keeps manual resizing independent from the automatic maximum', () => {
-    assert.match(panelSource, /var newWidth = Math\.max\(colMinWidth, resizeStartWidth \+ delta\);/);
+    assert.match(panelSource, /var minimumWidth = resizeTable === 'row-number' \? rowNumberMinWidth : colMinWidth;/);
+    assert.match(panelSource, /var newWidth = Math\.max\(minimumWidth, resizeStartWidth \+ delta\);/);
     assert.match(panelSource, /varsColumnManualWidths\[resizeCol\] = true;/);
     assert.match(panelSource, /columnManualWidths\[resizeCol\] = true;/);
+});
+
+test('lets the row-number column be resized and auto-fitted', () => {
+    assert.match(panelSource, /--row-number-column-width/);
+    assert.match(panelSource, /rowNumberHandle\.setAttribute\('data-table', 'row-number'\)/);
+    assert.match(panelSource, /function setRowNumberColumnWidth\(width\)/);
+    assert.match(panelSource, /function measureRowNumberColumnForAutoFit\(headerCell\)/);
+    assert.match(panelSource, /for \(var rowIndex = 0; rowIndex < dataRowsCache\.length; rowIndex\+\+\)/);
+    assert.match(panelSource, /measureStyledText\(dataRowsCache\[rowIndex\]\.rowNum, sourceCell\)/);
+    assert.doesNotMatch(panelSource, /measureStyledText\(String\(Math\.max\(1, totalObs\)\), headerCell\)/);
+    assert.match(panelSource, /resizeTable === 'row-number'/);
+    assert.match(panelSource, /setRowNumberColumnWidth\(newWidth\)/);
 });
 
 test('shows the custom full-text tooltip only when the hovered cell overflows', () => {
@@ -107,6 +120,7 @@ test('resets manual column widths before the refresh button reloads data', () =>
         /getElementById\('refresh-btn'\)\.addEventListener\('click', function \(\) \{\s*resetColumnWidthsForRefresh\(\);\s*requestRefresh\(true\);/
     );
     assert.match(panelSource, /function resetColumnWidthsForRefresh\(\)/);
+    assert.match(panelSource, /setRowNumberColumnWidth\(defaultRowNumberColumnWidth\);/);
     assert.match(panelSource, /varsColumnManualWidths = \[false, false, false, false\];/);
     assert.match(panelSource, /columnManualWidths\[col\] = false;/);
 });

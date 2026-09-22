@@ -137,11 +137,23 @@ function ensureWorker() {
 
     const workerPath = path.join(__dirname, 'stata_process_worker.js');
     const generation = workerGeneration + 1;
+    const workerEnv = {
+        ...process.env,
+        ELECTRON_RUN_AS_NODE: '1'
+    };
+
+    // VS Code's JavaScript debugger injects its bootloader through these
+    // variables. Letting the native Stata worker inherit them makes js-debug
+    // attach to a second Electron/Node process during extension activation.
+    // Recent Node inspector builds can abort the Extension Development Host
+    // while processing that child process's network events. The worker is an
+    // implementation detail and is supervised over IPC, so it must start as a
+    // plain Node child.
+    delete workerEnv.NODE_OPTIONS;
+    delete workerEnv.VSCODE_INSPECTOR_OPTIONS;
+
     const child = childProcess.fork(workerPath, [], {
-        env: {
-            ...process.env,
-            ELECTRON_RUN_AS_NODE: '1'
-        },
+        env: workerEnv,
         execArgv: [],
         serialization: 'advanced',
         stdio: ['ignore', 'pipe', 'pipe', 'ipc']

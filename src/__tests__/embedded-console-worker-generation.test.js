@@ -9,6 +9,7 @@ const processPath = require.resolve('../modules/runCode/embeddedConsole/native/s
 // exit/error events for an already-replaced (old) worker.
 function createWorkerSimulator() {
     const workers = [];
+    const forkOptions = [];
 
     function makeWorker() {
         const worker = new EventEmitter();
@@ -30,13 +31,16 @@ function createWorkerSimulator() {
         return worker;
     }
 
-    return { workers, makeWorker };
+    return { workers, forkOptions, makeWorker };
 }
 
 function loadProcess(simulator) {
     const originalFork = childProcess.fork;
     const originalExistsSync = require('node:fs').existsSync;
-    childProcess.fork = () => simulator.makeWorker();
+    childProcess.fork = (_modulePath, _args, options) => {
+        simulator.forkOptions.push(options);
+        return simulator.makeWorker();
+    };
     // Pretend the native binary is present so isLoaded()/guards behave normally.
     require('node:fs').existsSync = () => true;
     delete require.cache[processPath];
@@ -50,6 +54,34 @@ function loadProcess(simulator) {
         }
     };
 }
+
+test('native worker does not inherit VS Code debugger injection', async () => {
+    const simulator = createWorkerSimulator();
+    const previousNodeOptions = process.env.NODE_OPTIONS;
+    const previousInspectorOptions = process.env.VSCODE_INSPECTOR_OPTIONS;
+    process.env.NODE_OPTIONS = '--require /tmp/js-debug-bootloader.js';
+    process.env.VSCODE_INSPECTOR_OPTIONS = '{"inspectorIpc":"/tmp/js-debug.sock"}';
+    const { mod, restore } = loadProcess(simulator);
+
+    try {
+        const initPromise = mod.initSession('/tmp/one.dylib');
+        const worker = simulator.workers[0];
+        const options = simulator.forkOptions[0];
+
+        assert.equal(options.env.ELECTRON_RUN_AS_NODE, '1');
+        assert.equal(options.env.NODE_OPTIONS, undefined);
+        assert.equal(options.env.VSCODE_INSPECTOR_OPTIONS, undefined);
+
+        respond(worker, requestIdOf(worker, 0), true);
+        assert.equal(await initPromise, true);
+    } finally {
+        if (previousNodeOptions === undefined) delete process.env.NODE_OPTIONS;
+        else process.env.NODE_OPTIONS = previousNodeOptions;
+        if (previousInspectorOptions === undefined) delete process.env.VSCODE_INSPECTOR_OPTIONS;
+        else process.env.VSCODE_INSPECTOR_OPTIONS = previousInspectorOptions;
+        restore();
+    }
+});
 
 function respond(worker, id, result) {
     worker.emit('message', { kind: 'response', id, ok: true, result });

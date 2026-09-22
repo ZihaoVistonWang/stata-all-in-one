@@ -618,9 +618,9 @@ function getDataViewerHtml(webview) {
             color: var(--vscode-descriptionForeground);
             text-align: right;
             user-select: none;
-            width: 56px;
-            min-width: 56px;
-            max-width: 56px;
+            width: var(--row-number-column-width, 56px);
+            min-width: var(--row-number-column-width, 56px);
+            max-width: var(--row-number-column-width, 56px);
         }
         td.var-name, td.data-variable {
             color: var(--stata-variable);
@@ -1410,7 +1410,9 @@ function getDataViewerHtml(webview) {
         var colMinWidth = 72;
         var autoColMaxWidth = 210;
         var virtualColumnOverscan = 4;
-        var rowNumberColumnWidth = 56;
+        var defaultRowNumberColumnWidth = 56;
+        var rowNumberMinWidth = 44;
+        var rowNumberColumnWidth = defaultRowNumberColumnWidth;
         function getColWidth(i) { return i >= 0 && i < columnWidths.length ? columnWidths[i] : defaultColWidth; }
         function getCumulWidth(end) { var s = 0; for (var i = 0; i < end && i < dataColumnsCache.length; i++) s += getColWidth(i); return s; }
         function getColumnAtX(x) { var cumul = 0; for (var i = 0; i < dataColumnsCache.length; i++) { cumul += getColWidth(i); if (cumul > x) return i; } return Math.max(0, dataColumnsCache.length - 1); }
@@ -1429,6 +1431,7 @@ function getDataViewerHtml(webview) {
         var preloadRowBuffer = 100;
 
         function resetColumnWidthsForRefresh() {
+            setRowNumberColumnWidth(defaultRowNumberColumnWidth);
             varsColumnWidths = [72, 72, 72, 72];
             varsColumnNaturalWidths = [72, 72, 72, 72];
             varsColumnManualWidths = [false, false, false, false];
@@ -1710,6 +1713,13 @@ function getDataViewerHtml(webview) {
             dataTable.style.width = rowNumberColumnWidth + getCumulWidth(dataColumnsCache.length) + 'px';
         }
 
+        function setRowNumberColumnWidth(width) {
+            rowNumberColumnWidth = Math.max(rowNumberMinWidth, Math.ceil(width || 0));
+            var table = document.getElementById('table-data');
+            table.style.setProperty('--row-number-column-width', rowNumberColumnWidth + 'px');
+            updateDataTableWidth(table);
+        }
+
         function cellTypeAt(columnIndex) {
             return dataColumnTypesCache[columnIndex] || '';
         }
@@ -1826,6 +1836,12 @@ function getDataViewerHtml(webview) {
             var th = document.createElement('th');
             th.className = 'row-num';
             th.textContent = '#';
+            var rowNumberHandle = document.createElement('div');
+            rowNumberHandle.className = 'col-resize-handle';
+            rowNumberHandle.setAttribute('data-table', 'row-number');
+            rowNumberHandle.setAttribute('data-col', 0);
+            rowNumberHandle.setAttribute('aria-label', autoFitColumnLabel);
+            th.appendChild(rowNumberHandle);
             headerRow.appendChild(th);
             appendColumnSpacer(headerRow, getCumulWidth(colStart), 'th');
             for (var i = colStart; i < colEnd; i++) {
@@ -1961,6 +1977,8 @@ function getDataViewerHtml(webview) {
             if (resizeTable === 'vars') {
                 resizeTh = handle.parentElement;
                 resizeStartWidth = resizeTh ? resizeTh.offsetWidth : defaultColWidth;
+            } else if (resizeTable === 'row-number') {
+                resizeStartWidth = rowNumberColumnWidth;
             } else {
                 resizeStartWidth = getColWidth(resizeCol);
             }
@@ -2020,6 +2038,26 @@ function getDataViewerHtml(webview) {
             return naturalWidth;
         }
 
+        function measureRowNumberColumnForAutoFit(headerCell) {
+            var bodyCell = document.querySelector('#table-data tbody td.row-num');
+            var sourceCell = bodyCell || headerCell;
+            var naturalWidth = Math.max(
+                rowNumberMinWidth,
+                measureStyledText('#', headerCell)
+            );
+            // A filtered or ranged browse can contain only a few matches while
+            // retaining large absolute observation numbers. totalObs is then
+            // smaller than the displayed row numbers, so measure the actual
+            // cached row labels as well.
+            for (var rowIndex = 0; rowIndex < dataRowsCache.length; rowIndex++) {
+                naturalWidth = Math.max(
+                    naturalWidth,
+                    measureStyledText(dataRowsCache[rowIndex].rowNum, sourceCell)
+                );
+            }
+            return naturalWidth;
+        }
+
         function onResizeHandleDoubleClick(e) {
             var handle = e.target.closest ? e.target.closest('.col-resize-handle') : null;
             if (!handle) return;
@@ -2034,6 +2072,13 @@ function getDataViewerHtml(webview) {
                     colIndex,
                     measureVarsColumnForAutoFit(colIndex)
                 );
+            } else if (tableName === 'row-number') {
+                setRowNumberColumnWidth(
+                    measureRowNumberColumnForAutoFit(handle.parentElement)
+                );
+                lastVirtualColStart = -1;
+                lastVirtualColEnd = -1;
+                scheduleDataRender(true);
             } else {
                 columnManualWidths[colIndex] = true;
                 columnWidths[colIndex] = measureDataColumnForAutoFit(
@@ -2061,10 +2106,13 @@ function getDataViewerHtml(webview) {
         document.addEventListener('mousemove', function (e) {
             if (resizeCol < 0 || !resizeTable) return;
             var delta = e.clientX - resizeStartX;
-            var newWidth = Math.max(colMinWidth, resizeStartWidth + delta);
+            var minimumWidth = resizeTable === 'row-number' ? rowNumberMinWidth : colMinWidth;
+            var newWidth = Math.max(minimumWidth, resizeStartWidth + delta);
             if (resizeTable === 'vars') {
                 varsColumnManualWidths[resizeCol] = true;
                 setVarsColumnWidth(resizeCol, newWidth);
+            } else if (resizeTable === 'row-number') {
+                setRowNumberColumnWidth(newWidth);
             } else {
                 columnManualWidths[resizeCol] = true;
                 if (columnWidths[resizeCol] !== newWidth) {
@@ -2078,7 +2126,7 @@ function getDataViewerHtml(webview) {
 
         document.addEventListener('mouseup', function () {
             if (resizeCol < 0) return;
-            if (resizeTable === 'data') {
+            if (resizeTable === 'data' || resizeTable === 'row-number') {
                 lastVirtualColStart = -1;
                 lastVirtualColEnd = -1;
                 scheduleDataRender(true);
@@ -2414,9 +2462,13 @@ function getDataViewerHtml(webview) {
             if (data.filterText !== undefined) {
                 dataFilterText = data.filterText || '';
                 filterOpenByTab.data = !!dataFilterText;
-                if (dataFilterText) {
+                // Calling switchTab while already on the data tab saves the
+                // input's OLD value back into dataFilterText. That made a
+                // second browse command keep showing the first command's filter.
+                if (dataFilterText && currentTab !== 'data') {
                     switchTab('data');
-                } else if (currentTab === 'data') {
+                }
+                if (currentTab === 'data') {
                     filterInput.value = dataFilterText;
                     document.body.classList.toggle('filter-open', filterOpenByTab.data);
                     updateFilterHighlight();
