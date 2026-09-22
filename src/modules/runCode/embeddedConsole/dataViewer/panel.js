@@ -3149,6 +3149,8 @@ async function updateData() {
 // Subscribe once per extension host: any command that reaches the engine can
 // change the data the viewer is showing.
 let _dataChangeSubscription = null;
+let _sessionLostSubscription = null;
+
 function ensureDataChangeSubscription() {
     if (_dataChangeSubscription) {
         return _dataChangeSubscription;
@@ -3160,8 +3162,26 @@ function ensureDataChangeSubscription() {
                 markConsoleDataStale();
             });
         }
+        if (typeof session.onDidLoseSession === 'function') {
+            // A lost session is NOT the same as a brand-new empty one: say so
+            // instead of letting an empty viewer look like the old dataset.
+            _sessionLostSubscription = session.onDidLoseSession(() => {
+                markConsoleDataStale();
+                const panel = _panels.console;
+                if (!panel) return;
+                panel.webview.postMessage({
+                    type: 'setData',
+                    data: {
+                        status: VIEWER_STATUS.SESSION_UNAVAILABLE,
+                        error: msg('dataViewerSessionLost'),
+                        filterText: _pendingFilter.console,
+                        keepPreviousView: true
+                    }
+                });
+            });
+        }
     } catch (_error) {
-        _dataChangeSubscription = null;
+        _dataChangeSubscription = _dataChangeSubscription || null;
     }
     return _dataChangeSubscription;
 }
@@ -3270,5 +3290,6 @@ module.exports = {
     getDataViewerPanel: () => _panels['console'],
     getPanelViewType: () => PANEL_VIEW_TYPE,
     postDataViewerVariables: postVariables,
-    disposeVariableSuggestionSubscription: () => variableSuggestionSubscription.dispose()
+    disposeVariableSuggestionSubscription: () => variableSuggestionSubscription.dispose(),
+    cancelPanelWork
 };

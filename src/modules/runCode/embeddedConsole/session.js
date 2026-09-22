@@ -93,6 +93,7 @@ class StataConsoleSession {
         this._stopRequested = false;
         this._generation = 0;
         this._transactionToken = null;
+        this._sessionLostNotified = false;
 
         // Restore state from previous session if available
         this._restoreState();
@@ -219,6 +220,7 @@ class StataConsoleSession {
             this._initialized = false;
             _nativeSessionBootstrapped = false;
             this._workingDirectory = null;
+            this._sessionLostNotified = true;
             notifySessionLost();
         }
 
@@ -258,6 +260,7 @@ class StataConsoleSession {
                 this._initialized = true;
                 this._libraryPath = libraryPath;
                 this._generation += 1;
+                this._sessionLostNotified = false;
                 _nativeSessionBootstrapped = false;
                 this._saveState();
                 return { success: true, error: '' };
@@ -355,6 +358,10 @@ class StataConsoleSession {
         try {
             const normalizedCode = normalizeNativeCommandWhitespace(code);
             const result = await native.execute(normalizedCode, echo, onOutput);
+            if (result && result.sessionLost && !this._sessionLostNotified) {
+                this._sessionLostNotified = true;
+                notifySessionLost();
+            }
             return {
                 success: result.success,
                 returnCode: result.returnCode,
@@ -597,7 +604,31 @@ class StataConsoleSession {
      */
     isInitialized() {
         // 同时检查本地状态和原生模块状态
-        return this._initialized && native.isInitialized();
+        if (!this._initialized) {
+            return false;
+        }
+        if (native.isInitialized()) {
+            return true;
+        }
+        // The native session disappeared (worker crash / forced stop). Report it
+        // once so the UI can say the session was lost instead of silently
+        // treating the next run as a fresh, empty session.
+        if (!this._sessionLostNotified) {
+            this._sessionLostNotified = true;
+            notifySessionLost();
+        }
+        return false;
+    }
+
+    /**
+     * Why the live session disappeared, when it did.
+     * @returns {string|null}
+     */
+    getLostSessionReason() {
+        if (typeof native.getLostSessionReason === 'function') {
+            return native.getLostSessionReason();
+        }
+        return null;
     }
 
     /**
