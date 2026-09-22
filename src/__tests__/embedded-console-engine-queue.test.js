@@ -292,3 +292,56 @@ test('waitUntilIdle waits for the whole queue, not just the running command', as
         delete require.cache[sessionPath];
     }
 });
+
+test('a transaction started from another session joins instead of deadlocking', async () => {
+    const engine = createEngineSimulator();
+    const sessionManager = loadSessionWith(engine);
+
+    try {
+        const { session } = await startSession(engine);
+        // A second session object over the same (singleton) engine.
+        const otherSession = sessionManager.getConsoleSession(createContext());
+
+        const transaction = session.withTransaction(async (tx) => {
+            await tx.execute('outer');
+            // A nested transaction created through a different session instance
+            // must join the enclosing one: queueing would deadlock because the
+            // engine queue is already held by this transaction.
+            const inner = otherSession.withTransaction(async (innerTx) => {
+                await innerTx.execute('inner');
+                return 'inner-done';
+            });
+            return inner;
+        });
+
+        assert.equal(await engine.waitForCommand(0), 'outer');
+        engine.releaseByCode('outer');
+        assert.equal(await engine.waitForCommand(1), 'inner');
+        engine.releaseByCode('inner');
+
+        assert.equal(await transaction, 'inner-done');
+        assert.equal(engine.state.concurrentPeak, 1);
+    } finally {
+        delete require.cache[sessionPath];
+    }
+});
+
+test('waitUntilIdle resolves even when the queue drains before the last command', async () => {
+    const engine = createEngineSimulator();
+
+    try {
+        const { session } = await startSession(engine);
+        const running = session.execute('one');
+        await engine.waitForCommand(0);
+        engine.releaseByCode('one');
+        await running;
+
+        let idle = false;
+        await session.waitUntilIdle().then(() => {
+            idle = true;
+        });
+        assert.equal(idle, true);
+    } finally {
+        delete require.cache[sessionPath];
+    }
+});

@@ -18,9 +18,11 @@ const os = require('os');
 // and Data Viewer reads must never overlap.
 const engineQueue = createOperationQueue();
 
-// Transactions are re-entrant: a read transaction issues several commands, and
-// those nested commands must not queue behind the transaction itself.
-const activeTransactions = new Set();
+// Transactions own the engine queue, so ownership is tracked per ENGINE, not per
+// session instance: a transaction on one session whose task starts a transaction
+// on another session must join the enclosing one instead of deadlocking behind
+// the queue it is already holding.
+let engineOwnerToken = null;
 
 // Module-level singleton
 let _consoleSessionInstance = null;
@@ -95,7 +97,6 @@ class StataConsoleSession {
         this._idleWaiters = [];
         this._stopRequested = false;
         this._generation = 0;
-        this._transactionToken = null;
         this._sessionLostNotified = false;
 
         // Restore state from previous session if available
@@ -426,18 +427,15 @@ class StataConsoleSession {
         }
         // Nested transaction on an already-owned queue: join the enclosing one so
         // a nested call can never deadlock behind itself.
-        if (activeTransactions.has(this._transactionToken)) {
+        if (engineOwnerToken !== null) {
             return Promise.resolve().then(() => task(this._createTransactionExecutor()));
         }
         return engineQueue.enqueue(async () => {
-            const token = Symbol('stata-transaction');
-            this._transactionToken = token;
-            activeTransactions.add(token);
+            engineOwnerToken = Symbol('stata-transaction');
             try {
                 return await task(this._createTransactionExecutor());
             } finally {
-                activeTransactions.delete(token);
-                this._transactionToken = null;
+                engineOwnerToken = null;
             }
         }, 'transaction');
     }
@@ -455,7 +453,7 @@ class StataConsoleSession {
     _createTransactionExecutor() {
         const session = this;
         return {
-            execute(code, echo = false, onOutput = null, options = null) {
+            execute(code, echo = false, onOutput = null) {
                 if (!session._initialized) {
                     return Promise.resolve({
                         success: false,
@@ -464,11 +462,9 @@ class StataConsoleSession {
                         sessionUnavailable: true
                     });
                 }
-                // A read transaction never re-enters the queue, and its own
-                // commands must not invalidate the read it is performing.
-                if (options && options.internal) {
-                    return session._executeNow(code, echo, onOutput);
-                }
+                // Runs inline: the transaction already owns the engine queue, so
+                // queueing here would deadlock, and inline is exactly what keeps
+                // other operations out of the middle of a read.
                 return session._executeNow(code, echo, onOutput);
             },
             isInitialized: () => session.isInitialized(),
@@ -478,7 +474,7 @@ class StataConsoleSession {
     }
 
     isInTransaction() {
-        return Boolean(this._transactionToken && activeTransactions.has(this._transactionToken));
+        return engineOwnerToken !== null;
     }
 
     /**
@@ -498,12 +494,17 @@ class StataConsoleSession {
         if (this._activeExecutions === 0 && !engineQueue.isRunning() && engineQueue.depth() === 0) {
             return Promise.resolve();
         }
-        const activeWait = this._activeExecutions > 0
-            ? new Promise((resolve) => {
+        return engineQueue.whenIdle().then(() => {
+            // Re-check after the queue drains: the last execution may already
+            // have finished, and parking a resolver that nothing will drain would
+            // leak it for the lifetime of the host.
+            if (this._activeExecutions === 0) {
+                return undefined;
+            }
+            return new Promise((resolve) => {
                 this._idleWaiters.push(resolve);
-            })
-            : Promise.resolve();
-        return Promise.all([activeWait, engineQueue.whenIdle()]).then(() => undefined);
+            });
+        });
     }
 
     isBusy() {
