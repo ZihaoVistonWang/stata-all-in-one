@@ -19,6 +19,11 @@ test('AI installation prompts use both online guides and defer to installation.m
         assert.match(prompt, /raw\.githubusercontent\.com\/ZihaoVistonWang\/Stata-AI-Skill\/refs\/heads\/main\/guide\/installation\.md/);
         assert.match(prompt, /installation\.md/);
         assert.match(prompt, /SKILL\.md/);
+        // The two guides are identical mirrors (domestic / overseas), so the
+        // prompt must ask for a parallel fetch and take whichever answers first
+        // instead of visiting only one or waiting on the slower one.
+        assert.match(prompt, /same time, in parallel|同时并发/);
+        assert.match(prompt, /responds first|先返回/);
         assert.doesNotMatch(prompt, /extension-folder|stata-all-in-one.*skill|skill\/SKILL\.md/i);
     }
 });
