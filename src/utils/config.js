@@ -157,6 +157,22 @@ const getConsoleAndDataViewerFontSize = () => {
 };
 
 /**
+ * Memory budget, in MB, for one Data Viewer read of the dataset.
+ *
+ * Reading the data means Stata's plugin writes it into the worker process, the
+ * buffer is copied across IPC and parsed into JS columns, so a very large
+ * dataset needs this much memory several times over. Raise it to view bigger
+ * datasets, lower it on memory-constrained machines.
+ */
+const getDataViewerMemoryLimitMB = () => {
+    const value = getConfigValue('dataViewerMemoryLimitMB', 1024);
+    if (typeof value !== 'number' || !isFinite(value) || value < 1) {
+        return 1024;
+    }
+    return Math.min(16384, Math.max(16, Math.floor(value)));
+};
+
+/**
  * Get PNG export DPI for embedded console graphs
  */
 const getGraphPngDpi = () => {
@@ -200,6 +216,7 @@ module.exports = {
     getConsoleFontMode,
     getConsoleCustomFontFamily,
     getConsoleAndDataViewerFontSize,
+    getDataViewerMemoryLimitMB,
     getGraphPngDpi,
     getAdditionalAdoPaths
 };

@@ -12,6 +12,7 @@ function createStataSimulator() {
     const programs = new Set();
     const executed = [];
     let clearAllCount = 0;
+    let lastReturnCode = 0;
 
     return {
         programs,
@@ -43,13 +44,35 @@ function createStataSimulator() {
                 programs.add(defineMatch[1]);
                 return { success: true, returnCode: 0, output: '' };
             }
-            const probeMatch = code.match(/capture program list\s+(\w+)/);
-            if (probeMatch) {
-                const present = programs.has(probeMatch[1]);
+            // Real Stata signatures:
+            //  - `program list <plugin>` returns 111 for EVERY plugin program
+            //    (plugin code cannot be listed), so it must never be used as an
+            //    existence test.
+            //  - `plugin call <undefined>` returns 199.
+            //  - `plugin call <registered plugin>` returns 198 (the plugin's own
+            //    argument check) once the program exists.
+            const listMatch = code.match(/capture program list\s+(\w+)/);
+            if (listMatch) {
                 return {
                     success: true,
                     returnCode: 0,
-                    output: `__saio_plugin_probe=${present ? 0 : 111}\n`
+                    output: `__saio_plugin_probe=${programs.has(listMatch[1]) ? 0 : 111}\n`
+                };
+            }
+            const callMatch = code.match(/capture plugin call\s+(\w+)/);
+            if (callMatch) {
+                lastReturnCode = programs.has(callMatch[1]) ? 198 : 199;
+                return {
+                    success: true,
+                    returnCode: 0,
+                    output: ''
+                };
+            }
+            if (/display "__saio_plugin_probe=" _rc/.test(code)) {
+                return {
+                    success: true,
+                    returnCode: 0,
+                    output: `__saio_plugin_probe=${lastReturnCode}\n`
                 };
             }
             return { success: true, returnCode: 0, output: '' };
@@ -158,8 +181,12 @@ test('re-registers the plugin entry point after clear all removed it', async () 
         ['__saio_data_bridge'],
         'the plugin must be re-registered after clear all'
     );
-    const pluginCalls = stata.executed.filter((code) => /plugin call __saio_data_bridge/.test(code));
-    assert.equal(pluginCalls.length, 2, 'both reads must reach the plugin');
+    // Only the real capture calls (with a callback pointer) count; the probe
+    // uses the dummy pointer `0 1`.
+    const captureCalls = stata.executed.filter(
+        (code) => /plugin call __saio_data_bridge _all in \d+\/\d+, (?!0 1)/.test(code)
+    );
+    assert.equal(captureCalls.length, 2, 'both reads must reach the plugin');
 });
 
 test('re-registers the plugin entry point after program drop _all', async () => {
@@ -214,8 +241,49 @@ test('isPluginRegistered reads the live session probe, not a JS cache', async ()
     const session = createSession(stata);
 
     await stata.execute('program __saio_data_bridge, plugin using("/tmp/x.plugin")');
-    assert.deepEqual(await reader.isPluginRegistered(session), { present: true, sessionError: null });
+    const present = await reader.isPluginRegistered(session);
+    assert.equal(present.present, true);
+    assert.equal(present.sessionError, null);
 
     await stata.execute('clear all');
-    assert.deepEqual(await reader.isPluginRegistered(session), { present: false, sessionError: null });
+    const gone = await reader.isPluginRegistered(session);
+    assert.equal(gone.present, false, 'clear all removes the entry point and the probe must notice');
+    assert.equal(gone.sessionError, null);
+});
+
+test('a registered plugin is recognised even though program list returns 111', async () => {
+    // Regression: the reader used `capture program list <name>` as its existence
+    // probe. Real Stata answers 111 for every plugin program, so every read
+    // failed with "Unable to load the Stata data reader" on a correctly
+    // registered plugin.
+    const stata = createStataSimulator();
+    const reader = loadReader({
+        stata,
+        capturedBuffer: buildCapture([{ kind: 0, type: 'double' }])
+    });
+    const session = createSession(stata);
+
+    await stata.execute('program __saio_data_bridge, plugin using("/tmp/x.plugin")');
+    const probe = await reader.isPluginRegistered(session);
+    assert.equal(probe.present, true, 'a loaded plugin must be reported as present');
+    assert.equal(probe.exitCode, 198);
+    assert.ok(stata.executed.some(code => code === 'display "__saio_plugin_probe=" _rc'));
+    assert.ok(stata.executed.every(code => !code.includes('\n')), 'native Stata accepts one command per execute call');
+
+    // The registration path must not try to re-register (and must not throw).
+    const data = await reader.capture(session);
+    assert.equal(data.meta.nobs, 1);
+});
+
+test('an unregistered plugin is reported as missing instead of present', async () => {
+    const stata = createStataSimulator();
+    const reader = loadReader({
+        stata,
+        capturedBuffer: buildCapture([{ kind: 0, type: 'double' }])
+    });
+    const session = createSession(stata);
+
+    const probe = await reader.isPluginRegistered(session);
+    assert.equal(probe.present, false, 'a missing entry point must be detected');
+    assert.equal(probe.exitCode, 199);
 });

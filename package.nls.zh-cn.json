@@ -7,10 +7,10 @@
   "config.separatorLength.description": "分割线所在行的字符总长度（包括前缀 '** #' 和分隔符）。",
   "config.customCommands.description": "自定义需要高亮的 Stata 命令（字符串数组）。这些命令会使用与内置命令（如 regress、summarize）**相同的颜色**。支持大小写不敏感。示例：[\"reghdfe\", \"ivreg2\", \"outreg2\"]。**需要重载窗口**（Ctrl+Shift+P → Developer: Reload Window）",
   "config.enablePinyinVariableMatching.description": "在代码提示中启用变量名和变量标签的拼音模糊匹配。关闭后，普通中文、英文和字符模糊匹配仍然可用。",
-"config.separatorSymmetric.description": "在分割线末尾添加 ` **` 以保证视觉上的对称（例如 `** === title === **`）。",
+  "config.separatorSymmetric.description": "在分割线末尾添加 ` **` 以保证视觉上的对称（例如 `** === title === **`）。",
   "config.closeStataOtherWindowsBeforeSendingCode.description": "**[Windows]** 运行代码时，发送命令前是否先关闭 Stata 的其他辅助窗口（如 Viewer、数据编辑器等）。",
-    "config.enableCtrlShiftD.description": "启用 `Ctrl/Cmd+Shift+D` 作为运行代码的快捷键（而非默认的 `Ctrl/Cmd+D`）。",
-    "config.cdToDoFileDir.description": "是否在 Stata 首次启动时自动 `cd` 到当前 do 文件所在目录。关闭时，Stata 启动后不会更改工作目录。",
+  "config.enableCtrlShiftD.description": "启用 `Ctrl/Cmd+Shift+D` 作为运行代码的快捷键（而非默认的 `Ctrl/Cmd+D`）。",
+  "config.cdToDoFileDir.description": "是否在 Stata 首次启动时自动 `cd` 到当前 do 文件所在目录。关闭时，Stata 启动后不会更改工作目录。",
   "config.runMode.description": "选择 Stata 代码的执行方式。`External App` 会把代码发送到你系统里安装的外部 Stata 应用。`Embedded Console` 会在 VS Code 右侧内置的 控制台 | Stata All in One 中运行代码，你可以直接查看输出并进行交互。",
   "config.consoleFontMode.description": "选择 Embedded Console 的字体来源。`Online CJK Font`（默认）会为西文加载 Maple Mono、为 CJK 文本加载 Maple Mono NF CN。`Editor Font Family` 会从编辑器字体降级到缓存的系统等宽字体。`System Monospace` 会直接使用缓存的平台等宽字体。`Custom Font Family` 会优先使用你填写的自定义 CSS `font-family` 列表，再依次降级到编辑器字体和缓存的系统等宽字体。",
   "config.consoleCustomFontFamily.description": "当 `Console Font Source` 设为 `Custom Font Family` 时，Embedded Console 使用的自定义 CSS `font-family` 列表。示例：`\"Maple Mono NF CN\", Menlo, Monaco, monospace`。",
@@ -108,5 +108,6 @@
   "graph.clipboardWriteUnavailable": "当前 VS Code webview 不支持 browser clipboard.write。",
   "graph.clipboardItemUnavailable": "当前 VS Code webview 不支持 ClipboardItem。",
   "graph.clipboardRejected": "浏览器拒绝写入 PNG 剪贴板数据。",
-  "graph.pngReadFailed": "读取 PNG 数据用于剪贴板后备方案失败。"
+  "graph.pngReadFailed": "读取 PNG 数据用于剪贴板后备方案失败。",
+  "config.dataViewerMemoryLimitMB.description": "数据查看器单次读取数据集的内存上限（MB）。读取过程中每个单元格在每个副本中约占 6-9 字节，所以实际占用会是该值的数倍。需要一次查看更大的数据集时调高；内存紧张时调低。默认 1024。"
 }

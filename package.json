@@ -167,6 +167,13 @@
           "maximum": 1200,
           "markdownDescription": "%config.graphPngDpi.description%"
         },
+        "stata-all-in-one.dataViewerMemoryLimitMB": {
+          "type": "number",
+          "default": 1024,
+          "minimum": 16,
+          "maximum": 16384,
+          "markdownDescription": "%config.dataViewerMemoryLimitMB.description%"
+        },
         "stata-all-in-one.showActionButtons": {
           "type": "boolean",
           "default": true,

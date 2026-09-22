@@ -7,9 +7,9 @@
   "config.separatorLength.description": "Total character length of the separator line (including the '** #' prefix and separators).",
   "config.customCommands.description": "User-defined Stata commands to highlight as keywords (array of strings). These commands will use the **same color** as built-in commands (like regress, summarize). Case-insensitive matching supported. Example: [\"reghdfe\", \"ivreg2\", \"outreg2\"]. **Requires reloading window** (Ctrl+Shift+P → Developer: Reload Window)",
   "config.enablePinyinVariableMatching.description": "Enable pinyin fuzzy matching for variable names and variable labels in completion suggestions. Other Chinese, English, and character-based matching remains available when disabled.",
-"config.separatorSymmetric.description": "Add ` **` at the end of separator lines to ensure visual symmetry (e.g., `** === title === **`).",
+  "config.separatorSymmetric.description": "Add ` **` at the end of separator lines to ensure visual symmetry (e.g., `** === title === **`).",
   "config.closeStataOtherWindowsBeforeSendingCode.description": "**[Windows]** When running code, close Stata other windows (such as Viewer/Data Editor) before sending commands.",
-    "config.enableCtrlShiftD.description": "Enable `Ctrl/Cmd+Shift+D` as the run code shortcut (instead of the default `Ctrl/Cmd+D`).",
+  "config.enableCtrlShiftD.description": "Enable `Ctrl/Cmd+Shift+D` as the run code shortcut (instead of the default `Ctrl/Cmd+D`).",
   "config.cdToDoFileDir.description": "Whether to automatically `cd` to the do file's directory when Stata is first launched. If disabled, Stata's working directory is not changed on startup.",
   "config.runMode.description": "Choose how Stata code is executed. `External App` sends code to the external Stata application installed on your system. `Embedded Console` runs code through the built-in Console | Stata All in One on the right side of VS Code, where you can view output and interact directly.",
   "config.consoleFontMode.description": "Choose the Embedded Console font source. `Online CJK Font` (default) loads Maple Mono for Latin text and Maple Mono NF CN for CJK text. `Editor Font Family` falls back to a cached system monospace font. `System Monospace` uses the cached platform monospace fallback directly. `Custom Font Family` gives your custom CSS font-family list highest priority, then falls back to the editor font and finally a cached system monospace font.",
@@ -108,5 +108,6 @@
   "graph.clipboardWriteUnavailable": "Browser clipboard.write is unavailable in this VS Code webview.",
   "graph.clipboardItemUnavailable": "ClipboardItem is unavailable in this VS Code webview.",
   "graph.clipboardRejected": "Browser clipboard.write rejected PNG data.",
-  "graph.pngReadFailed": "Failed to read PNG data for clipboard fallback."
+  "graph.pngReadFailed": "Failed to read PNG data for clipboard fallback.",
+  "config.dataViewerMemoryLimitMB.description": "Memory budget in MB for one Data Viewer read of the dataset. Reading data costs roughly 6-9 bytes per cell per loaded copy, so a read needs several times this figure in the Stata worker and in VS Code. Raise it to view larger datasets at once; lower it on memory-constrained machines. Default 1024."
 }

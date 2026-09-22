@@ -65,8 +65,12 @@ function buildCapture(columns, nobs) {
  */
 function createStataDouble({ variables, totalObservations, columns }) {
     const calls = [];
+    // Models the real Stata plugin protocol, including its error codes.
+    const programs = new Set();
+    let lastReturnCode = 0;
     return {
         calls,
+        programs,
         isInitialized: () => true,
         getDylibPath: () => '/tmp/libstata-mp.dylib',
         async execute(code) {
@@ -74,8 +78,27 @@ function createStataDouble({ variables, totalObservations, columns }) {
             if (/st_nobs\(\)/.test(code)) {
                 return { success: true, returnCode: 0, output: metadataFor(variables, totalObservations) };
             }
-            if (/^capture program list/.test(code)) {
-                return { success: true, returnCode: 0, output: '__saio_plugin_probe=0\n' };
+            if (/^capture program drop/.test(code)) {
+                programs.clear();
+                return { success: true, returnCode: 0, output: '' };
+            }
+            const define = code.match(/^program\s+(\w+)\s*,/);
+            if (define) {
+                programs.add(define[1]);
+                return { success: true, returnCode: 0, output: '' };
+            }
+            // The existence probe: 198 once registered, 199 when not.
+            const probe = code.match(/capture plugin call\s+(\w+)/);
+            if (probe) {
+                lastReturnCode = programs.has(probe[1]) ? 198 : 199;
+                return {
+                    success: true,
+                    returnCode: 0,
+                    output: ''
+                };
+            }
+            if (/display "__saio_plugin_probe=" _rc/.test(code)) {
+                return { success: true, returnCode: 0, output: `__saio_plugin_probe=${lastReturnCode}\n` };
             }
             return { success: true, returnCode: 0, output: '' };
         },
@@ -104,6 +127,11 @@ function loadReader({ stato, captured }) {
         }
         if (parent && parent.filename === READER_PATH && request === '../session') {
             return { getActiveSession: () => null };
+        }
+        if (parent && parent.filename === READER_PATH && request === 'fs') {
+            // The reader verifies the plugin file exists before calling it.
+            const realFs = originalLoad.call(this, request, parent, isMain);
+            return { ...realFs, existsSync: () => true };
         }
         return originalLoad.call(this, request, parent, isMain);
     };
@@ -612,5 +640,64 @@ test('_N and in ranges refer to the whole dataset, not the cached window', async
     } finally {
         Module._load = originalLoad;
         delete require.cache[STORE_PATH];
+    }
+});
+
+test('the configured budget is actually enforced during a capture', async () => {
+    // Guards against a resolver that silently returns undefined: `undefined`
+    // comparisons let every read through, so the limit would stop working.
+    const restore = installVscodeStub();
+    const variables = [{ name: 'x', type: 'str2000' }];
+    const stato = createStataDouble({
+        variables,
+        totalObservations: 100000,
+        columns: [{ kind: 1 }]
+    });
+    // The bounded window below reads 10 rows, so the fixture capture must hold 10.
+    const captured = { buffer: buildCapture([{ kind: 1, valueAt: () => 'x' }], 10), cancelled: 0 };
+    const reader = loadReader({ stato, captured });
+    const session = {
+        execute: (code, echo, onOutput) => stato.execute(code, echo, onOutput),
+        withTransaction: (task) => Promise.resolve(task({
+            execute: (code, echo, onOutput) => stato.execute(code, echo, onOutput)
+        }))
+    };
+
+    try {
+        // The resolver must produce a real number; `undefined` comparisons
+        // would let every read through and silently disable the limit.
+        const configured = reader.getCaptureBudget();
+        assert.ok(Number.isFinite(configured) && configured > 0, `budget must be a number, got ${configured}`);
+
+        // The dataset is read whole when no window is requested, so a small
+        // budget must refuse it: 100000 rows x (4 + 2000) bytes.
+        const budget = 8 * 1024 * 1024;
+        reader.setCaptureBudget(budget);
+        assert.equal(reader.getCaptureBudget(), budget);
+
+        // `full` is what pinned `br` snapshots use, and it is the case that must
+        // respect the budget: 100000 rows x (4 + 2000) bytes.
+        await assert.rejects(
+            () => reader.capture(session, { full: true }),
+            (error) => {
+                assert.equal(error.tooLarge, true);
+                assert.equal(error.budgetBytes, budget);
+                assert.ok(error.requiredBytes > budget, 'the error reports the real requirement');
+                return true;
+            }
+        );
+
+        // A bounded window of the same dataset still succeeds, so the budget
+        // never blocks ordinary viewer scrolling.
+        await reader.capture(session, { startObs: 1, endObs: 10 });
+        assert.deepEqual(
+            stato.captureRanges,
+            [{ start: 1, end: 10 }],
+            'only the bounded window may reach Stata; the oversized read must not'
+        );
+        reader.setCaptureBudget(0);
+    } finally {
+        restore();
+        delete require.cache[READER_PATH];
     }
 });

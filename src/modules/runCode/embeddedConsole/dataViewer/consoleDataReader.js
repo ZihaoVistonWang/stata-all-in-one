@@ -1,3 +1,4 @@
+const fs = require('fs');
 const path = require('path');
 const native = require('../native/stata_process');
 const { msg } = require('../../../../utils/common');
@@ -7,6 +8,12 @@ const META_BEGIN = '__SAIO_META_BEGIN__';
 const META_END = '__SAIO_META_END__';
 const PLUGIN_PROGRAM = '__saio_data_bridge';
 const PLUGIN_PROBE_VAR = '__saio_plugin_probe';
+// `plugin call` on a program that is not a registered plugin exits with 199
+// ("command not found"); once the plugin IS registered it exits with 198 (the
+// plugin's own argument check) because the probe passes a dummy callback
+// pointer. That difference is the only reliable existence test — `program list`
+// returns 111 for EVERY plugin program, because plugin code cannot be listed.
+const PLUGIN_NOT_REGISTERED_RC = 199;
 const CAPTURE_MAGIC = 'SAIODV1\0';
 const MIN_CAPTURE_BYTES = 20;
 const MAX_STRING_BYTES = 2 * 1024 * 1024;
@@ -15,22 +22,67 @@ const MAX_STRING_BYTES = 2 * 1024 * 1024;
  * Byte budget for one native capture. The plugin fails with a controlled error
  * when a capture would exceed it, so an oversized read cannot exhaust the Stata
  * worker's address space (and take the session down with it).
+ *
+ * The default is large enough for the common `br` case (an unfiltered browse
+ * must read the whole dataset, or the pinned snapshot would be incomplete) and
+ * can be raised through the `stata-all-in-one.dataViewerMemoryLimitMB` setting.
  */
-const DEFAULT_CAPTURE_BUDGET_BYTES = 256 * 1024 * 1024;
+const DEFAULT_CAPTURE_BUDGET_MB = 1024;
+const MEGABYTE = 1024 * 1024;
 
-let captureBudgetBytes = DEFAULT_CAPTURE_BUDGET_BYTES;
+let captureBudgetBytes = DEFAULT_CAPTURE_BUDGET_MB * MEGABYTE;
+let captureBudgetOverridden = false;
 
-/** Lower (or restore) the capture byte budget. Used by the budget tests. */
+/** Read the configured budget, unless a test (or caller) overrode it. */
+function readConfiguredBudget() {
+    const configPath = require.resolve('../../../../utils/config');
+    // Resolved through a FRESH copy on every read: the setting can change while
+    // the extension runs, and a cached copy would pin the value (and leak the
+    // first resolution into later readers in tests).
+    const cached = require.cache[configPath];
+    delete require.cache[configPath];
+    try {
+        const config = require(configPath);
+        const mb = config.getDataViewerMemoryLimitMB();
+        return Number.isFinite(mb) && mb > 0 ? Math.floor(mb) * MEGABYTE : null;
+    } catch (_error) {
+        // The module is loaded by pure-logic tests that do not stub `vscode`.
+        return null;
+    } finally {
+        if (cached) {
+            require.cache[configPath] = cached;
+        }
+    }
+}
+
+function resolveCaptureBudget() {
+    if (captureBudgetOverridden) {
+        return captureBudgetBytes;
+    }
+    const configured = readConfiguredBudget();
+    if (configured) {
+        captureBudgetBytes = configured;
+    }
+    return captureBudgetBytes;
+}
+
+/** Override the capture byte budget (tests, or an explicit limit). */
 function setCaptureBudget(bytes) {
     const value = Number(bytes);
-    captureBudgetBytes = Number.isFinite(value) && value > 0
-        ? Math.floor(value)
-        : DEFAULT_CAPTURE_BUDGET_BYTES;
+    captureBudgetOverridden = Number.isFinite(value) && value > 0;
+    if (captureBudgetOverridden) {
+        captureBudgetBytes = Math.floor(value);
+    } else {
+        // Clearing the override returns to the DEFAULT budget, which the lazy
+        // read in resolveCaptureBudget() may then replace with the configured
+        // one.
+        captureBudgetBytes = DEFAULT_CAPTURE_BUDGET_MB * MEGABYTE;
+    }
     return captureBudgetBytes;
 }
 
 function getCaptureBudget() {
-    return captureBudgetBytes;
+    return resolveCaptureBudget();
 }
 
 /**
@@ -268,23 +320,40 @@ function parseCapture(buffer, metadata) {
  * work either, because the cleanup may happen anywhere.
  */
 async function isPluginRegistered(session) {
+    // `in 1/l` on an empty dataset selects no observations, so the probe writes
+    // nothing anywhere: it only resolves whether the entry point exists.
+    // StataSO_Execute accepts one command at a time. A newline here is parsed
+    // as part of the first command, so the display never produces output.
+    const probe = await session.execute(
+        `capture plugin call ${PLUGIN_PROGRAM} _all in 1/l, 0 1`,
+        false,
+        null,
+        { internal: true }
+    );
+    if (!probe.success) {
+        // A failure here means the session itself is in trouble; `capture` keeps
+        // a missing program non-fatal.
+        return { present: false, sessionError: probe };
+    }
     const result = await session.execute(
-        `capture program list ${PLUGIN_PROGRAM}\n`
-        + `display "${PLUGIN_PROBE_VAR}=" _rc`,
+        `display "${PLUGIN_PROBE_VAR}=" _rc`,
         false,
         null,
         { internal: true }
     );
     if (!result.success) {
-        // `capture` makes a missing program non-fatal; a failure here means the
-        // session itself is in trouble.
         return { present: false, sessionError: result };
     }
     const match = String(result.output || '').match(new RegExp(`${PLUGIN_PROBE_VAR}=(-?\\d+)`));
     if (!match) {
         return { present: false, sessionError: null };
     }
-    return { present: Number(match[1]) === 0, sessionError: null };
+    const exitCode = Number(match[1]);
+    return {
+        present: exitCode !== PLUGIN_NOT_REGISTERED_RC,
+        exitCode,
+        sessionError: null
+    };
 }
 
 async function ensurePluginRegistered(session) {
@@ -296,6 +365,9 @@ async function ensurePluginRegistered(session) {
         return;
     }
 
+    // Drop first: a definition loaded from a plugin file that has since been
+    // rebuilt keeps pointing at the old in-memory image, and the only way to
+    // pick up the new one is to define the program again.
     const dropResult = await session.execute(
         `capture program drop ${PLUGIN_PROGRAM}`,
         false,
@@ -313,6 +385,9 @@ async function ensurePluginRegistered(session) {
     );
     if (!loadResult.success) {
         throw readError(msg('dataViewerPluginLoadFailed'), loadResult);
+    }
+    if (!fs.existsSync(pluginPath())) {
+        throw readError(msg('dataViewerPluginMissing', { path: pluginPath() }), loadResult);
     }
     // Registration is only accepted once the entry is verifiably defined.
     const verify = await isPluginRegistered(session);
@@ -412,16 +487,20 @@ async function capture(session, options = {}) {
         const requestedRows = Number.isFinite(requestedEnd) && requestedEnd >= start
             ? Math.min(total, Math.floor(requestedEnd)) - start + 1
             : Math.min(total - start + 1, Math.max(1, defaultEnd - start + 1));
+        const budget = resolveCaptureBudget();
         const estimate = estimateCaptureBytes(metadata, end - start + 1);
         const requestedEstimate = estimateCaptureBytes(metadata, requestedRows);
-        if (estimate > captureBudgetBytes || requestedEstimate > captureBudgetBytes) {
+        if (estimate > budget || requestedEstimate > budget) {
+            const neededRows = Math.max(requestedRows, end - start + 1);
             const error = new Error(msg('dataViewerCaptureTooLarge', {
-                rows: Math.max(requestedRows, end - start + 1),
-                megabytes: Math.round(captureBudgetBytes / (1024 * 1024))
+                rows: neededRows,
+                megabytes: Math.round(budget / MEGABYTE),
+                requiredMb: Math.ceil(requestedEstimate / MEGABYTE)
             }));
             error.tooLarge = true;
-            error.rows = Math.max(requestedRows, end - start + 1);
-            error.budgetBytes = captureBudgetBytes;
+            error.rows = neededRows;
+            error.budgetBytes = budget;
+            error.requiredBytes = requestedEstimate;
             throw error;
         }
 
@@ -436,7 +515,7 @@ async function capture(session, options = {}) {
             await ensurePluginRegistered(txSession);
             throwIfAborted();
             const result = await txSession.execute(
-                `plugin call ${PLUGIN_PROGRAM} _all in ${start}/${end}, ${pointer} ${captureBudgetBytes}`,
+                `plugin call ${PLUGIN_PROGRAM} _all in ${start}/${end}, ${pointer} ${budget}`,
                 false,
                 null,
                 { internal: true }
@@ -459,13 +538,17 @@ async function capture(session, options = {}) {
     });
 }
 
+// Pick up the configured budget as the module loads. The lazy read in
+// resolveCaptureBudget() keeps it current afterwards.
+resolveCaptureBudget();
+
 module.exports = {
     capture,
     estimateCaptureBytes,
     setCaptureBudget,
     getCaptureBudget,
     DEFAULT_WINDOW_ROWS,
-    DEFAULT_CAPTURE_BUDGET_BYTES,
+    DEFAULT_CAPTURE_BUDGET_MB,
     pluginPath,
     parseCapture,
     parseMetadataOutput,
