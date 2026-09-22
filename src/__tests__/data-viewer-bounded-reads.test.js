@@ -412,3 +412,66 @@ test('a filtered page walks forward until enough matches are found', async () =>
         delete require.cache[STORE_PATH];
     }
 });
+
+test('a pinned browse snapshot still covers the whole dataset', async () => {
+    const restore = installVscodeStub();
+    const variables = [{ name: 'x', type: 'double' }];
+    const stato = createStataDouble({
+        variables,
+        totalObservations: 250000,
+        columns: [{ kind: 0 }]
+    });
+    const captured = { buffer: buildCapture([{ kind: 0 }], 250000), cancelled: 0 };
+    const reader = loadReader({ stato, captured });
+    const session = {
+        execute: (code, echo, onOutput) => stato.execute(code, echo, onOutput),
+        withTransaction: (task) => Promise.resolve(task({
+            execute: (code, echo, onOutput) => stato.execute(code, echo, onOutput)
+        }))
+    };
+
+    try {
+        const data = await reader.capture(session, { full: true });
+        assert.deepEqual(stato.captureRanges[0], { start: 1, end: 250000 },
+            'a pinned snapshot must read every observation');
+        assert.equal(data.meta.nobs, 250000);
+        assert.equal(data.meta.windowStart, 1);
+        assert.equal(data.meta.windowEnd, 250000);
+    } finally {
+        restore();
+        delete require.cache[READER_PATH];
+    }
+});
+
+test('a full snapshot that does not fit the budget fails with a clear message', async () => {
+    const restore = installVscodeStub();
+    const variables = [{ name: 'x', type: 'str4000' }];
+    const stato = createStataDouble({
+        variables,
+        totalObservations: 1000000,
+        columns: [{ kind: 1 }]
+    });
+    const captured = { buffer: Buffer.alloc(0), cancelled: 0 };
+    const reader = loadReader({ stato, captured });
+    const session = {
+        execute: (code, echo, onOutput) => stato.execute(code, echo, onOutput),
+        withTransaction: (task) => Promise.resolve(task({
+            execute: (code, echo, onOutput) => stato.execute(code, echo, onOutput)
+        }))
+    };
+
+    try {
+        await assert.rejects(
+            () => reader.capture(session, { full: true }),
+            (error) => {
+                assert.equal(error.tooLarge, true);
+                assert.equal(error.rows, 1000000);
+                return true;
+            }
+        );
+        assert.equal(stato.captureRanges.length, 0, 'an impossible read must not start');
+    } finally {
+        restore();
+        delete require.cache[READER_PATH];
+    }
+});

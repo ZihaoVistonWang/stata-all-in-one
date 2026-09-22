@@ -388,16 +388,22 @@ async function capture(session, options = {}) {
         }
 
         // Pick the window to read. Without an explicit request, read from the
-        // start and let the caller page in further windows.
+        // start and let the caller page in further windows. A FULL read (used by
+        // a pinned `br` snapshot, which must stay reproducible while Stata keeps
+        // changing) covers every observation and is only allowed when it fits
+        // the byte budget.
         const total = metadata.nobs;
+        const wantsFull = Boolean(options.full);
         const requestedStart = Number(options.startObs);
         const requestedEnd = Number(options.endObs);
+        const defaultStart = wantsFull ? 1 : 1;
         const start = Number.isFinite(requestedStart) && requestedStart >= 1
             ? Math.floor(requestedStart)
-            : 1;
+            : defaultStart;
+        const defaultEnd = wantsFull ? total : start + DEFAULT_WINDOW_ROWS - 1;
         const maxWindow = Number.isFinite(requestedEnd) && requestedEnd >= start
             ? Math.floor(requestedEnd)
-            : start + DEFAULT_WINDOW_ROWS - 1;
+            : defaultEnd;
         const end = Math.max(start, Math.min(total, maxWindow));
 
         // Check the budget for the requested window AND for the window the
@@ -405,7 +411,7 @@ async function capture(session, options = {}) {
         // clear message instead of a plugin error.
         const requestedRows = Number.isFinite(requestedEnd) && requestedEnd >= start
             ? Math.min(total, Math.floor(requestedEnd)) - start + 1
-            : Math.min(total - start + 1, DEFAULT_WINDOW_ROWS);
+            : Math.min(total - start + 1, Math.max(1, defaultEnd - start + 1));
         const estimate = estimateCaptureBytes(metadata, end - start + 1);
         const requestedEstimate = estimateCaptureBytes(metadata, requestedRows);
         if (estimate > captureBudgetBytes || requestedEstimate > captureBudgetBytes) {

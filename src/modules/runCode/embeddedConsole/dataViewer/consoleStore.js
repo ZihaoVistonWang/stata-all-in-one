@@ -255,13 +255,18 @@ async function getLiveColumnAutoFitValue(column, filterText = '') {
  * opened stays reproducible while the user keeps working in Stata.
  */
 async function captureSnapshot(filterText = '', startObs = 0, count = 500) {
-    const data = await consoleDataReader.capture();
-    const frame = buildLiveFrame(data, 1, data.meta.windowEnd || data.meta.nobs);
+    // A pinned snapshot is a FIXED view: it must not change when Stata's data
+    // changes underneath, so it needs the whole dataset rather than a window.
+    // A dataset too large for the byte budget fails with a clear message instead
+    // of exhausting memory.
+    const data = await consoleDataReader.capture(null, { full: true });
+    const start = data.meta.windowStart || 1;
+    const end = data.meta.windowEnd || (start + sliceLength(data) - 1);
     const entry = {
-        data: frame.data,
-        startObs: frame.startObs,
-        endObs: frame.endObs,
-        totalObservations: frame.totalObservations
+        data,
+        startObs: start,
+        endObs: end,
+        totalObservations: data.meta.totalObservations || data.meta.nobs
     };
     return {
         data: entry.data,
@@ -271,7 +276,7 @@ async function captureSnapshot(filterText = '', startObs = 0, count = 500) {
             count,
             filterText,
             startObs,
-            { rowOffset: 0, totalObservations: entry.totalObservations }
+            { rowOffset: start - 1, totalObservations: entry.totalObservations }
         )
     };
 }
