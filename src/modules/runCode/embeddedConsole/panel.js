@@ -2392,7 +2392,11 @@ function getWebviewHtml(webview) {
             overflow-y: auto;
             overflow-x: hidden;
             scrollbar-width: none;
-            pointer-events: none;
+            /* The whole rail is a hit target, not just the 2px markers: the
+               pointer must be able to land between two markers so the nearest
+               one can be previewed. The rail is a narrow strip pinned to the
+               right edge, so this stays off the output text. */
+            pointer-events: auto;
             opacity: 1;
             visibility: visible;
             -webkit-mask-image: none;
@@ -4058,6 +4062,9 @@ function getWebviewHtml(webview) {
                 if (cell.id === activeId) marker.classList.add('active');
                 marker.addEventListener('focus', () => previewRunMarker(marker));
                 marker.addEventListener('blur', clearRunMarkerPreview);
+                /* Landing on a marker previews that marker exactly, even when a
+                   neighbouring one is geometrically closer to the pointer. */
+                marker.addEventListener('pointerenter', () => previewRunMarker(marker));
                 marker.addEventListener('click', event => {
                     event.preventDefault();
                     event.stopPropagation();
@@ -4069,6 +4076,9 @@ function getWebviewHtml(webview) {
             updateActiveRunMarker(true);
         }
 
+        /* Between two markers the pointer is always nearest to one of them, so
+           previewing the nearest keeps the tooltip live across the whole rail
+           instead of only over a 2px marker. */
         runNav.addEventListener('mousemove', event => {
             const nearest = nearestRunMarker(event.clientY);
             if (nearest) previewRunMarker(nearest.marker);

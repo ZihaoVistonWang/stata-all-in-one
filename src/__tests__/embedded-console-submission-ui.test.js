@@ -86,10 +86,13 @@ test('lets the command composer collapse to its label without persisting the tem
 test('shows compact run navigation on the right with transparent highlighted previews', () => {
     assert.equal(panelSource.includes('const RUN_NAV_ENABLED = true;'), true);
     assert.equal(panelSource.includes('if (!RUN_NAV_ENABLED)'), true);
-    assert.match(panelSource, /#run-nav\s*\{[\s\S]*right:\s*15px;[\s\S]*width:\s*25px;[\s\S]*box-sizing:\s*border-box;[\s\S]*pointer-events:\s*none/);
+    assert.match(panelSource, /#run-nav\s*\{[\s\S]*right:\s*15px;[\s\S]*width:\s*25px;[\s\S]*box-sizing:\s*border-box;[\s\S]*pointer-events:\s*auto/);
     assert.match(panelSource, /#run-nav\.has-runs\.scrollbar-active\s*\{[\s\S]*opacity:\s*0;[\s\S]*visibility:\s*hidden;[\s\S]*translate\(5px, -50%\)/);
     assert.match(panelSource, /transition:\s*opacity 180ms ease, transform 180ms ease, visibility 180ms ease/);
     assert.match(panelSource, /\.run-nav-marker\s*\{[\s\S]*width:\s*6px;[\s\S]*height:\s*2px/);
+    assert.equal(panelSource.includes("marker.addEventListener('pointerenter', () => previewRunMarker(marker))"), true);
+    assert.equal(panelSource.includes('const nearest = nearestRunMarker(event.clientY);'), true);
+    assert.equal(panelSource.includes("runNav.addEventListener('mousemove', event =>"), true);
     assert.match(panelSource, /\.run-nav-marker\.previewing\s*\{[\s\S]*width:\s*11px/);
     assert.match(panelSource, /--console-nav-marker:[\s\S]*--console-nav-active:\s*var\(--vscode-editor-foreground\)/);
     assert.equal(panelSource.includes('backdrop-filter: blur(12px)'), false);
