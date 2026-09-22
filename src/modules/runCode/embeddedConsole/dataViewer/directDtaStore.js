@@ -252,19 +252,27 @@ function parseInRange(inClause, nobs) {
  */
 function buildQuery(data, filterText, options = {}) {
     const spec = splitFilterSpec(filterText || '');
-    const nobs = Number.isFinite(Number(options.nobs)) ? Number(options.nobs) : sliceLength(data);
+    const nobs = Number.isFinite(Number(options.nobs))
+        ? Number(options.nobs)
+        : Math.min(sliceLength(data), Number(data.meta.nobs) || 0);
+    // `in a/b` addresses observations in the WHOLE dataset, so it is resolved
+    // against the dataset size rather than the slice we hold.
+    const datasetRows = Number.isFinite(Number(options.totalObservations))
+        ? Number(options.totalObservations)
+        : nobs;
     const expression = String(spec.ifClause || '').trim();
     let filter = null;
     if (expression) {
         try {
+            // `meta.nobs` is the WHOLE dataset size: the filter's `_N` must be
+            // the number of observations in the dataset, not the size of the
+            // window the Console happens to be holding.
             filter = compileFilter(expression, {
                 columns: data.columns,
                 missing: data.missing,
                 meta: {
                     headers: data.meta.headers,
-                    nobs: Number.isFinite(Number(options.totalObservations))
-                        ? Number(options.totalObservations)
-                        : nobs
+                    nobs: datasetRows
                 }
             }).fn;
         } catch (error) {
@@ -273,13 +281,14 @@ function buildQuery(data, filterText, options = {}) {
             throw new Error(msg('dataViewerUnsupportedFilter', { expression }));
         }
     }
+    // Intersect the requested whole-dataset range with the slice we hold.
     let start = 0;
     let end = nobs;
     if (spec.inClause) {
-        const range = parseInRange(spec.inClause, nobs);
+        const range = parseInRange(spec.inClause, datasetRows);
         if (range) {
-            start = range.start;
-            end = range.end;
+            start = Math.max(0, range.start - (Number(options.rowOffset) || 0));
+            end = Math.min(nobs, range.end - (Number(options.rowOffset) || 0));
         }
     }
     let columns = data.meta.headers;
@@ -318,16 +327,23 @@ async function getSnapshot(filePath, rowLimit = 500, filterText = '', force = fa
  */
 function collectWindow(data, query, startObs, rowLimit, options = {}) {
     const rowOffset = Math.max(0, Math.floor(Number(options.rowOffset) || 0));
-    const sliceRows = sliceLength(data);
+    // `meta.nobs` is the number of observations this slice holds; `rowOffset` is
+    // where those rows start in the dataset. `sliceLength()` is only a sanity
+    // bound on the column arrays.
+    const sliceRows = Math.min(sliceLength(data), Number(data.meta.nobs) || 0);
     const rows = [];
     let matched = 0;
     for (let row = query.start; row < query.end; row += 1) {
-        const local = row - rowOffset;
+        // `query.start`/`query.end` are slice-relative, so no offset is applied
+        // here; the offset only maps slice rows to dataset row numbers.
+        const local = row;
         if (local < 0 || local >= sliceRows) continue;
         if (query.filter && !query.filter(row - rowOffset)) continue;
         if (matched >= startObs && rows.length < rowLimit) {
             rows.push({
-                rowNum: row + 1,
+                // Dataset row number: slice-local index plus where the slice
+                // starts in the dataset.
+                rowNum: rowOffset + local + 1,
                 values: query.columns.map((name) => valueAt(data, name, local))
             });
         }
@@ -338,8 +354,9 @@ function collectWindow(data, query, startObs, rowLimit, options = {}) {
 
 function getSnapshotFromData(data, source, rowLimit = 500, filterText = '', startObs = 0, options = {}) {
     const rowOffset = Math.max(0, Math.floor(Number(options.rowOffset) || 0));
-    // `meta.nobs` is the size of the WHOLE dataset; the slice may be smaller.
-    const sliceRows = sliceLength(data);
+    // `meta.nobs` is the size of this slice (the whole dataset when the read was
+    // not windowed); the column arrays must agree with it.
+    const sliceRows = Math.min(sliceLength(data), Number(data.meta.nobs) || 0);
     const totalObservations = Number.isFinite(Number(options.totalObservations))
         ? Number(options.totalObservations)
         : data.meta.nobs;
@@ -405,28 +422,22 @@ async function getMore(filePath, startObs, count, filterText = '') {
 
 function getMoreFromData(data, startObs, count, filterText = '', options = {}) {
     const rowOffset = Math.max(0, Math.floor(Number(options.rowOffset) || 0));
-    const sliceRows = sliceLength(data);
+    const sliceRows = Math.min(sliceLength(data), Number(data.meta.nobs) || 0);
     const query = buildQuery(data, filterText, {
         nobs: sliceRows,
         rowOffset,
         totalObservations: options.totalObservations,
         varList: options.varList
     });
-    const headers = query.columns;
-    const filter = query.filter;
-    const rows = [];
-    let matched = 0;
-    for (let row = query.start; row < query.end && rows.length < count; row += 1) {
-        const local = row - rowOffset;
-        if (local < 0 || local >= sliceRows) continue;
-        if (filter && !filter(row - rowOffset)) continue;
-        if (matched++ < startObs) continue;
-        rows.push({ rowNum: row + 1, values: headers.map((name) => valueAt(data, name, local)) });
-    }
-    return rows;
+    // `startObs` is a MATCH offset, exactly as in getSnapshotFromData. Treating
+    // it as "absolute rows to skip" made paging show the wrong rows (or none) as
+    // soon as the offset exceeded the cached slice.
+    return collectWindow(data, query, Math.max(0, Math.floor(Number(startObs) || 0)), count, {
+        rowOffset
+    }).rows;
 }
 
-/** Number of rows actually held in this (possibly partial) dataset slice. */
+/** Number of rows actually held in the column arrays of this slice. */
 function sliceLength(data) {
     const headers = (data.meta && data.meta.headers) || [];
     if (!headers.length) return 0;
@@ -436,7 +447,7 @@ function sliceLength(data) {
 
 function getColumnAutoFitValueFromData(data, column, filterText = '', options = {}) {
     const rowOffset = Math.max(0, Math.floor(Number(options.rowOffset) || 0));
-    const sliceRows = sliceLength(data);
+    const sliceRows = Math.min(sliceLength(data), Number(data.meta.nobs) || 0);
     const query = buildQuery(data, filterText, {
         nobs: sliceRows,
         rowOffset,
@@ -447,9 +458,9 @@ function getColumnAutoFitValueFromData(data, column, filterText = '', options = 
     let widestValue = '';
     let widestScore = -1;
     for (let row = query.start; row < query.end; row += 1) {
-        const local = row - rowOffset;
+        const local = row;
         if (local < 0 || local >= sliceRows) continue;
-        if (query.filter && !query.filter(row - rowOffset)) continue;
+        if (query.filter && !query.filter(row)) continue;
         const value = displayValue(valueAt(data, column, local));
         const score = textWidthScore(value);
         if (score > widestScore) {

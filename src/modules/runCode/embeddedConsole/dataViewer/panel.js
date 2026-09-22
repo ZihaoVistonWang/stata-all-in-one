@@ -2723,8 +2723,9 @@ function attachPanel(panel, mode) {
                     );
                 }
                 // Discard an auto-fit computed for a filter/dataset/file the
-                // panel is no longer showing.
-                if (!tracker.isCurrent(fitTicket) || _panels[mode] !== panel) {
+                // panel is no longer showing. This is deliberately per panel:
+                // two .dta panels may be open at once.
+                if (!tracker.isCurrent(fitTicket)) {
                     return;
                 }
                 tracker.apply(fitTicket);
@@ -2940,6 +2941,49 @@ async function refreshDataViewer(mode, filterText, targetPanel, options = {}) {
         : 0;
     const windowStart = Math.max(0, requestedRow - VIEW_WINDOW_LEAD);
 
+    // This read is retried once when a data change superseded it, so a panel can
+    // never be stranded on "Loading..." with a result that was thrown away.
+    let retriedAfterSupersede = Boolean(options.retriedAfterSupersede);
+    const finishSuperseded = () => {
+        // A newer refresh already owns this panel: stay quiet so it can render.
+        if (tracker.isPending(REQUEST_KINDS.REFRESH)) {
+            return {
+                success: false,
+                status: VIEWER_STATUS.STALE,
+                mode,
+                filterText: filterText || '',
+                reason: 'superseded'
+            };
+        }
+        panel.webview.postMessage({ type: 'setStatus', status: 'ready' });
+        if (retriedAfterSupersede || tracker.isClosed()) {
+            // Giving up: tell the panel explicitly instead of leaving a spinner.
+            panel.webview.postMessage({
+                type: 'setData',
+                data: {
+                    status: VIEWER_STATUS.STALE,
+                    error: msg('dataViewerReadCancelled'),
+                    filterText: _pendingFilter[mode],
+                    keepPreviousView: true
+                }
+            });
+            return {
+                success: false,
+                status: VIEWER_STATUS.STALE,
+                mode,
+                filterText: filterText || '',
+                reason: 'superseded'
+            };
+        }
+        // The data changed underneath this read (or the user moved on to another
+        // filter): read the CURRENT state rather than this read's stale one.
+        retriedAfterSupersede = true;
+        return refreshDataViewer(mode, tracker.filterText, panel, {
+            ...options,
+            retriedAfterSupersede: true
+        });
+    };
+
     try {
         let data;
         if (mode === 'file') {
@@ -2970,13 +3014,7 @@ async function refreshDataViewer(mode, filterText, targetPanel, options = {}) {
         // Drop a result that a newer refresh, a filter change or a close has
         // already superseded: an older response must never overwrite a newer one.
         if (!tracker.apply(refreshTicket)) {
-            return {
-                success: false,
-                status: VIEWER_STATUS.STALE,
-                mode,
-                filterText: filterText || '',
-                reason: 'superseded'
-            };
+            return finishSuperseded();
         }
         const status = classifySnapshot(data, { filterText });
         if (mode === 'console' && data && Array.isArray(data.allVarNames) && data.allVarNames.length) {
@@ -2993,8 +3031,13 @@ async function refreshDataViewer(mode, filterText, targetPanel, options = {}) {
         }
         panel.webview.postMessage({ type: 'setStatus', status: 'ready' });
         return {
-            success: status === VIEWER_STATUS.OK,
+            // Only a status that keeps showing a previous view means the READ
+            // failed. An empty dataset, zero observations and an empty filter
+            // match are successful reads of an empty view, and must not be
+            // reported as failures (which would abort the surrounding run).
+            success: !keepsPreviousView(status),
             status,
+            readFailed: keepsPreviousView(status),
             mode,
             filterText: filterText || '',
             data
@@ -3003,24 +3046,12 @@ async function refreshDataViewer(mode, filterText, targetPanel, options = {}) {
         // A superseded request reports nothing: its failure is no longer
         // relevant to what the panel is showing.
         if (!tracker.isCurrent(refreshTicket)) {
-            return {
-                success: false,
-                status: VIEWER_STATUS.STALE,
-                mode,
-                filterText: filterText || '',
-                reason: 'superseded'
-            };
+            return finishSuperseded();
         }
         tracker.apply(refreshTicket);
         if (e && e.cancelled) {
             // Superseded work reports nothing; the replacing request owns the UI.
-            return {
-                success: false,
-                status: VIEWER_STATUS.STALE,
-                mode,
-                filterText: filterText || '',
-                reason: 'cancelled'
-            };
+            return finishSuperseded();
         }
         const status = classifyError(e);
         console.error('Stata All in One: refresh failed:', status, e.message);
@@ -3041,6 +3072,7 @@ async function refreshDataViewer(mode, filterText, targetPanel, options = {}) {
         return {
             success: false,
             status,
+            readFailed: true,
             mode,
             filterText: filterText || '',
             error: e.message || msg('dataViewerReadFailed'),
@@ -3280,8 +3312,11 @@ async function openDtaFile(context, uri, panel) {
     const ticket = tracker.begin(REQUEST_KINDS.REFRESH, { filterText: '' });
     try {
         const data = await directDtaStore.getSnapshot(filePath, 500, '');
-        if (!tracker.apply(ticket) || _panels.file !== targetPanel) {
+        if (!tracker.apply(ticket)) {
             // The panel moved on (another file, another filter, or it closed).
+            // Note: NOT `_panels.file !== targetPanel` — `_panels.file` only
+            // remembers the most recently attached .dta panel, so opening a
+            // second file would strand the first one on its loading screen.
             return targetPanel;
         }
         if (data && !data.error) {

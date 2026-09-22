@@ -33,6 +33,9 @@ let _sessionStale = false; // true when console panel was closed — the JS wrap
 // Keeping this on the wrapper made a reopen look like a brand-new session and
 // silently wiped the user's data with `clear all`.
 let _nativeSessionBootstrapped = false;
+// Whether the destructive `clear all` bootstrap already ran for the current
+// native session. Only a genuinely new native session resets it.
+let _nativeSessionReset = false;
 
 /**
  * StataSO_Execute does not consistently recognize horizontal tabs as token
@@ -262,6 +265,7 @@ class StataConsoleSession {
                 this._generation += 1;
                 this._sessionLostNotified = false;
                 _nativeSessionBootstrapped = false;
+                _nativeSessionReset = false;
                 this._saveState();
                 return { success: true, error: '' };
             }
@@ -282,13 +286,21 @@ class StataConsoleSession {
     _reconcileBootstrapState() {
         if (!_nativeSessionBootstrapped) {
             // The native session predates this module's bookkeeping (for example
-            // the extension was reloaded). Treat the live session as already
-            // bootstrapped: the bootstrap commands are idempotent settings, and
-            // assuming otherwise would destroy live data. The stale plugin
-            // registration this could leave behind is detected and repaired at
-            // read time by consoleDataReader.
+            // the extension was reloaded). The DESTRUCTIVE part of the bootstrap
+            // (`clear all`) must be skipped, or reconnecting would wipe the data
+            // the user is working with; the idempotent settings are re-applied by
+            // the caller instead (see needsBootstrapSettings).
             _nativeSessionBootstrapped = true;
+            _nativeSessionReset = true;
         }
+    }
+
+    /**
+     * True when the idempotent bootstrap settings still have to be applied to
+     * this live session. Cheap to satisfy and safe to repeat.
+     */
+    needsBootstrapSettings() {
+        return !_nativeSessionBootstrapped;
     }
 
     /**
@@ -536,6 +548,7 @@ class StataConsoleSession {
         // An explicit restart intentionally returns the session to its
         // just-created state, so the next run performs the reset bootstrap.
         _nativeSessionBootstrapped = false;
+        _nativeSessionReset = false;
         this.clearOutput();
         return { success: true };
     }
@@ -659,9 +672,18 @@ class StataConsoleSession {
     }
 
     /**
-     * One-time bootstrap state belongs to the native session, not to this
-     * wrapper, because the wrapper is recreated whenever the Console panel is
-     * closed and reopened while the native session keeps running.
+     * Bootstrap has TWO parts with different lifetimes:
+     *
+     *  - the destructive reset (`clear all`), which may only run once for a
+     *    genuinely NEW native session;
+     *  - the idempotent settings (`set more off`, `set linesize 255`), which are
+     *    safe to re-apply and SHOULD be re-applied whenever a wrapper reconnects
+     *    to a live session, because the previous wrapper may have exited before
+     *    applying them (and a wrapped output buffer breaks the metadata reader).
+     *
+     * This state belongs to the native session, not to this wrapper: the wrapper
+     * is dropped whenever the Console panel closes while the native session —
+     * and everything the user loaded into it — keeps running.
      */
     isBootstrapped() {
         return _nativeSessionBootstrapped;
@@ -669,6 +691,14 @@ class StataConsoleSession {
 
     setBootstrapped(bootstrapped) {
         _nativeSessionBootstrapped = Boolean(bootstrapped);
+    }
+
+    isResetPerformed() {
+        return _nativeSessionReset;
+    }
+
+    setResetPerformed(performed) {
+        _nativeSessionReset = Boolean(performed);
     }
 
     /**

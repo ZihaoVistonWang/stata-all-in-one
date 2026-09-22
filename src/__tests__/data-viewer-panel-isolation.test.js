@@ -250,15 +250,40 @@ test('closing one file panel does not disturb another and drops only its own cac
 
 test('a superseded refresh result does not overwrite a newer one', async () => {
     const pending = [];
+    const issued = [];
     const directDtaStore = {
         getSnapshot: (filePath, limit, filterText) => new Promise((resolve) => {
-            pending.push({ filterText, resolve });
+            const entry = {
+                filterText,
+                resolved: false,
+                resolve: (value) => {
+                    entry.resolved = true;
+                    resolve(value);
+                }
+            };
+            pending.push(entry);
+            issued.push(filterText);
         }),
         getMore: async () => [],
         getColumnAutoFitValue: async () => '',
         dispose: () => {}
     };
     const harness = createHarness({ directDtaStore, consoleStore: createConsoleStoreStub() });
+
+    // Drain every outstanding read with a snapshot, until the panel settles.
+    async function settleAll(value) {
+        for (let round = 0; round < 6; round += 1) {
+            const outstanding = pending.splice(0, pending.length);
+            if (!outstanding.length) {
+                return;
+            }
+            for (const entry of outstanding) {
+                entry.resolve(snapshotFor(entry.filterText || 'initial', value));
+            }
+            await new Promise((resolve) => setImmediate(resolve));
+        }
+        throw new Error('the panel kept re-issuing reads');
+    }
 
     try {
         const panel = harness.createPanel();
@@ -271,27 +296,35 @@ test('a superseded refresh result does not overwrite a newer one', async () => {
         pending.shift().resolve(snapshotFor('/data/a.dta', 'initial'));
         await opening;
 
-        // The 'ready' handler refreshes once; settle that read explicitly.
+        // The 'ready' handshake refreshes once.
         const readyRefresh = harness.deliver(panel, { type: 'ready' });
         assert.equal(pending.length, 1, 'becoming ready refreshes once');
         pending.shift().resolve(snapshotFor('/data/a.dta', 'ready'));
         await readyRefresh;
         panel.messages.length = 0;
 
-        // The handler issues its read synchronously, so the request is already
-        // pending when `deliver` returns its (floating) promise.
+        // Two overlapping refreshes: the older one is superseded and its result
+        // arrives last.
         const older = harness.deliver(panel, { type: 'refresh', filterText: 'if id > 1' });
-        assert.equal(pending.length, 1, 'the refresh must issue exactly one read');
-
-        // A newer refresh supersedes the in-flight one.
+        assert.equal(pending.length, 1, 'the refresh issues exactly one read');
         const newer = harness.deliver(panel, { type: 'refresh', filterText: 'if id > 2' });
         assert.equal(pending.length, 2, 'the newer refresh issues its own read');
 
         // The newer read lands first...
-        pending[1].resolve(snapshotFor('if id > 2', 'newer'));
+        const newerRead = pending.find((entry) => !entry.resolved && entry.filterText === 'if id > 2');
+        newerRead.resolve(snapshotFor('if id > 2', 'newer'));
         await newer;
-        // ...and the older one lands afterwards, far too late.
-        pending[0].resolve(snapshotFor('if id > 1', 'older'));
+
+        // ...and the older read lands afterwards, far too late.
+        const olderRead = pending.find((entry) => !entry.resolved && entry.filterText === 'if id > 1');
+        olderRead.resolve(snapshotFor('if id > 1', 'stale'));
+        await new Promise((resolve) => setImmediate(resolve));
+
+        // The superseded read is retried against the CURRENT filter rather than
+        // applied or silently dropped.
+        const retry = pending.find((entry) => !entry.resolved && entry.filterText === 'if id > 2');
+        assert.ok(retry, 'the superseded read must be retried with the current filter');
+        retry.resolve(snapshotFor('if id > 2', 'newest'));
         await older;
 
         const applied = panel.messages.filter(
@@ -300,8 +333,17 @@ test('a superseded refresh result does not overwrite a newer one', async () => {
                 && Array.isArray(message.data.dataRows)
                 && message.data.dataRows.length
         );
-        assert.equal(applied.length, 1, 'only the newest refresh may render');
-        assert.deepEqual(applied[0].data.dataRows[0].values, ['newer']);
+        assert.deepEqual(
+            applied.map((message) => message.data.dataRows[0].values[0]),
+            ['newer', 'newest'],
+            'the stale value must never render'
+        );
+        assert.equal(
+            applied.some((message) => message.data.dataRows[0].values[0] === 'stale'),
+            false,
+            'the superseded read value must never reach the table'
+        );
+        await settleAll('final');
     } finally {
         harness.cleanup();
     }

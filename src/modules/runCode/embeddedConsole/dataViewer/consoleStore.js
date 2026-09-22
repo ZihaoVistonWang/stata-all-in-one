@@ -141,6 +141,37 @@ function hasFilterExpression(filterText) {
     return Boolean(String(spec.ifClause || '').trim() || String(spec.inClause || '').trim());
 }
 
+/**
+ * Resolve an `in` qualifier into absolute observation bounds.
+ *
+ * `in` addresses the whole dataset, so `in 5001/5003` must read observations
+ * 5001-5003 even when only the first window is cached. Returns null when there
+ * is no (parsable) `in` clause.
+ */
+function resolveInRange(filterText, totalObservations) {
+    const spec = splitFilterSpec(filterText || '');
+    const text = String(spec.inClause || '').trim();
+    if (!text) return null;
+    const match = text.match(/^(\d+|[lf])\s*(?:\/\s*(\d+|[lf])\s*)?$/i);
+    if (!match) return null;
+    const total = Number.isFinite(totalObservations) && totalObservations > 0
+        ? totalObservations
+        : Infinity;
+    const resolve = (token, fallback) => {
+        const value = String(token || '').toLowerCase();
+        if (value === 'l') return Number.isFinite(total) ? total : null;
+        if (value === 'f') return 1;
+        return value ? Number(value) : fallback;
+    };
+    const first = resolve(match[1], 1);
+    const last = resolve(match[2], first);
+    if (!Number.isFinite(first) || !Number.isFinite(last)) return null;
+    return {
+        start: Math.max(1, Math.min(first, last)),
+        end: Math.max(first, last)
+    };
+}
+
 /** Matches found so far in [1, upToRow] for the current filter. */
 function countMatches(header, filterText, upToRow) {
     if (!header) return 0;
@@ -168,6 +199,19 @@ async function ensureMatchesAvailable(filterText, matchOffset, needed) {
         const start = Math.max(1, matchOffset + 1);
         if (frameNeedsWindow(header, start) || !header) {
             header = await ensureWindow(start, start + Math.max(1, needed) - 1);
+        }
+        return header;
+    }
+
+    // `in a/b` names absolute observations: read exactly that range so a page
+    // beyond the cached window is not reported as empty.
+    const inRange = resolveInRange(filterText, header ? header.totalObservations : undefined);
+    if (inRange) {
+        const coversIn = header
+            && header.startObs <= inRange.start
+            && header.endObs >= inRange.end;
+        if (!coversIn) {
+            header = await ensureWindow(inRange.start, inRange.end);
         }
         return header;
     }
@@ -324,6 +368,7 @@ async function dispose(entry) {
 }
 
 module.exports = {
+    resolveInRange,
     getLiveSnapshot,
     getLiveMore,
     getLiveColumnAutoFitValue,

@@ -197,3 +197,105 @@ test('viewer-style reads never clear or replace the dataset', async () => {
         delete require.cache[sessionPath];
     }
 });
+
+test('reconnecting re-applies the idempotent settings but never clears data', async () => {
+    const nativeSimulator = createNativeSimulator();
+    const sessionManager = loadSessionWith(nativeSimulator);
+    const context = createContext();
+
+    try {
+        const first = sessionManager.getConsoleSession(context);
+        await first.init(DYLIB);
+        first.setBootstrapped(true);
+        first.setResetPerformed(true);
+        await first.execute('use "/tmp/auto.dta", clear');
+
+        // Console closed and reopened: the wrapper is replaced but the native
+        // session (and the loaded data) lives on.
+        sessionManager.markSessionStale();
+        sessionManager.clearStaleSession();
+        const reopened = sessionManager.getConsoleSession(context);
+        await reopened.init(DYLIB);
+
+        // The destructive reset is considered done, so it is never repeated...
+        assert.equal(reopened.isResetPerformed(), true);
+        // ...while the idempotent settings are re-applied by the platform layer.
+        assert.equal(reopened.needsBootstrapSettings(), false);
+
+        const { applyWebviewBootstrap } = require('../modules/runCode/embeddedConsole/bootstrap');
+        const before = nativeSimulator.executions.length;
+        await applyWebviewBootstrap(reopened);
+        const applied = nativeSimulator.executions.slice(before);
+
+        assert.equal(
+            applied.some((code) => /clear\s+all/i.test(code)),
+            false,
+            'a reconnect must never run clear all'
+        );
+        assert.equal(
+            applied.some((code) => /set\s+linesize/i.test(code)),
+            false,
+            'settings already applied are not repeated on every run'
+        );
+        assert.match(nativeSimulator.state.memory.dataset, /auto\.dta/);
+    } finally {
+        sessionManager.forceShutdownConsoleSession();
+        delete require.cache[sessionPath];
+    }
+});
+
+test('a fresh session runs the full bootstrap exactly once', async () => {
+    const nativeSimulator = createNativeSimulator();
+    const sessionManager = loadSessionWith(nativeSimulator);
+    const context = createContext();
+    const { applyWebviewBootstrap } = require('../modules/runCode/embeddedConsole/bootstrap');
+
+    try {
+        const session = sessionManager.getConsoleSession(context);
+        await session.init(DYLIB);
+        assert.equal(session.isResetPerformed(), false);
+
+        await applyWebviewBootstrap(session);
+        const first = nativeSimulator.executions.slice();
+        assert.equal(first[0], 'quietly clear all', 'a new session starts with the reset');
+        assert.deepEqual(first.slice(1), ['quietly set more off', 'quietly set linesize 255']);
+        assert.equal(session.isResetPerformed(), true);
+
+        await applyWebviewBootstrap(session);
+        assert.equal(
+            nativeSimulator.executions.length,
+            first.length,
+            'a second run issues no bootstrap commands at all'
+        );
+    } finally {
+        sessionManager.forceShutdownConsoleSession();
+        delete require.cache[sessionPath];
+    }
+});
+
+test('an unexpected session loss is never reported as a user interrupt', async () => {
+    const nativeSimulator = createNativeSimulator();
+    const sessionManager = loadSessionWith(nativeSimulator);
+    const context = createContext();
+
+    try {
+        const session = sessionManager.getConsoleSession(context);
+        await session.init(DYLIB);
+        session.setBootstrapped(true);
+        session.beginManualStopScope();
+        // A stop lands right as the command finishes.
+        assert.equal(session.stop(), true);
+
+        // The next command completes normally: the stop scope must end with it...
+        const result = await session.execute('summarize price');
+        assert.equal(result.success, true);
+        assert.equal(Boolean(result.interrupted), false);
+        // ...so it is not reported as an interrupt of an unrelated later failure.
+        assert.equal(session.isStopRequested(), true, 'the flag stays until the scope is cleared');
+        session.clearManualStopScope();
+        assert.equal(session.isStopRequested(), false);
+    } finally {
+        sessionManager.forceShutdownConsoleSession();
+        delete require.cache[sessionPath];
+    }
+});

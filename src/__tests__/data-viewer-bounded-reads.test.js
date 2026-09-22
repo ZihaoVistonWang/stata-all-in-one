@@ -475,3 +475,142 @@ test('a full snapshot that does not fit the budget fails with a clear message', 
         delete require.cache[READER_PATH];
     }
 });
+
+test('paging uses the same match-offset coordinates as the first page', async () => {
+    const restore = installVscodeStub();
+    const ranges = [];
+    const originalLoad = Module._load;
+    // A windowed engine: whatever range the store asks for, it gets those rows.
+    Module._load = function (request, parent, isMain) {
+        if (request === 'vscode') {
+            return { env: { language: 'en' }, workspace: { getConfiguration: () => ({ get: () => '' }) } };
+        }
+        if (parent && parent.filename === STORE_PATH && request === './consoleDataReader') {
+            return {
+                DEFAULT_WINDOW_ROWS: 2000,
+                async capture(_session, options = {}) {
+                    const start = options.startObs || 1;
+                    const end = options.endObs || start + 1999;
+                    ranges.push({ start, end });
+                    const rows = end - start + 1;
+                    return {
+                        meta: {
+                            headers: ['x'],
+                            types: ['double'],
+                            formats: ['%9.0g'],
+                            labels: [''],
+                            nobs: rows,
+                            windowStart: start,
+                            windowEnd: end,
+                            totalObservations: 20000
+                        },
+                        columns: { x: Float64Array.from({ length: rows }, (_v, index) => start + index) },
+                        missing: { x: new Uint8Array(rows) }
+                    };
+                }
+            };
+        }
+        if (parent && parent.filename === STORE_PATH && request === './directDtaStore') {
+            return require(STORE_PATH.replace('consoleStore.js', 'directDtaStore.js'));
+        }
+        return originalLoad.call(this, request, parent, isMain);
+    };
+    delete require.cache[STORE_PATH];
+
+    try {
+        const store = require(STORE_PATH);
+        const first = await store.getLiveSnapshot('', 0, 500);
+        assert.deepEqual(
+            first.dataRows.slice(0, 3).map((row) => row.values[0]),
+            [1, 2, 3],
+            'the first page starts at observation 1'
+        );
+
+        // Scrolling: the webview asks for the next page by MATCH offset.
+        const second = await store.getLiveMore(500, 500, '');
+        assert.equal(second.length, 500);
+        assert.deepEqual(
+            second.slice(0, 3).map((row) => row.values[0]),
+            [501, 502, 503],
+            'the second page must continue where the first one stopped'
+        );
+
+        // A deep offset must not silently return the wrong rows.
+        const deep = await store.getLiveMore(1200, 100, '');
+        assert.deepEqual(
+            deep.slice(0, 3).map((row) => row.values[0]),
+            [1201, 1202, 1203]
+        );
+    } finally {
+        Module._load = originalLoad;
+        delete require.cache[STORE_PATH];
+    }
+});
+
+test('_N and in ranges refer to the whole dataset, not the cached window', async () => {
+    const restore = installVscodeStub();
+    const originalLoad = Module._load;
+    Module._load = function (request, parent, isMain) {
+        if (request === 'vscode') {
+            return { env: { language: 'en' }, workspace: { getConfiguration: () => ({ get: () => '' }) } };
+        }
+        if (parent && parent.filename === STORE_PATH && request === './consoleDataReader') {
+            return {
+                DEFAULT_WINDOW_ROWS: 1000,
+                async capture(_session, options = {}) {
+                    const start = options.startObs || 1;
+                    const end = options.endObs || start + 999;
+                    const rows = end - start + 1;
+                    return {
+                        meta: {
+                            headers: ['x'],
+                            types: ['double'],
+                            formats: ['%9.0g'],
+                            labels: [''],
+                            nobs: rows,
+                            windowStart: start,
+                            windowEnd: end,
+                            totalObservations: 10000
+                        },
+                        columns: { x: Float64Array.from({ length: rows }, (_v, index) => start + index) },
+                        missing: { x: new Uint8Array(rows) }
+                    };
+                }
+            };
+        }
+        if (parent && parent.filename === STORE_PATH && request === './directDtaStore') {
+            return require(STORE_PATH.replace('consoleStore.js', 'directDtaStore.js'));
+        }
+        return originalLoad.call(this, request, parent, isMain);
+    };
+    delete require.cache[STORE_PATH];
+
+    try {
+        const store = require(STORE_PATH);
+        // The dataset has 10000 observations even though only 1000 are cached.
+        const all = await store.getLiveSnapshot('if _N == 10000', 0, 3);
+        assert.equal(all.info.totalObservations, 10000, 'the dataset size is reported, not the window size');
+        assert.ok(
+            all.dataRows.length > 0,
+            '_N must use the dataset size, so every observation in the window matches'
+        );
+
+        const none = await store.getLiveSnapshot('if _N == 1000', 0, 3);
+        assert.equal(
+            none.dataRows.length,
+            0,
+            '_N is the dataset size, not the size of the cached window'
+        );
+
+        // `in 5001/5003` addresses observations outside the first window.
+        const deep = await store.getLiveSnapshot('in 5001/5003', 0, 3);
+        assert.deepEqual(
+            deep.dataRows.map((row) => row.values[0]),
+            [5001, 5002, 5003],
+            'an `in` range beyond the first window must still be read'
+        );
+    } finally {
+        Module._load = originalLoad;
+        delete require.cache[STORE_PATH];
+    }
+});

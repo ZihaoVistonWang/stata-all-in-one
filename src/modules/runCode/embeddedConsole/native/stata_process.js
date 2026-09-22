@@ -179,8 +179,12 @@ function handleWorkerMessage(generation, message) {
     pendingRequests.delete(message.id);
     if (pending.action === 'execute') {
         activeExecutionIds.delete(message.id);
+        // The stop scope ends as soon as the command it was aimed at reports a
+        // result. Without this, a break that raced the end of its command stayed
+        // "in progress" and the NEXT unrelated worker death was reported to the
+        // user as "interrupted by user" instead of a lost session.
+        clearForceStopTimer();
         if (activeExecutionIds.size === 0) {
-            clearForceStopTimer();
             manualStopInProgress = false;
         }
     }
@@ -204,18 +208,23 @@ function request(action, args = [], onOutput = null) {
         if (action === 'execute') {
             activeExecutionIds.add(id);
         }
-        child.send({ kind: 'request', id, action, args }, error => {
-            if (!error) {
-                return;
-            }
-            const pending = pendingRequests.get(id);
-            if (!pending) {
+        const settleSendFailure = (error) => {
+            if (!pendingRequests.has(id)) {
                 return;
             }
             pendingRequests.delete(id);
             activeExecutionIds.delete(id);
             reject(error);
-        });
+        };
+        try {
+            child.send({ kind: 'request', id, action, args }, error => {
+                if (error) settleSendFailure(error);
+            });
+        } catch (error) {
+            // A synchronous send failure would otherwise leave a ghost entry that
+            // never settles and can still receive a later 'output' frame.
+            settleSendFailure(error);
+        }
     });
 }
 
@@ -239,6 +248,9 @@ function forceTerminateWorker() {
     } catch (error) {
         console.error('Stata All in One: Failed to terminate Stata worker:', error.message);
     }
+    // The kill settles every pending request synchronously through the exit
+    // event, so the stop scope is over immediately.
+    manualStopInProgress = false;
 }
 
 async function initSession(libraryPath, splash = false, execPath = '', stHome = '') {

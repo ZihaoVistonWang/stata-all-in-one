@@ -34,6 +34,7 @@ let _activeOutputSink = null;
 const LICENSE_DIALOG_SUPPRESSED_KEY = 'stata-all-in-one.consoleLicenseDialogSuppressed';
 const LICENSE_DIALOG_REMIND_KEY = 'stata-all-in-one.consoleLicenseDialogNextReminder';
 const LICENSE_DIALOG_REMIND_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const { applyWebviewBootstrap } = require('./bootstrap');
 
 async function showConsoleLicenseDialog(context) {
     if (!context) return;
@@ -597,7 +598,7 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
             ? normalizeCodeToRun(options.execCode)
             : normalizedCode;
         const progressTotal = extractProgressTotalFromCode(execCode);
-        await ensureWebviewBootstrap(consoleSession);
+        await applyWebviewBootstrap(consoleSession);
         await ensureInitialWorkingDirectory(consoleSession, docDir);
         if (typeof outputSink.setWorkingDirectory === 'function') {
             outputSink.setWorkingDirectory(consoleSession.getWorkingDirectory());
@@ -871,26 +872,7 @@ async function ensureInitialWorkingDirectory(consoleSession, docDir) {
     );
 }
 
-async function ensureWebviewBootstrap(consoleSession) {
-    if (consoleSession.isBootstrapped()) {
-        return;
-    }
 
-    const bootstrapCommands = [
-        'quietly clear all',
-        'quietly set more off',
-        'quietly set linesize 255'
-    ];
-
-    for (const command of bootstrapCommands) {
-        const result = await consoleSession.execute(command, false);
-        if (!result.success) {
-            throw new Error(result.error || `Failed to run bootstrap command: ${command}`);
-        }
-    }
-
-    consoleSession.setBootstrapped(true);
-}
 
 function createExecutionPlan(codeToRun, workingDirectory) {
     const lines = splitExecutionSourceLines(codeToRun);
