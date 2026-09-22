@@ -1635,7 +1635,7 @@ function getDataViewerHtml(webview) {
                 var naturalWidth = columnNaturalWidths[col] || colMinWidth;
                 for (var rowIndex = 0; rowIndex < rows.length; rowIndex++) {
                     var values = Array.isArray(rows[rowIndex].values) ? rows[rowIndex].values : [];
-                    var value = col < values.length ? displayValue(values[col]) : '';
+                    var value = col < values.length ? displayCell(values[col], col) : '';
                     naturalWidth = Math.max(
                         naturalWidth,
                         measureTableText(value, document.getElementById('table-data'))
@@ -1691,6 +1691,14 @@ function getDataViewerHtml(webview) {
         function updateDataTableWidth(table) {
             var dataTable = table || document.getElementById('table-data');
             dataTable.style.width = rowNumberColumnWidth + getCumulWidth(dataColumnsCache.length) + 'px';
+        }
+
+        function cellTypeAt(columnIndex) {
+            return dataColumnTypesCache[columnIndex] || '';
+        }
+
+        function displayCell(value, columnIndex) {
+            return displayValue(value, cellTypeAt(columnIndex));
         }
 
         function replaceDataRows(rows, windowStart) {
@@ -1869,7 +1877,7 @@ function getDataViewerHtml(webview) {
             var vals = Array.isArray(row.values) ? row.values : [];
             for (var v = colStart; v < colEnd; v++) {
                 var td = document.createElement('td');
-                var val = v < vals.length ? displayValue(vals[v]) : '';
+                var val = v < vals.length ? displayCell(vals[v], v) : '';
                 td.textContent = val;
                 td.setAttribute('data-col-index', v);
                 td.setAttribute('data-full-text', val);
@@ -1978,7 +1986,7 @@ function getDataViewerHtml(webview) {
                 var values = Array.isArray(dataRowsCache[rowIndex].values)
                     ? dataRowsCache[rowIndex].values
                     : [];
-                var value = colIndex < values.length ? displayValue(values[colIndex]) : '';
+                var value = colIndex < values.length ? displayCell(values[colIndex], colIndex) : '';
                 naturalWidth = Math.max(
                     naturalWidth,
                     measureStyledText(value, sourceCell)
@@ -2274,8 +2282,8 @@ function getDataViewerHtml(webview) {
         // Presentation only: the raw stored value stays untouched in the data
         // layer, and copy uses this same text so the clipboard matches the view.
         var formatCellValue = ${formatCellValueSource};
-        function displayValue(value) {
-            return formatCellValue(value);
+        function displayValue(value, type) {
+            return formatCellValue(value, type);
         }
 
         function restoreViewport(viewport) {

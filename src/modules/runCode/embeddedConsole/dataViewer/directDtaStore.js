@@ -35,7 +35,7 @@ function isStataMissingNumber(value) {
  * Display and copy share this so the clipboard content matches what the user can
  * actually see; the underlying dataset is never modified.
  */
-function formatCellValue(value) {
+function formatCellValue(value, type) {
     // SELF-CONTAINED on purpose: this function is serialized into the webview,
     // where no module-scope helper exists.
     var STATA_MISSING = 8.98846567431158e307;
@@ -53,17 +53,21 @@ function formatCellValue(value) {
         if (magnitude !== 0 && (magnitude >= 1e12 || magnitude < 1e-4)) {
             return value.toExponential(2);
         }
-        // 12 significant digits is the most a double can carry without showing
-        // binary-representation noise (0.1 + 0.2 must read as 0.3).
-        return String(Number(value.toPrecision(12)));
+        // Show only the significant digits the storage type can actually hold:
+        // a `float` widened to a double must not read as 3.5799999237060547, and
+        // a `double` must not show binary-representation noise
+        // (0.1 + 0.2 has to read as 0.3). Stata's own default display uses 7
+        // significant digits for float and about 12 for double.
+        var precision = String(type || '').toLowerCase() === 'float' ? 7 : 12;
+        return String(Number(value.toPrecision(precision)));
     }
     var text = String(value);
     if (text.trim() === '' || /^nan$/i.test(text.trim())) return '.';
     return text;
 }
 
-function displayValue(value) {
-    return formatCellValue(value);
+function displayValue(value, type) {
+    return formatCellValue(value, type);
 }
 
 function textWidthScore(value) {

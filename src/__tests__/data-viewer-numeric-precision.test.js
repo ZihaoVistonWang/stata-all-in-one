@@ -82,6 +82,10 @@ test('display formatting is separate from the stored value', () => {
     assert.equal(formatCellValue(-0.0000001234), '-1.23e-7');
     // Stata's "." is never printed as a number.
     assert.equal(formatCellValue(8.98846567431158e307), '.');
+    // A `float` column is shown at float precision, a `double` at double
+    // precision: Stata's own default display behaves the same way.
+    assert.equal(formatCellValue(3.5799999237060547, 'float'), '3.58');
+    assert.equal(formatCellValue(3.5799999237060547, 'double'), '3.57999992371');
 });
 
 test('copying a cell uses the displayed value the user can see', () => {
