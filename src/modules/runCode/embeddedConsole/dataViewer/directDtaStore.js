@@ -9,18 +9,57 @@ const { msg } = require('../../../../utils/common');
 // intentionally exposes only the existing viewer's metadata/rows/filter API.
 const sessions = new Map();
 
+/**
+ * Read one cell.
+ *
+ * The stored value is returned UNCHANGED. Rounding here (the previous
+ * `Math.round(value * 1e6) / 1e6`) destroyed precision — 1e-8 displayed as 0,
+ * and values above ~1.8e302 overflowed to Infinity — and the loss leaked into
+ * copy, filtering and column widths. Presentation belongs in formatCellValue().
+ */
 function valueAt(data, name, row) {
     if (data.missing[name] && data.missing[name][row]) return null;
-    const value = data.columns[name][row];
-    return typeof value === 'number' && Number.isFinite(value)
-        ? Math.round(value * 1e6) / 1e6
-        : value;
+    return data.columns[name][row];
+}
+
+/** Stata's numeric missing value is at least this large. */
+const STATA_MISSING_THRESHOLD = 8.98846567431158e307;
+
+function isStataMissingNumber(value) {
+    return !Number.isFinite(value) || value >= STATA_MISSING_THRESHOLD;
+}
+
+/**
+ * Presentation-only formatting for one cell.
+ *
+ * Display and copy share this so the clipboard content matches what the user can
+ * actually see; the underlying dataset is never modified.
+ */
+function formatCellValue(value) {
+    if (value === null || value === undefined) return '.';
+    if (typeof value === 'number') {
+        if (Number.isNaN(value)) return '.';
+        // Stata's "." — never print a huge number as if it were data.
+        if (isStataMissingNumber(value)) return '.';
+        const magnitude = Math.abs(value);
+        if (Number.isInteger(value) && magnitude < 1e12) {
+            return String(value);
+        }
+        // Outside the range where a fixed-notation string stays short and
+        // readable, use exponential notation (what Stata's %g formats do).
+        if (magnitude !== 0 && (magnitude >= 1e12 || magnitude < 1e-4)) {
+            return value.toExponential(2);
+        }
+        // 12 significant digits is the most a double can carry without showing
+        // binary-representation noise (0.1 + 0.2 must read as 0.3).
+        return String(Number(value.toPrecision(12)));
+    }
+    const text = String(value);
+    return text.trim() === '' || /^nan$/i.test(text.trim()) ? '.' : text;
 }
 
 function displayValue(value) {
-    if (value === null || value === undefined) return '.';
-    const text = String(value);
-    return text.trim() === '' || /^nan$/i.test(text.trim()) ? '.' : text;
+    return formatCellValue(value);
 }
 
 function textWidthScore(value) {
@@ -323,6 +362,7 @@ function dispose(filePath) {
 }
 
 module.exports = {
+    formatCellValue,
     getSnapshot,
     getMore,
     getSnapshotFromData,

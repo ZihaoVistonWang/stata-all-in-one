@@ -1,5 +1,9 @@
 const vscode = require('vscode');
 const directDtaStore = require('./directDtaStore');
+// Injected into the webview so display and copy share one formatter.
+const formatCellValue = typeof directDtaStore.formatCellValue === 'function'
+    ? directDtaStore.formatCellValue
+    : fallbackCellValueFormatter;
 const consoleStore = require('./consoleStore');
 const { isFilterMissingIf } = require('./provider');
 const {
@@ -115,6 +119,17 @@ const VIEW_WINDOW_LEAD = 100;
 
 const CODICON_RESOURCE_ROOT = vscode.Uri.joinPath(vscode.Uri.file(vscode.env.appRoot), 'out', 'media');
 
+/**
+ * Last-resort cell formatter, used only if the store does not export one.
+ * Null/undefined become Stata's "." and everything else is stringified as-is,
+ * which keeps display lossless even without the shared formatter.
+ */
+function fallbackCellValueFormatter(value) {
+    if (value === null || value === undefined) return '.';
+    const text = String(value);
+    return text.trim() === '' ? '.' : text;
+}
+
 function getDatasetVariableCandidates(data) {
     const metadata = Array.isArray(data && data.vars) ? data.vars : [];
     const labelsByName = new Map(metadata.map(variable => [
@@ -184,6 +199,8 @@ function highlightFilterText(text) {
 
 function getDataViewerHtml(webview) {
     const nonce = String(Date.now());
+    // Serialize the shared formatter for the webview context.
+    const formatCellValueSource = formatCellValue.toString();
     const codiconFontUri = getCodiconFontUri(webview);
     const themeVars = getWebviewThemeVariables();
     const fontSizeCss = `${_fontSize}px`;
@@ -2191,11 +2208,11 @@ function getDataViewerHtml(webview) {
             return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         }
 
+        // Presentation only: the raw stored value stays untouched in the data
+        // layer, and copy uses this same text so the clipboard matches the view.
+        var formatCellValue = ${formatCellValueSource};
         function displayValue(value) {
-            if (value === null || value === undefined) return '.';
-            var s = String(value).trim();
-            if (s === '' || /^nan$/i.test(s)) return '.';
-            return String(value);
+            return formatCellValue(value);
         }
 
         function restoreViewport(viewport) {
