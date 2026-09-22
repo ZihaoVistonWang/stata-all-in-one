@@ -58,7 +58,12 @@ class TemporaryDoFileOutputFilter {
             return '';
         }
 
-        if (this._wrapperSeen && /^end of do-file$/i.test(trimmed)) {
+        // The native bridge executes the generated wrapper with echo=false, so
+        // Stata can emit its final marker without first echoing the outer do
+        // command. Hold every marker while this generated-file filter is active:
+        // a later nonblank line proves it was an inner do-file marker, while a
+        // marker still pending at finish() is the generated wrapper's footer.
+        if (/^end of do-file$/i.test(trimmed)) {
             if (this._pendingEndLine) {
                 const previous = `${this._pendingEndLine}${this._pendingTrailingLines}`;
                 this._pendingEndLine = lineWithSuffix;

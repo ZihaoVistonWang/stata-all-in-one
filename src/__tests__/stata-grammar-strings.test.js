@@ -82,3 +82,32 @@ test('keeps every token inside quoted file paths in the string scope', async () 
         }
     }
 });
+
+test('highlights in consistently without treating a leverage variable as a command', async () => {
+    const grammar = await loadStataGrammar();
+    const lines = [
+        'br firm_id firm_name in 1000000/1000002',
+        'list firm_id firm_name revenue in 1/20, noobs clean'
+    ];
+
+    for (const line of lines) {
+        const inIndex = line.indexOf(' in ') + 1;
+        const inToken = grammar.tokenizeLine(line).tokens.find(token =>
+            token.startIndex <= inIndex && token.endIndex > inIndex
+        );
+        assert.ok(inToken, line);
+        assert.ok(inToken.scopes.includes('keyword.control.flow.stata'), line);
+    }
+
+    const summarizeLine = 'summarize revenue assets roa leverage audit_fee';
+    const leverageIndex = summarizeLine.indexOf('leverage');
+    const leverageToken = grammar.tokenizeLine(summarizeLine).tokens.find(token =>
+        token.startIndex <= leverageIndex && token.endIndex > leverageIndex
+    );
+    assert.ok(leverageToken);
+    assert.equal(leverageToken.scopes.includes('keyword.control.flow.stata'), false);
+
+    const commandLine = 'leverage';
+    const commandToken = grammar.tokenizeLine(commandLine).tokens[0];
+    assert.ok(commandToken.scopes.includes('keyword.control.flow.stata'));
+});

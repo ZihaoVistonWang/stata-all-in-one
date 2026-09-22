@@ -23,6 +23,17 @@ test('hides only the generated temporary do wrapper across streamed chunks', () 
     assert.match(output, /\n\. \n$/);
 });
 
+test('hides a final marker when echo=false omits the generated do command', () => {
+    const filter = new TemporaryDoFileOutputFilter('/tmp/generated.do');
+    const output = [
+        filter.push('. gsort -revenue\n'),
+        filter.push('\nend of do-file\n'),
+        filter.finish()
+    ].join('');
+
+    assert.equal(output, '. gsort -revenue\n\n');
+});
+
 test('preserves user-authored do commands and nested end markers', () => {
     const filter = new TemporaryDoFileOutputFilter('/tmp/generated.do');
     const output = [
@@ -37,11 +48,11 @@ test('preserves user-authored do commands and nested end markers', () => {
     assert.equal((output.match(/end of do-file/g) || []).length, 1);
 });
 
-test('does not suppress a user do command when its path differs from the generated file', () => {
+test('keeps a user do command while hiding the final marker', () => {
     const filter = new TemporaryDoFileOutputFilter('/tmp/generated.do');
     const output = filter.push('. do "/tmp/user.do"\nend of do-file\n') + filter.finish();
 
-    assert.equal(output, '. do "/tmp/user.do"\nend of do-file\n');
+    assert.equal(output, '. do "/tmp/user.do"\n');
     assert.equal(
         normalizeComparablePath('C:\\\\Temp\\\\SD0001.do'),
         'c:/temp/sd0001.do'
