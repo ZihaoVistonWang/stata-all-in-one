@@ -13,7 +13,15 @@ const os = require('os');
 
 // Module-level singleton
 let _consoleSessionInstance = null;
-let _sessionStale = false; // true when console panel was closed — session should be recreated
+let _sessionStale = false; // true when console panel was closed — the JS wrapper should be replaced
+
+// One-time Stata bootstrap state ("set more off", "set linesize 255", and the
+// initial "clear all"). It belongs to the NATIVE session, not to the JS wrapper:
+// the wrapper is dropped whenever the Console panel closes, while the native
+// StataSO session (and everything the user loaded into it) keeps living.
+// Keeping this on the wrapper made a reopen look like a brand-new session and
+// silently wiped the user's data with `clear all`.
+let _nativeSessionBootstrapped = false;
 
 /**
  * StataSO_Execute does not consistently recognize horizontal tabs as token
@@ -69,7 +77,6 @@ class StataConsoleSession {
         this._nativeSession = null;
         this._context = context;
         this._workingDirectory = null;
-        this._bootstrapped = false;
         this._activeExecutions = 0;
         this._idleWaiters = [];
         this._stopRequested = false;
@@ -86,9 +93,15 @@ class StataConsoleSession {
     _restoreState() {
         if (this._context) {
             const storedPath = this._context.globalState.get(kLibraryPathKey);
-            if (storedPath && native.isInitialized()) {
-                this._initialized = native.isInitialized();
-                this._libraryPath = storedPath;
+            this._libraryPath = storedPath || null;
+        }
+        // The wrapper's view of the session must always be reconciled with the
+        // native session, because the native session outlives any single
+        // wrapper instance (the wrapper is dropped when the Console closes).
+        if (native.isInitialized()) {
+            this._initialized = true;
+            if (!this._libraryPath && typeof native.getDylibPath === 'function') {
+                this._libraryPath = native.getDylibPath() || null;
             }
         }
     }
@@ -114,7 +127,6 @@ class StataConsoleSession {
         this._initialized = false;
         this._libraryPath = null;
         this._workingDirectory = null;
-        this._bootstrapped = false;
     }
 
     /**
@@ -190,14 +202,19 @@ class StataConsoleSession {
             return { success: false, error: 'Native module not loaded.', failCode: 'NATIVE_NOT_LOADED' };
         }
 
+        // The native session died behind our back (crash / forced stop).
         if (this._initialized && !native.isInitialized()) {
             this._initialized = false;
-            this._bootstrapped = false;
+            _nativeSessionBootstrapped = false;
             this._workingDirectory = null;
+            notifySessionLost();
         }
 
         if (this._initialized) {
             if (this._libraryPath === libraryPath) {
+                // Already connected. Nothing to do — in particular, do NOT
+                // re-run the bootstrap, which starts with `clear all`.
+                this._reconcileBootstrapState();
                 return { success: true, error: '' };
             }
             this.shutdown();
@@ -206,11 +223,14 @@ class StataConsoleSession {
         // If the native C++ session is still alive from a previous JS wrapper
         // (panel was closed without native shutdown to avoid dlclose crash),
         // just reconnect this JS wrapper to the existing native session.
+        // The user's data is still in memory, so this is NOT a new session and
+        // must not trigger the `clear all` bootstrap.
         if (native.isInitialized()) {
             console.log('Stata All in One: Reconnecting to existing native session');
             this._initialized = true;
             this._libraryPath = libraryPath;
             this._generation += 1;
+            this._reconcileBootstrapState();
             this._saveState();
             return { success: true, error: '' };
         }
@@ -226,6 +246,7 @@ class StataConsoleSession {
                 this._initialized = true;
                 this._libraryPath = libraryPath;
                 this._generation += 1;
+                _nativeSessionBootstrapped = false;
                 this._saveState();
                 return { success: true, error: '' };
             }
@@ -235,6 +256,23 @@ class StataConsoleSession {
         } catch (error) {
             console.error('Stata All in One: Initialization failed:', error.message);
             return { success: false, error: error.message, failCode: 'SESSION_INIT_FAILED' };
+        }
+    }
+
+    /**
+     * Reconnecting to a live native session must never look like a brand-new
+     * session, otherwise the next run wipes the user's data with `clear all`.
+     * @private
+     */
+    _reconcileBootstrapState() {
+        if (!_nativeSessionBootstrapped) {
+            // The native session predates this module's bookkeeping (for example
+            // the extension was reloaded). Treat the live session as already
+            // bootstrapped: the bootstrap commands are idempotent settings, and
+            // assuming otherwise would destroy live data. The stale plugin
+            // registration this could leave behind is detected and repaired at
+            // read time by consoleDataReader.
+            _nativeSessionBootstrapped = true;
         }
     }
 
@@ -348,7 +386,9 @@ class StataConsoleSession {
         }
 
         this._workingDirectory = null;
-        this._bootstrapped = false;
+        // An explicit restart intentionally returns the session to its
+        // just-created state, so the next run performs the reset bootstrap.
+        _nativeSessionBootstrapped = false;
         this.clearOutput();
         return { success: true };
     }
@@ -392,18 +432,20 @@ class StataConsoleSession {
      * @returns {boolean} - 成功返回 true
      */
     shutdown() {
-        if (!this._initialized) {
+        if (!this._initialized && !native.isInitialized()) {
             console.warn('Stata All in One: Nothing to shutdown: session not initialized.');
             return true; // 未初始化也算成功关闭
         }
 
         try {
             native.shutdown();
+            _nativeSessionBootstrapped = false;
             this._clearState();
             return true;
         } catch (error) {
             console.error('Stata All in One: Shutdown failed:', error.message);
             // 即使原生关闭失败，也清除本地状态
+            _nativeSessionBootstrapped = false;
             this._clearState();
             return false;
         }
@@ -442,12 +484,17 @@ class StataConsoleSession {
         this._workingDirectory = workingDirectory || null;
     }
 
+    /**
+     * One-time bootstrap state belongs to the native session, not to this
+     * wrapper, because the wrapper is recreated whenever the Console panel is
+     * closed and reopened while the native session keeps running.
+     */
     isBootstrapped() {
-        return this._bootstrapped;
+        return _nativeSessionBootstrapped;
     }
 
     setBootstrapped(bootstrapped) {
-        this._bootstrapped = Boolean(bootstrapped);
+        _nativeSessionBootstrapped = Boolean(bootstrapped);
     }
 
     /**
@@ -465,6 +512,38 @@ class StataConsoleSession {
         } catch (error) {
             console.error('Stata All in One: Clear output failed:', error.message);
             return false;
+        }
+    }
+}
+
+const sessionLostListeners = new Set();
+
+/**
+ * Register a listener that runs when the live Stata session disappears
+ * unexpectedly (worker crash, forced stop, Stata shutdown). A lost session is
+ * NOT the same thing as a brand-new empty session, and callers must be able to
+ * tell the difference instead of silently showing an empty dataset.
+ * @param {function({reason: string}): void} listener
+ * @returns {{dispose: function(): void}}
+ */
+function onDidLoseSession(listener) {
+    if (typeof listener !== 'function') {
+        return { dispose() {} };
+    }
+    sessionLostListeners.add(listener);
+    return {
+        dispose() {
+            sessionLostListeners.delete(listener);
+        }
+    };
+}
+
+function notifySessionLost() {
+    for (const listener of Array.from(sessionLostListeners)) {
+        try {
+            listener({ reason: 'session-lost' });
+        } catch (error) {
+            console.error('Stata All in One: Session-lost listener failed:', error.message);
         }
     }
 }
@@ -515,7 +594,8 @@ function markSessionStale() {
 
 /**
  * Check if a session exists but is stale (panel was closed).
- * Caller should shut down the old session and recreate.
+ * The native session is still alive and still holds the user's data; only the
+ * JS wrapper is dropped.
  */
 function isSessionStale() {
     return _sessionStale && _consoleSessionInstance !== null && _consoleSessionInstance.isInitialized();
@@ -526,7 +606,9 @@ function isSessionStale() {
  * The native C++ dlclose/FreeLibrary can crash VS Code due to a race
  * condition with detached worker threads. Instead, we just drop the JS
  * wrapper — the next session.init() will detect that the native module
- * is already initialized and skip the C++ init call.
+ * is already initialized and reconnect to it. Reconnecting must PRESERVE the
+ * live data, so the bootstrap state is intentionally kept (it is tied to the
+ * native session, not to the wrapper).
  */
 function clearStaleSession() {
     if (_sessionStale && _consoleSessionInstance) {
@@ -555,6 +637,13 @@ function forceShutdownConsoleSession() {
     return true;
 }
 
+/**
+ * Explicit user-requested restart.
+ *
+ * This is the ONE path that is allowed to erase Stata state: it resets the
+ * live session and then replaces the wrapper so the next run bootstraps again.
+ * Unlike a panel close/reopen, the reset here is intentional.
+ */
 async function restartConsoleSession(context) {
     if (!_consoleSessionInstance || !_consoleSessionInstance.isInitialized()) {
         return { success: false, error: 'Stata session is not initialized.' };
@@ -568,11 +657,10 @@ async function restartConsoleSession(context) {
 
     _consoleSessionInstance = new StataConsoleSession(context);
     _sessionStale = false;
+    const connected = _consoleSessionInstance.isInitialized();
     return {
-        success: _consoleSessionInstance.isInitialized(),
-        error: _consoleSessionInstance.isInitialized()
-            ? ''
-            : 'Failed to reconnect to the reset Stata session.'
+        success: connected,
+        error: connected ? '' : 'Failed to reconnect to the reset Stata session.'
     };
 }
 
@@ -587,6 +675,7 @@ function getActiveSession() {
 module.exports = {
     StataConsoleSession,
     normalizeNativeCommandWhitespace,
+    onDidLoseSession,
     getConsoleSession,
     getActiveSession,
     initConsoleSession,
