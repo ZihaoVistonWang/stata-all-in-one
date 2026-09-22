@@ -78,6 +78,92 @@ async function load(filePath, force = false) {
     }
 }
 
+/**
+ * Expand one varlist token the way Stata's `unab`/varlist rules do:
+ * `_all`, an exact name, a `prefix*` wildcard, a `?` single-character wildcard,
+ * or a `from-to` range in dataset order.
+ */
+function expandVarToken(token, headers) {
+    const trimmed = String(token || '').trim();
+    if (!trimmed) return [];
+    if (trimmed === '_all' || trimmed === '*') {
+        return headers.slice();
+    }
+    if (trimmed.includes('*') || trimmed.includes('?')) {
+        const pattern = new RegExp(
+            `^${escapeRegExp(trimmed).replace(/\\\*/g, '.*').replace(/\\\?/g, '.')}$`,
+            'i'
+        );
+        return headers.filter((name) => pattern.test(name));
+    }
+    if (headers.includes(trimmed)) {
+        return [trimmed];
+    }
+    // `from-to` range, in dataset order (Stata also accepts ranges for
+    // abbreviated names; exact endpoints cover the common `x-z` usage).
+    const range = trimmed.match(/^([^\s-]+)-([^\s-]+)$/);
+    if (range) {
+        const from = headers.indexOf(range[1]);
+        const to = headers.indexOf(range[2]);
+        if (from >= 0 && to >= 0) {
+            return from <= to ? headers.slice(from, to + 1) : headers.slice(to, from + 1);
+        }
+        // Fall back to documented Stata abbreviation behaviour.
+        const fromMatches = matchAbbreviation(range[1], headers);
+        const toMatches = matchAbbreviation(range[2], headers);
+        if (fromMatches.length === 1 && toMatches.length === 1) {
+            const startIndex = headers.indexOf(fromMatches[0]);
+            const endIndex = headers.indexOf(toMatches[0]);
+            return startIndex <= endIndex
+                ? headers.slice(startIndex, endIndex + 1)
+                : headers.slice(endIndex, startIndex + 1);
+        }
+    }
+    const abbreviated = matchAbbreviation(trimmed, headers);
+    if (abbreviated.length === 1) {
+        return abbreviated;
+    }
+    return [];
+}
+
+function matchAbbreviation(token, headers) {
+    const wanted = String(token || '').toLowerCase();
+    return headers.filter((name) => String(name).toLowerCase().startsWith(wanted));
+}
+
+function escapeRegExp(value) {
+    return String(value).replace(/[.+^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Parse the `in` qualifier. Stata accepts `in 5`, `in 2/10`, `in 1/l` (last) and
+ * `in f/10` (first), all 1-based and inclusive.
+ */
+function parseInRange(inClause, nobs) {
+    const text = String(inClause || '').trim();
+    if (!text) return null;
+    const match = text.match(/^([0-9]+|[lf])\s*(?:\/\s*([0-9]+|[lf])\s*)?$/i);
+    if (!match) {
+        throw new Error(msg('dataViewerUnsupportedFilter', { expression: `in ${inClause}` }));
+    }
+    const resolve = (token, fallback) => {
+        const value = String(token || '').toLowerCase();
+        if (value === 'l') return nobs;
+        if (value === 'f') return 1;
+        if (value === '') return fallback;
+        return Number(value);
+    };
+    const first = resolve(match[1], 1);
+    const last = resolve(match[2], first);
+    if (!Number.isFinite(first) || !Number.isFinite(last) || first < 1 || last < 1) {
+        throw new Error(msg('dataViewerUnsupportedFilter', { expression: `in ${inClause}` }));
+    }
+    return {
+        start: Math.max(0, Math.min(nobs, first - 1)),
+        end: Math.max(0, Math.min(nobs, last))
+    };
+}
+
 function buildQuery(data, filterText) {
     const spec = splitFilterSpec(filterText);
     const expression = String(spec.ifClause || '').trim();
@@ -86,24 +172,26 @@ function buildQuery(data, filterText) {
         try {
             filter = compileFilter(expression, data).fn;
         } catch (error) {
+            // Never fall back to "no filter": an unsupported expression must fail
+            // loudly instead of showing different rows than Stata would.
             throw new Error(msg('dataViewerUnsupportedFilter', { expression }));
         }
     }
     let start = 0;
     let end = data.meta.nobs;
     if (spec.inClause) {
-        const range = spec.inClause.match(/^\s*(\d+)\s*(?:\/\s*(\d+)\s*)?$/);
-        if (!range) throw new Error(msg('dataViewerUnsupportedFilter', { expression: `in ${spec.inClause}` }));
-        start = Math.max(0, Number(range[1]) - 1);
-        end = Math.min(data.meta.nobs, Number(range[2] || range[1]));
+        const range = parseInRange(spec.inClause, data.meta.nobs);
+        if (range) {
+            start = range.start;
+            end = range.end;
+        }
     }
     let columns = data.meta.headers;
     if (spec.varList) {
         columns = [];
         for (const token of spec.varList.split(/\s+/).filter(Boolean)) {
-            const pattern = new RegExp(`^${token.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*')}$`, 'i');
-            for (const name of data.meta.headers) {
-                if (pattern.test(name) && !columns.includes(name)) columns.push(name);
+            for (const name of expandVarToken(token, data.meta.headers)) {
+                if (!columns.includes(name)) columns.push(name);
             }
         }
         if (!columns.length) {

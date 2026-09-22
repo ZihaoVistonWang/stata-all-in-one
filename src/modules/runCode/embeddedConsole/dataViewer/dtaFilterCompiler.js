@@ -119,6 +119,18 @@ function tokenize(src) {
       tokens.push({ type: "STRING", value: s, pos: start });
       continue;
     }
+    // "." (and ".a" ... ".z") is Stata's missing numeric value.
+    if (c === "." ) {
+      let s = ".";
+      i++;
+      const suffix = i < src.length ? src[i] : "";
+      if (suffix >= "a" && suffix <= "z") {
+        s += suffix;
+        i++;
+      }
+      tokens.push({ type: "NUMBER", value: s, pos: start });
+      continue;
+    }
     if (c >= "0" && c <= "9") {
       let s = "";
       while (i < src.length && /[0-9.e+\-]/i.test(src[i])) {
@@ -371,7 +383,11 @@ var Parser = class {
     }
     if (t.type === "NUMBER") {
       this.consume();
-      return { kind: "num", value: Number(t.value) };
+      return {
+        kind: "num",
+        value: t.value.startsWith(".") ? NaN : Number(t.value),
+        literal: t.value
+      };
     }
     if (t.type === "STRING") {
       this.consume();
@@ -399,6 +415,52 @@ var Parser = class {
   }
 };
 var MISSING_VALUE = { v: null, missing: true };
+
+// Stata's numeric missing value "." is LARGER than every non-missing number.
+// `.a` .. `.z` are larger still, in alphabetical order. Using this sentinel for
+// every missing value reproduces "." exactly and keeps the .a-.z ordering
+// consistent with Stata; the extension cannot distinguish the extended missing
+// values because the native reader reports a single missing flag per cell.
+var MISSING_NUMERIC = 8.98846567431158e307;
+
+// The largest finite double is Stata's "." itself: a stored value at or above
+// this threshold IS a missing value.
+function isMissingNumericValue(value) {
+  return !Number.isFinite(value) || value >= MISSING_NUMERIC;
+}
+
+function normalizeNumericLiteral(value) {
+  return isMissingNumericValue(value) ? MISSING_NUMERIC : value;
+}
+
+// Stata represents a missing string as the empty string.
+function isMissingStringValue(value) {
+  return value === "";
+}
+
+/**
+ * Put a scaled value into one slot so that a missing numeric value compares and
+ * equates against every representation of "." and of `.a`-`.z` (the typed
+ * literal ., the scaled literal 8.99e307, and the value read out of Stata).
+ */
+function numericSlot(value) {
+  return isMissingNumericValue(value) ? MISSING_NUMERIC : value;
+}
+
+/**
+ * Whether an evaluated value is missing in Stata's terms.
+ *
+ * The Console capture path reports a missing flag; the .dta path reports the
+ * raw representation (an empty string, or a number at/above "." ). Both are
+ * normalized here so the two read paths behave identically.
+ */
+function isMissingValue(x) {
+  if (!x || x.missing) return true;
+  if (typeof x.v === "string") return isMissingStringValue(x.v);
+  if (typeof x.v === "number") return isMissingNumericValue(x.v);
+  return false;
+}
+
 function isTruthyValue(x) {
   if (x.missing)
     return false;
@@ -409,14 +471,39 @@ function isTruthyValue(x) {
   return x.v;
 }
 function scalarEquals(a, b) {
-  return a === b;
+  if (typeof a === "number" && typeof b === "number") {
+    return numericSlot(a) === numericSlot(b);
+  }
+  if (typeof a === "string" && typeof b === "string") {
+    return a === b;
+  }
+  return false;
 }
 function isComparable(v) {
   return typeof v === "number" || typeof v === "string";
 }
 function compareScalars(a, b, op) {
-  if (!isComparable(a) || !isComparable(b) || typeof a !== typeof b)
+  if (typeof a !== typeof b) {
+    // Stata refuses to compare a number with a string; the expression is never
+    // true rather than silently coerced.
     return false;
+  }
+  if (typeof a === "number") {
+    const left = numericSlot(a);
+    const right = numericSlot(b);
+    switch (op) {
+      case "lt":
+        return left < right;
+      case "le":
+        return left <= right;
+      case "gt":
+        return left > right;
+      case "ge":
+        return left >= right;
+    }
+    return false;
+  }
+  if (typeof a !== "string" || typeof b !== "string") return false;
   switch (op) {
     case "lt":
       return a < b;
@@ -427,6 +514,7 @@ function compareScalars(a, b, op) {
     case "ge":
       return a >= b;
   }
+  return false;
 }
 function scalarToString(v) {
   return String(v);
@@ -459,7 +547,10 @@ function toDate(value) {
 }
 function compileVal(node, data, referenced) {
   if (node.kind === "num") {
-    const v = node.value;
+    // "." and ".a"..".z" are Stata's missing numeric literals; both normalize
+    // onto the same sentinel as a value read out of Stata, so `x == .` matches.
+    const isMissingLiteral = typeof node.literal === "string" && node.literal.startsWith(".");
+    const v = isMissingLiteral ? MISSING_NUMERIC : normalizeNumericLiteral(node.value);
     return () => ({ v, missing: false });
   }
   if (node.kind === "str") {
@@ -507,6 +598,17 @@ function compileVal(node, data, referenced) {
     return compileCall(node, data, referenced);
   }
   if (node.kind === "var") {
+    // Stata's system variables. `_n` is the observation number and `_N` the
+    // number of observations; both start at 1.
+    if (node.name === "_n") {
+      return (i) => ({ v: i + 1, missing: false });
+    }
+    if (node.name === "_N") {
+      const total = data.meta && typeof data.meta.nobs === "number"
+        ? data.meta.nobs
+        : (data.columns[Object.keys(data.columns)[0]] || []).length;
+      return () => ({ v: total, missing: false });
+    }
     const arr = data.columns[node.name];
     const miss = data.missing[node.name];
     if (!arr) {
@@ -515,10 +617,25 @@ function compileVal(node, data, referenced) {
     referenced.add(node.name);
     if (Array.isArray(arr)) {
       const sa = arr;
-      return (i) => miss[i] ? { v: null, missing: true } : { v: sa[i], missing: false };
+      return (i) => {
+        if (miss[i]) return { v: null, missing: true };
+        const value = sa[i];
+        // An empty string IS a missing string in Stata, even when the reader did
+        // not set the missing flag (the Console capture path reports the flag;
+        // the .dta path reports the empty string).
+        if (isMissingStringValue(value)) return { v: null, missing: true };
+        return { v: value, missing: false };
+      };
     } else {
       const na = arr;
-      return (i) => miss[i] ? { v: null, missing: true } : { v: na[i], missing: false };
+      return (i) => {
+        if (miss[i]) return { v: null, missing: true };
+        const value = na[i];
+        if (typeof value === "number" && isMissingNumericValue(value)) {
+          return { v: MISSING_NUMERIC, missing: true };
+        }
+        return { v: value, missing: false };
+      };
     }
   }
   throw new FilterCompileError(dtaL10n.t('Expected a value, got expression of kind "{0}"', node.kind));
@@ -528,7 +645,10 @@ function compileCall(node, data, referenced) {
   const args = node.args.map((arg) => compileVal(arg, data, referenced));
   if (name === "missing") {
     expectMinArgCount(name, args.length, 1);
-    return (i) => ({ v: args.some((arg) => arg(i).missing), missing: false });
+    return (i) => ({
+      v: args.some((arg) => isMissingValue(arg(i))),
+      missing: false
+    });
   }
   if (name === "inlist") {
     expectMinArgCount(name, args.length, 2);
@@ -619,6 +739,26 @@ function compileCall(node, data, referenced) {
       return { v: text.length, missing: false };
     };
   }
+  if (name === "mod") {
+    expectArgCount(name, args.length, 2);
+    return (i) => {
+      const a = args[0](i);
+      const b = args[1](i);
+      if (a.missing || b.missing) return MISSING_VALUE;
+      const x = expectNumber(a.v, name);
+      const y = expectNumber(b.v, name);
+      if (y === 0) return MISSING_VALUE;
+      return { v: x % y, missing: false };
+    };
+  }
+  if (name === "abs") {
+    expectArgCount(name, args.length, 1);
+    return (i) => {
+      const value = args[0](i);
+      if (value.missing) return MISSING_VALUE;
+      return { v: Math.abs(expectNumber(value.v, name)), missing: false };
+    };
+  }
   if (name === "year" || name === "month" || name === "day") {
     expectArgCount(name, args.length, 1);
     return (i) => {
@@ -656,26 +796,39 @@ function compileBool(node, data, referenced) {
     const ra = compileVal(node.a, data, referenced);
     const rb = compileVal(node.b, data, referenced);
     const op = node.op;
+    const numericCompare = op === "lt" || op === "le" || op === "gt" || op === "ge";
+    if (numericCompare) {
+      // Ordering comparisons must see the missing-value ORDERING, not a hard
+      // `false`, or `if x > 0` would silently drop the missing observations that
+      // Stata keeps.
+      return (i) => {
+        const A = ra(i);
+        const B = rb(i);
+        const aMissing = isMissingValue(A);
+        const bMissing = isMissingValue(B);
+        const aIsString = !aMissing && typeof A.v === "string";
+        const bIsString = !bMissing && typeof B.v === "string";
+        // A missing numeric compared with a string is a type mismatch in Stata.
+        if ((aMissing && bIsString) || (bMissing && aIsString)) {
+          return false;
+        }
+        const va = aMissing ? MISSING_NUMERIC : A.v;
+        const vb = bMissing ? MISSING_NUMERIC : B.v;
+        return compareScalars(va, vb, op);
+      };
+    }
     return (i) => {
       const A = ra(i);
-      if (A.missing)
-        return false;
       const B = rb(i);
-      if (B.missing)
-        return false;
-      const va = A.v;
-      const vb = B.v;
-      switch (op) {
-        case "eq":
-          return va === vb;
-        case "neq":
-          return va !== vb;
-        case "lt":
-        case "le":
-        case "gt":
-        case "ge":
-          return compareScalars(va, vb, op);
+      const aMissing = isMissingValue(A);
+      const bMissing = isMissingValue(B);
+      if (aMissing || bMissing) {
+        // `==` and `!=` against a missing value compare missing-ness itself,
+        // which is what `if x == .` and `if s == ""` mean in Stata.
+        const bothMissing = aMissing && bMissing;
+        return op === "eq" ? bothMissing : !bothMissing;
       }
+      return op === "eq" ? scalarEquals(A.v, B.v) : !scalarEquals(A.v, B.v);
     };
   }
   const r = compileVal(node, data, referenced);
