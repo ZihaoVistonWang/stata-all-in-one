@@ -1154,12 +1154,12 @@ var DtaParser = class {
       const code = readUInt162(buffer, vt.start + j * 2, byteOrder);
       const dec = decodeTypeCode(code);
       if (!dec) {
-        types.push("byte");
-        typeSizes.push(1);
-      } else {
-        types.push(dec.type);
-        typeSizes.push(dec.size);
+        // Never guess a storage type: reading an unknown type as `byte` would
+        // silently mis-read every value instead of reporting the problem.
+        throw new Error(dtaL10n3.t("Unknown storage type code {0} at variable {1}", code, j));
       }
+      types.push(dec.type);
+      typeSizes.push(dec.size);
     }
     const vn = sliceTagContent(3, "varnames");
     const headers = [];
@@ -1371,8 +1371,11 @@ function computeLayout(buffer) {
   for (let j = 0; j < K; j++) {
     const code = readUInt162(buffer, vt.start + j * 2, byteOrder);
     const dec = decodeTypeCode(code);
-    types.push(dec ? dec.type : "byte");
-    typeSizes.push(dec ? dec.size : 1);
+    if (!dec) {
+      throw new Error(dtaL10n3.t("Unknown storage type code {0} at variable {1}", code, j));
+    }
+    types.push(dec.type);
+    typeSizes.push(dec.size);
   }
   const vn = sliceTagContent(3, "varnames");
   const headers = [];

@@ -145,21 +145,41 @@ function getSnapshotFromData(data, source, rowLimit = 500, filterText = '', star
         window = collectWindow(data, query, windowStart, max);
     }
     return {
-        info: { observations: window.matched, variables: headers.length, source, sortedBy: null },
-        vars: headers.map((name, index) => ({
-            name,
-            type: data.meta.types[data.meta.headers.indexOf(name)] || '',
-            format: (data.meta.formats && data.meta.formats[data.meta.headers.indexOf(name)]) || '.',
-            label: data.meta.labels[data.meta.headers.indexOf(name)] || null,
-            valueLabel: null
-        })),
+        // `observations` is the number of rows matched by the current filter;
+        // `totalObservations` is the size of the dataset before filtering.
+        // The viewer needs both to tell "the filter matched nothing" apart from
+        // "the dataset is empty".
+        info: {
+            observations: window.matched,
+            totalObservations: data.meta.nobs,
+            variables: headers.length,
+            source,
+            sortedBy: null
+        },
+        // Keep the untouched dataset metadata so callers can classify the result
+        // (no dataset / zero observations / no matches) without re-reading Stata.
+        meta: {
+            headers: data.meta.headers.slice(),
+            nobs: data.meta.nobs
+        },
+        vars: headers.map((name) => {
+            const index = data.meta.headers.indexOf(name);
+            return {
+                name,
+                type: data.meta.types[index] || '',
+                format: (data.meta.formats && data.meta.formats[index]) || '.',
+                label: data.meta.labels[index] || null,
+                valueLabel: null
+            };
+        }),
         dataColumns: headers,
         allVarNames: headers,
         dataRows: window.rows,
         windowStart,
         hasMoreBefore: windowStart > 0,
         hasMore: windowStart + window.rows.length < window.matched,
-        filterText: String(filterText || '')
+        filterText: String(filterText || ''),
+        hasFilter: Boolean(String(filterText || '').trim())
     };
 }
 

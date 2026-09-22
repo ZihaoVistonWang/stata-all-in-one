@@ -55,6 +55,8 @@ function parseMetadataOutput(output) {
 
     const nobsMatch = reassembledText.match(/__SAIO_NOBS__([0-9]+(?:\.[0-9]+)?)/);
     if (!nobsMatch) {
+        // Stata always answers with a nobs frame. A missing frame means the
+        // response was truncated or is not ours — never "zero variables".
         throw new Error(msg('dataViewerMetadataMissing'));
     }
     const nobs = Number(nobsMatch[1]);

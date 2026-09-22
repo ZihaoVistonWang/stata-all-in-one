@@ -108,12 +108,11 @@ function getUserLanguage() {
 async function restartEmbeddedConsoleSession(context) {
     const session = require('./modules/runCode/embeddedConsole/session');
     const { resetConsoleDataViewer } = require('./modules/runCode/embeddedConsole/dataViewer/panel');
-    const { resetSessionCache } = require('./modules/runCode/embeddedConsole/dataViewer/consoleDataReader');
     const variableSuggestions = require('./modules/variableSuggestionService');
 
     await variableSuggestions.refreshMemoryVars(context);
+    // Also drops any pinned Data Viewer snapshot and the live read cache.
     await resetConsoleDataViewer();
-    resetSessionCache();
 
     if (session.getActiveSession()) {
         const result = await session.restartConsoleSession(context);

@@ -64,6 +64,7 @@ test('writes the browse command and localized confirmation to the Console', asyn
     const result = await routeBrowseCommand('browse price if foreign, nolabel', {
         getTerminalSink: () => sink,
         revealDataViewer: async (filterText) => { events.push(['reveal', filterText]); },
+        getLastRevealResult: () => ({ success: true, status: 'ok', mode: 'console' }),
         openedMessage: 'Opened in the "Data Viewer | Stata All in One" tab.'
     });
 
@@ -103,4 +104,42 @@ test('rejects condition expressions that omit the if qualifier', () => {
     assert.equal(isFilterMissingIf('foreign price if foreign == 1 & price < 10000'), false);
     assert.equal(isFilterMissingIf('if foreign == 1 & price < 10000'), false);
     assert.equal(isFilterMissingIf('foreign'), false);
+});
+
+test('reports a failed read instead of claiming browse succeeded', async () => {
+    const events = [];
+    const sink = {
+        async prepareForExecution() { events.push(['prepare']); },
+        writeCommand(command) { events.push(['command', command]); },
+        writeRawChunk(output) { events.push(['raw', output]); },
+        flushOutput() { events.push(['flush']); },
+        setStatus(status) { events.push(['status', status]); }
+    };
+
+    const result = await routeBrowseCommand('br if _merge==1', {
+        getTerminalSink: () => sink,
+        revealDataViewer: async () => { events.push(['reveal']); },
+        getLastRevealResult: () => ({
+            success: false,
+            status: 'read-failed',
+            mode: 'console',
+            error: 'Stata did not return dataset metadata.'
+        }),
+        openedMessage: 'Opened in the "Data Viewer | Stata All in One" tab.',
+        openedWithErrorMessage: (error) => `The Data Viewer opened, but reading the data failed: ${error}`
+    });
+
+    assert.equal(result.success, false, 'a failed read must not be reported as success');
+    assert.equal(result.routedToDataViewer, true);
+    assert.equal(result.viewerOpened, true, 'the panel did open');
+    assert.equal(result.readFailed, true);
+    assert.equal(result.status, 'read-failed');
+    assert.match(result.error, /metadata/);
+    const rawText = events.filter((event) => event[0] === 'raw').map((event) => event[1]).join('');
+    assert.match(rawText, /reading the data failed/i);
+    assert.deepEqual(
+        events.find((event) => event[0] === 'status'),
+        ['status', 'error'],
+        'the Console status must not claim success'
+    );
 });

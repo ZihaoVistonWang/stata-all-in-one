@@ -65,15 +65,35 @@ async function routeBrowseCommand(code, dependencies = {}) {
         return null;
     }
 
+    // Loaded lazily: the Data Viewer panel pulls in `vscode`, and this module is
+    // also imported by the pure-logic tests.
+    let dataViewer = null;
+    const loadDataViewer = () => {
+        if (!dataViewer) {
+            dataViewer = require('./embeddedConsole/dataViewer/panel');
+        }
+        return dataViewer;
+    };
     const revealDataViewer = dependencies.revealDataViewer
-        || require('./embeddedConsole/dataViewer/panel').revealDataViewer;
+        || ((...args) => loadDataViewer().revealDataViewer(...args));
+    const readLastResult = dependencies.getLastRevealResult
+        || (() => {
+            const viewer = loadDataViewer();
+            return typeof viewer.getLastRevealResult === 'function'
+                ? viewer.getLastRevealResult()
+                : null;
+        });
     const getTerminalSink = dependencies.getTerminalSink
         || require('./embeddedConsole/panel').getWebviewTerminalSink;
+    // utils/common requires `vscode`, so it is resolved only when a message is
+    // actually needed; the logic tests supply their own strings.
+    const msg = (key, params) => require('../../utils/common').msg(key, params);
     const openedMessage = dependencies.openedMessage
-        || (() => {
-            const { msg } = require('../../utils/common');
-            return msg('dataViewerOpenedNotice', { title: msg('dataViewerPanelTitle') });
-        })();
+        || msg('dataViewerOpenedNotice', { title: msg('dataViewerPanelTitle') });
+    const readFailedMessage = dependencies.readFailedMessage
+        || (() => msg('dataViewerReadFailed'));
+    const openedWithErrorMessage = dependencies.openedWithErrorMessage
+        || ((error) => msg('dataViewerOpenedWithError', { error }));
 
     const sink = getTerminalSink();
     await sink.prepareForExecution();
@@ -82,6 +102,31 @@ async function routeBrowseCommand(code, dependencies = {}) {
         allowWhileRunning: Boolean(dependencies.keepRunning),
         captureSnapshot: Boolean(dependencies.keepRunning)
     });
+
+    // Opening the panel and reading the data are separate outcomes. Reporting
+    // "opened" as success while the read failed is what hid plugin and session
+    // failures behind an empty viewer.
+    const revealResult = readLastResult();
+    const readFailed = Boolean(revealResult && revealResult.success === false);
+    if (readFailed) {
+        const reason = revealResult.error || readFailedMessage();
+        sink.writeRawChunk(openedWithErrorMessage(reason));
+        sink.flushOutput();
+        if (!dependencies.keepRunning) {
+            sink.setStatus('error');
+        }
+        return {
+            success: false,
+            shouldOfferGuiFallback: false,
+            routedToDataViewer: true,
+            viewerOpened: true,
+            readFailed: true,
+            status: revealResult.status,
+            error: reason,
+            filterText: parsed.filterText
+        };
+    }
+
     sink.writeRawChunk(openedMessage);
     sink.flushOutput();
     if (!dependencies.keepRunning) {
@@ -92,6 +137,8 @@ async function routeBrowseCommand(code, dependencies = {}) {
         success: true,
         shouldOfferGuiFallback: false,
         routedToDataViewer: true,
+        viewerOpened: true,
+        status: revealResult ? revealResult.status : 'ok',
         filterText: parsed.filterText
     };
 }

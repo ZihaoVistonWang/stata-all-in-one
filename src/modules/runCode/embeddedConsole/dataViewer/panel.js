@@ -2,6 +2,12 @@ const vscode = require('vscode');
 const directDtaStore = require('./directDtaStore');
 const consoleStore = require('./consoleStore');
 const { isFilterMissingIf } = require('./provider');
+const {
+    VIEWER_STATUS,
+    classifySnapshot,
+    classifyError,
+    keepsPreviousView
+} = require('./status');
 const { msg, showInfo, showError } = require('../../../../utils/common');
 const { StataTerminalRenderer, getWebviewThemeVariables } = require('../renderer');
 const variableSuggestions = require('../../../variableSuggestionService');
@@ -520,6 +526,20 @@ function getDataViewerHtml(webview) {
             white-space: nowrap;
             text-align: right;
         }
+        .status-banner {
+            margin: 8px 12px 0;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: var(--viewer-font-size, 14px);
+            border: 1px solid var(--vscode-inputValidation-warningBorder, #b89500);
+            background: var(--vscode-inputValidation-warningBackground, rgba(184, 149, 0, 0.12));
+            color: var(--vscode-foreground);
+            white-space: pre-wrap;
+        }
+        .status-banner.error {
+            border-color: var(--vscode-inputValidation-errorBorder, #be1100);
+            background: var(--vscode-inputValidation-errorBackground, rgba(190, 17, 0, 0.12));
+        }
         .empty-state, .loading-state {
             display: flex;
             align-items: center;
@@ -589,6 +609,7 @@ function getDataViewerHtml(webview) {
     </div>
     <div class="content" id="content">
         <div class="loading-state" id="loading-msg">${escHtml(msg('dataViewerLoading'))}</div>
+        <div class="status-banner" id="status-banner" role="status" style="display:none"><span id="status-banner-text"></span></div>
         <div class="tab-content active" id="content-vars">
             <div class="empty-state" id="empty-vars">${escHtml(msg('dataViewerNoDataset'))}</div>
             <div class="empty-state" id="empty-vars-filter" style="display:none">${escHtml(msg('dataViewerNoVariableMatches'))}</div>
@@ -2123,9 +2144,89 @@ function getDataViewerHtml(webview) {
             scheduleDataRender(true);
         }
 
+        var VIEWER_STATUS = ${JSON.stringify(VIEWER_STATUS)};
+
+        function showStatusBanner(kind, text) {
+            var banner = document.getElementById('status-banner');
+            var label = document.getElementById('status-banner-text');
+            if (!banner || !label) return;
+            if (!text) {
+                banner.style.display = 'none';
+                label.textContent = '';
+                banner.classList.remove('error');
+                return;
+            }
+            banner.style.display = '';
+            label.textContent = text;
+            banner.classList.toggle('error', kind === 'error');
+        }
+
+        function clearStatusBanner() {
+            showStatusBanner('info', '');
+        }
+
+        function emptyStateMessage(status) {
+            if (status === VIEWER_STATUS.ZERO_OBSERVATIONS) {
+                return ${JSON.stringify(msg('dataViewerZeroObservations'))};
+            }
+            if (status === VIEWER_STATUS.NO_MATCHES) {
+                return ${JSON.stringify(msg('dataViewerNoMatches'))};
+            }
+            return ${JSON.stringify(msg('dataViewerNoDataset'))};
+        }
+
+        // Reflects what is currently on screen: either fresh data or a view that
+        // could not be updated.
+        var currentViewStatus = VIEWER_STATUS.OK;
+        // Whether a real table is on screen right now. A failed refresh may keep
+        // it, but only while labelling it as not updated.
+        var hasRenderedData = false;
+
+        function renderEmptyStatus(status, data) {
+            hasRenderedData = false;
+            showEmpty(false);
+            allVarsCache = [];
+            sharedAutocompleteVariables = (data && data.variableSuggestions) || sharedAutocompleteVariables;
+            autocompleteVariables = mergeVariableLists(sharedAutocompleteVariables);
+            updateFilterHighlight();
+            var message = emptyStateMessage(status);
+            document.getElementById('empty-vars').textContent = message;
+            document.getElementById('empty-data').textContent = message;
+            document.getElementById('info-bar').textContent = message;
+            totalObs = 0;
+            dataColumnsCache = [];
+            replaceDataRows([], 0);
+            setLoadingMore(false);
+        }
+
         function setData(data, viewport) {
             document.body.classList.remove('loading');
             document.getElementById('loading-msg').style.display = 'none';
+
+            // A failed refresh must never be rendered as "no dataset loaded".
+            if (data.status && data.status !== VIEWER_STATUS.OK) {
+                currentViewStatus = data.status;
+                var failed = data.status === VIEWER_STATUS.READ_FAILED
+                    || data.status === VIEWER_STATUS.SESSION_UNAVAILABLE
+                    || data.status === VIEWER_STATUS.FILE_UNAVAILABLE;
+                if (failed) {
+                    showStatusBanner('error', data.error || ${JSON.stringify(msg('dataViewerReadFailed'))});
+                    if (data.keepPreviousView !== false && hasRenderedData) {
+                        // Keep the last good table but say clearly that it is stale.
+                        return;
+                    }
+                    hasRenderedData = false;
+                    renderEmptyStatus(data.status);
+                    return;
+                }
+                clearStatusBanner();
+                hasRenderedData = false;
+                renderEmptyStatus(data.status);
+                return;
+            }
+
+            clearStatusBanner();
+            currentViewStatus = VIEWER_STATUS.OK;
             if (data.filterText !== undefined) {
                 dataFilterText = data.filterText || '';
                 filterOpenByTab.data = !!dataFilterText;
@@ -2138,15 +2239,13 @@ function getDataViewerHtml(webview) {
                 }
             }
             var hasData = data.vars && data.vars.length > 0;
-            showEmpty(hasData);
             if (!hasData) {
-                allVarsCache = [];
-                sharedAutocompleteVariables = data.variableSuggestions || sharedAutocompleteVariables;
-                autocompleteVariables = mergeVariableLists(sharedAutocompleteVariables);
-                updateFilterHighlight();
-                document.getElementById('info-bar').textContent = ${JSON.stringify(msg('dataViewerNoDataset'))};
+                hasRenderedData = false;
+                renderEmptyStatus(data.status || VIEWER_STATUS.NO_DATASET, data);
                 return;
             }
+            hasRenderedData = true;
+            showEmpty(true);
             renderVars(data.vars, true);
             if (currentTab === 'vars' && variableFilterText) {
                 applyVariableTableFilter();
@@ -2531,13 +2630,34 @@ function ensurePanel(mode) {
 }
 
 // ── refresh data for a specific mode ───────────────────────────────────────────
+//
+// Returns a structured result so callers (the Data Viewer button and the browse
+// command router) can distinguish "the panel opened" from "the data was read",
+// and can tell a failed read apart from an empty dataset.
 async function refreshDataViewer(mode, filterText, targetPanel, options = {}) {
     const panel = targetPanel || _panels[mode];
-    if (!panel || !_ready[mode]) return;
+    if (!panel || !_ready[mode]) {
+        return { success: false, status: VIEWER_STATUS.READ_FAILED, reason: 'panel-not-ready', mode };
+    }
     if (isFilterMissingIf(filterText)) {
         showError(msg('dataViewerFilterRequiresIf', { expression: filterText }));
         panel.webview.postMessage({ type: 'setStatus', status: 'ready' });
-        return;
+        panel.webview.postMessage({
+            type: 'setData',
+            data: {
+                status: VIEWER_STATUS.READ_FAILED,
+                error: msg('dataViewerFilterRequiresIf', { expression: filterText }),
+                filterText: _pendingFilter[mode],
+                keepPreviousView: true
+            }
+        });
+        return {
+            success: false,
+            status: VIEWER_STATUS.READ_FAILED,
+            reason: 'invalid-filter',
+            error: msg('dataViewerFilterRequiresIf', { expression: filterText }),
+            mode
+        };
     }
     _pendingFilter[mode] = filterText || '';
     panel.webview.postMessage({ type: 'setStatus', status: 'loading' });
@@ -2573,23 +2693,53 @@ async function refreshDataViewer(mode, filterText, targetPanel, options = {}) {
                 VIEW_WINDOW_SIZE
             );
         }
+        const status = classifySnapshot(data, { filterText });
         if (mode === 'console' && data && Array.isArray(data.allVarNames) && data.allVarNames.length) {
             variableSuggestions.setMemoryVars(getDatasetVariableCandidates(data));
         }
-        _datasetAutocompleteVariables[mode] = getDatasetVariableCandidates(data);
-        data.variableSuggestions = variableSuggestions.getActiveVariables();
+        if (data) {
+            _datasetAutocompleteVariables[mode] = getDatasetVariableCandidates(data);
+            data.variableSuggestions = variableSuggestions.getActiveVariables();
+            data.status = status;
+        }
         panel.webview.postMessage({ type: 'setData', data, viewport });
         if (mode === 'console') {
             _dirty.console = false;
         }
+        panel.webview.postMessage({ type: 'setStatus', status: 'ready' });
+        return {
+            success: status === VIEWER_STATUS.OK,
+            status,
+            mode,
+            filterText: filterText || '',
+            data
+        };
     } catch (e) {
-        console.error('Stata All in One: refresh failed:', e.message);
-        panel.webview.postMessage({ type: 'setData', data: { error: e.message } });
+        const status = classifyError(e);
+        console.error('Stata All in One: refresh failed:', status, e.message);
+        // Keep whatever is on screen, but tell the user it was not updated.
+        panel.webview.postMessage({
+            type: 'setData',
+            data: {
+                status,
+                error: e.message || msg('dataViewerReadFailed'),
+                filterText: _pendingFilter[mode],
+                keepPreviousView: true
+            }
+        });
         if (mode === 'console') {
             _dirty.console = true;
         }
+        panel.webview.postMessage({ type: 'setStatus', status: 'ready' });
+        return {
+            success: false,
+            status,
+            mode,
+            filterText: filterText || '',
+            error: e.message || msg('dataViewerReadFailed'),
+            keepPreviousView: true
+        };
     }
-    panel.webview.postMessage({ type: 'setStatus', status: 'ready' });
 }
 
 // ── console data viewer entry point ────────────────────────────────────────────
@@ -2611,6 +2761,7 @@ async function reveal(filterText, options = {}) {
         if (_consoleSnapshot.entry) consoleStore.dispose(_consoleSnapshot.entry).catch(() => {});
         _consoleSnapshot.entry = null;
     }
+    let snapshotFailure = null;
     if (options.captureSnapshot) {
         try {
             if (_consoleSnapshot.entry) await consoleStore.dispose(_consoleSnapshot.entry);
@@ -2619,17 +2770,47 @@ async function reveal(filterText, options = {}) {
             _consoleSnapshot.pinned = Boolean(_consoleSnapshot.data && !_consoleSnapshot.data.error);
         } catch (error) {
             _consoleSnapshot.pinned = false;
-            _consoleSnapshot.data = { error: error.message };
+            _consoleSnapshot.data = null;
             _consoleSnapshot.entry = null;
+            snapshotFailure = {
+                status: classifyError(error),
+                error: error.message || msg('dataViewerReadFailed')
+            };
         }
     }
     const panel = ensurePanel('console');
     _nextActivationPreserve.console = preservePosition;
     panel.reveal(vscode.ViewColumn.Two, true);
     if (_ready.console && _dirty.console) {
-        requestPanelRefresh('console', _pendingFilter.console, preservePosition);
+        const refreshResult = await refreshDataViewer(
+            'console',
+            _pendingFilter.console,
+            panel,
+            { viewport: preservePosition ? _lastViewport.console : null }
+        );
+        lastRevealResult = snapshotFailure
+            ? { success: false, mode: 'console', ...snapshotFailure }
+            : refreshResult;
+        return panel;
     }
+    lastRevealResult = snapshotFailure
+        ? { success: false, mode: 'console', ...snapshotFailure }
+        : // Panel opened; its data arrives on the webview 'ready' round-trip.
+          { success: true, status: VIEWER_STATUS.OK, mode: 'console', pending: true };
     return panel;
+}
+
+/**
+ * Result of the most recent console reveal/refresh.
+ *
+ * revealDataViewer keeps returning the panel (existing callers depend on it),
+ * and the browse command router reads this to learn whether the read that backs
+ * the freshly opened panel actually succeeded.
+ */
+let lastRevealResult = null;
+
+function getLastRevealResult() {
+    return lastRevealResult;
 }
 
 // ── external update trigger (e.g., after running code in console) ──────────────
@@ -2723,6 +2904,7 @@ async function openDtaFile(context, uri, panel) {
 // ── exports ────────────────────────────────────────────────────────────────────
 module.exports = {
     revealDataViewer: reveal,
+    getLastRevealResult,
     openDtaFileInDataViewer: openDtaFile,
     updateDataViewerData: updateData,
     resetConsoleDataViewer: resetConsoleData,
