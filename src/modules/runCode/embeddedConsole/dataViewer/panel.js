@@ -8,6 +8,10 @@ const {
     classifyError,
     keepsPreviousView
 } = require('./status');
+const {
+    REQUEST_KINDS,
+    ViewerRequestTrackerRegistry
+} = require('./viewerRequestTracker');
 const { msg, showInfo, showError } = require('../../../../utils/common');
 const { StataTerminalRenderer, getWebviewThemeVariables } = require('../renderer');
 const variableSuggestions = require('../../../variableSuggestionService');
@@ -23,12 +27,86 @@ const PANEL_VIEW_TYPE = 'stata-all-in-one.dataViewer';
 // Two independent panels: 'console' (from console data button) and 'file' (from .dta click)
 const _panels = { console: null, file: null };
 const _ready = { console: false, file: false };
+// Per-panel readiness: `_ready` only tracks the most recently attached panel of
+// each mode, but several .dta custom editors can be open at the same time.
+const _readyForSet = new WeakSet();
+
+function _readyFor(panel) {
+    return _readyForSet.has(panel);
+}
 const _pendingFilter = { console: '', file: '' };
 const _dirty = { console: true, file: false };
 const _nextActivationPreserve = { console: true, file: true };
 const _lastViewport = { console: null, file: null };
 const _consoleSnapshot = { pinned: false, data: null, entry: null };
-const _filePaths = new WeakMap();
+// Per-panel view state (its own file, filter, data version and request
+// sequence). A single global `_panels.file` could not represent two open .dta
+// files, so a pagination request from one file could read the other.
+const _viewTrackers = new ViewerRequestTrackerRegistry();
+
+/**
+ * A panel is live when it still owns an unclosed view. This is deliberately not
+ * `_panels[mode] === panel`: `_panels.file` only remembers the most recently
+ * attached .dta panel, so a second file panel would otherwise be considered dead
+ * and its pagination requests silently dropped.
+ */
+/**
+ * The dataset version a viewer read is based on. Console reads follow the
+ * console store's generation; file reads follow the file's mtime/size stamp.
+ * Requests are stamped with it so a response computed from an older dataset can
+ * never be rendered as current.
+ */
+let _dataVersion = 0;
+
+function _dataVersionFor() {
+    return _dataVersion;
+}
+
+/**
+ * Bump the data version. Called whenever a command that may have changed Stata's
+ * data started running, so every in-flight viewer request becomes stale.
+ */
+function bumpDataVersion() {
+    _dataVersion += 1;
+    for (const panel of [_panels.console, _panels.file]) {
+        const tracker = panel ? _viewTrackers.peek(panel) : null;
+        if (tracker) {
+            tracker.setDataVersion(_dataVersion);
+        }
+    }
+    return _dataVersion;
+}
+
+function isLivePanel(panel) {
+    const tracker = _viewTrackers.peek(panel);
+    return Boolean(tracker && !tracker.isClosed());
+}
+
+/**
+ * The Console terminal panel module. Loaded lazily (and defensively) so the Data
+ * Viewer logic stays importable in environments without the VS Code API.
+ */
+let _consolePanelModule = null;
+let _consolePanelLoadFailed = false;
+
+function getConsolePanel() {
+    if (_consolePanelModule || _consolePanelLoadFailed) {
+        return _consolePanelModule;
+    }
+    try {
+        _consolePanelModule = require('../panel');
+    } catch (error) {
+        _consolePanelLoadFailed = true;
+        console.error('Stata All in One: Console panel unavailable:', error.message);
+    }
+    return _consolePanelModule;
+}
+
+function isConsoleRunning() {
+    const terminal = getConsolePanel();
+    return Boolean(terminal && typeof terminal.isWebviewTerminalRunning === 'function'
+        && terminal.isWebviewTerminalRunning());
+}
 const _datasetAutocompleteVariables = { console: [], file: [] };
 const _renderer = new StataTerminalRenderer();
 let _fontSize = 14;
@@ -2363,6 +2441,19 @@ function getDataViewerHtml(webview) {
 
 // ── attach a webview panel with mode-specific message handlers ─────────────────
 function attachPanel(panel, mode) {
+    // A custom-editor .dta panel is attached when it is created and the webview
+    // then reconnects: re-assigning the HTML and re-registering the listeners
+    // would drop the in-flight request tracking of the very same panel.
+    const existingTracker = _viewTrackers.peek(panel);
+    if (existingTracker && existingTracker.mode === mode && _panels[mode] === panel) {
+        panel.title = getPanelTitle();
+        panel.iconPath = getPanelIconPath();
+        return panel;
+    }
+    if (existingTracker) {
+        _viewTrackers.release(panel);
+    }
+
     _panels[mode] = panel;
     _ready[mode] = false;
     panel.title = getPanelTitle();
@@ -2382,26 +2473,44 @@ function attachPanel(panel, mode) {
     });
 
     panel.onDidDispose(() => {
-        if (_panels[mode] === panel) {
-            _panels[mode] = null;
-            _ready[mode] = false;
-            if (mode === 'file') {
-                const filePath = _filePaths.get(panel);
-                if (filePath) directDtaStore.dispose(filePath);
-                _filePaths.delete(panel);
+        _readyForSet.delete(panel);
+        // Cancel every in-flight request for THIS panel and release ITS
+        // resources. This must not depend on `_panels[mode] === panel`: with two
+        // .dta panels open, closing the first one would otherwise leave its
+        // parsed columns in the cache forever.
+        const releasedTracker = _viewTrackers.release(panel);
+        if (mode === 'file') {
+            const filePath = releasedTracker && releasedTracker.filePath
+                ? releasedTracker.filePath
+                : null;
+            // Only this file's parsed columns are dropped; other open .dta
+            // panels keep theirs.
+            if (filePath) directDtaStore.dispose(filePath);
+            if (!_panels.file) {
                 _datasetAutocompleteVariables.file = [];
-            } else {
-                _consoleSnapshot.pinned = false;
-                _consoleSnapshot.data = null;
-                if (_consoleSnapshot.entry) consoleStore.dispose(_consoleSnapshot.entry).catch(() => {});
-                _consoleSnapshot.entry = null;
-                consoleStore.invalidateLive().catch(() => {});
-                _lastViewport.console = null;
-                _datasetAutocompleteVariables.console = [];
             }
+        }
+        if (_panels[mode] !== panel) {
+            return;
+        }
+        _panels[mode] = null;
+        _ready[mode] = false;
+        if (mode !== 'file') {
+            _consoleSnapshot.pinned = false;
+            _consoleSnapshot.data = null;
+            if (_consoleSnapshot.entry) consoleStore.dispose(_consoleSnapshot.entry).catch(() => {});
+            _consoleSnapshot.entry = null;
+            consoleStore.invalidateLive().catch(() => {});
+            _lastViewport.console = null;
+            _datasetAutocompleteVariables.console = [];
+            // The live capture is dropped, so the next read must recapture.
+            _dirty.console = true;
         }
     });
 
+    const tracker = _viewTrackers.acquire(panel, { mode });
+    tracker.setDataVersion(_dataVersion);
+    ensureDataChangeSubscription();
     panel.webview.onDidReceiveMessage(async (message) => {
         if (!message) return;
 
@@ -2410,6 +2519,7 @@ function attachPanel(panel, mode) {
             if (message.viewport) {
                 _lastViewport[mode] = message.viewport;
             }
+            _readyForSet.add(panel);
             const restoreViewport = mode !== 'console'
                 || _nextActivationPreserve.console;
             await refreshDataViewer(mode, _pendingFilter[mode], panel, {
@@ -2417,8 +2527,7 @@ function attachPanel(panel, mode) {
             });
             _nextActivationPreserve[mode] = true;
         } else if (message.type === 'refresh') {
-            const terminal = require('../panel');
-            if (mode === 'console' && !(_consoleSnapshot.pinned) && terminal.isWebviewTerminalRunning && terminal.isWebviewTerminalRunning()) {
+            if (mode === 'console' && !_consoleSnapshot.pinned && isConsoleRunning()) {
                 showInfo(msg('consoleBusyAction'));
                 return;
             }
@@ -2478,7 +2587,9 @@ function attachPanel(panel, mode) {
                 });
             }
         } else if (message.type === 'loadWindow') {
-            await handleLoadWindow(mode, message);
+            // The panel that ASKED is the panel that gets the rows. Reading the
+            // mode-global panel here is what sent file A's rows to file B.
+            await handleLoadWindow(mode, message, panel);
         } else if (message.type === 'copyCell') {
             const column = String(message.column || '');
             const value = String(message.text || '');
@@ -2489,11 +2600,14 @@ function attachPanel(panel, mode) {
                 showError(msg('dataViewerCellCopyFailed', { error: error.message }));
             }
         } else if (message.type === 'autoFitColumn') {
+            const fitTicket = tracker.begin(REQUEST_KINDS.AUTOFIT, {
+                filterText: message.filterText || ''
+            });
             try {
                 let value;
                 if (mode === 'file') {
                     value = await directDtaStore.getColumnAutoFitValue(
-                        _filePaths.get(panel),
+                        tracker.filePath,
                         message.column,
                         message.filterText || ''
                     );
@@ -2509,6 +2623,12 @@ function attachPanel(panel, mode) {
                         message.filterText || ''
                     );
                 }
+                // Discard an auto-fit computed for a filter/dataset/file the
+                // panel is no longer showing.
+                if (!tracker.isCurrent(fitTicket) || _panels[mode] !== panel) {
+                    return;
+                }
+                tracker.apply(fitTicket);
                 panel.webview.postMessage({
                     type: 'autoFitColumnResult',
                     column: message.column,
@@ -2517,6 +2637,7 @@ function attachPanel(panel, mode) {
                 });
             } catch (error) {
                 console.error('Stata All in One: auto-fit column failed:', error.message);
+                tracker.apply(fitTicket);
             }
         }
     });
@@ -2525,57 +2646,80 @@ function attachPanel(panel, mode) {
 }
 
 // ── handle lazy-load more rows ─────────────────────────────────────────────────
-async function handleLoadWindow(mode, message) {
-    const panel = _panels[mode];
+async function handleLoadWindow(mode, message, targetPanel) {
+    // The panel that issued the request is passed in explicitly; falling back to
+    // the mode-global panel is only a safety net for legacy callers.
+    const panel = targetPanel || _panels[mode];
     if (!panel) return;
 
-    const terminal = require('../panel');
-    if (mode === 'console' && !_consoleSnapshot.pinned && terminal.isWebviewTerminalRunning && terminal.isWebviewTerminalRunning()) {
+    const tracker = _viewTrackers.peek(panel);
+    if (!tracker || tracker.isClosed()) return;
+
+    if (mode === 'console' && !_consoleSnapshot.pinned && isConsoleRunning()) {
         showInfo(msg('consoleBusyAction'));
         return;
     }
 
+    const startObs = Number(message.startObs) || 0;
+    const count = Number(message.count) || 500;
+    const filterText = message.filterText || '';
+    // Do not fetch the same window twice while it is already loading, and do not
+    // fetch at all once the view moved on to another filter/data version.
+    const windowKey = `${filterText}\u0000${startObs}\u0000${count}\u0000${tracker.dataVersion}`;
+    if (!tracker.beginWindow(windowKey)) {
+        return;
+    }
+    const pageTicket = tracker.begin(REQUEST_KINDS.PAGE, { filterText });
+
+    const currentView = () => tracker.isCurrent(pageTicket);
+
     // File mode is backed by the local DTA parser and never calls Stata.
     if (mode === 'file') {
         try {
-            const rows = await directDtaStore.getMore(_filePaths.get(panel), message.startObs || 0, message.count || 500, message.filterText || '');
+            const rows = await directDtaStore.getMore(tracker.filePath, startObs, count, filterText);
+            if (!currentView()) return;
+            tracker.apply(pageTicket);
             panel.webview.postMessage({
                 type: rows.length ? 'setWindow' : 'loadMoreDone',
                 rows,
-                windowStart: message.startObs || 0,
-                hasMore: rows.length >= (message.count || 500)
+                windowStart: startObs,
+                hasMore: rows.length >= count
             });
         } catch (error) {
+            if (!currentView()) return;
+            tracker.apply(pageTicket);
             panel.webview.postMessage({ type: 'loadMoreDone', hasMore: false });
             showError(error.message);
+        } finally {
+            tracker.endWindow(windowKey);
         }
         return;
     }
 
     // Console mode: fetch more rows from the active Stata session
-    const startObs = message.startObs || 0;
-    const count = message.count || 500;
     try {
         const rows = _consoleSnapshot.pinned && _consoleSnapshot.entry
-            ? await consoleStore.getMore(_consoleSnapshot.entry, startObs, count, message.filterText || '')
-            : await consoleStore.getLiveMore(startObs, count, message.filterText || '');
-        if (_panels[mode]) {
-            if (rows && rows.length > 0) {
-                _panels[mode].webview.postMessage({
-                    type: 'setWindow',
-                    rows,
-                    windowStart: startObs,
-                    hasMore: rows.length >= count
-                });
-            } else {
-                _panels[mode].webview.postMessage({ type: 'loadMoreDone', hasMore: false });
-            }
+            ? await consoleStore.getMore(_consoleSnapshot.entry, startObs, count, filterText)
+            : await consoleStore.getLiveMore(startObs, count, filterText);
+        if (!currentView()) return;
+        tracker.apply(pageTicket);
+        if (rows && rows.length > 0) {
+            panel.webview.postMessage({
+                type: 'setWindow',
+                rows,
+                windowStart: startObs,
+                hasMore: rows.length >= count
+            });
+        } else {
+            panel.webview.postMessage({ type: 'loadMoreDone', hasMore: false });
         }
     } catch (e) {
         console.error('Stata All in One: loadMore failed:', e.message);
-        if (_panels[mode]) {
-            _panels[mode].webview.postMessage({ type: 'loadMoreDone', hasMore: true });
-        }
+        if (!currentView()) return;
+        tracker.apply(pageTicket);
+        panel.webview.postMessage({ type: 'loadMoreDone', hasMore: false });
+    } finally {
+        tracker.endWindow(windowKey);
     }
 }
 
@@ -2636,7 +2780,14 @@ function ensurePanel(mode) {
 // and can tell a failed read apart from an empty dataset.
 async function refreshDataViewer(mode, filterText, targetPanel, options = {}) {
     const panel = targetPanel || _panels[mode];
-    if (!panel || !_ready[mode]) {
+    if (!panel) {
+        return { success: false, status: VIEWER_STATUS.READ_FAILED, reason: 'panel-not-ready', mode };
+    }
+    const tracker = _viewTrackers.peek(panel);
+    if (!tracker || tracker.isClosed()) {
+        return { success: false, status: VIEWER_STATUS.READ_FAILED, reason: 'panel-closed', mode };
+    }
+    if (!_readyFor(panel)) {
         return { success: false, status: VIEWER_STATUS.READ_FAILED, reason: 'panel-not-ready', mode };
     }
     if (isFilterMissingIf(filterText)) {
@@ -2660,6 +2811,27 @@ async function refreshDataViewer(mode, filterText, targetPanel, options = {}) {
         };
     }
     _pendingFilter[mode] = filterText || '';
+
+    // Collapse a burst of refreshes for the SAME view (a doubled scroll, a
+    // resize, a re-entrant activation) into the read that is already running.
+    // Different filters still supersede each other below, which is what makes an
+    // older read unable to overwrite a newer one.
+    const requestedFilter = filterText || '';
+    if (tracker.isPending(REQUEST_KINDS.REFRESH)
+        && tracker.filterText === requestedFilter
+        && tracker.dataVersion === _dataVersionFor(mode)) {
+        return {
+            success: false,
+            status: VIEWER_STATUS.STALE,
+            mode,
+            filterText: requestedFilter,
+            reason: 'already-loading'
+        };
+    }
+
+    // A new refresh supersedes pagination and auto-fit for the same panel.
+    tracker.supersede([REQUEST_KINDS.PAGE, REQUEST_KINDS.AUTOFIT]);
+    const refreshTicket = tracker.begin(REQUEST_KINDS.REFRESH, { filterText: requestedFilter });
     panel.webview.postMessage({ type: 'setStatus', status: 'loading' });
     const viewport = options.viewport || null;
     const requestedRow = viewport
@@ -2671,7 +2843,7 @@ async function refreshDataViewer(mode, filterText, targetPanel, options = {}) {
         let data;
         if (mode === 'file') {
             data = await directDtaStore.getSnapshot(
-                _filePaths.get(panel),
+                tracker.filePath,
                 VIEW_WINDOW_SIZE,
                 filterText || '',
                 false,
@@ -2692,6 +2864,17 @@ async function refreshDataViewer(mode, filterText, targetPanel, options = {}) {
                 windowStart,
                 VIEW_WINDOW_SIZE
             );
+        }
+        // Drop a result that a newer refresh, a filter change or a close has
+        // already superseded: an older response must never overwrite a newer one.
+        if (!tracker.apply(refreshTicket)) {
+            return {
+                success: false,
+                status: VIEWER_STATUS.STALE,
+                mode,
+                filterText: filterText || '',
+                reason: 'superseded'
+            };
         }
         const status = classifySnapshot(data, { filterText });
         if (mode === 'console' && data && Array.isArray(data.allVarNames) && data.allVarNames.length) {
@@ -2715,6 +2898,18 @@ async function refreshDataViewer(mode, filterText, targetPanel, options = {}) {
             data
         };
     } catch (e) {
+        // A superseded request reports nothing: its failure is no longer
+        // relevant to what the panel is showing.
+        if (!tracker.isCurrent(refreshTicket)) {
+            return {
+                success: false,
+                status: VIEWER_STATUS.STALE,
+                mode,
+                filterText: filterText || '',
+                reason: 'superseded'
+            };
+        }
+        tracker.apply(refreshTicket);
         const status = classifyError(e);
         console.error('Stata All in One: refresh failed:', status, e.message);
         // Keep whatever is on screen, but tell the user it was not updated.
@@ -2744,8 +2939,7 @@ async function refreshDataViewer(mode, filterText, targetPanel, options = {}) {
 
 // ── console data viewer entry point ────────────────────────────────────────────
 async function reveal(filterText, options = {}) {
-    const terminalPanel = require('../panel');
-    if (!options.allowWhileRunning && terminalPanel.isWebviewTerminalRunning && terminalPanel.isWebviewTerminalRunning()) {
+    if (!options.allowWhileRunning && isConsoleRunning()) {
         showInfo(msg('consoleBusyAction'));
         return null;
     }
@@ -2779,6 +2973,7 @@ async function reveal(filterText, options = {}) {
         }
     }
     const panel = ensurePanel('console');
+    ensureDataChangeSubscription();
     _nextActivationPreserve.console = preservePosition;
     panel.reveal(vscode.ViewColumn.Two, true);
     if (_ready.console && _dirty.console) {
@@ -2814,15 +3009,53 @@ function getLastRevealResult() {
 }
 
 // ── external update trigger (e.g., after running code in console) ──────────────
-async function updateData() {
-    await consoleStore.invalidateLive();
+
+/**
+ * Mark the Console data as no longer current, CHEAPLY and idempotently.
+ *
+ * Called whenever a command that may have changed Stata's data starts running —
+ * including commands that fail or are interrupted, because a partially applied
+ * command has already changed the data. This only bumps the cache generation
+ * and flags the panel dirty; the actual capture happens on the next read.
+ */
+function markConsoleDataStale() {
+    // Every open view (console AND file panels) may be affected: a command that
+    // changed Stata's memory also invalidates any pending file read result that
+    // was computed against the older data version.
+    bumpDataVersion();
+    consoleStore.invalidateLive().catch(() => {});
     if (_consoleSnapshot.entry) {
-        await consoleStore.dispose(_consoleSnapshot.entry);
+        consoleStore.dispose(_consoleSnapshot.entry).catch(() => {});
     }
     _consoleSnapshot.pinned = false;
     _consoleSnapshot.data = null;
     _consoleSnapshot.entry = null;
     _dirty.console = true;
+}
+
+async function updateData() {
+    markConsoleDataStale();
+    await consoleStore.invalidateLive();
+}
+
+// Subscribe once per extension host: any command that reaches the engine can
+// change the data the viewer is showing.
+let _dataChangeSubscription = null;
+function ensureDataChangeSubscription() {
+    if (_dataChangeSubscription) {
+        return _dataChangeSubscription;
+    }
+    try {
+        const session = require('../session');
+        if (typeof session.onDidChangeData === 'function') {
+            _dataChangeSubscription = session.onDidChangeData(() => {
+                markConsoleDataStale();
+            });
+        }
+    } catch (_error) {
+        _dataChangeSubscription = null;
+    }
+    return _dataChangeSubscription;
 }
 
 async function resetConsoleData() {
@@ -2879,22 +3112,38 @@ async function openDtaFile(context, uri, panel) {
     targetPanel.reveal(undefined, true);
 
     const filePath = uri.fsPath;
-    _filePaths.set(targetPanel, filePath);
-    _datasetAutocompleteVariables.file = [];
+    const tracker = _viewTrackers.acquire(targetPanel, { mode: 'file', filePath });
+    tracker.setDataVersion(_dataVersion);
+    const ticket = tracker.begin(REQUEST_KINDS.REFRESH, { filterText: '' });
     try {
         const data = await directDtaStore.getSnapshot(filePath, 500, '');
+        if (!tracker.apply(ticket) || _panels.file !== targetPanel) {
+            // The panel moved on (another file, another filter, or it closed).
+            return targetPanel;
+        }
         if (data && !data.error) {
             _datasetAutocompleteVariables.file = getDatasetVariableCandidates(data);
             data.variableSuggestions = variableSuggestions.getActiveVariables();
+            data.status = classifySnapshot(data, { filterText: '' });
             // Send initial data immediately — webview processes setData before ready message
-            if (targetPanel) {
-                targetPanel.webview.postMessage({ type: 'setData', data });
-            }
+            targetPanel.webview.postMessage({ type: 'setData', data });
         } else if (data && data.error) {
             showError(data.error);
         }
     } catch (e) {
-        console.error('Stata All in One: Failed to export file data:', e.message);
+        if (tracker.isCurrent(ticket)) {
+            tracker.apply(ticket);
+            const status = classifyError(e);
+            console.error('Stata All in One: Failed to open .dta file:', status, e.message);
+            targetPanel.webview.postMessage({
+                type: 'setData',
+                data: {
+                    status,
+                    error: e.message || msg('dataViewerReadFailed'),
+                    keepPreviousView: false
+                }
+            });
+        }
     }
 
     variableSuggestions.refreshMemoryVars(context).catch(() => {});
@@ -2908,6 +3157,7 @@ module.exports = {
     openDtaFileInDataViewer: openDtaFile,
     updateDataViewerData: updateData,
     resetConsoleDataViewer: resetConsoleData,
+    markConsoleDataStale,
     setDataViewerFontSize,
     getDataViewerPanel: () => _panels['console'],
     getPanelViewType: () => PANEL_VIEW_TYPE,

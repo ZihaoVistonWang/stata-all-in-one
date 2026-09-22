@@ -294,7 +294,7 @@ class StataConsoleSession {
      * @param {boolean} echo - 是否回显命令
      * @returns {Promise<{success: boolean, output: string, error?: string}>} - 执行结果对象
      */
-    async execute(code, echo = false, onOutput = null) {
+    async execute(code, echo = false, onOutput = null, options = null) {
         // 检查是否已初始化
         if (!this._initialized) {
             return {
@@ -319,15 +319,35 @@ class StataConsoleSession {
         // through its own executor (see withTransaction); a plain execute() is
         // always queued, so a concurrent Data Viewer read can never slip between
         // two commands that must belong to the same dataset version.
+        //
+        // Internal housekeeping reads (metadata, plugin preparation, bootstrap)
+        // are marked so they do not invalidate the viewer's own cache.
+        const internal = Boolean(options && options.internal);
         return engineQueue.enqueue(
-            () => this._executeNow(code, echo, onOutput),
-            'execute'
+            async () => {
+                if (!internal) {
+                    // Announced when the command starts, not when it finishes:
+                    // a partially applied command (drop succeeded, the next
+                    // statement failed) still changed the data, and so does an
+                    // interrupted one.
+                    notifyDataMayHaveChanged({ code });
+                }
+                return this._executeNow(code, echo, onOutput);
+            },
+            internal ? 'read' : 'execute'
         );
     }
 
     /**
-     * Perform one Stata command. Callers must already own the engine queue
-     * (either a queued execution or an enclosing transaction).
+     * Run arbitrary user code through the same queue as execute(), with the
+     * data-change notification enabled.
+     */
+    runUserCode(code, echo = false, onOutput = null) {
+        return this.execute(code, echo, onOutput, { internal: false });
+    }
+
+    /**
+     * Perform one Stata command that must not count as a user data change.
      * @private
      */
     async _executeNow(code, echo, onOutput) {
@@ -416,7 +436,7 @@ class StataConsoleSession {
     _createTransactionExecutor() {
         const session = this;
         return {
-            execute(code, echo = false, onOutput = null) {
+            execute(code, echo = false, onOutput = null, options = null) {
                 if (!session._initialized) {
                     return Promise.resolve({
                         success: false,
@@ -424,6 +444,11 @@ class StataConsoleSession {
                         error: 'Session not initialized. Call init() first.',
                         sessionUnavailable: true
                     });
+                }
+                // A read transaction never re-enters the queue, and its own
+                // commands must not invalidate the read it is performing.
+                if (options && options.internal) {
+                    return session._executeNow(code, echo, onOutput);
                 }
                 return session._executeNow(code, echo, onOutput);
             },
@@ -631,7 +656,42 @@ class StataConsoleSession {
     }
 }
 
+const dataChangedListeners = new Set();
 const sessionLostListeners = new Set();
+
+/**
+ * Register a listener that runs when a command that may have changed Stata's
+ * in-memory data has started executing. The Data Viewer uses this to drop its
+ * cached copy so it never presents old data as current.
+ *
+ * Fired when execution STARTS: a command that succeeds only partially (for
+ * example `drop` succeeded and the following statement failed), or one that the
+ * user interrupted, has still changed the data.
+ *
+ * @param {function({code: string}): void} listener
+ * @returns {{dispose: function(): void}}
+ */
+function onDidChangeData(listener) {
+    if (typeof listener !== 'function') {
+        return { dispose() {} };
+    }
+    dataChangedListeners.add(listener);
+    return {
+        dispose() {
+            dataChangedListeners.delete(listener);
+        }
+    };
+}
+
+function notifyDataMayHaveChanged(event) {
+    for (const listener of Array.from(dataChangedListeners)) {
+        try {
+            listener(event);
+        } catch (error) {
+            console.error('Stata All in One: Data-change listener failed:', error.message);
+        }
+    }
+}
 
 /**
  * Register a listener that runs when the live Stata session disappears
@@ -791,6 +851,7 @@ module.exports = {
     StataConsoleSession,
     normalizeNativeCommandWhitespace,
     onDidLoseSession,
+    onDidChangeData,
     getConsoleSession,
     getActiveSession,
     initConsoleSession,

@@ -74,7 +74,9 @@ function parseMetadataOutput(output) {
 async function readMetadata(session) {
     const result = await session.execute(
         `mata: printf("__SAIO_NOBS__%f\\n", st_nobs()); printf("__SAIO_NVAR__%f\\n", st_nvar()); for(i=1;i<=st_nvar();i++) printf("${META_BEGIN}%s%s%s%s%s%s%s${META_END}\\n", st_varname(i), char(31), st_vartype(i), char(31), st_varformat(i), char(31), st_varlabel(i))`,
-        false
+        false,
+        null,
+        { internal: true }
     );
     if (!result.success) {
         throw readError(msg('dataViewerDirectReadFailed'), result);
@@ -241,7 +243,9 @@ async function isPluginRegistered(session) {
     const result = await session.execute(
         `capture program list ${PLUGIN_PROGRAM}\n`
         + `display "${PLUGIN_PROBE_VAR}=" _rc`,
-        false
+        false,
+        null,
+        { internal: true }
     );
     if (!result.success) {
         // `capture` makes a missing program non-fatal; a failure here means the
@@ -264,13 +268,20 @@ async function ensurePluginRegistered(session) {
         return;
     }
 
-    const dropResult = await session.execute(`capture program drop ${PLUGIN_PROGRAM}`, false);
+    const dropResult = await session.execute(
+        `capture program drop ${PLUGIN_PROGRAM}`,
+        false,
+        null,
+        { internal: true }
+    );
     if (!dropResult.success) {
         throw readError(msg('dataViewerDirectReadFailed'), dropResult);
     }
     const loadResult = await session.execute(
         `program ${PLUGIN_PROGRAM}, plugin using("${quoteStataPath(pluginPath())}")`,
-        false
+        false,
+        null,
+        { internal: true }
     );
     if (!loadResult.success) {
         throw readError(msg('dataViewerPluginLoadFailed'), loadResult);
@@ -324,7 +335,9 @@ async function capture(session) {
             await ensurePluginRegistered(txSession);
             const result = await txSession.execute(
                 `plugin call ${PLUGIN_PROGRAM} _all, ${pointer}`,
-                false
+                false,
+                null,
+                { internal: true }
             );
             if (!result.success) {
                 throw readError(msg('dataViewerDirectReadFailed'), result);
