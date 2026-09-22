@@ -1043,8 +1043,9 @@ function getDataViewerHtml(webview) {
         document.addEventListener('click', function (event) {
             var target = event.target;
             if (!target || target.id !== 'cancel-read-btn') return;
-            currentRequestId += 1;
-            pendingReadCancelled = true;
+            // The backend aborts the read for this panel; the panel itself just
+            // stops showing progress and reports the cancellation.
+            vscode.postMessage({ type: 'cancelRead' });
             setReadInProgress(false);
             showStatusBanner('info', ${JSON.stringify(msg('dataViewerReadCancelled'))});
             document.body.classList.remove('loading');
@@ -2335,10 +2336,6 @@ function getDataViewerHtml(webview) {
         // Reflects what is currently on screen: either fresh data or a view that
         // could not be updated.
         var currentViewStatus = VIEWER_STATUS.OK;
-        // Bumped whenever the user cancels a read; a response carrying an older
-        // id belongs to a cancelled request and is discarded.
-        var currentRequestId = 0;
-        var pendingReadCancelled = false;
         // Whether a real table is on screen right now. A failed refresh may keep
         // it, but only while labelling it as not updated.
         var hasRenderedData = false;
@@ -2483,8 +2480,6 @@ function getDataViewerHtml(webview) {
                 renderVariableTableNames(message.names || []);
             } else if (message.type === 'setStatus') {
                 if (message.status === 'loading') {
-                    currentRequestId += 1;
-                    pendingReadCancelled = false;
                     setReadInProgress(true);
                 } else {
                     setReadInProgress(false);
@@ -2678,6 +2673,10 @@ function attachPanel(panel, mode) {
                     names
                 });
             }
+        } else if (message.type === 'cancelRead') {
+            // The user closed an unwanted read: stop the work this panel started.
+            cancelPanelWork(panel);
+            tracker.supersede();
         } else if (message.type === 'loadWindow') {
             // The panel that ASKED is the panel that gets the rows. Reading the
             // mode-global panel here is what sent file A's rows to file B.
@@ -3044,8 +3043,19 @@ async function refreshDataViewer(mode, filterText, targetPanel, options = {}) {
 
 // ── console data viewer entry point ────────────────────────────────────────────
 async function reveal(filterText, options = {}) {
+    revealSequence += 1;
+    const sequence = revealSequence;
+    lastRevealResult = null;
     if (!options.allowWhileRunning && isConsoleRunning()) {
         showInfo(msg('consoleBusyAction'));
+        lastRevealResult = {
+            success: false,
+            status: VIEWER_STATUS.READ_FAILED,
+            mode: 'console',
+            reason: 'console-busy',
+            error: msg('consoleBusyAction'),
+            sequence
+        };
         return null;
     }
     _pendingFilter.console = filterText || '';
@@ -3088,15 +3098,21 @@ async function reveal(filterText, options = {}) {
             panel,
             { viewport: preservePosition ? _lastViewport.console : null }
         );
-        lastRevealResult = snapshotFailure
-            ? { success: false, mode: 'console', ...snapshotFailure }
-            : refreshResult;
+        lastRevealResult = {
+            ...(snapshotFailure
+                ? { success: false, mode: 'console', ...snapshotFailure }
+                : refreshResult),
+            sequence
+        };
         return panel;
     }
-    lastRevealResult = snapshotFailure
-        ? { success: false, mode: 'console', ...snapshotFailure }
-        : // Panel opened; its data arrives on the webview 'ready' round-trip.
-          { success: true, status: VIEWER_STATUS.OK, mode: 'console', pending: true };
+    lastRevealResult = {
+        ...(snapshotFailure
+            ? { success: false, mode: 'console', ...snapshotFailure }
+            // Panel opened; its data arrives on the webview 'ready' round-trip.
+            : { success: true, status: VIEWER_STATUS.OK, mode: 'console', pending: true }),
+        sequence
+    };
     return panel;
 }
 
@@ -3108,9 +3124,20 @@ async function reveal(filterText, options = {}) {
  * the freshly opened panel actually succeeded.
  */
 let lastRevealResult = null;
+let revealSequence = 0;
 
+/**
+ * Result of the most recent reveal, or null when the reveal did not run to
+ * completion (for example the Console was busy). Callers compare `sequence`
+ * against the value they read before requesting the reveal, so an earlier
+ * request's outcome can never be attributed to a later one.
+ */
 function getLastRevealResult() {
     return lastRevealResult;
+}
+
+function getRevealSequence() {
+    return revealSequence;
 }
 
 // ── external update trigger (e.g., after running code in console) ──────────────
@@ -3282,6 +3309,7 @@ async function openDtaFile(context, uri, panel) {
 module.exports = {
     revealDataViewer: reveal,
     getLastRevealResult,
+    getRevealSequence,
     openDtaFileInDataViewer: openDtaFile,
     updateDataViewerData: updateData,
     resetConsoleDataViewer: resetConsoleData,

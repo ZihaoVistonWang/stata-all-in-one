@@ -76,11 +76,28 @@ async function routeBrowseCommand(code, dependencies = {}) {
     };
     const revealDataViewer = dependencies.revealDataViewer
         || ((...args) => loadDataViewer().revealDataViewer(...args));
+    // The data-viewer-specific result is only reachable when the Data Viewer
+    // module itself is available; a caller that supplies its own reveal function
+    // (the logic tests) simply has no result to read.
+    const safeDataViewer = () => {
+        try {
+            return loadDataViewer();
+        } catch (_error) {
+            return null;
+        }
+    };
     const readLastResult = dependencies.getLastRevealResult
         || (() => {
-            const viewer = loadDataViewer();
-            return typeof viewer.getLastRevealResult === 'function'
+            const viewer = safeDataViewer();
+            return viewer && typeof viewer.getLastRevealResult === 'function'
                 ? viewer.getLastRevealResult()
+                : null;
+        });
+    const readRevealSequence = dependencies.getRevealSequence
+        || (() => {
+            const viewer = safeDataViewer();
+            return viewer && typeof viewer.getRevealSequence === 'function'
+                ? viewer.getRevealSequence()
                 : null;
         });
     const getTerminalSink = dependencies.getTerminalSink
@@ -98,6 +115,7 @@ async function routeBrowseCommand(code, dependencies = {}) {
     const sink = getTerminalSink();
     await sink.prepareForExecution();
     sink.writeCommand(String(code || '').trim());
+    const sequenceBefore = readRevealSequence();
     await revealDataViewer(parsed.filterText, {
         allowWhileRunning: Boolean(dependencies.keepRunning),
         captureSnapshot: Boolean(dependencies.keepRunning)
@@ -106,7 +124,23 @@ async function routeBrowseCommand(code, dependencies = {}) {
     // Opening the panel and reading the data are separate outcomes. Reporting
     // "opened" as success while the read failed is what hid plugin and session
     // failures behind an empty viewer.
-    const revealResult = readLastResult();
+    //
+    // The reveal result is stamped with a sequence number: when this reveal did
+    // not run to completion (the Console was busy, say), the result left over
+    // from an earlier reveal must not be attributed to this run.
+    let revealResult = readLastResult();
+    const sequenceAfter = readRevealSequence();
+    if (revealResult && sequenceBefore !== null && sequenceAfter !== null
+        && revealResult.sequence !== sequenceAfter) {
+        revealResult = null;
+    }
+    if (!revealResult) {
+        revealResult = {
+            success: false,
+            status: 'read-failed',
+            error: readFailedMessage()
+        };
+    }
     const readFailed = Boolean(revealResult && revealResult.success === false);
     if (readFailed) {
         const reason = revealResult.error || readFailedMessage();
