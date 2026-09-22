@@ -104,3 +104,16 @@ test('paging keeps the same precision as the first page', () => {
     const more = getMoreFromData(data, 1, 10, '');
     assert.deepEqual(more.map((row) => row.values[0]), [2e-8, 3e-8]);
 });
+
+test('the formatter survives serialization into the webview', () => {
+    // The webview runs its own copy of this function, produced by toString(),
+    // so it must not depend on any module-scope helper.
+    const { formatCellValue: shared } = require(
+        '../modules/runCode/embeddedConsole/dataViewer/directDtaStore'
+    );
+    const inWebview = new Function(`return ${shared.toString()}`)();
+    const samples = [null, undefined, 0, 42, 1e-8, 0.1 + 0.2, 123456789.12345679, 8.98846567431158e307, '', '中文'];
+    for (const sample of samples) {
+        assert.equal(inWebview(sample), shared(sample), `mismatch for ${JSON.stringify(sample)}`);
+    }
+});

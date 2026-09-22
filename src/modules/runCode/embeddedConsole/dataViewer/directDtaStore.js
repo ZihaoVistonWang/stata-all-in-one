@@ -36,12 +36,15 @@ function isStataMissingNumber(value) {
  * actually see; the underlying dataset is never modified.
  */
 function formatCellValue(value) {
+    // SELF-CONTAINED on purpose: this function is serialized into the webview,
+    // where no module-scope helper exists.
+    var STATA_MISSING = 8.98846567431158e307;
     if (value === null || value === undefined) return '.';
     if (typeof value === 'number') {
         if (Number.isNaN(value)) return '.';
         // Stata's "." — never print a huge number as if it were data.
-        if (isStataMissingNumber(value)) return '.';
-        const magnitude = Math.abs(value);
+        if (!Number.isFinite(value) || value >= STATA_MISSING) return '.';
+        var magnitude = Math.abs(value);
         if (Number.isInteger(value) && magnitude < 1e12) {
             return String(value);
         }
@@ -54,8 +57,9 @@ function formatCellValue(value) {
         // binary-representation noise (0.1 + 0.2 must read as 0.3).
         return String(Number(value.toPrecision(12)));
     }
-    const text = String(value);
-    return text.trim() === '' || /^nan$/i.test(text.trim()) ? '.' : text;
+    var text = String(value);
+    if (text.trim() === '' || /^nan$/i.test(text.trim())) return '.';
+    return text;
 }
 
 function displayValue(value) {
