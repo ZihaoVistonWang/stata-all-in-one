@@ -44,6 +44,10 @@ static bool g_dataset_capture_active = false;
 // one instead of returning another capture's bytes as if they were its own.
 static uint64_t g_dataset_capture_generation = 0;
 static uint64_t g_dataset_capture_owner = 0;
+// A capture whose predecessor was still running is refused instead of returning
+// a mixture of two captures.
+static bool g_dataset_capture_writable = false;
+static bool g_dataset_capture_tainted = false;
 
 #ifdef _WIN32
 extern "C" __declspec(dllexport)
@@ -53,7 +57,12 @@ extern "C" __attribute__((visibility("default")))
 void SaioDatasetWrite(const void* data, size_t length) {
     if (!data || length == 0) return;
     std::lock_guard<std::mutex> lock(g_dataset_capture_mutex);
-    if (!g_dataset_capture_active) return;
+    // Only the capture that currently owns the buffer may write to it. The
+    // callback address is identical for every capture, so without this check
+    // bytes written by an older, still-running capture would be appended to a
+    // newer capture's payload and silently mis-parsed (the parser reads fixed
+    // strides, so a partial mix can yield wrong numbers instead of an error).
+    if (!g_dataset_capture_active || !g_dataset_capture_writable) return;
     const uint8_t* bytes = static_cast<const uint8_t*>(data);
     g_dataset_capture.insert(g_dataset_capture.end(), bytes, bytes + length);
 }
@@ -291,8 +300,26 @@ static std::condition_variable g_cmd_cv;
 static std::string g_cmd_code;
 static int g_cmd_echo = 0;
 static bool g_cmd_pending = false;
-static bool g_cmd_done = false;
 static int g_cmd_return_code = 0;
+
+// Every submitted command gets its own sequence number, and completion is
+// reported by publishing that sequence rather than a single boolean.
+//
+// A single "done" flag is NOT enough: with two waiters, A publishes and parks;
+// the Stata thread finishes A; B publishes, and resetting the flag for B makes
+// A's wait predicate false again, so A parks once more and later wakes up on
+// B's completion — delivering B's return code and B's output to A's caller.
+// Waiting for "the sequence I submitted has completed" removes that identity
+// confusion entirely.
+static uint64_t g_cmd_sequence = 0;
+static uint64_t g_cmd_done_sequence = 0;
+static int g_cmd_done_return_code = 0;
+
+// Output of the previous command is still in Stata's buffer until the Stata
+// thread clears it for the new command. The polling thread must not read before
+// that happens, or it would stream the previous command's output as this
+// command's first chunk.
+static std::atomic<bool> g_cmd_buffer_cleared{true};
 
 // Output polling used to live in file-scope globals shared by every call.
 // Two overlapping Execute calls therefore fought over one poll thread, one
@@ -315,14 +342,17 @@ static void StataThreadLoop() {
     while (g_stata_running.load()) {
         std::string code;
         int echo = 0;
+        uint64_t sequence = 0;
         {
+            // Claim the pending command and take its sequence number. The
+            // submitter cannot overwrite these until completion is published.
             std::unique_lock<std::mutex> lock(g_cmd_mutex);
             g_cmd_cv.wait(lock, []{ return g_cmd_pending || !g_stata_running.load(); });
             if (!g_stata_running.load()) break;
-            // Take ownership of the submitted command. The submitter cannot
-            // overwrite these until we mark the command done below.
             code = g_cmd_code;
             echo = g_cmd_echo;
+            sequence = g_cmd_sequence;
+            g_cmd_pending = false;
         }
 
         // Execute the command on THIS thread (same as StataSO_Main)
@@ -332,15 +362,19 @@ static void StataThreadLoop() {
             if (g_StataSO_ClearOutputBuffer) {
                 g_StataSO_ClearOutputBuffer();
             }
+            // From here on the buffer belongs to THIS command, so the polling
+            // thread may start reading it.
+            g_cmd_buffer_cleared.store(true);
             return_code = g_StataSO_Execute ? g_StataSO_Execute(code.c_str(), echo) : -1;
         }
 
-        // Signal completion
+        // Publish completion together with the identity of the command that
+        // finished, so each waiter can recognise its own result.
         {
             std::lock_guard<std::mutex> lock(g_cmd_mutex);
             g_cmd_return_code = return_code;
-            g_cmd_pending = false;
-            g_cmd_done = true;
+            g_cmd_done_return_code = return_code;
+            g_cmd_done_sequence = sequence;
         }
         g_cmd_cv.notify_all();
     }
@@ -359,6 +393,10 @@ static void PollThreadLoop(PollState* poll) {
     while (poll->running.load()) {
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
         if (!poll->running.load()) break;
+        // The previous command's output is still in Stata's buffer until the
+        // Stata thread clears it for this command. Reading before that would
+        // replay the last command's output.
+        if (!g_cmd_buffer_cleared.load()) continue;
 
         std::string current;
         {
@@ -415,30 +453,40 @@ static std::string ReadOutputBufferLocked() {
 
 // Submit a command to the dedicated Stata thread and wait synchronously.
 // Used by ExecuteStataAndGetOutput for data-access helpers. Safe to call
-// concurrently: the command slot is strictly one-at-a-time and g_cmd_done is
-// reset before g_cmd_pending is raised, so a wait can never observe a stale
-// completion from the previous command.
+// concurrently: the command slot is strictly one-at-a-time, and each waiter
+// waits for ITS OWN sequence number to complete, so it can never pick up
+// another command's return code or output.
 static int SubmitStataCommand(const std::string& code, int echo, std::string& out_output) {
+    uint64_t mine;
     {
         std::unique_lock<std::mutex> lock(g_cmd_mutex);
         // Wait for any previous command to finish
         g_cmd_cv.wait(lock, []{ return !g_cmd_pending; });
         g_cmd_code = code;
         g_cmd_echo = echo;
-        g_cmd_done = false;
+        g_cmd_sequence += 1;
+        mine = g_cmd_sequence;
+        g_cmd_buffer_cleared.store(false);
         g_cmd_pending = true;
     }
     g_cmd_cv.notify_all();
 
-    // Wait for completion
+    // Wait for completion of THIS command
+    int return_code;
     {
         std::unique_lock<std::mutex> lock(g_cmd_mutex);
-        g_cmd_cv.wait(lock, []{ return g_cmd_done; });
+        g_cmd_cv.wait(lock, [mine]{ return g_cmd_done_sequence >= mine; });
+        return_code = g_cmd_done_return_code;
     }
 
     out_output = ReadOutputBufferLocked();
+    return return_code;
+}
+
+// True when no command is being executed on the Stata thread.
+static bool StataSessionIdle() {
     std::lock_guard<std::mutex> lock(g_cmd_mutex);
-    return g_cmd_return_code;
+    return !g_cmd_pending && g_cmd_buffer_cleared.load();
 }
 
 // ===========================================================================
@@ -634,26 +682,32 @@ Napi::Value Execute(const Napi::CallbackInfo& info) {
     // lives in `context`, which this worker thread owns exclusively, so two
     // Execute calls can no longer clear each other's buffer or callbacks.
     std::thread worker([context, poll, has_callback]() {
-        poll->running.store(true);
-        poll->thread = std::thread(PollThreadLoop, poll);
-
-        // Submit command to the dedicated thread
+        // Publish the command BEFORE the polling thread starts: the polling
+        // thread only reads after this command's buffer clear, and starting it
+        // first would let it replay the previous command's output as ours.
+        uint64_t mine;
         {
             std::unique_lock<std::mutex> lock(g_cmd_mutex);
             // Wait for any previous command to finish
             g_cmd_cv.wait(lock, []{ return !g_cmd_pending; });
             g_cmd_code = context->code;
             g_cmd_echo = context->echo;
-            g_cmd_done = false;
+            g_cmd_sequence += 1;
+            mine = g_cmd_sequence;
+            g_cmd_buffer_cleared.store(false);
             g_cmd_pending = true;
         }
         g_cmd_cv.notify_all();
 
-        // Wait for dedicated thread to finish
+        poll->running.store(true);
+        poll->thread = std::thread(PollThreadLoop, poll);
+
+        // Wait for THIS command to finish. Waiting on our own sequence number
+        // means another waiter's completion can never be mistaken for ours.
         {
             std::unique_lock<std::mutex> lock(g_cmd_mutex);
-            g_cmd_cv.wait(lock, []{ return g_cmd_done; });
-            context->return_code = g_cmd_return_code;
+            g_cmd_cv.wait(lock, [mine]{ return g_cmd_done_sequence >= mine; });
+            context->return_code = g_cmd_done_return_code;
         }
 
         // Stop the polling thread. It drains the remaining output before it
@@ -728,6 +782,14 @@ Napi::Value ClearOutput(const Napi::CallbackInfo& info) {
         return env.Null();
     }
 
+    // g_stata_api_mutex is held for the WHOLE duration of a command, so taking
+    // it here would block the JS thread — and with it the out-of-band Break
+    // signal — until the command it is meant to interrupt finishes. A command
+    // clears the output buffer itself before it runs, so while one is running
+    // this request is already satisfied and can simply be acknowledged.
+    if (!StataSessionIdle()) {
+        return Napi::Boolean::New(env, true);
+    }
     std::lock_guard<std::mutex> api_lock(g_stata_api_mutex);
     std::lock_guard<std::mutex> output_lock(g_output_mutex);
     if (g_StataSO_ClearOutputBuffer) {
@@ -745,6 +807,12 @@ Napi::Value GetOutput(const Napi::CallbackInfo& info) {
         return env.Null();
     }
 
+    // Same rule as ClearOutput: while a command runs, the api mutex is held by
+    // the Stata thread, so returning early keeps the JS thread responsive
+    // instead of stalling it (and the Break signal) for the whole command.
+    if (!StataSessionIdle()) {
+        return Napi::String::New(env, "");
+    }
     std::lock_guard<std::mutex> api_lock(g_stata_api_mutex);
     std::lock_guard<std::mutex> output_lock(g_output_mutex);
 
@@ -783,13 +851,21 @@ Napi::Value Shutdown(const Napi::CallbackInfo& info) {
 
     // Signal the dedicated Stata thread to exit.  StataThreadLoop
     // calls g_StataSO_Shutdown before returning.
+    //
+    // No completion is faked here: a waiter must only ever be released by the
+    // command it submitted. Publishing a synthetic completion for the NEXT
+    // sequence number releases exactly the outstanding waiters, and the command
+    // they were waiting for is reported as failed instead of silently returning
+    // some other command's return code.
     g_stata_running.store(false);
     {
         std::lock_guard<std::mutex> lock(g_cmd_mutex);
         g_cmd_pending = false;
-        g_cmd_done = true;  // unblock any waiter
+        g_cmd_sequence += 1;
+        g_cmd_done_sequence = g_cmd_sequence;
+        g_cmd_done_return_code = -1;
     }
-    g_cmd_cv.notify_one();
+    g_cmd_cv.notify_all();
     if (g_stata_thread.joinable()) {
         g_stata_thread.join();
     }
@@ -825,6 +901,11 @@ bool ParseCaptureToken(const Napi::CallbackInfo& info, uint64_t& generation) {
         std::string token = info[0].As<Napi::String>().Utf8Value();
         const size_t colon = token.find(':');
         const std::string head = colon == std::string::npos ? token : token.substr(0, colon);
+        // Fail CLOSED: a malformed token must not silently disable the
+        // staleness check below.
+        if (head.empty() || head.find_first_not_of("0123456789") != std::string::npos) {
+            return false;
+        }
         try {
             generation = std::stoull(head);
         } catch (...) {
@@ -842,12 +923,17 @@ Napi::Value BeginDatasetCapture(const Napi::CallbackInfo& info) {
     uint64_t generation;
     {
         std::lock_guard<std::mutex> lock(g_dataset_capture_mutex);
+        // A capture starting while another one is still active cannot produce a
+        // trustworthy payload (both write through the same callback), so the new
+        // one is marked tainted and its finish fails.
+        g_dataset_capture_tainted = g_dataset_capture_active;
         // Release the previous capture's memory instead of leaving its peak
         // allocation resident for the life of the process.
         if (!g_dataset_capture.empty()) {
             std::vector<uint8_t>().swap(g_dataset_capture);
         }
         g_dataset_capture_active = true;
+        g_dataset_capture_writable = !g_dataset_capture_tainted;
         g_dataset_capture_generation += 1;
         g_dataset_capture_owner = g_dataset_capture_generation;
         generation = g_dataset_capture_owner;
@@ -867,15 +953,37 @@ Napi::Value FinishDatasetCapture(const Napi::CallbackInfo& info) {
     std::vector<uint8_t> payload;
     {
         std::lock_guard<std::mutex> lock(g_dataset_capture_mutex);
-        if (has_token && generation != g_dataset_capture_owner) {
+        // Fail CLOSED: a capture can only be consumed by the caller that started
+        // it. A missing or malformed token must not be treated as "no token, so
+        // whatever is in the buffer will do" — that would let a stray finish
+        // destroy or steal the payload of a capture that is still running.
+        if (!has_token) {
+            Napi::Error::New(env, "Stata data capture requires the token returned by beginDatasetCapture.")
+                .ThrowAsJavaScriptException();
+            return env.Null();
+        }
+        if (generation != g_dataset_capture_owner) {
             Napi::Error::New(env, "Stata data capture was superseded by a newer capture.")
                 .ThrowAsJavaScriptException();
             return env.Null();
         }
+        if (g_dataset_capture_tainted) {
+            g_dataset_capture_tainted = false;
+            g_dataset_capture_writable = false;
+            g_dataset_capture_active = false;
+            g_dataset_capture.clear();
+            g_dataset_capture.shrink_to_fit();
+            Napi::Error::New(env, "Stata data capture overlapped another capture and was discarded.")
+                .ThrowAsJavaScriptException();
+            return env.Null();
+        }
         g_dataset_capture_active = false;
+        g_dataset_capture_writable = false;
+        // The owner is invalidated so a second finish with the same token cannot
+        // return an empty buffer as if it were data.
+        g_dataset_capture_owner = 0;
         payload.swap(g_dataset_capture);
         g_dataset_capture.clear();
-        g_dataset_capture.shrink_to_fit();
     }
     return Napi::Buffer<uint8_t>::Copy(
         env,
@@ -888,8 +996,18 @@ Napi::Value CancelDatasetCapture(const Napi::CallbackInfo& info) {
     uint64_t generation = 0;
     const bool has_token = ParseCaptureToken(info, generation);
     std::lock_guard<std::mutex> lock(g_dataset_capture_mutex);
-    if (!has_token || generation == g_dataset_capture_owner) {
+    // Without a valid token nothing is cancelled: an unrelated caller must not
+    // be able to drop a running capture.
+    if (!has_token) {
+        return info.Env().Undefined();
+    }
+    if (generation == g_dataset_capture_owner) {
         g_dataset_capture_active = false;
+        g_dataset_capture_writable = false;
+        g_dataset_capture_tainted = false;
+        if (generation == g_dataset_capture_owner) {
+            g_dataset_capture_owner = 0;
+        }
         g_dataset_capture.clear();
         g_dataset_capture.shrink_to_fit();
     }

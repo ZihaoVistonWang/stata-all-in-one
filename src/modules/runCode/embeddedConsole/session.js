@@ -551,8 +551,11 @@ class StataConsoleSession {
             return false;
         }
 
+        // The request flag is set BEFORE calling into the native layer: a break
+        // that was requested must stay visible to the running execution even if
+        // the native signal itself cannot be delivered.
+        this._stopRequested = true;
         try {
-            this._stopRequested = true;
             const breakRequested = native.setBreak();
             return breakRequested !== false;
         } catch (error) {
