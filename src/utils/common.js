@@ -569,6 +569,15 @@ const getUserLanguage = () => {
     return lang.startsWith('zh') ? 'zh' : 'en';
 };
 
+const interpolateMessage = (text, params) => {
+    if (typeof text !== 'string' || !params) {
+        return text;
+    }
+    return text.replace(/\{(\w+)\}/g, (match, name) => (
+        params[name] === undefined || params[name] === null ? match : String(params[name])
+    ));
+};
+
 const msg = (key, params) => {
     const lang = getUserLanguage();
     const dict = UI_TEXT[lang] || UI_TEXT.en;
@@ -576,7 +585,9 @@ const msg = (key, params) => {
     if (typeof entry === 'function') {
         return entry(params || {});
     }
-    return entry;
+    // Plain strings may still carry {placeholders}, so they are interpolated too
+    // — otherwise a message would reach the user with a literal "{what}" in it.
+    return interpolateMessage(entry, params);
 };
 
 /**
