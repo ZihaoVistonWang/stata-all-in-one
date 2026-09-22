@@ -34,7 +34,6 @@
 
 static void* g_library_handle = nullptr;
 static std::atomic<bool> g_initialized{false};
-static std::mutex g_stata_mutex;
 static std::mutex g_output_mutex;
 static std::mutex g_dataset_capture_mutex;
 static std::vector<uint8_t> g_dataset_capture;
@@ -269,7 +268,18 @@ void SetPlatformEnv(const char* name, const char* value) {
 static std::thread g_stata_thread;
 static std::atomic<bool> g_stata_running{false};
 
-// Command queue (single-slot — one command at a time)
+// Serializes every call into the Stata C API. StataSO_Execute and friends are
+// entered from the dedicated Stata thread; the data-access helpers and the
+// output helpers are entered from JS threads. They must never overlap.
+static std::mutex g_stata_api_mutex;
+
+// Command queue (single-slot — one command at a time).
+//
+// g_cmd_* is the only channel between the submitting thread and the dedicated
+// Stata thread, so every field is read and written only under g_cmd_mutex.
+// The submitted command and echo flag are COPIED to the thread's own locals
+// while the lock is held; the thread never reads the shared strings, which used
+// to race with the next submitter overwriting them.
 static std::mutex g_cmd_mutex;
 static std::condition_variable g_cmd_cv;
 static std::string g_cmd_code;
@@ -278,52 +288,71 @@ static bool g_cmd_pending = false;
 static bool g_cmd_done = false;
 static int g_cmd_return_code = 0;
 
-// Polling thread for incremental output
-static std::thread g_poll_thread;
-static std::atomic<bool> g_poll_running{false};
-static std::string g_poll_emitted;
-static std::mutex g_poll_emitted_mutex;
-static Napi::ThreadSafeFunction g_poll_tsfn;
+// Output polling used to live in file-scope globals shared by every call.
+// Two overlapping Execute calls therefore fought over one poll thread, one
+// emitted-prefix buffer and one ThreadSafeFunction: the second call reset the
+// first call's prefix and overwrote its callback, and joining a thread that the
+// other call had just replaced could dereference a dangling std::thread (or
+// terminate the process through std::thread::~thread on a joinable thread).
+//
+// The polling state is now per-execution and lives in ExecuteContext, which is
+// owned by exactly one worker thread for the whole duration of one command.
+struct PollState {
+    std::thread thread;
+    std::atomic<bool> running{false};
+    std::string emitted;
+    Napi::ThreadSafeFunction tsfn;
+    bool has_tsfn = false;
+};
 
 static void StataThreadLoop() {
     while (g_stata_running.load()) {
-        // Wait for a command
+        std::string code;
+        int echo = 0;
         {
             std::unique_lock<std::mutex> lock(g_cmd_mutex);
             g_cmd_cv.wait(lock, []{ return g_cmd_pending || !g_stata_running.load(); });
             if (!g_stata_running.load()) break;
+            // Take ownership of the submitted command. The submitter cannot
+            // overwrite these until we mark the command done below.
+            code = g_cmd_code;
+            echo = g_cmd_echo;
         }
 
         // Execute the command on THIS thread (same as StataSO_Main)
+        int return_code;
         {
-            std::lock_guard<std::mutex> lock(g_stata_mutex);
+            std::lock_guard<std::mutex> lock(g_stata_api_mutex);
             if (g_StataSO_ClearOutputBuffer) {
                 g_StataSO_ClearOutputBuffer();
             }
+            return_code = g_StataSO_Execute ? g_StataSO_Execute(code.c_str(), echo) : -1;
         }
-        g_cmd_return_code = g_StataSO_Execute(g_cmd_code.c_str(), g_cmd_echo);
 
         // Signal completion
         {
             std::lock_guard<std::mutex> lock(g_cmd_mutex);
+            g_cmd_return_code = return_code;
             g_cmd_pending = false;
             g_cmd_done = true;
         }
-        g_cmd_cv.notify_one();
+        g_cmd_cv.notify_all();
     }
 
     // Shutdown Stata on this thread before exiting
-    if (g_StataSO_Shutdown) {
-        g_StataSO_Shutdown();
+    {
+        std::lock_guard<std::mutex> lock(g_stata_api_mutex);
+        if (g_StataSO_Shutdown) {
+            g_StataSO_Shutdown();
+        }
     }
     g_initialized.store(false);
 }
 
-static void PollThreadLoop() {
-    while (g_poll_running.load()) {
+static void PollThreadLoop(PollState* poll) {
+    while (poll->running.load()) {
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
-
-        if (!g_cmd_pending && g_cmd_done) continue;
+        if (!poll->running.load()) break;
 
         std::string current;
         {
@@ -334,15 +363,11 @@ static void PollThreadLoop() {
             }
         }
 
-        std::string chunk;
-        {
-            std::lock_guard<std::mutex> lock(g_poll_emitted_mutex);
-            chunk = ComputeIncrementalChunk(g_poll_emitted, current);
-            if (!chunk.empty()) g_poll_emitted += chunk;
-        }
+        std::string chunk = ComputeIncrementalChunk(poll->emitted, current);
+        if (!chunk.empty()) poll->emitted += chunk;
 
-        if (!chunk.empty() && g_poll_tsfn) {
-            g_poll_tsfn.NonBlockingCall([chunk](Napi::Env env, Napi::Function cb) {
+        if (!chunk.empty() && poll->has_tsfn) {
+            poll->tsfn.NonBlockingCall([chunk](Napi::Env env, Napi::Function cb) {
                 Napi::Object p = Napi::Object::New(env);
                 p.Set("type", Napi::String::New(env, "output"));
                 p.Set("data", Napi::String::New(env, chunk));
@@ -350,10 +375,43 @@ static void PollThreadLoop() {
             });
         }
     }
+
+    // Drain whatever arrived after the last tick.
+    std::string current;
+    {
+        std::lock_guard<std::mutex> lock(g_output_mutex);
+        if (g_StataSO_GetOutputBuffer) {
+            char* out = g_StataSO_GetOutputBuffer();
+            if (out) current = std::string(out);
+        }
+    }
+    std::string tail = ComputeIncrementalChunk(poll->emitted, current);
+    if (!tail.empty()) poll->emitted += tail;
+    if (!tail.empty() && poll->has_tsfn) {
+        poll->tsfn.NonBlockingCall([tail](Napi::Env env, Napi::Function cb) {
+            Napi::Object p = Napi::Object::New(env);
+            p.Set("type", Napi::String::New(env, "output"));
+            p.Set("data", Napi::String::New(env, tail));
+            cb.Call({p});
+        });
+    }
+}
+
+static std::string ReadOutputBufferLocked() {
+    std::string output;
+    std::lock_guard<std::mutex> lock(g_output_mutex);
+    if (g_StataSO_GetOutputBuffer) {
+        char* out = g_StataSO_GetOutputBuffer();
+        if (out) output = std::string(out);
+    }
+    return output;
 }
 
 // Submit a command to the dedicated Stata thread and wait synchronously.
-// Used by ExecuteStataAndGetOutput for data-access helpers.
+// Used by ExecuteStataAndGetOutput for data-access helpers. Safe to call
+// concurrently: the command slot is strictly one-at-a-time and g_cmd_done is
+// reset before g_cmd_pending is raised, so a wait can never observe a stale
+// completion from the previous command.
 static int SubmitStataCommand(const std::string& code, int echo, std::string& out_output) {
     {
         std::unique_lock<std::mutex> lock(g_cmd_mutex);
@@ -361,10 +419,10 @@ static int SubmitStataCommand(const std::string& code, int echo, std::string& ou
         g_cmd_cv.wait(lock, []{ return !g_cmd_pending; });
         g_cmd_code = code;
         g_cmd_echo = echo;
-        g_cmd_pending = true;
         g_cmd_done = false;
+        g_cmd_pending = true;
     }
-    g_cmd_cv.notify_one();
+    g_cmd_cv.notify_all();
 
     // Wait for completion
     {
@@ -372,14 +430,8 @@ static int SubmitStataCommand(const std::string& code, int echo, std::string& ou
         g_cmd_cv.wait(lock, []{ return g_cmd_done; });
     }
 
-    // Read final output
-    {
-        std::lock_guard<std::mutex> lock(g_output_mutex);
-        if (g_StataSO_GetOutputBuffer) {
-            char* out = g_StataSO_GetOutputBuffer();
-            out_output = out ? std::string(out) : "";
-        }
-    }
+    out_output = ReadOutputBufferLocked();
+    std::lock_guard<std::mutex> lock(g_cmd_mutex);
     return g_cmd_return_code;
 }
 
@@ -519,10 +571,11 @@ Napi::Value InitSession(const Napi::CallbackInfo& info) {
 
 struct ExecuteContext {
     std::string code;
-    int echo;
-    int return_code;
+    int echo = 0;
+    int return_code = 0;
     std::string output;
     std::string error;
+    PollState poll;
 };
 
 Napi::Value Execute(const Napi::CallbackInfo& info) {
@@ -564,71 +617,53 @@ Napi::Value Execute(const Napi::CallbackInfo& info) {
     context->code = code;
     context->echo = echo;
 
-    // Submit to the dedicated thread that ran StataSO_Main, while a polling
-    // thread reads incremental output.
-    std::thread worker([context, tsfn, has_callback]() {
-        // Start polling thread for incremental output
-        g_poll_emitted.clear();
-        g_poll_running.store(true);
-        if (has_callback) {
-            g_poll_tsfn = tsfn;
-        }
-        g_poll_thread = std::thread(PollThreadLoop);
+    PollState* poll = &context->poll;
+    if (has_callback) {
+        poll->tsfn = tsfn;
+        poll->has_tsfn = true;
+    }
 
-        // Submit command to dedicated thread
+    // Submit to the dedicated thread that ran StataSO_Main, while a per-command
+    // polling thread reads incremental output. Every piece of polling state
+    // lives in `context`, which this worker thread owns exclusively, so two
+    // Execute calls can no longer clear each other's buffer or callbacks.
+    std::thread worker([context, poll, has_callback]() {
+        poll->running.store(true);
+        poll->thread = std::thread(PollThreadLoop, poll);
+
+        // Submit command to the dedicated thread
         {
             std::unique_lock<std::mutex> lock(g_cmd_mutex);
             // Wait for any previous command to finish
             g_cmd_cv.wait(lock, []{ return !g_cmd_pending; });
             g_cmd_code = context->code;
             g_cmd_echo = context->echo;
-            g_cmd_pending = true;
             g_cmd_done = false;
+            g_cmd_pending = true;
         }
-        g_cmd_cv.notify_one();
+        g_cmd_cv.notify_all();
 
         // Wait for dedicated thread to finish
         {
             std::unique_lock<std::mutex> lock(g_cmd_mutex);
             g_cmd_cv.wait(lock, []{ return g_cmd_done; });
+            context->return_code = g_cmd_return_code;
         }
-        context->return_code = g_cmd_return_code;
 
-        // Stop polling thread
-        g_poll_running.store(false);
-        if (g_poll_thread.joinable()) g_poll_thread.join();
-        g_poll_tsfn = nullptr;
+        // Stop the polling thread. It drains the remaining output before it
+        // returns, so the last chunk is never dropped.
+        poll->running.store(false);
+        if (poll->thread.joinable()) poll->thread.join();
+        poll->has_tsfn = false;
 
-        // Drain final output (accounting for what the polling thread emitted)
-        std::string final_output;
-        {
-            std::lock_guard<std::mutex> lock(g_output_mutex);
-            if (g_StataSO_GetOutputBuffer) {
-                char* out = g_StataSO_GetOutputBuffer();
-                if (out) final_output = std::string(out);
-            }
-        }
-        std::string tail_chunk;
-        {
-            std::lock_guard<std::mutex> lock(g_poll_emitted_mutex);
-            tail_chunk = ComputeIncrementalChunk(g_poll_emitted, final_output);
-        }
-        context->output = final_output;
+        context->output = ReadOutputBufferLocked();
 
         if (context->return_code != 0) {
             context->error = "StataSO_Execute failed with return code: " + std::to_string(context->return_code);
         }
 
         if (has_callback) {
-            if (!tail_chunk.empty()) {
-                tsfn.NonBlockingCall([tail_chunk](Napi::Env env, Napi::Function cb) {
-                    Napi::Object p = Napi::Object::New(env);
-                    p.Set("type", Napi::String::New(env, "output"));
-                    p.Set("data", Napi::String::New(env, tail_chunk));
-                    cb.Call({p});
-                });
-            }
-            tsfn.NonBlockingCall([context](Napi::Env env, Napi::Function cb) {
+            poll->tsfn.NonBlockingCall([context](Napi::Env env, Napi::Function cb) {
                 Napi::Object p = Napi::Object::New(env);
                 p.Set("type", Napi::String::New(env, "done"));
                 p.Set("returnCode", Napi::Number::New(env, context->return_code));
@@ -636,7 +671,7 @@ Napi::Value Execute(const Napi::CallbackInfo& info) {
                 p.Set("error", Napi::String::New(env, context->error));
                 cb.Call({p});
             });
-            tsfn.Release();
+            poll->tsfn.Release();
         }
     });
     worker.detach();
@@ -687,7 +722,7 @@ Napi::Value ClearOutput(const Napi::CallbackInfo& info) {
         return env.Null();
     }
 
-    std::lock_guard<std::mutex> stata_lock(g_stata_mutex);
+    std::lock_guard<std::mutex> api_lock(g_stata_api_mutex);
     std::lock_guard<std::mutex> output_lock(g_output_mutex);
     if (g_StataSO_ClearOutputBuffer) {
         g_StataSO_ClearOutputBuffer();
@@ -704,7 +739,7 @@ Napi::Value GetOutput(const Napi::CallbackInfo& info) {
         return env.Null();
     }
 
-    std::lock_guard<std::mutex> stata_lock(g_stata_mutex);
+    std::lock_guard<std::mutex> api_lock(g_stata_api_mutex);
     std::lock_guard<std::mutex> output_lock(g_output_mutex);
 
     std::string output = "";

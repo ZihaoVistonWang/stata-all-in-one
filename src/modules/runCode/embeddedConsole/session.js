@@ -7,9 +7,20 @@
  */
 
 const native = require('./native/stata_process');
+const { createOperationQueue } = require('./native/operationQueue');
 const fs = require('fs');
 const nodePath = require('path');
 const os = require('os');
+
+// Every call that reaches the Stata engine goes through this queue. Stata is
+// single-threaded and the native bridge keeps one command slot plus one output
+// buffer per execution, so user Console execution, variable/metadata queries
+// and Data Viewer reads must never overlap.
+const engineQueue = createOperationQueue();
+
+// Transactions are re-entrant: a read transaction issues several commands, and
+// those nested commands must not queue behind the transaction itself.
+const activeTransactions = new Set();
 
 // Module-level singleton
 let _consoleSessionInstance = null;
@@ -81,6 +92,7 @@ class StataConsoleSession {
         this._idleWaiters = [];
         this._stopRequested = false;
         this._generation = 0;
+        this._transactionToken = null;
 
         // Restore state from previous session if available
         this._restoreState();
@@ -288,7 +300,8 @@ class StataConsoleSession {
             return {
                 success: false,
                 output: '',
-                error: 'Session not initialized. Call init() first.'
+                error: 'Session not initialized. Call init() first.',
+                sessionUnavailable: true
             };
         }
 
@@ -297,10 +310,27 @@ class StataConsoleSession {
             return {
                 success: false,
                 output: '',
-                error: 'Native module not loaded.'
+                error: 'Native module not loaded.',
+                sessionUnavailable: true
             };
         }
 
+        // Deliberately NOT re-entrant. A read transaction issues its commands
+        // through its own executor (see withTransaction); a plain execute() is
+        // always queued, so a concurrent Data Viewer read can never slip between
+        // two commands that must belong to the same dataset version.
+        return engineQueue.enqueue(
+            () => this._executeNow(code, echo, onOutput),
+            'execute'
+        );
+    }
+
+    /**
+     * Perform one Stata command. Callers must already own the engine queue
+     * (either a queued execution or an enclosing transaction).
+     * @private
+     */
+    async _executeNow(code, echo, onOutput) {
         this._activeExecutions += 1;
         try {
             const normalizedCode = normalizeNativeCommandWhitespace(code);
@@ -311,16 +341,22 @@ class StataConsoleSession {
                 output: result.output || '',
                 error: result.error || undefined,
                 interrupted: Boolean(result.interrupted),
-                forced: Boolean(result.forced)
+                forced: Boolean(result.forced),
+                sessionLost: Boolean(result.sessionLost),
+                lostReason: result.lostReason
             };
         } catch (error) {
+            const nativeInitialized = typeof native.isInitialized === 'function'
+                ? native.isInitialized()
+                : true;
             return {
                 success: false,
                 returnCode: -1,
                 output: '',
                 error: error.message || 'Unknown execution error',
                 interrupted: this._stopRequested,
-                forced: false
+                forced: false,
+                sessionLost: !nativeInitialized
             };
         } finally {
             this._activeExecutions = Math.max(0, this._activeExecutions - 1);
@@ -334,17 +370,96 @@ class StataConsoleSession {
     }
 
     /**
+     * Run `task` as one indivisible read transaction.
+     *
+     * Metadata reads, plugin preparation and the capture call must belong to the
+     * same dataset version. Without this, a user command (or another viewer
+     * refresh) could change the dataset — or switch frames — between the
+     * metadata read and the data read, producing a capture that is internally
+     * inconsistent.
+     *
+     * @param {function(StataConsoleSession): Promise<any>} task
+     * @returns {Promise<any>}
+     */
+    withTransaction(task) {
+        if (typeof task !== 'function') {
+            return Promise.reject(new TypeError('Transaction task must be a function.'));
+        }
+        // Nested transaction on an already-owned queue: join the enclosing one so
+        // a nested call can never deadlock behind itself.
+        if (activeTransactions.has(this._transactionToken)) {
+            return Promise.resolve().then(() => task(this._createTransactionExecutor()));
+        }
+        return engineQueue.enqueue(async () => {
+            const token = Symbol('stata-transaction');
+            this._transactionToken = token;
+            activeTransactions.add(token);
+            try {
+                return await task(this._createTransactionExecutor());
+            } finally {
+                activeTransactions.delete(token);
+                this._transactionToken = null;
+            }
+        }, 'transaction');
+    }
+
+    /**
+     * Executor handed to a transaction task.
+     *
+     * Its `execute` runs inline instead of queueing: the engine queue is already
+     * held by the transaction, so queueing would deadlock, and running inline is
+     * exactly what guarantees that no other operation can interleave between the
+     * commands of one read.
+     *
+     * @private
+     */
+    _createTransactionExecutor() {
+        const session = this;
+        return {
+            execute(code, echo = false, onOutput = null) {
+                if (!session._initialized) {
+                    return Promise.resolve({
+                        success: false,
+                        output: '',
+                        error: 'Session not initialized. Call init() first.',
+                        sessionUnavailable: true
+                    });
+                }
+                return session._executeNow(code, echo, onOutput);
+            },
+            isInitialized: () => session.isInitialized(),
+            getGeneration: () => session.getGeneration(),
+            session
+        };
+    }
+
+    isInTransaction() {
+        return Boolean(this._transactionToken && activeTransactions.has(this._transactionToken));
+    }
+
+    /**
+     * Count of queued + running engine operations. Used by the Data Viewer to
+     * decide whether a read can start immediately.
+     */
+    getEngineQueueStats() {
+        return engineQueue.getStats();
+    }
+
+    /**
      * Wait until all direct Console/Data Viewer calls using this session finish.
      * This prevents shutdown from racing with a background memory capture.
      * @returns {Promise<void>}
      */
     waitUntilIdle() {
-        if (this._activeExecutions === 0) {
+        if (this._activeExecutions === 0 && !engineQueue.isRunning() && engineQueue.depth() === 0) {
             return Promise.resolve();
         }
-        return new Promise((resolve) => {
-            this._idleWaiters.push(resolve);
-        });
+        const activeWait = this._activeExecutions > 0
+            ? new Promise((resolve) => {
+                this._idleWaiters.push(resolve);
+            })
+            : Promise.resolve();
+        return Promise.all([activeWait, engineQueue.whenIdle()]).then(() => undefined);
     }
 
     isBusy() {

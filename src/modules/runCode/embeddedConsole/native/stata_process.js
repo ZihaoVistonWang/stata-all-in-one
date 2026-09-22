@@ -219,11 +219,11 @@ function request(action, args = [], onOutput = null) {
     });
 }
 
-function sendSignal(action) {
+function sendSignal(action, payload = null) {
     if (!worker || !worker.connected) {
         return false;
     }
-    worker.send({ kind: 'signal', action });
+    worker.send({ kind: 'signal', action, payload });
     return true;
 }
 
@@ -368,9 +368,12 @@ module.exports = {
     shutdown,
     getOutput: () => '',
     getDatasetInfo: () => request('getDatasetInfo'),
+    // The token returned by beginDatasetCapture() identifies this capture
+    // generation. It must be passed back so an overlapping capture can never
+    // consume (or clear) another capture's payload.
     beginDatasetCapture: () => request('beginDatasetCapture'),
-    finishDatasetCapture: () => request('finishDatasetCapture'),
-    cancelDatasetCapture,
+    finishDatasetCapture: (token = null) => request('finishDatasetCapture', [token]),
+    cancelDatasetCapture: (token = null) => sendSignal('cancelDatasetCapture', token),
     getVarMetadata: () => request('getVarMetadata'),
     getDataRows: (varList, start, end) => request('getDataRows', [varList, start, end]),
     getSummary: () => request('getSummary'),

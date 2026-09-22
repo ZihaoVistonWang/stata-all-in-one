@@ -264,14 +264,14 @@ function beginDatasetCapture() {
     return nativeModule.beginDatasetCapture();
 }
 
-function finishDatasetCapture() {
+function finishDatasetCapture(token) {
     if (!isNativeLoaded()) throw new Error('Native module not loaded.');
-    return nativeModule.finishDatasetCapture();
+    return nativeModule.finishDatasetCapture(token);
 }
 
-function cancelDatasetCapture() {
+function cancelDatasetCapture(token) {
     if (!isNativeLoaded()) return;
-    nativeModule.cancelDatasetCapture();
+    nativeModule.cancelDatasetCapture(token);
 }
 
 /**
