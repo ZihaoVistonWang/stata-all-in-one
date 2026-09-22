@@ -158,8 +158,15 @@ STDLL stata_call(int argc, char *argv[])
                         release_writer(&writer);
                         return SAIO_ERR_ALLOC;
                     }
+                    /* SF_strldata fills the buffer and NUL-terminates it, but its
+                       return value is the written byte count rather than a status
+                       code: it is the string length for a non-empty value and 0
+                       for an empty one. Reading the length back out of the buffer
+                       is the only reading that survives both cases — treating a
+                       non-zero return as failure silently turned every non-empty
+                       strL value into "". */
                     vrc = SF_strldata(variable, observation, text, data_length + 1);
-                    length = vrc ? 0 : (uint32_t)data_length;
+                    length = vrc < 0 ? 0 : (uint32_t)strlen(text);
                 } else {
                     text = (char *)malloc(2046);
                     if (!text) {
