@@ -10,6 +10,34 @@ const PLUGIN_PROBE_VAR = '__saio_plugin_probe';
 const CAPTURE_MAGIC = 'SAIODV1\0';
 const MIN_CAPTURE_BYTES = 20;
 const MAX_STRING_BYTES = 2 * 1024 * 1024;
+
+/**
+ * Byte budget for one native capture. The plugin fails with a controlled error
+ * when a capture would exceed it, so an oversized read cannot exhaust the Stata
+ * worker's address space (and take the session down with it).
+ */
+const DEFAULT_CAPTURE_BUDGET_BYTES = 256 * 1024 * 1024;
+
+let captureBudgetBytes = DEFAULT_CAPTURE_BUDGET_BYTES;
+
+/** Lower (or restore) the capture byte budget. Used by the budget tests. */
+function setCaptureBudget(bytes) {
+    const value = Number(bytes);
+    captureBudgetBytes = Number.isFinite(value) && value > 0
+        ? Math.floor(value)
+        : DEFAULT_CAPTURE_BUDGET_BYTES;
+    return captureBudgetBytes;
+}
+
+function getCaptureBudget() {
+    return captureBudgetBytes;
+}
+
+/**
+ * Rows read per window. The viewer only displays one window at a time, so there
+ * is no reason to transfer the whole dataset.
+ */
+const DEFAULT_WINDOW_ROWS = 2000;
 const NUMERIC_STORAGE_TYPES = new Set(['byte', 'int', 'long', 'float', 'double']);
 
 function pluginPath() {
@@ -303,15 +331,48 @@ async function ensurePluginRegistered(session) {
  * transaction, so no user command can slip in between and change the dataset
  * (or switch frame) while the capture is being assembled.
  */
-async function capture(session) {
+/**
+ * Estimate how many bytes a capture of `rows` observations over the given
+ * variables will need. Numeric cells cost 9 bytes; strings cost their declared
+ * storage plus a 4-byte length.
+ */
+function estimateCaptureBytes(metadata, rows) {
+    let perRow = 0;
+    for (let index = 0; index < metadata.headers.length; index += 1) {
+        const type = metadata.types[index] || '';
+        const match = /^str(\d+)$/i.exec(type);
+        perRow += match ? 4 + Number(match[1]) : 9;
+    }
+    return perRow * rows;
+}
+
+/**
+ * Read the dataset out of Stata memory.
+ *
+ * @param {object} [session]        explicit session (defaults to the active one)
+ * @param {object} [options]
+ * @param {number} [options.startObs] 1-based first observation of the window
+ * @param {number} [options.endObs]   1-based last observation of the window
+ * @param {AbortSignal} [options.signal] cancel the read
+ */
+async function capture(session, options = {}) {
     const activeSession = session || require('../session').getActiveSession();
     if (!activeSession) {
         const error = new Error(msg('dataViewerSessionUnavailable'));
         error.sessionUnavailable = true;
         throw error;
     }
+    const signal = options.signal || null;
+    const throwIfAborted = () => {
+        if (signal && signal.aborted) {
+            const error = new Error(msg('dataViewerReadCancelled'));
+            error.cancelled = true;
+            throw error;
+        }
+    };
 
     return activeSession.withTransaction(async (txSession) => {
+        throwIfAborted();
         const metadata = await readMetadata(txSession);
         if (!metadata.headers.length || !metadata.nobs) {
             return {
@@ -325,6 +386,40 @@ async function capture(session) {
             error.sessionUnavailable = true;
             throw error;
         }
+
+        // Pick the window to read. Without an explicit request, read from the
+        // start and let the caller page in further windows.
+        const total = metadata.nobs;
+        const requestedStart = Number(options.startObs);
+        const requestedEnd = Number(options.endObs);
+        const start = Number.isFinite(requestedStart) && requestedStart >= 1
+            ? Math.floor(requestedStart)
+            : 1;
+        const maxWindow = Number.isFinite(requestedEnd) && requestedEnd >= start
+            ? Math.floor(requestedEnd)
+            : start + DEFAULT_WINDOW_ROWS - 1;
+        const end = Math.max(start, Math.min(total, maxWindow));
+
+        // Check the budget for the requested window AND for the window the
+        // caller would get by default, so an oversized dataset fails with a
+        // clear message instead of a plugin error.
+        const requestedRows = Number.isFinite(requestedEnd) && requestedEnd >= start
+            ? Math.min(total, Math.floor(requestedEnd)) - start + 1
+            : Math.min(total - start + 1, DEFAULT_WINDOW_ROWS);
+        const estimate = estimateCaptureBytes(metadata, end - start + 1);
+        const requestedEstimate = estimateCaptureBytes(metadata, requestedRows);
+        if (estimate > captureBudgetBytes || requestedEstimate > captureBudgetBytes) {
+            const error = new Error(msg('dataViewerCaptureTooLarge', {
+                rows: Math.max(requestedRows, end - start + 1),
+                megabytes: Math.round(captureBudgetBytes / (1024 * 1024))
+            }));
+            error.tooLarge = true;
+            error.rows = Math.max(requestedRows, end - start + 1);
+            error.budgetBytes = captureBudgetBytes;
+            throw error;
+        }
+
+        throwIfAborted();
         // "<generation>:<callback address>" — the generation is passed back to
         // finish/cancel so an overlapping capture cannot wipe or steal ours.
         const token = await native.beginDatasetCapture();
@@ -333,8 +428,9 @@ async function capture(session) {
             // Re-verify inside the transaction: clear all / program drop _all in
             // user code silently removes the entry point.
             await ensurePluginRegistered(txSession);
+            throwIfAborted();
             const result = await txSession.execute(
-                `plugin call ${PLUGIN_PROGRAM} _all, ${pointer}`,
+                `plugin call ${PLUGIN_PROGRAM} _all in ${start}/${end}, ${pointer} ${captureBudgetBytes}`,
                 false,
                 null,
                 { internal: true }
@@ -343,7 +439,13 @@ async function capture(session) {
                 throw readError(msg('dataViewerDirectReadFailed'), result);
             }
             const buffer = await native.finishDatasetCapture(token);
-            return parseCapture(buffer, metadata);
+            const data = parseCapture(buffer, metadata);
+            // The capture holds a window, not the whole dataset; the caller needs
+            // to know which observations it received.
+            data.meta.windowStart = start;
+            data.meta.windowEnd = end;
+            data.meta.totalObservations = total;
+            return data;
         } catch (error) {
             await native.cancelDatasetCapture(token);
             throw error;
@@ -353,6 +455,11 @@ async function capture(session) {
 
 module.exports = {
     capture,
+    estimateCaptureBytes,
+    setCaptureBudget,
+    getCaptureBudget,
+    DEFAULT_WINDOW_ROWS,
+    DEFAULT_CAPTURE_BUDGET_BYTES,
     pluginPath,
     parseCapture,
     parseMetadataOutput,

@@ -85,6 +85,11 @@ function textWidthScore(value) {
     return score;
 }
 
+// Parsed .dta files are cached so paging and filtering do not re-parse, but the
+// cache is bounded: every open Data Viewer keeps its file, so the cap is
+// generous while still preventing an unbounded pile of parsed datasets.
+const MAX_CACHED_FILES = 8;
+
 function sessionFor(filePath) {
     const key = path.resolve(filePath);
     let session = sessions.get(key);
@@ -92,19 +97,46 @@ function sessionFor(filePath) {
         session = { key, loading: null, stat: null, data: null };
         sessions.set(key, session);
     }
+    // Refresh insertion order and evict the least recently used file when the
+    // cache grows past the cap.
+    sessions.delete(key);
+    sessions.set(key, session);
+    if (sessions.size > MAX_CACHED_FILES) {
+        for (const [oldestKey, oldest] of sessions) {
+            if (oldestKey === key) continue;
+            if (oldest.loading) continue;
+            oldest.data = null;
+            sessions.delete(oldestKey);
+            break;
+        }
+    }
     return session;
 }
 
 async function load(filePath, force = false) {
     const session = sessionFor(filePath);
-    const stat = await fs.stat(session.key);
+    let stat;
+    try {
+        stat = await fs.stat(session.key);
+    } catch (error) {
+        // A missing or unreadable file is a FILE problem; the caller must be able
+        // to say so instead of showing "no dataset".
+        error.fileUnavailable = true;
+        throw error;
+    }
     if (!force && session.data && session.stat
         && session.stat.size === stat.size && session.stat.mtimeMs === stat.mtimeMs) {
         return session.data;
     }
     if (session.loading) return session.loading;
     session.loading = (async () => {
-        const buffer = await fs.readFile(session.key);
+        let buffer;
+        try {
+            buffer = await fs.readFile(session.key);
+        } catch (error) {
+            error.fileUnavailable = true;
+            throw error;
+        }
         const data = await DtaParser.parseColumnarAsync(buffer, { yieldEvery: 50000 });
         session.stat = { size: stat.size, mtimeMs: stat.mtimeMs };
         session.data = data;
@@ -203,13 +235,30 @@ function parseInRange(inClause, nobs) {
     };
 }
 
-function buildQuery(data, filterText) {
-    const spec = splitFilterSpec(filterText);
+/**
+ * Resolve a filter spec against a dataset slice.
+ *
+ * `options.nobs` is the size of the slice the query will iterate (the Console
+ * holds a window, not the whole dataset); `in`/`_N` are relative to the whole
+ * dataset, which `options.totalObservations` carries.
+ */
+function buildQuery(data, filterText, options = {}) {
+    const spec = splitFilterSpec(filterText || '');
+    const nobs = Number.isFinite(Number(options.nobs)) ? Number(options.nobs) : sliceLength(data);
     const expression = String(spec.ifClause || '').trim();
     let filter = null;
     if (expression) {
         try {
-            filter = compileFilter(expression, data).fn;
+            filter = compileFilter(expression, {
+                columns: data.columns,
+                missing: data.missing,
+                meta: {
+                    headers: data.meta.headers,
+                    nobs: Number.isFinite(Number(options.totalObservations))
+                        ? Number(options.totalObservations)
+                        : nobs
+                }
+            }).fn;
         } catch (error) {
             // Never fall back to "no filter": an unsupported expression must fail
             // loudly instead of showing different rows than Stata would.
@@ -217,43 +266,61 @@ function buildQuery(data, filterText) {
         }
     }
     let start = 0;
-    let end = data.meta.nobs;
+    let end = nobs;
     if (spec.inClause) {
-        const range = parseInRange(spec.inClause, data.meta.nobs);
+        const range = parseInRange(spec.inClause, nobs);
         if (range) {
             start = range.start;
             end = range.end;
         }
     }
     let columns = data.meta.headers;
-    if (spec.varList) {
+    const requestedVarList = options.varList !== undefined ? options.varList : spec.varList;
+    if (requestedVarList) {
         columns = [];
-        for (const token of spec.varList.split(/\s+/).filter(Boolean)) {
+        for (const token of String(requestedVarList).split(/\s+/).filter(Boolean)) {
             for (const name of expandVarToken(token, data.meta.headers)) {
                 if (!columns.includes(name)) columns.push(name);
             }
         }
         if (!columns.length) {
-            throw new Error(msg('dataViewerUnsupportedFilter', { expression: spec.varList }));
+            throw new Error(msg('dataViewerUnsupportedFilter', { expression: requestedVarList }));
         }
     }
     return { filter, start, end, columns, spec };
 }
 
-async function getSnapshot(filePath, rowLimit = 500, filterText = '', force = false, startObs = 0) {
+async function getSnapshot(filePath, rowLimit = 500, filterText = '', force = false, startObs = 0, options = {}) {
     const data = await load(filePath, force);
-    return getSnapshotFromData(data, filePath, rowLimit, filterText, startObs);
+    if (options.signal && options.signal.aborted) {
+        const error = new Error(msg('dataViewerReadCancelled'));
+        error.cancelled = true;
+        throw error;
+    }
+    return getSnapshotFromData(data, filePath, rowLimit, filterText, startObs, options);
 }
 
-function collectWindow(data, query, startObs, rowLimit) {
+/**
+ * Collect a window of rows.
+ *
+ * `data` may hold only a slice of the dataset (the Console reads bounded
+ * windows), in which case `rowOffset` is the 0-based dataset row that
+ * `data.columns[*][0]` corresponds to. `startObs` is a coordinate in the whole
+ * dataset when `absolute` is set, and a coordinate inside the slice otherwise.
+ */
+function collectWindow(data, query, startObs, rowLimit, options = {}) {
+    const rowOffset = Math.max(0, Math.floor(Number(options.rowOffset) || 0));
+    const sliceRows = sliceLength(data);
     const rows = [];
     let matched = 0;
     for (let row = query.start; row < query.end; row += 1) {
-        if (query.filter && !query.filter(row)) continue;
+        const local = row - rowOffset;
+        if (local < 0 || local >= sliceRows) continue;
+        if (query.filter && !query.filter(row - rowOffset)) continue;
         if (matched >= startObs && rows.length < rowLimit) {
             rows.push({
                 rowNum: row + 1,
-                values: query.columns.map((name) => valueAt(data, name, row))
+                values: query.columns.map((name) => valueAt(data, name, local))
             });
         }
         matched += 1;
@@ -261,15 +328,26 @@ function collectWindow(data, query, startObs, rowLimit) {
     return { rows, matched };
 }
 
-function getSnapshotFromData(data, source, rowLimit = 500, filterText = '', startObs = 0) {
-    const query = buildQuery(data, filterText);
+function getSnapshotFromData(data, source, rowLimit = 500, filterText = '', startObs = 0, options = {}) {
+    const rowOffset = Math.max(0, Math.floor(Number(options.rowOffset) || 0));
+    // `meta.nobs` is the size of the WHOLE dataset; the slice may be smaller.
+    const sliceRows = sliceLength(data);
+    const totalObservations = Number.isFinite(Number(options.totalObservations))
+        ? Number(options.totalObservations)
+        : data.meta.nobs;
+    const query = buildQuery(data, filterText, {
+        nobs: sliceRows,
+        rowOffset,
+        totalObservations,
+        varList: options.varList
+    });
     const headers = query.columns;
-    const max = Math.min(Number(rowLimit) || 500, data.meta.nobs);
+    const max = Math.min(Number(rowLimit) || 500, sliceRows);
     let windowStart = Math.max(0, Math.floor(Number(startObs) || 0));
-    let window = collectWindow(data, query, windowStart, max);
+    let window = collectWindow(data, query, windowStart, max, { rowOffset });
     if (window.matched > 0 && windowStart >= window.matched) {
         windowStart = Math.max(0, window.matched - max);
-        window = collectWindow(data, query, windowStart, max);
+        window = collectWindow(data, query, windowStart, max, { rowOffset });
     }
     return {
         // `observations` is the number of rows matched by the current filter;
@@ -278,7 +356,7 @@ function getSnapshotFromData(data, source, rowLimit = 500, filterText = '', star
         // "the dataset is empty".
         info: {
             observations: window.matched,
-            totalObservations: data.meta.nobs,
+            totalObservations,
             variables: headers.length,
             source,
             sortedBy: null
@@ -287,8 +365,10 @@ function getSnapshotFromData(data, source, rowLimit = 500, filterText = '', star
         // (no dataset / zero observations / no matches) without re-reading Stata.
         meta: {
             headers: data.meta.headers.slice(),
-            nobs: data.meta.nobs
+            nobs: totalObservations
         },
+        rowOffset,
+        sliceRows,
         vars: headers.map((name) => {
             const index = data.meta.headers.indexOf(name);
             return {
@@ -315,28 +395,54 @@ async function getMore(filePath, startObs, count, filterText = '') {
     return getMoreFromData(data, startObs, count, filterText);
 }
 
-function getMoreFromData(data, startObs, count, filterText = '') {
-    const query = buildQuery(data, filterText);
+function getMoreFromData(data, startObs, count, filterText = '', options = {}) {
+    const rowOffset = Math.max(0, Math.floor(Number(options.rowOffset) || 0));
+    const sliceRows = sliceLength(data);
+    const query = buildQuery(data, filterText, {
+        nobs: sliceRows,
+        rowOffset,
+        totalObservations: options.totalObservations,
+        varList: options.varList
+    });
     const headers = query.columns;
     const filter = query.filter;
     const rows = [];
     let matched = 0;
     for (let row = query.start; row < query.end && rows.length < count; row += 1) {
-        if (filter && !filter(row)) continue;
+        const local = row - rowOffset;
+        if (local < 0 || local >= sliceRows) continue;
+        if (filter && !filter(row - rowOffset)) continue;
         if (matched++ < startObs) continue;
-        rows.push({ rowNum: row + 1, values: headers.map((name) => valueAt(data, name, row)) });
+        rows.push({ rowNum: row + 1, values: headers.map((name) => valueAt(data, name, local)) });
     }
     return rows;
 }
 
-function getColumnAutoFitValueFromData(data, column, filterText = '') {
-    const query = buildQuery(data, filterText);
+/** Number of rows actually held in this (possibly partial) dataset slice. */
+function sliceLength(data) {
+    const headers = (data.meta && data.meta.headers) || [];
+    if (!headers.length) return 0;
+    const column = data.columns[headers[0]];
+    return column ? column.length : 0;
+}
+
+function getColumnAutoFitValueFromData(data, column, filterText = '', options = {}) {
+    const rowOffset = Math.max(0, Math.floor(Number(options.rowOffset) || 0));
+    const sliceRows = sliceLength(data);
+    const query = buildQuery(data, filterText, {
+        nobs: sliceRows,
+        rowOffset,
+        totalObservations: options.totalObservations,
+        varList: options.varList
+    });
     if (!data.meta.headers.includes(column)) return '';
     let widestValue = '';
     let widestScore = -1;
     for (let row = query.start; row < query.end; row += 1) {
-        if (query.filter && !query.filter(row)) continue;
-        const value = displayValue(valueAt(data, column, row));
+        const local = row - rowOffset;
+        if (local < 0 || local >= sliceRows) continue;
+        if (query.filter && !query.filter(row - rowOffset)) continue;
+        const value = displayValue(valueAt(data, column, local));
         const score = textWidthScore(value);
         if (score > widestScore) {
             widestValue = value;
@@ -363,6 +469,7 @@ function dispose(filePath) {
 
 module.exports = {
     formatCellValue,
+    MAX_CACHED_FILES,
     getSnapshot,
     getMore,
     getSnapshotFromData,

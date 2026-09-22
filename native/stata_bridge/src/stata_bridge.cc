@@ -38,6 +38,12 @@ static std::mutex g_output_mutex;
 static std::mutex g_dataset_capture_mutex;
 static std::vector<uint8_t> g_dataset_capture;
 static bool g_dataset_capture_active = false;
+// Identifies the capture session. beginDatasetCapture() clears the shared
+// buffer, so overlapping captures used to wipe each other's payload; the
+// generation lets finish/cancel reject a capture that is no longer the active
+// one instead of returning another capture's bytes as if they were its own.
+static uint64_t g_dataset_capture_generation = 0;
+static uint64_t g_dataset_capture_owner = 0;
 
 #ifdef _WIN32
 extern "C" __declspec(dllexport)
@@ -801,36 +807,92 @@ Napi::Value IsLibraryLoadedJS(const Napi::CallbackInfo& info) {
     return Napi::Boolean::New(info.Env(), IsLibraryLoaded() && AreFunctionsResolved());
 }
 
+namespace {
+
+/**
+ * Parse the capture token produced by BeginDatasetCapture.
+ * Accepts both "<generation>:<callback address>" and a bare generation number.
+ */
+bool ParseCaptureToken(const Napi::CallbackInfo& info, uint64_t& generation) {
+    if (info.Length() < 1 || info[0].IsNull() || info[0].IsUndefined()) {
+        return false;
+    }
+    if (info[0].IsNumber()) {
+        generation = static_cast<uint64_t>(info[0].As<Napi::Number>().Int64Value());
+        return generation != 0;
+    }
+    if (info[0].IsString()) {
+        std::string token = info[0].As<Napi::String>().Utf8Value();
+        const size_t colon = token.find(':');
+        const std::string head = colon == std::string::npos ? token : token.substr(0, colon);
+        try {
+            generation = std::stoull(head);
+        } catch (...) {
+            return false;
+        }
+        return generation != 0;
+    }
+    return false;
+}
+
+}  // namespace
+
 Napi::Value BeginDatasetCapture(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
+    uint64_t generation;
     {
         std::lock_guard<std::mutex> lock(g_dataset_capture_mutex);
-        g_dataset_capture.clear();
+        // Release the previous capture's memory instead of leaving its peak
+        // allocation resident for the life of the process.
+        if (!g_dataset_capture.empty()) {
+            std::vector<uint8_t>().swap(g_dataset_capture);
+        }
         g_dataset_capture_active = true;
+        g_dataset_capture_generation += 1;
+        g_dataset_capture_owner = g_dataset_capture_generation;
+        generation = g_dataset_capture_owner;
     }
     std::ostringstream address;
     address << std::hex << reinterpret_cast<uintptr_t>(&SaioDatasetWrite);
-    return Napi::String::New(env, address.str());
+    // "<generation>:<callback address>" — the reader passes the generation back
+    // to finish/cancel so a stale capture cannot silently consume a newer one.
+    return Napi::String::New(env, std::to_string(generation) + ":" + address.str());
 }
 
 Napi::Value FinishDatasetCapture(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
-    std::lock_guard<std::mutex> lock(g_dataset_capture_mutex);
-    g_dataset_capture_active = false;
-    Napi::Buffer<uint8_t> result = Napi::Buffer<uint8_t>::Copy(
+    uint64_t generation = 0;
+    const bool has_token = ParseCaptureToken(info, generation);
+
+    std::vector<uint8_t> payload;
+    {
+        std::lock_guard<std::mutex> lock(g_dataset_capture_mutex);
+        if (has_token && generation != g_dataset_capture_owner) {
+            Napi::Error::New(env, "Stata data capture was superseded by a newer capture.")
+                .ThrowAsJavaScriptException();
+            return env.Null();
+        }
+        g_dataset_capture_active = false;
+        payload.swap(g_dataset_capture);
+        g_dataset_capture.clear();
+        g_dataset_capture.shrink_to_fit();
+    }
+    return Napi::Buffer<uint8_t>::Copy(
         env,
-        g_dataset_capture.empty() ? nullptr : g_dataset_capture.data(),
-        g_dataset_capture.size()
+        payload.empty() ? nullptr : payload.data(),
+        payload.size()
     );
-    g_dataset_capture.clear();
-    g_dataset_capture.shrink_to_fit();
-    return result;
 }
 
 Napi::Value CancelDatasetCapture(const Napi::CallbackInfo& info) {
+    uint64_t generation = 0;
+    const bool has_token = ParseCaptureToken(info, generation);
     std::lock_guard<std::mutex> lock(g_dataset_capture_mutex);
-    g_dataset_capture_active = false;
-    g_dataset_capture.clear();
+    if (!has_token || generation == g_dataset_capture_owner) {
+        g_dataset_capture_active = false;
+        g_dataset_capture.clear();
+        g_dataset_capture.shrink_to_fit();
+    }
     return info.Env().Undefined();
 }
 

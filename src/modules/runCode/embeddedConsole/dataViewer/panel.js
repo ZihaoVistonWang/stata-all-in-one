@@ -81,6 +81,34 @@ function bumpDataVersion() {
     return _dataVersion;
 }
 
+const _abortControllers = new WeakMap();
+
+/**
+ * Cancel whatever the panel is currently reading. Called when a newer request
+ * replaces the old one, when the panel closes, and when the data changes — there
+ * is no point fetching a whole window that will be thrown away.
+ */
+function cancelPanelWork(panel) {
+    const controller = _abortControllers.get(panel);
+    if (controller) {
+        _abortControllers.delete(panel);
+        try {
+            controller.abort();
+        } catch (_error) {
+            // Aborting an already-aborted controller is harmless.
+        }
+    }
+}
+
+function beginPanelWork(panel) {
+    cancelPanelWork(panel);
+    const controller = typeof AbortController === 'function' ? new AbortController() : null;
+    if (controller) {
+        _abortControllers.set(panel, controller);
+    }
+    return controller ? controller.signal : null;
+}
+
 function isLivePanel(panel) {
     const tracker = _viewTrackers.peek(panel);
     return Boolean(tracker && !tracker.isClosed());
@@ -635,6 +663,20 @@ function getDataViewerHtml(webview) {
             border-color: var(--vscode-inputValidation-errorBorder, #be1100);
             background: var(--vscode-inputValidation-errorBackground, rgba(190, 17, 0, 0.12));
         }
+        .cancel-read-btn {
+            margin-left: 10px;
+            padding: 2px 10px;
+            border: 1px solid var(--vscode-button-border, transparent);
+            border-radius: 3px;
+            background: var(--vscode-button-secondaryBackground, rgba(255, 255, 255, 0.12));
+            color: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
+            cursor: pointer;
+            font-size: inherit;
+        }
+        .cancel-read-btn:hover {
+            background: var(--vscode-button-secondaryHoverBackground, rgba(255, 255, 255, 0.2));
+        }
+        .cancel-read-btn[hidden] { display: none; }
         .empty-state, .loading-state {
             display: flex;
             align-items: center;
@@ -703,7 +745,10 @@ function getDataViewerHtml(webview) {
         <div class="filter-autocomplete" id="filter-autocomplete"></div>
     </div>
     <div class="content" id="content">
-        <div class="loading-state" id="loading-msg">${escHtml(msg('dataViewerLoading'))}</div>
+        <div class="loading-state" id="loading-msg">
+            <span>${escHtml(msg('dataViewerLoading'))}</span>
+            <button type="button" class="cancel-read-btn" id="cancel-read-btn">${escHtml(msg('dataViewerCancelRead'))}</button>
+        </div>
         <div class="status-banner" id="status-banner" role="status" style="display:none"><span id="status-banner-text"></span></div>
         <div class="tab-content active" id="content-vars">
             <div class="empty-state" id="empty-vars">${escHtml(msg('dataViewerNoDataset'))}</div>
@@ -988,6 +1033,23 @@ function getDataViewerHtml(webview) {
                 persistViewport();
             });
         }
+
+        function setReadInProgress(inProgress) {
+            var button = document.getElementById('cancel-read-btn');
+            if (!button) return;
+            button.hidden = !inProgress;
+        }
+
+        document.addEventListener('click', function (event) {
+            var target = event.target;
+            if (!target || target.id !== 'cancel-read-btn') return;
+            currentRequestId += 1;
+            pendingReadCancelled = true;
+            setReadInProgress(false);
+            showStatusBanner('info', ${JSON.stringify(msg('dataViewerReadCancelled'))});
+            document.body.classList.remove('loading');
+            document.getElementById('loading-msg').style.display = 'none';
+        });
 
         function requestRefresh(preservePosition, requestedFilterText, savedViewport) {
             var viewport = preservePosition
@@ -2273,6 +2335,10 @@ function getDataViewerHtml(webview) {
         // Reflects what is currently on screen: either fresh data or a view that
         // could not be updated.
         var currentViewStatus = VIEWER_STATUS.OK;
+        // Bumped whenever the user cancels a read; a response carrying an older
+        // id belongs to a cancelled request and is discarded.
+        var currentRequestId = 0;
+        var pendingReadCancelled = false;
         // Whether a real table is on screen right now. A failed refresh may keep
         // it, but only while labelling it as not updated.
         var hasRenderedData = false;
@@ -2297,6 +2363,7 @@ function getDataViewerHtml(webview) {
         function setData(data, viewport) {
             document.body.classList.remove('loading');
             document.getElementById('loading-msg').style.display = 'none';
+            setReadInProgress(false);
 
             // A failed refresh must never be rendered as "no dataset loaded".
             if (data.status && data.status !== VIEWER_STATUS.OK) {
@@ -2415,7 +2482,13 @@ function getDataViewerHtml(webview) {
             ) {
                 renderVariableTableNames(message.names || []);
             } else if (message.type === 'setStatus') {
-                // Could show loading indicator
+                if (message.status === 'loading') {
+                    currentRequestId += 1;
+                    pendingReadCancelled = false;
+                    setReadInProgress(true);
+                } else {
+                    setReadInProgress(false);
+                }
             } else if (message.type === 'variablesUpdate') {
                 sharedAutocompleteVariables = message.variables || [];
                 autocompleteVariables = mergeVariableLists(dataColumnsCache, sharedAutocompleteVariables);
@@ -2491,6 +2564,8 @@ function attachPanel(panel, mode) {
 
     panel.onDidDispose(() => {
         _readyForSet.delete(panel);
+        // Stop any read this panel still has in flight.
+        cancelPanelWork(panel);
         // Cancel every in-flight request for THIS panel and release ITS
         // resources. This must not depend on `_panels[mode] === panel`: with two
         // .dta panels open, closing the first one would otherwise leave its
@@ -2846,8 +2921,10 @@ async function refreshDataViewer(mode, filterText, targetPanel, options = {}) {
         };
     }
 
-    // A new refresh supersedes pagination and auto-fit for the same panel.
+    // A new refresh supersedes pagination and auto-fit for the same panel, and
+    // cancels the read the old request had already started.
     tracker.supersede([REQUEST_KINDS.PAGE, REQUEST_KINDS.AUTOFIT]);
+    const signal = beginPanelWork(panel);
     const refreshTicket = tracker.begin(REQUEST_KINDS.REFRESH, { filterText: requestedFilter });
     panel.webview.postMessage({ type: 'setStatus', status: 'loading' });
     const viewport = options.viewport || null;
@@ -2864,7 +2941,8 @@ async function refreshDataViewer(mode, filterText, targetPanel, options = {}) {
                 VIEW_WINDOW_SIZE,
                 filterText || '',
                 false,
-                windowStart
+                windowStart,
+                { signal }
             );
         } else if (_consoleSnapshot.pinned && _consoleSnapshot.entry) {
             data = await consoleStore.getSnapshot(
@@ -2874,8 +2952,8 @@ async function refreshDataViewer(mode, filterText, targetPanel, options = {}) {
                 VIEW_WINDOW_SIZE
             );
         } else {
-            // Console mode: capture once, then use the same local DTA engine
-            // as external files for paging and filtering.
+            // Console mode: read a bounded window out of Stata's memory and use
+            // the same local engine as external files for paging and filtering.
             data = await consoleStore.getLiveSnapshot(
                 filterText || '',
                 windowStart,
@@ -2927,6 +3005,16 @@ async function refreshDataViewer(mode, filterText, targetPanel, options = {}) {
             };
         }
         tracker.apply(refreshTicket);
+        if (e && e.cancelled) {
+            // Superseded work reports nothing; the replacing request owns the UI.
+            return {
+                success: false,
+                status: VIEWER_STATUS.STALE,
+                mode,
+                filterText: filterText || '',
+                reason: 'cancelled'
+            };
+        }
         const status = classifyError(e);
         console.error('Stata All in One: refresh failed:', status, e.message);
         // Keep whatever is on screen, but tell the user it was not updated.
@@ -3040,6 +3128,9 @@ function markConsoleDataStale() {
     // changed Stata's memory also invalidates any pending file read result that
     // was computed against the older data version.
     bumpDataVersion();
+    for (const panel of [_panels.console, _panels.file]) {
+        if (panel) cancelPanelWork(panel);
+    }
     consoleStore.invalidateLive().catch(() => {});
     if (_consoleSnapshot.entry) {
         consoleStore.dispose(_consoleSnapshot.entry).catch(() => {});
