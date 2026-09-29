@@ -13,7 +13,7 @@ Stata All in One
 </p>
 
 <p align="center">
-   | <b>版本:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.3.13</a> | <b>作者:</b> <a href="https://zihaowang.cn">王梓豪</a> | <b>Translate:</b>
+   | <b>版本:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.3.14</a> | <b>作者:</b> <a href="https://zihaowang.cn">王梓豪</a> | <b>Translate:</b>
   <a href="https://github.com/ZihaoVistonWang/stata-all-in-one">English Version</a> |
 </p>
 
@@ -274,34 +274,36 @@ Stata All in One
     - 留空时跟随 VS Code 编辑器字号。
 14. **图形导出 DPI** (`stata-all-in-one.graphPngDpi`)
     - 嵌入式控制台图形保存为 PNG 时的 DPI 值。默认 `600`，范围 72–1200。
+15. **数据查看器内存上限** (`stata-all-in-one.dataViewerMemoryLimitMB`)
+    - 单次读取的内存预算，默认 1024 MB；内存紧张时可调低。
 
 ### 语法高亮和代码提示
 
-15. **自定义命令高亮** (`stata-all-in-one.customCommands`)
+16. **自定义命令高亮** (`stata-all-in-one.customCommands`)
     - 自定义需要高亮的 Stata 命令（字符串数组），默认包含 `reghdfe`。
     - 示例：`["reghdfe", "ivreghdfe", "gtools", "winsor2", "outreg2"]`
     - **配置后需要重载窗口生效**。
-16. **拼音变量匹配** (`stata-all-in-one.enablePinyinVariableMatching`)
+17. **拼音变量匹配** (`stata-all-in-one.enablePinyinVariableMatching`)
     - `true`（默认）：启用变量名和标签的拼音模糊匹配。
 
 ### Hover 悬停帮助
 
-17. **启用悬停文档** (`stata-all-in-one.enableHoverDocs`)
+18. **启用悬停文档** (`stata-all-in-one.enableHoverDocs`)
 
     - `true`（默认）：鼠标悬停在 Stata 命令上时显示官方帮助信息。
     - `false`：关闭悬停帮助。
-18. **额外 ADO 路径** (`stata-all-in-one.additionalAdoPaths`)
+19. **额外 ADO 路径** (`stata-all-in-one.additionalAdoPaths`)
 
     - 用于扫描社区贡献命令帮助文件的额外 Stata ADO 路径。
     - 示例：`["/Users/username/ado/personal", "C:\\Users\\username\\ado\\personal"]`
 
 ### 大纲与导航
 
-19. **显示多级序号** (`stata-all-in-one.numberingShow`)
+20. **显示多级序号** (`stata-all-in-one.numberingShow`)
 
     - `true`：大纲显示 `1.1`、`1.2.1` 等序号。
     - `false`（默认）：显示原始标题。
-20. **自动添加标题序号** (`stata-all-in-one.numberingAdd`)
+21. **自动添加标题序号** (`stata-all-in-one.numberingAdd`)
 
     - `true`：**当启用序号时**，自动更新 `.do` 文件中的 section 标题以包含序号。
     - `false`（默认）：仅大纲显示序号，不修改文件。
@@ -310,16 +312,16 @@ Stata All in One
 
 ### 代码风格
 
-21. **注释样式** (`stata-all-in-one.commentStyle`)
+22. **注释样式** (`stata-all-in-one.commentStyle`)
 
     - `// `（默认）：用于切换注释的样式。选项包括 `//`、`*` 或 `/* ... */`
-22. **分隔线长度** (`stata-all-in-one.separatorLength`)
+23. **分隔线长度** (`stata-all-in-one.separatorLength`)
 
     - 分割线所在行的字符总长度（包括前缀 `** #` 和分隔符）。默认值：`60`
 
 <a id="separatorSymmetric"></a>
 
-23. **分隔线对称性** (`stata-all-in-one.separatorSymmetric`)
+24. **分隔线对称性** (`stata-all-in-one.separatorSymmetric`)
     - `true`：在分割线末尾添加 ` **` 以保证视觉对称（例如 `** === 标题 === **`）。
     - `false`（默认）：分割线不添加末尾后缀。
 
@@ -351,6 +353,7 @@ Stata All in One
 
 | 版本   | 更新内容                                                                                                                                | 发布日期   |
 | ------ | --------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| 0.3.14 | 数据查看器改用有内存上限的分段读取，修复筛选、分页、数值与 `strL` 显示及刷新问题。                                                        | 2026-09-29 |
 | 0.3.13 | 修复临时目录不一致时无法从 Stata 配置 Stata All in One 的问题。                                                                         | 2026-08-20 |
 | 0.3.12 | 修复控制台源码分组与结果预览范围，以及数据查看器筛选与列宽问题。                                                                        | 2026-08-16 |
 | 0.3.11 | 升级中文拼音、变量标签与模糊补全，新增数据查看器变量筛选及控制台浮动窗口预览；修复代码选区、注释回显与 macOS 外部执行安全问题。         | 2026-08-11 |

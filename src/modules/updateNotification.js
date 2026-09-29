@@ -10,6 +10,10 @@ const { getUserLanguage } = require('../utils/common');
 // Update changelog: version -> changelog text
 const CHANGELOG = {
     en: {
+        '0.3.14': {
+            ver_info: '✨ Stata All in One (0.3.14): Data Viewer now reads data in bounded windows, with fixes for filtering, paging, numeric and strL values, and refresh.',
+            more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0314-2026-09-29'
+        },
         '0.3.13': {
             ver_info: '✨ Stata All in One (0.3.13): Fixed extension configuration from Stata when temporary directories differ.',
             more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0313-2026-08-20'
@@ -132,6 +136,10 @@ const CHANGELOG = {
         }
     },
     zh: {
+        '0.3.14': {
+            ver_info: '✨ Stata All in One (0.3.14)：数据查看器改用有内存上限的分段读取，修复筛选、分页、数值与 strL 显示及刷新问题。',
+            more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0314-2026-09-29'
+        },
         '0.3.13': {
             ver_info: '✨ Stata All in One (0.3.13)：修复临时目录不一致时无法从 Stata 完成扩展配置的问题。',
             more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0313-2026-08-20'

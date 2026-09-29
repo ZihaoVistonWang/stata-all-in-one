@@ -13,7 +13,7 @@ Stata All in One
 </p>
 
 <p align="center">
-   | <b>Version:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.3.13</a> | <b>Author:</b> <a href="https://zihaowang.cn">Zihao Viston Wang</a> | <b>Translate:</b>
+   | <b>Version:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.3.14</a> | <b>Author:</b> <a href="https://zihaowang.cn">Zihao Viston Wang</a> | <b>Translate:</b>
   <a href="https://gitee.com/ZihaoVistonWang/stata-all-in-one">中文版本</a> |
 </p>
 
@@ -276,35 +276,38 @@ If automatic discovery cannot find Stata, choose `Stata not found? Configure it 
 14. **Graph Export DPI** (`stata-all-in-one.graphPngDpi`)
 
     - DPI value for saving embedded console graphs as PNG. Default `600`, range 72–1200.
+15. **Data Viewer Memory Limit** (`stata-all-in-one.dataViewerMemoryLimitMB`)
+
+    - Memory budget for one read, default 1024 MB; lower it on memory-constrained machines.
 
 ### Syntax Highlighting and Code Completion
 
-15. **Custom Command Highlighting** (`stata-all-in-one.customCommands`)
+16. **Custom Command Highlighting** (`stata-all-in-one.customCommands`)
     - User-defined Stata commands to highlight as keywords (array of strings). Default: `reghdfe`.
     - Example: `["reghdfe", "ivreghdfe", "gtools", "winsor2", "outreg2"]`
     - **Requires reloading window** after configuration.
-16. **Pinyin Variable Matching** (`stata-all-in-one.enablePinyinVariableMatching`)
+17. **Pinyin Variable Matching** (`stata-all-in-one.enablePinyinVariableMatching`)
 
     - `true` (default): Enable pinyin fuzzy matching for variable names and labels.
 
 ### Hover Help
 
-17. **Enable Hover Docs** (`stata-all-in-one.enableHoverDocs`)
+18. **Enable Hover Docs** (`stata-all-in-one.enableHoverDocs`)
 
     - `true` (default): Show official Stata help information when hovering over Stata commands.
     - `false`: Disable hover help.
-18. **Additional ADO Paths** (`stata-all-in-one.additionalAdoPaths`)
+19. **Additional ADO Paths** (`stata-all-in-one.additionalAdoPaths`)
 
     - Extra Stata ADO paths for scanning help files of community-contributed commands.
     - Example: `["/Users/username/ado/personal", "C:\\Users\\username\\ado\\personal"]`
 
 ### Outline & Navigation
 
-19. **Display Multi-level Numbering** (`stata-all-in-one.numberingShow`)
+20. **Display Multi-level Numbering** (`stata-all-in-one.numberingShow`)
 
     - `true`: Outline displays `1.1`, `1.2.1` style numbering.
     - `false` (default): Displays original headings.
-20. **Auto-update Heading Numbering** (`stata-all-in-one.numberingAdd`)
+21. **Auto-update Heading Numbering** (`stata-all-in-one.numberingAdd`)
 
     - `true`: **When numbering is enabled**, automatically update section titles in `.do` files to include numbers.
     - `false` (default): Only displays numbering in outline, doesn't modify file.
@@ -313,16 +316,16 @@ If automatic discovery cannot find Stata, choose `Stata not found? Configure it 
 
 ### Code Style
 
-21. **Comment Style** (`stata-all-in-one.commentStyle`)
+22. **Comment Style** (`stata-all-in-one.commentStyle`)
 
     - `// ` (default): Comment style used for toggling comments. Options include `//`, `*`, or `/* ... */`
-22. **Separator Length** (`stata-all-in-one.separatorLength`)
+23. **Separator Length** (`stata-all-in-one.separatorLength`)
 
     - Total character length of the separator line (including the `** #` prefix and separators). Default: `60`
 
 <a id="separatorSymmetric"></a>
 
-23. **Separator Symmetric** (`stata-all-in-one.separatorSymmetric`)
+24. **Separator Symmetric** (`stata-all-in-one.separatorSymmetric`)
     - `true`: Add ` **` at the end of separator lines to ensure visual symmetry (e.g., `** === Title === **`).
     - `false` (default): Separator lines without the suffix.
 
@@ -354,6 +357,7 @@ If this extension has been helpful to you, feel free to scan the **Alipay** (lef
 
 | Version | Changes                                                                                                                                                                                               | Release Date |
 | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| 0.3.14  | Data Viewer now reads data in bounded windows, with fixes for filtering, paging, numeric and `strL` values, and refresh.                                                                              | 2026-09-29   |
 | 0.3.13  | Fixed configuring Stata All in One from Stata when temporary directories differ.                                                                                                                      | 2026-08-20   |
 | 0.3.12  | Fixed Console source grouping and result-preview scope, plus Data Viewer filter and column-width issues.                                                                                              | 2026-08-16   |
 | 0.3.11  | Upgraded fuzzy completion with Chinese pinyin and variable-label matching, added Data Viewer variable filtering and Console Floating Window previews, and fixed code selections, comment echoes, and macOS external-execution security. | 2026-08-11   |

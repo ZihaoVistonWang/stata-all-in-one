@@ -3,6 +3,17 @@
 All notable changes to the Stata All in One extension will be documented in this file.
 本文件记录 Stata All in One 扩展的所有重要更改。
 
+## 0.3.14 (2026-09-29)
+
+- **Improved**: Read live Stata data in bounded windows with a configurable memory budget, cancellation, and complete pinned `browse` snapshots, so large datasets no longer require an unrestricted full transfer.
+- **Fixed**: Aligned Data Viewer filters and paging with Stata's missing-value, observation-range, and dataset-size semantics; preserved numeric precision and non-empty `strL` values.
+- **Fixed**: Prevented stale or cross-file Data Viewer results, clarified empty-data and read-failure states, preserved live data when reopening the Console, and stabilized native command execution, refresh, and tab activation.
+- **Improved**: Corrected `in` syntax highlighting and temporary do-file output, refined Console run navigation, updated the AI Skill prompt to fetch installation-guide mirrors in parallel, and added bilingual architecture documentation.
+- **优化**：控制台数据改为按窗口读取，支持可配置内存上限、取消读取及完整的固定 `browse` 快照，避免大数据集无上限整表传输。
+- **修复**：使数据查看器筛选与分页遵循 Stata 的缺失值、观测范围和数据集大小规则，并保留数值精度及非空 `strL` 内容。
+- **修复**：避免过期或跨文件结果覆盖当前数据，区分空数据与读取失败；修复控制台重开丢失数据，并稳定原生命令、刷新及标签页激活。
+- **优化**：修正 `in` 语法高亮与临时 do 文件输出，改进控制台运行导航，提示 AI 并发获取 AI Skill 安装指南镜像，并新增中英文架构文档。
+
 ## 0.3.13 (2026-08-20)
 
 - **Fixed**: Fixed the installation script used to configure Stata All in One from Stata by running the generated `installation.do` from its normalized absolute path when VS Code and Stata use different temporary directories.
