@@ -304,7 +304,7 @@ function buildQuery(data, filterText, options = {}) {
             throw new Error(msg('dataViewerUnsupportedFilter', { expression: requestedVarList }));
         }
     }
-    return { filter, start, end, columns, spec };
+    return { filter, start, end, columns, spec, datasetRows };
 }
 
 async function getSnapshot(filePath, rowLimit = 500, filterText = '', force = false, startObs = 0, options = {}) {
@@ -323,7 +323,7 @@ async function getSnapshot(filePath, rowLimit = 500, filterText = '', force = fa
  * `data` may hold only a slice of the dataset (the Console reads bounded
  * windows), in which case `rowOffset` is the 0-based dataset row that
  * `data.columns[*][0]` corresponds to. `startObs` is a coordinate in the whole
- * dataset when `absolute` is set, and a coordinate inside the slice otherwise.
+ * unfiltered dataset, and a match offset within the query otherwise.
  */
 function collectWindow(data, query, startObs, rowLimit, options = {}) {
     const rowOffset = Math.max(0, Math.floor(Number(options.rowOffset) || 0));
@@ -332,7 +332,10 @@ function collectWindow(data, query, startObs, rowLimit, options = {}) {
     // bound on the column arrays.
     const sliceRows = Math.min(sliceLength(data), Number(data.meta.nobs) || 0);
     const rows = [];
-    let matched = 0;
+    const unfiltered = !query.filter && !query.spec.inClause;
+    // With no observation filter, the slice's first row is match rowOffset.
+    // Filtered queries instead count matches from the beginning of their range.
+    let matched = unfiltered ? rowOffset : 0;
     for (let row = query.start; row < query.end; row += 1) {
         // `query.start`/`query.end` are slice-relative, so no offset is applied
         // here; the offset only maps slice rows to dataset row numbers.
@@ -349,7 +352,8 @@ function collectWindow(data, query, startObs, rowLimit, options = {}) {
         }
         matched += 1;
     }
-    return { rows, matched };
+    // A bounded cache cannot determine the dataset size by counting its rows.
+    return { rows, matched: unfiltered ? query.datasetRows : matched };
 }
 
 function getSnapshotFromData(data, source, rowLimit = 500, filterText = '', startObs = 0, options = {}) {

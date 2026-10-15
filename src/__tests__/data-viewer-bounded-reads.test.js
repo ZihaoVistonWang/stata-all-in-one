@@ -504,7 +504,7 @@ test('a full snapshot that does not fit the budget fails with a clear message', 
     }
 });
 
-test('paging uses the same match-offset coordinates as the first page', async () => {
+test('live paging keeps the full row count and crosses cache boundaries without skipping rows', async () => {
     const restore = installVscodeStub();
     const ranges = [];
     const originalLoad = Module._load;
@@ -518,7 +518,7 @@ test('paging uses the same match-offset coordinates as the first page', async ()
                 DEFAULT_WINDOW_ROWS: 2000,
                 async capture(_session, options = {}) {
                     const start = options.startObs || 1;
-                    const end = options.endObs || start + 1999;
+                    const end = Math.min(20000, options.endObs || start + 1999);
                     ranges.push({ start, end });
                     const rows = end - start + 1;
                     return {
@@ -547,7 +547,11 @@ test('paging uses the same match-offset coordinates as the first page', async ()
 
     try {
         const store = require(STORE_PATH);
-        const first = await store.getLiveSnapshot('', 0, 500);
+        const first = await store.getLiveSnapshot('', 0, 700);
+        assert.deepEqual(ranges[0], { start: 1, end: 1700 });
+        assert.equal(first.info.observations, 20000, 'the webview must scroll through the whole dataset');
+        assert.equal(first.info.totalObservations, 20000);
+        assert.equal(first.hasMore, true);
         assert.deepEqual(
             first.dataRows.slice(0, 3).map((row) => row.values[0]),
             [1, 2, 3],
@@ -569,6 +573,26 @@ test('paging uses the same match-offset coordinates as the first page', async ()
             deep.slice(0, 3).map((row) => row.values[0]),
             [1201, 1202, 1203]
         );
+
+        for (const offset of [1300, 1700, 5000, 12000, 100, 19500, 19900, 20000]) {
+            const rows = await store.getLiveMore(offset, 500, '');
+            const expected = Array.from(
+                { length: Math.min(500, 20000 - offset) },
+                (_value, index) => offset + index + 1
+            );
+            assert.deepEqual(rows.map((row) => row.rowNum), expected, `row numbers at offset ${offset}`);
+            assert.deepEqual(rows.map((row) => row.values[0]), expected, `values at offset ${offset}`);
+        }
+
+        const restored = await store.getLiveSnapshot('', 5000, 700);
+        assert.equal(restored.windowStart, 5000);
+        assert.equal(restored.info.observations, 20000);
+        assert.equal(restored.dataRows[0].rowNum, 5001);
+        assert.equal(restored.dataRows.at(-1).rowNum, 5700);
+        const projected = await store.getLiveSnapshot('x', 12000, 700);
+        assert.equal(projected.info.observations, 20000, 'a variable list does not filter observations');
+        assert.equal(projected.dataRows[0].rowNum, 12001);
+        assert.ok(store.cachedRowCount() <= store.DEFAULT_MAX_CACHED_ROWS);
     } finally {
         Module._load = originalLoad;
         delete require.cache[STORE_PATH];

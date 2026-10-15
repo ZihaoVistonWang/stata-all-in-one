@@ -56,12 +56,8 @@ function buildLiveFrame(data, startObs, endObs) {
 }
 
 function frameCoversWindow(frame, startObs, endObs) {
-    return frame && startObs >= frame.startObs && endObs <= frame.endObs;
-}
-
-function frameNeedsWindow(frame, startObs) {
-    // The requested row is either before or after what we hold.
-    return !frame || startObs < frame.startObs || startObs > frame.endObs;
+    return frame && startObs >= frame.startObs
+        && Math.min(endObs, frame.totalObservations) <= frame.endObs;
 }
 
 function windowFor(requestedStart, requestedEnd, total) {
@@ -197,8 +193,12 @@ async function ensureMatchesAvailable(filterText, matchOffset, needed) {
 
     if (!filtered) {
         const start = Math.max(1, matchOffset + 1);
-        if (frameNeedsWindow(header, start) || !header) {
-            header = await ensureWindow(start, start + Math.max(1, needed) - 1);
+        // An offset past EOF is an empty page, not another native read.
+        if (header && start > header.totalObservations) return header;
+        const end = start + Math.max(1, needed) - 1;
+        // A cached start alone is insufficient: the page may cross its end.
+        if (!frameCoversWindow(header, start, end)) {
+            header = await ensureWindow(start, end);
         }
         return header;
     }
