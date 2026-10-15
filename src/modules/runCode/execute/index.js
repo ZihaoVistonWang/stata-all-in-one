@@ -31,6 +31,7 @@ const { containsSaioCommand } = require('../saioCommandGuard');
 const { cleanupTempFile, getTempFilePath } = require('./tempfile');
 const {
     getAttachedCommentRunRange,
+    getSectionRunRange,
     getInclusiveSelectionEndLine,
     getRunTarget,
     isCursorOnHeading,
@@ -81,50 +82,10 @@ function getCodeToRun(editor) {
         const currentLine = editor.selection.active.line;
         const lineText = document.lineAt(currentLine).text;
         if (isSectionHeaderLine(lineText)) {
-            // 当前行是标题：运行当前节
-            const regex = /^\*{1,2}\s*(#+)\s?(.*)$/;
-            
-            let sectionStart = -1;
-            let sectionLevel = -1;
-            
-            // 找到当前节的标题
-            for (let i = currentLine; i >= 0; i--) {
-                const line = document.lineAt(i).text;
-                const match = regex.exec(line);
-                if (match) {
-                    sectionStart = i;
-                    sectionLevel = match[1].length;
-                    break;
-                }
-            }
-            
-            if (sectionStart === -1) {
-                sectionStart = 0;
-                sectionLevel = 0;
-            }
-            
-            // 找到下一个同级或更高级的节
-            let sectionEnd = document.lineCount - 1;
-            
-            for (let i = sectionStart + 1; i < document.lineCount; i++) {
-                const line = document.lineAt(i).text;
-                const match = regex.exec(line);
-                if (match) {
-                    const currentLevel = match[1].length;
-                    if (currentLevel <= sectionLevel && sectionLevel > 0) {
-                        sectionEnd = i - 1;
-                        break;
-                    }
-                    if (sectionLevel === 0) {
-                        sectionEnd = i - 1;
-                        break;
-                    }
-                }
-            }
-            
-            const startPos = new vscode.Position(sectionStart, 0);
-            const endLine = document.lineAt(sectionEnd);
-            const endPos = new vscode.Position(sectionEnd, endLine.text.length);
+            // 标题与紧邻的装饰分隔线一起运行，下一节的上边框归下一节。
+            const { startLine, endLine } = getSectionRunRange(document, currentLine);
+            const startPos = new vscode.Position(startLine, 0);
+            const endPos = new vscode.Position(endLine, document.lineAt(endLine).text.length);
             
             return document.getText(new vscode.Range(startPos, endPos));
         } else {

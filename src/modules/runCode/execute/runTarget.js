@@ -12,6 +12,44 @@ function isOutlineHeadingLine(lineText) {
     return /^\*\*\s*#+/.test(String(lineText || ''));
 }
 
+function getDecoratedSectionStart(document, headingLine) {
+    if (headingLine === 0) {
+        return headingLine;
+    }
+
+    // Only attach a standalone decorative rule, never an ordinary comment.
+    const previousLine = document.lineAt(headingLine - 1).text;
+    const isRule = /^\s*\*\*\s*([\p{P}\p{S}])\1{2,}(?:\s+\*\*)?\s*$/u.test(previousLine)
+        && !isSectionHeaderLine(previousLine);
+    if (!isRule) {
+        return headingLine;
+    }
+    // A rule directly below another heading is that heading's bottom border.
+    if (headingLine > 1 && isSectionHeaderLine(document.lineAt(headingLine - 2).text)) {
+        return headingLine;
+    }
+    return headingLine - 1;
+}
+
+function getSectionRunRange(document, headingLine) {
+    const level = /^\*{1,2}\s*(#+)/.exec(document.lineAt(headingLine).text)[1].length;
+    const startLine = getDecoratedSectionStart(document, headingLine);
+    let endLine = document.lineCount - 1;
+
+    for (let i = headingLine + 1; i < document.lineCount; i += 1) {
+        const match = /^\*{1,2}\s*(#+)/.exec(document.lineAt(i).text);
+        if (match && match[1].length <= level) {
+            endLine = getDecoratedSectionStart(document, i) - 1;
+            break;
+        }
+    }
+    // Keep spacing within the section, but omit empty padding at its end.
+    while (endLine > headingLine && !document.lineAt(endLine).text.trim()) {
+        endLine -= 1;
+    }
+    return { startLine, endLine };
+}
+
 function isStandaloneLineComment(lineText) {
     return /^\s*(?:\*|\/\/|\/\*)/.test(String(lineText || ''));
 }
@@ -129,6 +167,7 @@ function isCursorOnHeading(editor) {
 module.exports = {
     RUN_TARGETS,
     getAttachedCommentRunRange,
+    getSectionRunRange,
     getInclusiveSelectionEndLine,
     getStandaloneCommentFlags,
     getRunTarget,

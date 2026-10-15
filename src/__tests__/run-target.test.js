@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const {
     RUN_TARGETS,
     getAttachedCommentRunRange,
+    getSectionRunRange,
     getStandaloneCommentFlags,
     getInclusiveSelectionEndLine,
     getRunTarget,
@@ -18,6 +19,69 @@ function createDocument(lines) {
         lineAt: index => ({ text: lines[index] })
     };
 }
+
+test('keeps framed headings intact without taking the next section border', () => {
+    const document = createDocument([
+        '** ====================',
+        '**#       配置',
+        '** ====================',
+        '',
+        '**## 配置路径',
+        'clear',
+        '',
+        '** ====================',
+        '**#     描述性统计',
+        '** ====================',
+        'summarize',
+        '',
+        ''
+    ]);
+
+    assert.deepEqual(getSectionRunRange(document, 1), { startLine: 0, endLine: 5 });
+    assert.deepEqual(getSectionRunRange(document, 8), { startLine: 7, endLine: 10 });
+});
+
+test('preserves nested sections and stops at a higher-level framed heading', () => {
+    const document = createDocument([
+        '**# Model',
+        '** ---------- **',
+        '**## Baseline',
+        '** ---------- **',
+        '**### Specification',
+        'regress y x',
+        '',
+        '** **********',
+        '**# Results',
+        '** **********',
+        'summarize y'
+    ]);
+
+    // The divider below Model stays with Model, rather than being reassigned.
+    assert.deepEqual(getSectionRunRange(document, 2), { startLine: 2, endLine: 5 });
+    assert.deepEqual(getSectionRunRange(document, 0), { startLine: 0, endLine: 5 });
+    assert.deepEqual(getSectionRunRange(document, 8), { startLine: 7, endLine: 10 });
+});
+
+test('attaches symmetric and Unicode rules but leaves ordinary comments alone', () => {
+    for (const rule of ['** ---------- **', '** ──────────', '** **********']) {
+        const document = createDocument([rule, '**# Heading', rule, 'display 1']);
+        assert.deepEqual(getSectionRunRange(document, 1), { startLine: 0, endLine: 3 });
+    }
+    for (const comment of ['** note ===', '// =====', '** explanation', '']) {
+        const document = createDocument([comment, '* # Heading', 'display 1']);
+        assert.deepEqual(getSectionRunRange(document, 1), { startLine: 1, endLine: 2 });
+    }
+});
+
+test('handles adjacent empty framed sections without sharing their borders', () => {
+    const document = createDocument([
+        '** =====', '**# First', '** =====',
+        '** =====', '**# Second', '** ====='
+    ]);
+
+    assert.deepEqual(getSectionRunRange(document, 1), { startLine: 0, endLine: 2 });
+    assert.deepEqual(getSectionRunRange(document, 4), { startLine: 3, endLine: 5 });
+});
 
 test('excludes the next line when a whole-line selection ends at column zero', () => {
     const selection = {
