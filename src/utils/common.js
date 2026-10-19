@@ -9,6 +9,9 @@ const EXT_LABEL = 'Stata All in One';
 
 const UI_TEXT = {
     en: {
+        consoleCompletionSoundPlaying: 'The long task has finished. Playing the completion sound.',
+        consoleCompletionSoundStop: 'Stop Sound',
+        consoleCompletionSoundInvalid: 'The custom completion sound could not be played. Using the system notification sound instead.',
         lineTooLong: 'Line would be too long. Increase separator length setting.',
         sepHere: 'Separator already present between the upper and lower lines.',
         sepAboveBelow: 'Separator already present above and below.',
@@ -287,6 +290,9 @@ const UI_TEXT = {
         consoleAvailSuggestSwitchBack: 'Tip: Embedded Console is available on this device. You can switch from External App to Embedded Console in Settings → Stata All-in-One → Run Mode.',
     },
     zh: {
+        consoleCompletionSoundPlaying: '长任务已结束，正在播放完成提示音。',
+        consoleCompletionSoundStop: '停止铃声',
+        consoleCompletionSoundInvalid: '无法播放自定义完成提示音，已改用系统通知音。',
         lineTooLong: '行长度不足，请在设置中增大分隔线长度。',
         sepHere: '上下行已存在分隔线。',
         sepAboveBelow: '上下都有分隔线，无需重复插入。',

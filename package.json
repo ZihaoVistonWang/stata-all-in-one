@@ -128,6 +128,47 @@
           "default": "embeddedConsole",
           "markdownDescription": "%config.runMode.description%"
         },
+        "stata-all-in-one.consoleCompletionSound.enabled": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "%config.consoleCompletionSound.enabled.description%"
+        },
+        "stata-all-in-one.consoleCompletionSound.thresholdMinutes": {
+          "type": "number",
+          "default": 5,
+          "minimum": 0,
+          "markdownDescription": "%config.consoleCompletionSound.thresholdMinutes.description%"
+        },
+        "stata-all-in-one.consoleCompletionSound.ringtone": {
+          "type": "string",
+          "default": "notification",
+          "enum": [
+            "notification",
+            "information",
+            "warning",
+            "custom"
+          ],
+          "enumItemLabels": [
+            "%config.consoleCompletionSound.notification%",
+            "%config.consoleCompletionSound.information%",
+            "%config.consoleCompletionSound.warning%",
+            "%config.consoleCompletionSound.custom%"
+          ],
+          "markdownDescription": "%config.consoleCompletionSound.ringtone.description%"
+        },
+        "stata-all-in-one.consoleCompletionSound.customPath": {
+          "type": "string",
+          "default": "",
+          "scope": "machine",
+          "markdownDescription": "%config.consoleCompletionSound.customPath.description%"
+        },
+        "stata-all-in-one.consoleCompletionSound.durationSeconds": {
+          "type": "integer",
+          "default": 60,
+          "minimum": 1,
+          "maximum": 300,
+          "markdownDescription": "%config.consoleCompletionSound.durationSeconds.description%"
+        },
         "stata-all-in-one.consoleFontMode": {
           "type": "string",
           "enum": [
@@ -252,6 +293,10 @@
       }
     ],
     "commands": [
+      {
+        "command": "stata-all-in-one.stopCompletionSound",
+        "title": "%command.stopCompletionSound.title%"
+      },
       {
         "command": "stata-all-in-one.setLevel1",
         "title": "%command.setLevel1.title%"

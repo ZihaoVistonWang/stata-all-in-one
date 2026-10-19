@@ -14,6 +14,7 @@ const variableSuggestions = require('../../variableSuggestionService');
 const { isWindows, isMacOS, showInfo, showWarn, showError, showConsoleUnavailableToast, stripSurroundingQuotes, msg } = require('../../../utils/common');
 const capability = require('../../capability');
 const config = require('../../../utils/config');
+const completionSound = require('../embeddedConsole/completionSound');
 const { ensureStataConfigured } = require('../stataInstallationResolver');
 
 // External App 执行函数导入
@@ -135,6 +136,7 @@ async function runCurrentSection(context, editor = null) {
 
     const codeToRun = originalCode;
     const runMode = config.getRunMode();
+    const completionSoundSettings = config.getConsoleCompletionSound();
 
     if (runMode === config.RUN_MODES.embeddedConsole) {
         const terminal = require('../embeddedConsole/panel');
@@ -149,6 +151,8 @@ async function runCurrentSection(context, editor = null) {
         return;
     }
 
+    completionSound.getService().stop();
+
     if (shouldRouteBrowseCommand(runMode)) {
         const compatibilityResult = await routeConsoleUnsupportedCommand(codeToRun);
         if (compatibilityResult) {
@@ -161,7 +165,8 @@ async function runCurrentSection(context, editor = null) {
         if (segments.some(segment => segment.type === 'browse')) {
             await runBrowseExecutionPlan(context, segments, {
                 docDir: path.dirname(document.fileName),
-                outputMode: runMode
+                outputMode: runMode,
+                completionSoundSettings
             });
             return;
         }
@@ -174,10 +179,10 @@ async function runCurrentSection(context, editor = null) {
 
     // 获取文档目录
     const docDir = path.dirname(document.fileName);
-    
+
     // 创建临时文件路径（用于 External App 模式）
     const tmpFilePath = getTempFilePath();
-    
+
     try {
         // === 调度逻辑 ===
         
@@ -187,7 +192,7 @@ async function runCurrentSection(context, editor = null) {
                 vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', false);
             } else {
                 vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
-                const consoleResult = await runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir, context);
+                const consoleResult = await runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir, context, { completionSoundSettings });
                 if (consoleResult.success) {
                     vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
                     capability.setCapabilityState(context, 'console');
@@ -214,7 +219,7 @@ async function runCurrentSection(context, editor = null) {
                 vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', false);
             } else {
                 vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
-                const consoleResult = await runOnMacWebview(codeToRun, tmpFilePath, docDir, context);
+                const consoleResult = await runOnMacWebview(codeToRun, tmpFilePath, docDir, context, { completionSoundSettings });
                 if (consoleResult.success) {
                     vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
                     capability.setCapabilityState(context, 'console');
@@ -277,6 +282,7 @@ async function runArbitraryCode(context, code, options = {}) {
     }
 
     const runMode = options.outputMode || config.getRunMode();
+    options = { ...options, completionSoundSettings: options.completionSoundSettings || config.getConsoleCompletionSound() };
     if (runMode === config.RUN_MODES.embeddedConsole && !options.allowWhileRunning) {
         const terminal = require('../embeddedConsole/panel');
         if (terminal.isWebviewTerminalRunning && terminal.isWebviewTerminalRunning()) {
@@ -291,6 +297,8 @@ async function runArbitraryCode(context, code, options = {}) {
         showError(msg('unsupportedPlatform'));
         return { success: false };
     }
+
+    if (!options.completionSound) completionSound.getService().stop();
 
     if (shouldRouteBrowseCommand(runMode) && !options.skipCompatibilityRouting) {
         const compatibilityResult = await routeConsoleUnsupportedCommand(normalizedCode);
@@ -329,6 +337,8 @@ async function runArbitraryCode(context, code, options = {}) {
 
             await vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
             const consoleResult = await runOnWindowsEmbeddedConsole(normalizedCode, tmpFilePath, docDir, context, {
+                completionSound: options.completionSound,
+                completionSoundSettings: options.completionSoundSettings,
                 suppressRunFooter: Boolean(options.suppressRunFooter)
             });
             if (consoleResult.success) {
@@ -363,6 +373,8 @@ async function runArbitraryCode(context, code, options = {}) {
 
         await vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
         const consoleResult = await runOnMacWebview(normalizedCode, tmpFilePath, docDir, context, {
+            completionSound: options.completionSound,
+            completionSoundSettings: options.completionSoundSettings,
             suppressRunFooter: Boolean(options.suppressRunFooter)
         });
         if (consoleResult.success) {
@@ -395,6 +407,7 @@ async function runArbitraryCode(context, code, options = {}) {
 
 async function runBrowseExecutionPlan(context, segments, options = {}) {
     let result = { success: true, routedToDataViewer: false };
+    const completion = completionSound.getService().begin(options.completionSoundSettings);
     const runStartTime = Date.now();
     const sink = require('../embeddedConsole/panel').getWebviewTerminalSink();
     const finishPlan = (finalResult) => {
@@ -402,43 +415,53 @@ async function runBrowseExecutionPlan(context, segments, options = {}) {
         return finalResult;
     };
 
-    for (const segment of segments) {
-        if (segment.type === 'browse') {
-            const browseResult = await routeBrowseCommand(segment.commandText, { keepRunning: true });
-            if (!browseResult || !browseResult.success) {
-                return finishPlan(browseResult || { success: false });
+    try {
+        for (const segment of segments) {
+            if (segment.type === 'browse') {
+                const browseResult = await routeBrowseCommand(segment.commandText, { keepRunning: true });
+                if (!browseResult || !browseResult.success) {
+                    completion.abort();
+                    return finishPlan(browseResult || { success: false });
+                }
+                result = {
+                    ...result,
+                    ...browseResult,
+                    routedToDataViewer: true
+                };
+                continue;
+            }
+
+            const codeResult = await runArbitraryCode(context, segment.code, {
+                ...options,
+                skipBrowseRouting: true,
+                allowWhileRunning: true,
+                completionSound: completion,
+                suppressRunFooter: true
+            });
+            if (!codeResult || !codeResult.success) {
+                if (!codeResult || codeResult.errorType !== 'stata') completion.abort();
+                return finishPlan(codeResult || { success: false });
             }
             result = {
                 ...result,
-                ...browseResult,
-                routedToDataViewer: true
+                ...codeResult,
+                routedToDataViewer: result.routedToDataViewer
             };
-            continue;
         }
 
-        const codeResult = await runArbitraryCode(context, segment.code, {
-            ...options,
-            skipBrowseRouting: true,
-            allowWhileRunning: true,
-            suppressRunFooter: true
-        });
-        if (!codeResult || !codeResult.success) {
-            return finishPlan(codeResult || { success: false });
+        const finished = finishPlan(result);
+        if (result.routedToDataViewer) {
+            // A later command in the same selection can reveal the Console again.
+            // Put the Data Viewer tab in front after the whole selection finishes.
+            require('../embeddedConsole/dataViewer/panel').activateDataViewerTab();
         }
-        result = {
-            ...result,
-            ...codeResult,
-            routedToDataViewer: result.routedToDataViewer
-        };
+        return finished;
+    } catch (error) {
+        completion.abort();
+        throw error;
+    } finally {
+        completion.finish();
     }
-
-    const finished = finishPlan(result);
-    if (result.routedToDataViewer) {
-        // A later command in the same selection can reveal the Console again.
-        // Put the Data Viewer tab in front after the whole selection finishes.
-        require('../embeddedConsole/dataViewer/panel').activateDataViewerTab();
-    }
-    return finished;
 }
 
 async function refreshMemoryVarsAfterRun(context, result) {

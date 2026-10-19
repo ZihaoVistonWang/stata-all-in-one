@@ -345,3 +345,32 @@ test('waitUntilIdle resolves even when the queue drains before the last command'
         delete require.cache[sessionPath];
     }
 });
+
+test('execution observer excludes queue wait and internal commands and cannot change the result', async (t) => {
+    const { performance } = require('node:perf_hooks');
+    let clock = 0;
+    t.mock.method(performance, 'now', () => clock);
+    const engine = createEngineSimulator();
+    try {
+        const { session } = await startSession(engine);
+        const first = session.execute('metadata', false, null, { internal: true });
+        const observations = [];
+        const second = session.execute('user', false, null, {
+            onExecutionComplete(result, elapsed) { observations.push({ result, elapsed }); throw new Error('observer failure'); }
+        });
+        await engine.waitForCommand(0);
+        clock = 500000;
+        assert.equal(observations.length, 0);
+        engine.releaseByCode('metadata'); await first;
+        await engine.waitForCommand(1);
+        clock += 25;
+        engine.releaseByCode('user');
+        const result = await second;
+        assert.equal(result.success, true);
+        assert.equal(observations.length, 1);
+        assert.equal(observations[0].elapsed, 25);
+        assert.equal(observations[0].result, result);
+    } finally {
+        delete require.cache[sessionPath];
+    }
+});

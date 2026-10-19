@@ -338,6 +338,7 @@ async function showAISkillDialog() {
  * Activate the extension
  */
 async function activate(context) {
+    require('./modules/runCode/embeddedConsole/completionSound').getService().register(context);
     console.log('Stata All in One: Extension activated');
     syncConsoleTerminalTheme();
     context.subscriptions.push(vscode.window.onDidChangeActiveColorTheme(() => {

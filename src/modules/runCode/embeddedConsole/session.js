@@ -1,3 +1,4 @@
+const { performance } = require('perf_hooks');
 /**
  * Stata Embedded Console Session Manager
  * Manages the Stata Embedded Console session instance per VS Code window.
@@ -348,7 +349,17 @@ class StataConsoleSession {
                     // interrupted one.
                     notifyDataMayHaveChanged({ code });
                 }
-                return this._executeNow(code, echo, onOutput);
+                const executionStartedAt = performance.now();
+                let executionResult;
+                try {
+                    executionResult = await this._executeNow(code, echo, onOutput);
+                    return executionResult;
+                } finally {
+                    if (options && typeof options.onExecutionComplete === 'function') {
+                        try { options.onExecutionComplete(executionResult, performance.now() - executionStartedAt); }
+                        catch (error) { console.warn('Stata All in One: execution observer:', error.message); }
+                    }
+                }
             },
             internal ? 'read' : 'execute'
         );

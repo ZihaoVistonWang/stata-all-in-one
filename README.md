@@ -280,6 +280,17 @@ If automatic discovery cannot find Stata, choose `Stata not found? Configure it 
 
     - Memory budget for one read, default 1024 MB; lower it on memory-constrained machines.
 
+**Long-task completion sound** (`stata-all-in-one.consoleCompletionSound.*`)
+
+- `enabled`: off by default; applies only to Embedded Console user submissions.
+- `thresholdMinutes`: default `5`; accepts fractions or `0` for every task. Counts actual execution, excluding initialization and queue waiting.
+- `ringtone`: `notification` (default), `information`, `warning`, or `custom` (MP3). System sounds differ by OS.
+- `customPath`: absolute local MP3 path for `custom`. Invalid files fall back to the system notification sound.
+- `durationSeconds`: default `60`, range 1–300. Short audio repeats; longer audio stops at the limit. Playback works independently of Console visibility and follows system volume/mute.
+- Successful tasks and Stata errors can trigger a sound; manual stops, engine failures, and internal data queries do not. Each submission sounds at most once, including submissions split around `browse`.
+
+Click **Stop Sound** in the playback notification or run **Stata All in One: Stop Completion Sound** from the Command Palette to stop the current sound. Turn off `enabled` to stop playback immediately and disable future reminders.
+
 ### Syntax Highlighting and Code Completion
 
 16. **Custom Command Highlighting** (`stata-all-in-one.customCommands`)

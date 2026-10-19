@@ -277,6 +277,17 @@ Stata All in One
 15. **数据查看器内存上限** (`stata-all-in-one.dataViewerMemoryLimitMB`)
     - 单次读取的内存预算，默认 1024 MB；内存紧张时可调低。
 
+**长任务完成声音提醒** (`stata-all-in-one.consoleCompletionSound.*`)
+
+- `enabled`：默认关闭，仅适用于 Embedded Console 中用户提交的任务。
+- `thresholdMinutes`：默认 `5` 分钟，可填小数；设为 `0` 时每次任务均提醒。仅累计实际执行时间，不含初始化和排队等待。
+- `ringtone`：`notification`（默认系统通知音）、`information`（系统信息音）、`warning`（系统警告音）或 `custom`（自定义 MP3）。系统铃声因操作系统而异。
+- `customPath`：选择 `custom` 时使用的本机 MP3 文件绝对路径。无效文件回退到系统通知音。
+- `durationSeconds`：默认 `60` 秒，范围 1–300 秒。短音频重复播放，长音频到时停止；不依赖控制台是否可见，遵循系统音量和静音设置。
+- 正常完成或 Stata 报错结束时提醒；主动停止、引擎异常及内部数据查询不提醒。一次提交最多提醒一次，包含 `browse` 的分段执行也不重复提醒。
+
+响铃时点击通知中的“停止铃声”，或在命令面板运行 **Stata All in One: 停止完成提示音**，即可停止当前播放。关闭 `enabled` 则立即停止声音，并关闭后续提醒。
+
 ### 语法高亮和代码提示
 
 16. **自定义命令高亮** (`stata-all-in-one.customCommands`)

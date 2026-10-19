@@ -9,6 +9,7 @@ const fs = require('fs');
 const path = require('path');
 
 const session = require('./session');
+const completionSound = require('./completionSound');
 const { getTempFilePath, cleanupTempFile } = require('../execute/tempfile');
 const config = require('../../../utils/config');
 const {
@@ -431,6 +432,7 @@ async function ensureConsoleSession(context) {
  * @returns {Promise<object>} - { success, shouldOfferExternalAppFallback, errorType?, message? }
  */
 async function runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir = null, context = null, options = {}) {
+    const completion = options.completionSound || completionSound.getService().begin(options.completionSoundSettings);
     let executionPlan = null;
     let streamedOutput = '';
     let lastRealChunkAt = 0;
@@ -445,6 +447,7 @@ async function runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir = null
     try {
         const initResult = await ensureConsoleSession(context);
         if (!initResult.success) {
+            completion.abort();
             return {
                 success: false,
                 shouldOfferGuiFallback: true,
@@ -457,6 +460,7 @@ async function runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir = null
 
         const consoleSession = session.getConsoleSession(context);
         if (!consoleSession || !consoleSession.isInitialized()) {
+            completion.abort();
             console.error('Stata All in One: Unable to get valid Stata session');
             return {
                 success: false,
@@ -582,7 +586,7 @@ async function runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir = null
                 }
                 const cmdStart = Date.now();
                 console.log(`Stata All in One: [${ci + 1}/${executionPlan.commands.length}] Executing: ${command.substring(0, 100)}`);
-                result = await executeConsoleCommand(consoleSession, graphDir, command, onExecutionChunk);
+                result = await executeConsoleCommand(consoleSession, graphDir, command, onExecutionChunk, completion);
                 if (consoleSession.isStopRequested()) {
                     result = {
                         ...result,
@@ -611,7 +615,7 @@ async function runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir = null
                 outputSink.writeCommand(executionPlan.displayCode || normalizedCode);
             }
             // Temporary do-files rely on Stata's native echo for their internal commands.
-            result = await executeConsoleCommand(consoleSession, graphDir, executionPlan.command, onExecutionChunk);
+            result = await executeConsoleCommand(consoleSession, graphDir, executionPlan.command, onExecutionChunk, completion);
             await syncSessionWorkingDirectory(consoleSession);
             if (typeof outputSink.setWorkingDirectory === 'function') {
                 outputSink.setWorkingDirectory(consoleSession.getWorkingDirectory());
@@ -638,6 +642,8 @@ async function runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir = null
             outputSink.finishTemporaryDoFileOutput();
         }
 
+        if (!result || result.sessionUnavailable || result.sessionLost || result.forced
+            || result.interrupted || consoleSession.isStopRequested()) completion.abort();
         outputSink.flushOutput();
         await writeChangedGraphs(consoleSession, graphDir, graphCaptureState, outputSink);
 
@@ -674,6 +680,7 @@ async function runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir = null
             shouldOfferGuiFallback: false
         };
     } catch (error) {
+        completion.abort();
         console.error('Stata All in One: runOnWindowsEmbeddedConsole exception:', error.message);
 
         _activeOutputSink = outputSink;
@@ -687,6 +694,9 @@ async function runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir = null
             failCode: 'UNKNOWN_ERROR'
         };
     } finally {
+        const soundSession = session.getActiveSession();
+        if (soundSession && soundSession.isStopRequested()) completion.abort();
+        if (!options.completionSound) completion.finish();
         if (typeof outputSink.finishTemporaryDoFileOutput === 'function') {
             outputSink.finishTemporaryDoFileOutput();
         }
@@ -701,6 +711,7 @@ async function runOnWindowsEmbeddedConsole(codeToRun, tmpFilePath, docDir = null
         }
         const activeSession = session.getActiveSession();
         if (activeSession) {
+            if (activeSession.isStopRequested()) completion.abort();
             activeSession.clearManualStopScope();
             await endGraphCapture(activeSession, graphCaptureState);
         }
@@ -727,9 +738,14 @@ function normalizeCodeToRun(code) {
         .trim();
 }
 
-async function executeConsoleCommand(consoleSession, graphDir, command, onExecutionChunk) {
+async function executeConsoleCommand(consoleSession, graphDir, command, onExecutionChunk, completion) {
+    const executionOptions = completion ? {
+        onExecutionComplete: (result, elapsedMs) => completion.record(result, elapsedMs)
+    } : null;
+    const graphSession = Object.create(consoleSession);
+    graphSession.execute = (code, echo, onOutput) => consoleSession.execute(code, echo, onOutput, executionOptions);
     const graphExportResult = await executeBitmapGraphExport(
-        consoleSession,
+        graphSession,
         graphDir,
         command,
         consoleSession.getWorkingDirectory(),
@@ -743,7 +759,7 @@ async function executeConsoleCommand(consoleSession, graphDir, command, onExecut
         return graphExportResult;
     }
 
-    return await consoleSession.execute(command, false, onExecutionChunk);
+    return await consoleSession.execute(command, false, onExecutionChunk, executionOptions);
 }
 
 async function writeChangedGraphs(consoleSession, graphDir, captureState, outputSink, resetAfterExport = false) {
