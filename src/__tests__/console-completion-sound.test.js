@@ -166,6 +166,21 @@ test('configuration defaults and validation match the localized settings contrac
     values['consoleCompletionSound.thresholdMinutes'] = -1;
     values['consoleCompletionSound.durationSeconds'] = 1.5;
     assert.equal(get().thresholdMinutes, 5); assert.equal(get().durationSeconds, 60);
+    for (const audioPath of ['/Users/test/中文 music/song.mp3', "C:\\Users\\test\\Music\\song's track.mp3"]) {
+        for (const wrapper of ['', '"', "'"]) {
+            values['consoleCompletionSound.customPath'] = '  ' + wrapper + audioPath + wrapper + '  ';
+            assert.equal(get().customPath, audioPath);
+        }
+    }
+    // Quotes inside a filename and unmatched outer quotes must remain literal.
+    for (const literal of ['/tmp/song"name.mp3', '/tmp/song\'name.mp3', '"/tmp/song.mp3', "'/tmp/song.mp3\""]) {
+        values['consoleCompletionSound.customPath'] = literal;
+        assert.equal(get().customPath, literal);
+    }
+    for (const empty of ['', '  ', '""', "''", null]) {
+        values['consoleCompletionSound.customPath'] = empty;
+        assert.equal(get().customPath, '');
+    }
     const manifest = require('../../package.json');
     const en = require('../../package.nls.json');
     const zh = require('../../package.nls.zh-cn.json');

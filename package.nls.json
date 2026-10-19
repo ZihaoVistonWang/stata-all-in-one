@@ -3,7 +3,7 @@
   "config.consoleCompletionSound.enabled.description": "Play a sound when a long Embedded Console task finishes. Disabled by default. Does not apply to External App.",
   "config.consoleCompletionSound.thresholdMinutes.description": "Minimum execution time in minutes before a completion sound is played. Initialization and queue waiting are excluded. Use 0 for every task.",
   "config.consoleCompletionSound.ringtone.description": "Choose an operating system sound or a custom MP3 file. System sounds differ between macOS and Windows.",
-  "config.consoleCompletionSound.customPath.description": "Absolute local MP3 file path, used only with Custom MP3. An unreadable or invalid MP3 falls back to the system notification sound.",
+  "config.consoleCompletionSound.customPath.description": "Absolute local MP3 file path, optionally enclosed in matching single or double quotes, used only with Custom MP3. An unreadable or invalid MP3 falls back to the system notification sound.",
   "config.consoleCompletionSound.durationSeconds.description": "Play for this many seconds, repeating short audio and stopping longer audio at the limit. System volume and mute settings apply.",
   "config.consoleCompletionSound.notification": "System Notification",
   "config.consoleCompletionSound.information": "System Information",

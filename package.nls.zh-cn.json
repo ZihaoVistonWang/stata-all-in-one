@@ -3,7 +3,7 @@
   "config.consoleCompletionSound.enabled.description": "长时间运行的 Embedded Console 任务结束时播放声音，默认关闭。不适用于 External App。",
   "config.consoleCompletionSound.thresholdMinutes.description": "触发声音提醒的最短执行时间（分钟），不含初始化和排队等待；设为 0 时每次任务结束均提醒。",
   "config.consoleCompletionSound.ringtone.description": "选择操作系统铃声或自定义 MP3 文件。macOS 与 Windows 的系统铃声不同。",
-  "config.consoleCompletionSound.customPath.description": "自定义 MP3 文件的本机绝对路径，仅选择“自定义 MP3”时使用。文件不可读或无效时回退到系统通知音。",
+  "config.consoleCompletionSound.customPath.description": "自定义 MP3 文件的本机绝对路径，可带或不带成对的单引号、双引号，仅选择“自定义 MP3”时使用。文件不可读或无效时回退到系统通知音。",
   "config.consoleCompletionSound.durationSeconds.description": "持续播放的秒数；短音频重复播放，长音频到时停止。遵循系统音量和静音设置。",
   "config.consoleCompletionSound.notification": "系统通知音",
   "config.consoleCompletionSound.information": "系统信息音",

@@ -199,13 +199,18 @@ const getConsoleCompletionSound = () => {
     const threshold = getConfigValue(prefix + 'thresholdMinutes', 5);
     const duration = getConfigValue(prefix + 'durationSeconds', 60);
     const ringtone = getConfigValue(prefix + 'ringtone', 'notification');
-    const customPath = getConfigValue(prefix + 'customPath', '');
+    const rawCustomPath = getConfigValue(prefix + 'customPath', '');
+    let customPath = typeof rawCustomPath === 'string' ? rawCustomPath.trim() : '';
+    if (customPath.length >= 2 && (customPath[0] === '"' || customPath[0] === "'")
+        && customPath[customPath.length - 1] === customPath[0]) {
+        customPath = customPath.slice(1, -1);
+    }
     return {
         enabled: getConfigValue(prefix + 'enabled', false) === true,
         thresholdMinutes: Number.isFinite(threshold) && threshold >= 0 ? threshold : 5,
         durationSeconds: Number.isInteger(duration) && duration >= 1 && duration <= 300 ? duration : 60,
         ringtone: ['notification', 'information', 'warning', 'custom'].includes(ringtone) ? ringtone : 'notification',
-        customPath: typeof customPath === 'string' ? customPath.trim() : ''
+        customPath
     };
 };
 
