@@ -10,6 +10,10 @@ const { getUserLanguage } = require('../utils/common');
 // Update changelog: version -> changelog text
 const CHANGELOG = {
     en: {
+        '0.3.15': {
+            ver_info: '✨ Stata All in One (0.3.15): Added per-run Console copying and long-task completion sounds; fixed Data Viewer pagination and section separators.',
+            more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0315-2026-10-19'
+        },
         '0.3.14': {
             ver_info: '✨ Stata All in One (0.3.14): Data Viewer now reads data in bounded windows, with fixes for filtering, paging, numeric and strL values, and refresh.',
             more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0314-2026-09-29'
@@ -136,6 +140,10 @@ const CHANGELOG = {
         }
     },
     zh: {
+        '0.3.15': {
+            ver_info: '✨ Stata All in One (0.3.15)：新增控制台逐次运行复制与长任务完成提醒；修复数据查看器翻页和章节分隔线。',
+            more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0315-2026-10-19'
+        },
         '0.3.14': {
             ver_info: '✨ Stata All in One (0.3.14)：数据查看器改用有内存上限的分段读取，修复筛选、分页、数值与 strL 显示及刷新问题。',
             more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0314-2026-09-29'

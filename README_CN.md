@@ -13,7 +13,7 @@ Stata All in One
 </p>
 
 <p align="center">
-   | <b>版本:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.3.14</a> | <b>作者:</b> <a href="https://zihaowang.cn">王梓豪</a> | <b>Translate:</b>
+   | <b>版本:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.3.15</a> | <b>作者:</b> <a href="https://zihaowang.cn">王梓豪</a> | <b>Translate:</b>
   <a href="https://github.com/ZihaoVistonWang/stata-all-in-one">English Version</a> |
 </p>
 
@@ -149,6 +149,7 @@ Stata All in One
      - **稳定状态**：运行计时在视图切换后仍保持准确，临时 do 文件输入不再重复显示。
    - **结果管理**
 
+     - **本次复制**：每次运行后可一键复制本次结果，或连同代码一起复制，长输出也会完整保留。
      - **完整导出**：将控制台结果导出为 HTML、Markdown 或 Notebook 时，保留全部历史记录。
      - **一致布局**：HTML、Markdown 和 Notebook 保持统一的命令分组；HTML 还提供代码预览、连续导航、编号对齐和横向滚动提示。
      - **宽结果预览**：横向溢出的结果可在浮动窗口中查看。
@@ -277,44 +278,44 @@ Stata All in One
 15. **数据查看器内存上限** (`stata-all-in-one.dataViewerMemoryLimitMB`)
     - 单次读取的内存预算，默认 1024 MB；内存紧张时可调低。
 
-**长任务完成声音提醒** (`stata-all-in-one.consoleCompletionSound.*`)
+16. **长任务完成声音提醒** (`stata-all-in-one.consoleCompletionSound.*`)
 
-- `enabled`：默认关闭，仅适用于 Embedded Console 中用户提交的任务。
-- `thresholdMinutes`：默认 `5` 分钟，可填小数；设为 `0` 时每次任务均提醒。仅累计实际执行时间，不含初始化和排队等待。
-- `ringtone`：`notification`（默认系统通知音）、`information`（系统信息音）、`warning`（系统警告音）或 `custom`（自定义 MP3）。系统铃声因操作系统而异。
-- `customPath`：选择 `custom` 时使用的本机 MP3 文件绝对路径。无效文件回退到系统通知音。
-- `durationSeconds`：默认 `60` 秒，范围 1–300 秒。短音频重复播放，长音频到时停止；不依赖控制台是否可见，遵循系统音量和静音设置。
-- 正常完成或 Stata 报错结束时提醒；主动停止、引擎异常及内部数据查询不提醒。一次提交最多提醒一次，包含 `browse` 的分段执行也不重复提醒。
+    - `consoleCompletionSound.enabled`：默认关闭，仅适用于嵌入式控制台中用户提交的任务。
+    - `consoleCompletionSound.thresholdMinutes`：默认 `5` 分钟，可填小数；设为 `0` 时每次任务均提醒。仅累计实际执行时间，不含初始化和排队等待。
+    - `consoleCompletionSound.ringtone`：`notification`（默认系统通知音）、`information`（系统信息音）、`warning`（系统警告音）或 `custom`（自定义 MP3）。系统铃声因操作系统而异。
+    - `consoleCompletionSound.customPath`：选择 `custom` 时使用的本机 MP3 文件绝对路径，可带或不带成对的单引号、双引号。无效文件回退到系统通知音。
+    - `consoleCompletionSound.durationSeconds`：默认 `60` 秒，范围 1–300 秒。短音频重复播放，长音频到时停止；不依赖控制台是否可见，遵循系统音量和静音设置。
+    - 正常完成或 Stata 报错结束时提醒；主动停止、引擎异常及内部数据查询不提醒。一次提交最多提醒一次，包含 `browse` 的分段执行也不重复提醒。
 
-响铃时点击通知中的“停止铃声”，或在命令面板运行 **Stata All in One: 停止完成提示音**，即可停止当前播放。关闭 `enabled` 则立即停止声音，并关闭后续提醒。
+    响铃时点击通知中的“停止铃声”，或在命令面板运行 **Stata All in One: 停止完成提示音**，即可停止当前播放。关闭 `consoleCompletionSound.enabled` 则立即停止声音，并关闭后续提醒。
 
 ### 语法高亮和代码提示
 
-16. **自定义命令高亮** (`stata-all-in-one.customCommands`)
+17. **自定义命令高亮** (`stata-all-in-one.customCommands`)
     - 自定义需要高亮的 Stata 命令（字符串数组），默认包含 `reghdfe`。
     - 示例：`["reghdfe", "ivreghdfe", "gtools", "winsor2", "outreg2"]`
     - **配置后需要重载窗口生效**。
-17. **拼音变量匹配** (`stata-all-in-one.enablePinyinVariableMatching`)
+18. **拼音变量匹配** (`stata-all-in-one.enablePinyinVariableMatching`)
     - `true`（默认）：启用变量名和标签的拼音模糊匹配。
 
 ### Hover 悬停帮助
 
-18. **启用悬停文档** (`stata-all-in-one.enableHoverDocs`)
+19. **启用悬停文档** (`stata-all-in-one.enableHoverDocs`)
 
     - `true`（默认）：鼠标悬停在 Stata 命令上时显示官方帮助信息。
     - `false`：关闭悬停帮助。
-19. **额外 ADO 路径** (`stata-all-in-one.additionalAdoPaths`)
+20. **额外 ADO 路径** (`stata-all-in-one.additionalAdoPaths`)
 
     - 用于扫描社区贡献命令帮助文件的额外 Stata ADO 路径。
     - 示例：`["/Users/username/ado/personal", "C:\\Users\\username\\ado\\personal"]`
 
 ### 大纲与导航
 
-20. **显示多级序号** (`stata-all-in-one.numberingShow`)
+21. **显示多级序号** (`stata-all-in-one.numberingShow`)
 
     - `true`：大纲显示 `1.1`、`1.2.1` 等序号。
     - `false`（默认）：显示原始标题。
-21. **自动添加标题序号** (`stata-all-in-one.numberingAdd`)
+22. **自动添加标题序号** (`stata-all-in-one.numberingAdd`)
 
     - `true`：**当启用序号时**，自动更新 `.do` 文件中的 section 标题以包含序号。
     - `false`（默认）：仅大纲显示序号，不修改文件。
@@ -323,16 +324,16 @@ Stata All in One
 
 ### 代码风格
 
-22. **注释样式** (`stata-all-in-one.commentStyle`)
+23. **注释样式** (`stata-all-in-one.commentStyle`)
 
     - `// `（默认）：用于切换注释的样式。选项包括 `//`、`*` 或 `/* ... */`
-23. **分隔线长度** (`stata-all-in-one.separatorLength`)
+24. **分隔线长度** (`stata-all-in-one.separatorLength`)
 
     - 分割线所在行的字符总长度（包括前缀 `** #` 和分隔符）。默认值：`60`
 
 <a id="separatorSymmetric"></a>
 
-24. **分隔线对称性** (`stata-all-in-one.separatorSymmetric`)
+25. **分隔线对称性** (`stata-all-in-one.separatorSymmetric`)
     - `true`：在分割线末尾添加 ` **` 以保证视觉对称（例如 `** === 标题 === **`）。
     - `false`（默认）：分割线不添加末尾后缀。
 
@@ -364,6 +365,7 @@ Stata All in One
 
 | 版本   | 更新内容                                                                                                                                | 发布日期   |
 | ------ | --------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| 0.3.15 | 新增控制台逐次运行复制与长任务完成提醒；修复数据查看器翻页和章节分隔线。                                                                | 2026-10-19 |
 | 0.3.14 | 数据查看器改用有内存上限的分段读取，修复筛选、分页、数值与 `strL` 显示及刷新问题。                                                        | 2026-09-29 |
 | 0.3.13 | 修复临时目录不一致时无法从 Stata 配置 Stata All in One 的问题。                                                                         | 2026-08-20 |
 | 0.3.12 | 修复控制台源码分组与结果预览范围，以及数据查看器筛选与列宽问题。                                                                        | 2026-08-16 |

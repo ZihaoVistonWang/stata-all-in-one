@@ -3,6 +3,17 @@
 All notable changes to the Stata All in One extension will be documented in this file.
 本文件记录 Stata All in One 扩展的所有重要更改。
 
+## 0.3.15 (2026-10-19)
+
+- **Feat**: Added optional completion sounds for long Embedded Console tasks, with a configurable threshold, system sounds or custom MP3, and a Stop Sound action; quoted MP3 paths are supported.
+- **Feat**: Added per-run plain-text actions to copy results or code with results from complete Console history, preserving command prompts and long output.
+- **Fixed**: Corrected Data Viewer total row counts and pagination across cached windows so later rows remain accessible without gaps or empty pages.
+- **Fixed**: Preserved the separator above a heading when running a section, without including the next section's separator or trailing blank lines.
+- **新增**：嵌入式控制台长任务可选完成声音提醒，支持设置时长阈值、系统音或自定义 MP3，并可停止播放；自定义路径支持成对引号。
+- **新增**：每次运行后可复制本次结果或代码与结果的纯文本，从完整控制台历史提取内容，保留命令提示符和长输出。
+- **修复**：修正数据查看器总行数与跨缓存窗口翻页，避免后续数据无法访问、缺行或空页。
+- **修复**：运行章节时保留标题上方分隔线，避免混入下一章节分隔线和末尾多余空行。
+
 ## 0.3.14 (2026-09-29)
 
 - **Improved**: Read live Stata data in bounded windows with a configurable memory budget, cancellation, and complete pinned `browse` snapshots, so large datasets no longer require an unrestricted full transfer.

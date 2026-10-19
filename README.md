@@ -13,7 +13,7 @@ Stata All in One
 </p>
 
 <p align="center">
-   | <b>Version:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.3.14</a> | <b>Author:</b> <a href="https://zihaowang.cn">Zihao Viston Wang</a> | <b>Translate:</b>
+   | <b>Version:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.3.15</a> | <b>Author:</b> <a href="https://zihaowang.cn">Zihao Viston Wang</a> | <b>Translate:</b>
   <a href="https://gitee.com/ZihaoVistonWang/stata-all-in-one">中文版本</a> |
 </p>
 
@@ -149,6 +149,7 @@ Stata All in One
      - **Stable Status**: Keep elapsed time accurate across view changes and avoid duplicate temporary do-file input.
    - **Result Management**
 
+     - **Copy This Run**: Copy one run's results or code with results, including long output beyond the visible history.
      - **Complete Exports**: Preserve the entire Console history when exporting results to HTML, Markdown, or Notebook.
      - **Consistent Layout**: Keep command grouping aligned across HTML, Markdown, and Notebook; HTML also provides code previews, continuous navigation, aligned numbering, and horizontal-scroll cues.
      - **Wide Result Preview**: View horizontally overflowing results in a floating window.
@@ -280,45 +281,45 @@ If automatic discovery cannot find Stata, choose `Stata not found? Configure it 
 
     - Memory budget for one read, default 1024 MB; lower it on memory-constrained machines.
 
-**Long-task completion sound** (`stata-all-in-one.consoleCompletionSound.*`)
+16. **Long-task Completion Sound** (`stata-all-in-one.consoleCompletionSound.*`)
 
-- `enabled`: off by default; applies only to Embedded Console user submissions.
-- `thresholdMinutes`: default `5`; accepts fractions or `0` for every task. Counts actual execution, excluding initialization and queue waiting.
-- `ringtone`: `notification` (default), `information`, `warning`, or `custom` (MP3). System sounds differ by OS.
-- `customPath`: absolute local MP3 path for `custom`. Invalid files fall back to the system notification sound.
-- `durationSeconds`: default `60`, range 1–300. Short audio repeats; longer audio stops at the limit. Playback works independently of Console visibility and follows system volume/mute.
-- Successful tasks and Stata errors can trigger a sound; manual stops, engine failures, and internal data queries do not. Each submission sounds at most once, including submissions split around `browse`.
+    - `consoleCompletionSound.enabled`: off by default; applies only to Embedded Console user submissions.
+    - `consoleCompletionSound.thresholdMinutes`: default `5`; accepts fractions or `0` for every task. Counts actual execution, excluding initialization and queue waiting.
+    - `consoleCompletionSound.ringtone`: `notification` (default), `information`, `warning`, or `custom` (MP3). System sounds differ by OS.
+    - `consoleCompletionSound.customPath`: absolute local MP3 path for `custom`, with or without matching single or double quotes. Invalid files fall back to the system notification sound.
+    - `consoleCompletionSound.durationSeconds`: default `60`, range 1–300. Short audio repeats; longer audio stops at the limit. Playback works independently of Console visibility and follows system volume/mute.
+    - Successful tasks and Stata errors can trigger a sound; manual stops, engine failures, and internal data queries do not. Each submission sounds at most once, including submissions split around `browse`.
 
-Click **Stop Sound** in the playback notification or run **Stata All in One: Stop Completion Sound** from the Command Palette to stop the current sound. Turn off `enabled` to stop playback immediately and disable future reminders.
+    Click **Stop Sound** in the playback notification or run **Stata All in One: Stop Completion Sound** from the Command Palette to stop the current sound. Turn off `consoleCompletionSound.enabled` to stop playback immediately and disable future reminders.
 
 ### Syntax Highlighting and Code Completion
 
-16. **Custom Command Highlighting** (`stata-all-in-one.customCommands`)
+17. **Custom Command Highlighting** (`stata-all-in-one.customCommands`)
     - User-defined Stata commands to highlight as keywords (array of strings). Default: `reghdfe`.
     - Example: `["reghdfe", "ivreghdfe", "gtools", "winsor2", "outreg2"]`
     - **Requires reloading window** after configuration.
-17. **Pinyin Variable Matching** (`stata-all-in-one.enablePinyinVariableMatching`)
+18. **Pinyin Variable Matching** (`stata-all-in-one.enablePinyinVariableMatching`)
 
     - `true` (default): Enable pinyin fuzzy matching for variable names and labels.
 
 ### Hover Help
 
-18. **Enable Hover Docs** (`stata-all-in-one.enableHoverDocs`)
+19. **Enable Hover Docs** (`stata-all-in-one.enableHoverDocs`)
 
     - `true` (default): Show official Stata help information when hovering over Stata commands.
     - `false`: Disable hover help.
-19. **Additional ADO Paths** (`stata-all-in-one.additionalAdoPaths`)
+20. **Additional ADO Paths** (`stata-all-in-one.additionalAdoPaths`)
 
     - Extra Stata ADO paths for scanning help files of community-contributed commands.
     - Example: `["/Users/username/ado/personal", "C:\\Users\\username\\ado\\personal"]`
 
 ### Outline & Navigation
 
-20. **Display Multi-level Numbering** (`stata-all-in-one.numberingShow`)
+21. **Display Multi-level Numbering** (`stata-all-in-one.numberingShow`)
 
     - `true`: Outline displays `1.1`, `1.2.1` style numbering.
     - `false` (default): Displays original headings.
-21. **Auto-update Heading Numbering** (`stata-all-in-one.numberingAdd`)
+22. **Auto-update Heading Numbering** (`stata-all-in-one.numberingAdd`)
 
     - `true`: **When numbering is enabled**, automatically update section titles in `.do` files to include numbers.
     - `false` (default): Only displays numbering in outline, doesn't modify file.
@@ -327,16 +328,16 @@ Click **Stop Sound** in the playback notification or run **Stata All in One: Sto
 
 ### Code Style
 
-22. **Comment Style** (`stata-all-in-one.commentStyle`)
+23. **Comment Style** (`stata-all-in-one.commentStyle`)
 
     - `// ` (default): Comment style used for toggling comments. Options include `//`, `*`, or `/* ... */`
-23. **Separator Length** (`stata-all-in-one.separatorLength`)
+24. **Separator Length** (`stata-all-in-one.separatorLength`)
 
     - Total character length of the separator line (including the `** #` prefix and separators). Default: `60`
 
 <a id="separatorSymmetric"></a>
 
-24. **Separator Symmetric** (`stata-all-in-one.separatorSymmetric`)
+25. **Separator Symmetric** (`stata-all-in-one.separatorSymmetric`)
     - `true`: Add ` **` at the end of separator lines to ensure visual symmetry (e.g., `** === Title === **`).
     - `false` (default): Separator lines without the suffix.
 
@@ -368,6 +369,7 @@ If this extension has been helpful to you, feel free to scan the **Alipay** (lef
 
 | Version | Changes                                                                                                                                                                                               | Release Date |
 | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| 0.3.15  | Added per-run Console copying and long-task completion sounds; fixed Data Viewer pagination and section separators.                                                                                    | 2026-10-19   |
 | 0.3.14  | Data Viewer now reads data in bounded windows, with fixes for filtering, paging, numeric and `strL` values, and refresh.                                                                              | 2026-09-29   |
 | 0.3.13  | Fixed configuring Stata All in One from Stata when temporary directories differ.                                                                                                                      | 2026-08-20   |
 | 0.3.12  | Fixed Console source grouping and result-preview scope, plus Data Viewer filter and column-width issues.                                                                                              | 2026-08-16   |
