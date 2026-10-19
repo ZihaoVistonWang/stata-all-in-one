@@ -23,7 +23,7 @@ const config = require('../../../utils/config');
 const capability = require('../../capability');
 const { hasOpenStataSourceTab } = require('./editorRestorePolicy');
 const { createExportFilename, serializeConsoleExport } = require('./consoleExport');
-const { appendConsoleHistory } = require('./consoleHistory');
+const { appendConsoleHistory, getConsoleRunText } = require('./consoleHistory');
 const {
     DEFAULT_HISTORY_PAGE_SIZE,
     DEFAULT_HISTORY_WINDOW_SIZE,
@@ -295,6 +295,15 @@ function attachPanel(panel) {
             }
         } else if (message && message.type === 'exportConsole') {
             await exportConsoleHistory();
+        } else if (message && message.type === 'copyConsoleRun') {
+            if (message.historyRevision !== _historyRevision) return;
+            const text = getConsoleRunText(_history, message.footerIndex, message.includeCode === true);
+            if (text === null) return;
+            try {
+                await vscode.env.clipboard.writeText(text);
+            } catch (error) {
+                showError(msg('consoleCopyFailed', { message: error.message }));
+            }
         } else if (message && message.type === 'saveGraph') {
             await saveGraphAs(message.filePath, message.graphName, message.format);
         } else if (message && message.type === 'openGraphPreview') {
@@ -1984,6 +1993,55 @@ function getWebviewHtml(webview) {
             align-items: center;
             gap: 10px;
         }
+        .run-copy-actions {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 4px;
+            padding: 0 2ch 0 var(--console-run-gutter);
+        }
+        .run-copy-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            min-height: 28px;
+            padding: 5px 8px;
+            font: 12px/1.5 var(--vscode-font-family);
+            white-space: nowrap;
+            border: none;
+            border-radius: 4px;
+            background: transparent;
+            color: var(--vscode-descriptionForeground);
+            cursor: pointer;
+        }
+        .run-copy-button:hover {
+            background: var(--vscode-toolbar-hoverBackground);
+            color: var(--vscode-foreground);
+        }
+        .run-copy-button:focus-visible {
+            outline: 1px solid var(--vscode-focusBorder);
+            outline-offset: -1px;
+        }
+        .run-copy-button svg {
+            width: 16px;
+            height: 16px;
+            flex: 0 0 auto;
+            pointer-events: none;
+        }
+        #run-copy-tooltip {
+            position: fixed;
+            z-index: 200;
+            max-width: calc(100vw - 24px);
+            padding: 5px 8px;
+            border: 1px solid var(--vscode-editorHoverWidget-border);
+            border-radius: 4px;
+            background: var(--vscode-editorHoverWidget-background, var(--vscode-editor-background));
+            color: var(--vscode-editorHoverWidget-foreground, var(--vscode-foreground));
+            box-shadow: 0 2px 8px var(--vscode-widget-shadow);
+            font: 12px/1.5 var(--vscode-font-family);
+            pointer-events: none;
+        }
         .line-footer::before,
         .line-footer::after {
             content: '';
@@ -2644,6 +2702,7 @@ function getWebviewHtml(webview) {
     </div>
     <nav id="run-nav" aria-label="${escapeHtml(msg('consoleRunNavigation'))}"></nav>
     <div id="run-nav-tooltip" role="tooltip"></div>
+    <div id="run-copy-tooltip" role="tooltip" hidden></div>
     <button id="jump-bottom-button" type="button" title="${escapeHtml(msg('webviewJumpToBottom'))}" aria-label="${escapeHtml(msg('webviewJumpToBottom'))}">
         <svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" fill="currentColor" aria-hidden="true">
             <path d="M12.1464 7.14645C12.3417 6.95119 12.6583 6.95119 12.8536 7.14645C13.0488 7.34171 13.0488 7.65829 12.8536 7.85355L8.35355 12.3536C8.15829 12.5488 7.84171 12.5488 7.64645 12.3536L3.14645 7.85355C2.95118 7.65829 2.95118 7.34171 3.14645 7.14645C3.34171 6.95118 3.65829 6.95118 3.85355 7.14645L8 11.2929L12.1464 7.14645ZM12.1464 3.14645C12.3417 2.95119 12.6583 2.95119 12.8536 3.14645C13.0488 3.34171 13.0488 3.65829 12.8536 3.85355L8.35355 8.35355C8.15829 8.54882 7.84171 8.54882 7.64645 8.35355L3.14645 3.85355C2.95118 3.65829 2.95118 3.34171 3.14645 3.14645C3.34171 2.95118 3.65829 2.95118 3.85355 3.14645L8 7.29289L12.1464 3.14645Z"></path>
@@ -2687,6 +2746,7 @@ function getWebviewHtml(webview) {
         const jumpBottomButton = document.getElementById('jump-bottom-button');
         const runNav = document.getElementById('run-nav');
         const runNavTooltip = document.getElementById('run-nav-tooltip');
+        const runCopyTooltip = document.getElementById('run-copy-tooltip');
         const graphFullscreen = document.getElementById('graph-fullscreen');
         const graphFullscreenImage = document.getElementById('graph-fullscreen-image');
         const graphFullscreenClose = document.getElementById('graph-fullscreen-close');
@@ -3616,6 +3676,7 @@ function getWebviewHtml(webview) {
         }
 
         output.addEventListener('scroll', () => {
+            runCopyTooltip.hidden = true;
             noteVerticalScrollbarActivity();
             followOutputTail = isOutputAtBottom();
             updateJumpToBottomButtonState();
@@ -3640,6 +3701,16 @@ function getWebviewHtml(webview) {
                 if (entry && entry.kind === 'submission') {
                     currentResultBlock = null;
                     fragment.appendChild(renderSubmissionEntry(entry, historyIndex));
+                    continue;
+                }
+
+                if (entry && entry.kind === 'footer') {
+                    currentResultBlock = null;
+                    const footer = document.createElement('div');
+                    footer.className = 'run-footer';
+                    footer.appendChild(createRunCopyActions(historyIndex));
+                    footer.appendChild(renderEntry(entry, entries[index + 1] || null, historyIndex));
+                    fragment.appendChild(footer);
                     continue;
                 }
 
@@ -3675,6 +3746,60 @@ function getWebviewHtml(webview) {
                 configureResultScrollHints();
                 rebuildRunNavigation();
             });
+        }
+
+        function showRunCopyTooltip(button) {
+            runCopyTooltip.textContent = button.getAttribute('aria-label');
+            runCopyTooltip.hidden = false;
+            const rect = button.getBoundingClientRect();
+            const tooltipRect = runCopyTooltip.getBoundingClientRect();
+            runCopyTooltip.style.left = Math.max(8, Math.min(rect.right - tooltipRect.width, window.innerWidth - tooltipRect.width - 8)) + 'px';
+            runCopyTooltip.style.top = Math.max(8, rect.top - tooltipRect.height - 6) + 'px';
+        }
+
+        function createRunCopyActions(footerIndex) {
+            const actions = document.createElement('div');
+            actions.className = 'run-copy-actions';
+            const labels = [${JSON.stringify(msg('consoleCopyRunResults'))}, ${JSON.stringify(msg('consoleCopyRunCodeAndResults'))}];
+            const captions = [${JSON.stringify(msg('consoleCopyRunResultsLabel'))}, ${JSON.stringify(msg('consoleCopyRunCodeAndResultsLabel'))}];
+            labels.forEach((label, index) => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'run-copy-button';
+                button.setAttribute('aria-label', label);
+                button.setAttribute('aria-describedby', 'run-copy-tooltip');
+                const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                icon.setAttribute('viewBox', '0 0 24 24');
+                icon.setAttribute('fill', 'none');
+                icon.setAttribute('stroke', 'currentColor');
+                icon.setAttribute('stroke-width', '1.6');
+                icon.setAttribute('stroke-linecap', 'round');
+                icon.setAttribute('stroke-linejoin', 'round');
+                icon.setAttribute('aria-hidden', 'true');
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                path.setAttribute('d', index === 0
+                    ? 'M9 9h11v11H9z M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1'
+                    : 'm16 18 6-6-6-6 M8 6l-6 6 6 6');
+                icon.appendChild(path);
+                button.appendChild(icon);
+                const caption = document.createElement('span');
+                caption.textContent = captions[index];
+                button.appendChild(caption);
+                button.addEventListener('pointerenter', () => showRunCopyTooltip(button));
+                button.addEventListener('focus', () => showRunCopyTooltip(button));
+                button.addEventListener('pointerleave', () => { runCopyTooltip.hidden = true; });
+                button.addEventListener('blur', () => { runCopyTooltip.hidden = true; });
+                button.addEventListener('click', () => {
+                    vscode.postMessage({
+                        type: 'copyConsoleRun',
+                        historyRevision,
+                        footerIndex,
+                        includeCode: index === 1
+                    });
+                });
+                actions.appendChild(button);
+            });
+            return actions;
         }
 
         function updateResultScrollHints(block) {
