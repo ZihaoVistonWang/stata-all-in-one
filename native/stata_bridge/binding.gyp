@@ -41,6 +41,14 @@
               "AdditionalOptions": ["/std:c++17"]
             }
           }
+        }],
+        ["OS=='linux'", {
+          "cflags_cc": [
+            "-fexceptions"
+          ],
+          "libraries": [
+            "-ldl"
+          ]
         }]
       ]
     }

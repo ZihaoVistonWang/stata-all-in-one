@@ -2,6 +2,7 @@
  * stata_bridge.cc - C++ N-API Native Module for Stata Console Session
  * Bridges Node.js with Stata C API via dynamic library loading
  * macOS: dlopen/dlsym (libstata-*.dylib)
+ * Linux: dlopen/dlsym (libstata-*.so)
  * Windows: LoadLibrary/GetProcAddress (mp-64.dll / Stata*.dll)
  * Author: Zihao Viston Wang | License: MIT
  */
@@ -26,6 +27,7 @@
   // HMODULE and void* are compatible on 64-bit Windows.
 #else
   #include <dlfcn.h>
+  #include <cstdlib>   // setenv (macOS / Linux)
 #endif
 
 // ---------------------------------------------------------------------------
@@ -205,7 +207,7 @@ void SetPlatformEnv(const char* name, const char* value) {
     SetEnvironmentVariableA(name, value);
 }
 
-#else // ======================== macOS ========================
+#else // ================== macOS / Linux (dlopen) ==================
 
 std::string GetLibraryError() {
     const char* error = dlerror();
@@ -556,8 +558,9 @@ Napi::Value InitSession(const Napi::CallbackInfo& info) {
         args = {"stata", "-q"};
     }
     #else
-    // macOS: argv[0] must identify the Stata executable. Passing Node/Electron
-    // here confuses StataSO's Python setup and prevents changing python_exec.
+    // macOS / Linux: argv[0] must identify the Stata executable (for example
+    // /usr/local/stata18/stata-mp on Linux). Passing Node/Electron here
+    // confuses StataSO's Python setup and prevents changing python_exec.
     std::string argv0 = exec_path.empty() ? "stata" : exec_path;
     if (splash) {
         args = {argv0};

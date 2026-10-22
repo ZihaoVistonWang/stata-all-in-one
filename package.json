@@ -1123,6 +1123,8 @@
     "test": "node --test src/__tests__/**/*.test.js",
     "build:native": "bash scripts/build-native.sh",
     "build:native:win": "powershell -ExecutionPolicy Bypass -File scripts/build-native.ps1",
+    "build:native:linux": "bash scripts/build-native-linux.sh",
+    "build:data-plugin:linux": "bash scripts/build-data-plugin-linux.sh",
     "prepackage": "npm run build:native"
   }
 }
