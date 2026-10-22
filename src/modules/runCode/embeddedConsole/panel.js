@@ -72,7 +72,10 @@ let _consoleFontOptions = {
     systemFallbackFamily: 'monospace'
 };
 
-const CODICON_RESOURCE_ROOT = vscode.Uri.joinPath(vscode.Uri.file(vscode.env.appRoot), 'out', 'media');
+// VS Code's own codicon font when present, the bundled copy on VS Code Server.
+const CODICON_RESOURCE_ROOT = vscode.Uri.file(
+    require('./codiconFont').resolveCodiconFontDirectory(vscode.env.appRoot)
+);
 const ONLINE_CJK_FONT_CSS_URL = 'https://fontsapi.zeoseven.com/442/main/result.css';
 const ONLINE_LATIN_FONT_WOFF2_URL = 'https://cdn.jsdelivr.net/fontsource/fonts/maple-mono@latest/latin-400-normal.woff2';
 const ONLINE_LATIN_FONT_WOFF_URL = 'https://cdn.jsdelivr.net/fontsource/fonts/maple-mono@latest/latin-400-normal.woff';
@@ -80,7 +83,7 @@ const WEBVIEW_APPEND_BATCH_DELAY_MS = 50;
 const WEBVIEW_APPEND_BATCH_SIZE = 250;
 
 function getCodiconFontUri(webview) {
-    return webview.asWebviewUri(vscode.Uri.joinPath(vscode.Uri.file(vscode.env.appRoot), 'out', 'media', 'codicon.ttf'));
+    return webview.asWebviewUri(vscode.Uri.joinPath(CODICON_RESOURCE_ROOT, 'codicon.ttf'));
 }
 
 function getLocalResourceRoots() {
