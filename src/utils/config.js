@@ -86,6 +86,12 @@ const getEnablePinyinVariableMatching = () =>
 const getStataPathOnWindows = () => getConfigValue('stataPathOnWindows', '');
 
 /**
+ * Get stataPathOnLinux setting (installation directory, or a library /
+ * executable path inside it that pins the edition)
+ */
+const getStataPathOnLinux = () => getConfigValue('stataPathOnLinux', '');
+
+/**
  * Get whether to close non-Stata windows before sending run command on Windows
  */
 const getCloseStataOtherWindowsBeforeSendingCode = () => getConfigValue('closeStataOtherWindowsBeforeSendingCode', true);
@@ -227,6 +233,7 @@ module.exports = {
     getCommentStyle,
     getSeparatorLength,
     getStataPathOnWindows: getStataPathOnWindows,
+    getStataPathOnLinux,
     getCustomCommands,
     getEnablePinyinVariableMatching,
     getCloseStataOtherWindowsBeforeSendingCode,

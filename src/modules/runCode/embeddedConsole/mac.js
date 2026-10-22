@@ -561,7 +561,12 @@ async function runOnMacWebview(codeToRun, tmpFilePath, docDir = null, context = 
     const outputSink = getOutputSink();
 
     try {
-        const initResult = await ensureConsoleSession(context);
+        // The execution pipeline is platform-independent; linux.js reuses it and
+        // injects its own session bootstrap through this option.
+        const ensureSession = typeof options.ensureConsoleSession === 'function'
+            ? options.ensureConsoleSession
+            : ensureConsoleSession;
+        const initResult = await ensureSession(context);
         if (!initResult.success) {
             completion.abort();
             return {

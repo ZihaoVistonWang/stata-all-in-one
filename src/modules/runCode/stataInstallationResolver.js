@@ -6,22 +6,26 @@ const config = require('../../utils/config');
 const {
     isWindows,
     isMacOS,
+    isLinux,
     msg,
     showError,
     stripSurroundingQuotes
 } = require('../../utils/common');
 const {
     DISCOVERY_TIMEOUT_MS,
-    discoverStataInstallations
+    discoverStataInstallations,
+    inspectLinuxInstallation,
+    selectLinuxCandidate
 } = require('./stataDiscovery');
 const { version: extensionVersion } = require('../../../package.json');
 
 const WINDOWS_DISCOVERY_TIMEOUT_MS = DISCOVERY_TIMEOUT_MS.win32;
 const MAC_DISCOVERY_TIMEOUT_MS = DISCOVERY_TIMEOUT_MS.darwin;
+const LINUX_DISCOVERY_TIMEOUT_MS = DISCOVERY_TIMEOUT_MS.linux;
 const SETUP_DIALOG_TITLE = `✨ Stata All in One (${extensionVersion})`;
 
 let resolutionPromise = null;
-const discoveryAttempted = { win32: false, darwin: false };
+const discoveryAttempted = { win32: false, darwin: false, linux: false };
 let stataCommandSetupQuickPick = null;
 let stataSetupServer = null;
 
@@ -73,7 +77,18 @@ function getConfiguredResult() {
             ? { platform: 'darwin', version, autoDetected: false, source: 'configured' }
             : null;
     }
+    if (isLinux()) {
+        const rawPath = config.getStataPathOnLinux();
+        const installationPath = stripSurroundingQuotes(String(rawPath || '').trim());
+        return installationPath
+            ? { platform: 'linux', installationPath, autoDetected: false, source: 'configured' }
+            : null;
+    }
     return null;
+}
+
+function hostPlatform() {
+    return isWindows() ? 'win32' : (isLinux() ? 'linux' : 'darwin');
 }
 
 function buildStataNetInstallCommand(context) {
@@ -195,7 +210,7 @@ async function promptForStataCommandSetup(context) {
         stataCommandSetupQuickPick = null;
         await showError(msg('stataSetupServiceUnavailable'));
         return {
-            platform: isWindows() ? 'win32' : 'darwin',
+            platform: hostPlatform(),
             autoDetected: false,
             pending: true,
             source: 'stata-command-pending'
@@ -252,7 +267,7 @@ async function promptForStataCommandSetup(context) {
     quickPick.show();
 
     return {
-        platform: isWindows() ? 'win32' : 'darwin',
+        platform: hostPlatform(),
         autoDetected: false,
         pending: true,
         source: 'stata-command-pending'
@@ -367,8 +382,63 @@ function getMacCandidateLabel(candidate) {
     return ['Stata', version, edition].filter(Boolean).join(' ');
 }
 
+/**
+ * Persist a Linux installation. The setting holds the installation directory;
+ * when the chosen edition is not the directory's best one (MP > SE > BE) the
+ * library path is stored instead so the choice survives without globalState.
+ */
+async function saveLinuxConfiguration(context, candidate) {
+    const defaultCandidate = selectLinuxCandidate(inspectLinuxInstallation(candidate.installDirectory));
+    const pinEdition = defaultCandidate && defaultCandidate.edition !== candidate.edition;
+    await saveGlobalConfiguration(
+        'stataPathOnLinux',
+        pinEdition ? candidate.libraryPath : candidate.installDirectory
+    );
+    if (context) {
+        await context.globalState.update('stataConsoleLibraryPath', candidate.libraryPath);
+    }
+}
+
+async function discoverAndConfigureLinux(context) {
+    const result = await discoverStataInstallations({
+        platform: 'linux',
+        timeoutMs: LINUX_DISCOVERY_TIMEOUT_MS
+    });
+    if (!result.candidates.length) return undefined;
+
+    const items = result.candidates.map((item, index) => ({
+        label: item.displayName,
+        description: index === 0 ? msg('stataDiscoveryRecommended') : undefined,
+        detail: item.installDirectory,
+        candidate: item
+    }));
+    items.push({
+        label: msg('stataDiscoveryUseStataSetup'),
+        stataCommandSetup: true
+    });
+    const selected = await vscode.window.showQuickPick(items, {
+        title: SETUP_DIALOG_TITLE,
+        placeHolder: msg('stataDiscoverySelectLinux'),
+        ignoreFocusOut: true,
+        matchOnDetail: true
+    });
+    if (!selected) return null;
+    if (selected.stataCommandSetup) return promptForStataCommandSetup(context);
+    const candidate = selected.candidate;
+
+    await saveLinuxConfiguration(context, candidate);
+    return {
+        platform: 'linux',
+        installationPath: candidate.installDirectory,
+        candidate,
+        discovery: result,
+        autoDetected: true,
+        source: 'detected'
+    };
+}
+
 async function resolveEmptyConfiguration(context, promptOnFailure) {
-    const platform = isWindows() ? 'win32' : (isMacOS() ? 'darwin' : null);
+    const platform = isWindows() ? 'win32' : (isMacOS() ? 'darwin' : (isLinux() ? 'linux' : null));
     if (!platform) return null;
 
     let detected = null;
@@ -376,7 +446,9 @@ async function resolveEmptyConfiguration(context, promptOnFailure) {
         discoveryAttempted[platform] = true;
         detected = platform === 'win32'
             ? await discoverAndConfigureWindows(context)
-            : await discoverAndConfigureMac(context);
+            : platform === 'linux'
+                ? await discoverAndConfigureLinux(context)
+                : await discoverAndConfigureMac(context);
     }
     if (detected === null || detected || !promptOnFailure) return detected;
     return promptForStataCommandSetup(context);
@@ -472,10 +544,40 @@ function resolveMacSignalInstallation(signal) {
     };
 }
 
+/**
+ * Linux `saio setup` signal: c(sysdir_stata) is the installation directory
+ * (e.g. /usr/local/stata18/) and the flavor names the running edition.
+ */
+function resolveLinuxSignalInstallation(signal) {
+    const requestedEdition = normalizeSignalEdition(signal.flavor);
+    if (!requestedEdition) return null;
+    const rawPaths = [signal.sysdirStata, ...(signal.sysdirStataCandidates || [])]
+        .map(value => stripSurroundingQuotes(String(value || '').trim()))
+        .filter((value, index, values) => value && values.indexOf(value) === index);
+    for (const rawPath of rawPaths) {
+        const candidate = selectLinuxCandidate(
+            inspectLinuxInstallation(rawPath),
+            { edition: requestedEdition }
+        );
+        if (!candidate) continue;
+        return {
+            platform: 'linux',
+            installationPath: candidate.installDirectory,
+            candidate,
+            edition: candidate.edition,
+            autoDetected: false,
+            source: 'stata-command'
+        };
+    }
+    return null;
+}
+
 async function configureFromStataSignal(context, signal) {
     const resolved = signal.platform === 'win32'
         ? resolveWindowsSignalInstallation(signal)
-        : resolveMacSignalInstallation(signal);
+        : signal.platform === 'linux'
+            ? resolveLinuxSignalInstallation(signal)
+            : resolveMacSignalInstallation(signal);
     if (!resolved) {
         const error = new Error(msg('stataSetupSignalPathInvalid'));
         error.statusCode = 422;
@@ -485,6 +587,10 @@ async function configureFromStataSignal(context, signal) {
     if (resolved.platform === 'win32') {
         await saveGlobalConfiguration('stataPathOnWindows', resolved.executablePath);
         return { ...resolved, resolvedPath: resolved.executablePath };
+    }
+    if (resolved.platform === 'linux') {
+        await saveLinuxConfiguration(context, resolved.candidate);
+        return { ...resolved, resolvedPath: resolved.installationPath };
     }
     await saveGlobalConfiguration('stataVersionOnMacOS', resolved.version);
     await context.globalState.update('stataGuiAppPath', resolved.candidate.appPath);
@@ -517,6 +623,7 @@ function resetStataDiscoveryState(platform = process.platform) {
 }
 
 module.exports = {
+    LINUX_DISCOVERY_TIMEOUT_MS,
     MAC_DISCOVERY_TIMEOUT_MS,
     WINDOWS_DISCOVERY_TIMEOUT_MS,
     buildStataInstallationDoCommand,
@@ -528,6 +635,7 @@ module.exports = {
     getStataInstallationTempDirectory,
     promptForStataCommandSetup,
     resetStataDiscoveryState,
+    resolveLinuxSignalInstallation,
     resolveMacSignalInstallation,
     resolveWindowsSignalInstallation,
     setStataSetupServer,

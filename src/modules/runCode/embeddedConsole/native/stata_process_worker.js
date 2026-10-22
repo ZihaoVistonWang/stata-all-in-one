@@ -85,5 +85,13 @@ process.on('message', (message) => {
 });
 
 process.on('disconnect', () => {
+    if (process.platform === 'linux') {
+        // Stata for Linux installs exit handlers that block for as long as the
+        // dedicated Stata thread is alive, so process.exit() never returns and
+        // the worker would outlive its Extension Host as an orphan that keeps a
+        // licence seat. The parent already terminates workers with SIGKILL for
+        // the same reason; do the same here.
+        process.kill(process.pid, 'SIGKILL');
+    }
     process.exit(0);
 });

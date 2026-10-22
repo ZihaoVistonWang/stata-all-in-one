@@ -64,6 +64,11 @@
           "default": "",
           "markdownDescription": "%config.stataPathOnWindows.description%"
         },
+        "stata-all-in-one.stataPathOnLinux": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "%config.stataPathOnLinux.description%"
+        },
         "stata-all-in-one.closeStataOtherWindowsBeforeSendingCode": {
           "type": "boolean",
           "default": false,

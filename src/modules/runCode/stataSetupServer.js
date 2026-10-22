@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const http = require('http');
+const path = require('path');
 
 const capability = require('../capability');
 const config = require('../../utils/config');
@@ -40,6 +41,8 @@ function normalizeStataPlatform(osName, machineType = '') {
     // type remains explicitly Mac, so retain host validation without
     // rejecting a legitimate native Console request.
     if (normalized === 'unix' && normalizedMachine.includes('mac')) return 'darwin';
+    // Stata for Linux reports c(os) as "Unix" too, with a PC machine type.
+    if (normalized === 'unix') return 'linux';
     return normalized;
 }
 
@@ -164,11 +167,14 @@ class StataSetupServer {
 
     _currentStatus() {
         const isWindows = this.platform === 'win32';
-        const configuredVersion = isWindows ? '' : String(this.config.getStataVersion() || '').trim();
+        const isLinux = this.platform === 'linux';
+        const configuredVersion = isWindows || isLinux ? '' : String(this.config.getStataVersion() || '').trim();
         const configuredPath = isWindows
             ? String(this.config.getStataPathOnWindows() || '').trim()
-            : String(this.context.globalState.get('stataGuiAppPath') || '').trim();
-        const configured = isWindows ? Boolean(configuredPath) : Boolean(configuredVersion);
+            : isLinux
+                ? String(this._linuxInstallationPath() || '').trim()
+                : String(this.context.globalState.get('stataGuiAppPath') || '').trim();
+        const configured = isWindows || isLinux ? Boolean(configuredPath) : Boolean(configuredVersion);
         return {
             service: SERVICE_NAME,
             protocolVersion: PROTOCOL_VERSION,
@@ -179,7 +185,9 @@ class StataSetupServer {
             configured: configured ? 1 : 0,
             platform: this.platform,
             installationPath: configuredPath,
-            stataEdition: isWindows ? this._windowsEdition(configuredPath) : editionFromVersion(configuredVersion),
+            stataEdition: isWindows
+                ? this._windowsEdition(configuredPath)
+                : isLinux ? this._linuxEdition() : editionFromVersion(configuredVersion),
             runMode: this.config.getRunMode(),
             capability: this.capability.getCapabilityState()
         };
@@ -188,6 +196,19 @@ class StataSetupServer {
     _windowsEdition(executablePath) {
         const match = String(executablePath || '').match(/Stata(MP|SE|BE|IC)/i);
         return match ? match[1].toUpperCase() : '';
+    }
+
+    _linuxInstallationPath() {
+        return typeof this.config.getStataPathOnLinux === 'function'
+            ? this.config.getStataPathOnLinux()
+            : '';
+    }
+
+    _linuxEdition() {
+        const libraryPath = String(this.context.globalState.get('stataConsoleLibraryPath') || '');
+        const match = path.basename(libraryPath).match(/^libstata(?:-(mp|se))?\.so$/);
+        if (!match) return '';
+        return match[1] ? match[1].toUpperCase() : 'BE';
     }
 
     _newToken() {

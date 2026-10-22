@@ -92,11 +92,18 @@ function getCaptureBudget() {
 const DEFAULT_WINDOW_ROWS = 2000;
 const NUMERIC_STORAGE_TYPES = new Set(['byte', 'int', 'long', 'float', 'double']);
 
+const PLUGIN_FILE_NAMES = Object.freeze({
+    darwin: 'stata_data_bridge-darwin.plugin',
+    linux: 'stata_data_bridge-linux.plugin',
+    win32: 'stata_data_bridge-win32.plugin'
+});
+
+function pluginFileName(platform = process.platform) {
+    return PLUGIN_FILE_NAMES[platform] || PLUGIN_FILE_NAMES.darwin;
+}
+
 function pluginPath() {
-    const fileName = process.platform === 'win32'
-        ? 'stata_data_bridge-win32.plugin'
-        : 'stata_data_bridge-darwin.plugin';
-    return path.join(__dirname, '..', '..', '..', '..', '..', 'bin', fileName);
+    return path.join(__dirname, '..', '..', '..', '..', '..', 'bin', pluginFileName());
 }
 
 function quoteStataPath(value) {
@@ -549,6 +556,7 @@ module.exports = {
     getCaptureBudget,
     DEFAULT_WINDOW_ROWS,
     DEFAULT_CAPTURE_BUDGET_MB,
+    pluginFileName,
     pluginPath,
     parseCapture,
     parseMetadataOutput,
