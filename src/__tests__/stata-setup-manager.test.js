@@ -25,6 +25,8 @@ function localizedMessage(key, params = {}) {
         stataSetupInstallationMissing: '未找到可用的 Stata 安装。',
         stataSetupMissingDll: '未找到内置 Stata 控制台所需的 DLL。',
         stataSetupMissingDylib: '未找到内置 Stata 控制台所需的 dylib。',
+        stataSetupMissingSharedLibrary: '未找到内置 Stata 控制台所需的共享库（libstata-*.so）。',
+        stataSetupExternalUnavailableOnLinux: 'Linux 上没有外部 Stata 软件模式。',
         stataSetupMissingLicense: '未找到许可证文件 stata.lic。请支持正版Stata软件，以体验Stata All in One完整功能。',
         stataSetupNativeUnavailable: '无法加载原生桥接模块。',
         stataSetupExternalAvailable: '仍可通过外部 Stata 软件运行代码。',
@@ -32,6 +34,7 @@ function localizedMessage(key, params = {}) {
     };
     if (messages[key]) return messages[key];
     if (key === 'stataSetupSuccess') return `成功：${params.stataPath}`;
+    if (key === 'stataSetupSuccessLinux') return `Linux 成功：${params.stataPath}`;
     if (key === 'stataSetupSuccessExternalMode') return `外部模式成功：${params.stataPath}`;
     if (key === 'stataSetupConsoleFailure') return `已找到 Stata：${params.stataPath}，但 Console 不可用：`;
     if (key === 'stataSetupSessionFailed') return `Console 初始化失败：${params.reason || ''}`;
@@ -68,7 +71,8 @@ function loadSetupManager(options = {}) {
     const settings = {
         runMode: options.runMode || 'embeddedConsole',
         stataPathOnWindows: options.windowsPath || '',
-        stataVersionOnMacOS: options.macVersion || ''
+        stataVersionOnMacOS: options.macVersion || '',
+        stataPathOnLinux: options.linuxPath || ''
     };
     const infoChoices = [...(options.infoChoices || [BUTTONS.stataSetupConfirm])];
     const warningChoices = [...(options.warningChoices || [])];
@@ -116,6 +120,7 @@ function loadSetupManager(options = {}) {
     const commonMock = {
         isWindows: () => platform === 'win32',
         isMacOS: () => platform === 'darwin',
+        isLinux: () => platform === 'linux',
         msg: localizedMessage,
         stripSurroundingQuotes: value => String(value || '').replace(/^['"]|['"]$/g, '')
     };
@@ -136,6 +141,8 @@ function loadSetupManager(options = {}) {
         resetStataDiscoveryState() {}
     };
     const stataDiscoveryMock = {
+        // The Linux path helpers are pure filesystem code; keep the real ones.
+        ...require('../modules/runCode/stataDiscovery'),
         getInstallationSignals(executablePath) {
             if (typeof options.getWindowsSignals === 'function') {
                 return options.getWindowsSignals(executablePath);
@@ -169,7 +176,9 @@ function loadSetupManager(options = {}) {
             if (request === '../../utils/common') return commonMock;
             if (request === './stataDiscovery') return stataDiscoveryMock;
             if (request === './stataInstallationResolver') return resolverMock;
-            if (request === './embeddedConsole/windows' || request === './embeddedConsole/mac') {
+            if (request === './embeddedConsole/windows'
+                || request === './embeddedConsole/mac'
+                || request === './embeddedConsole/linux') {
                 return embeddedConsoleMock;
             }
         }
@@ -689,5 +698,149 @@ test('native initialization failure uses the single external-switch modal', asyn
         assert.deepEqual(calls.info[0].items, [BUTTONS.stataSetupConfirmSwitchExternal]);
     } finally {
         fs.rmSync(installation.directory, { recursive: true, force: true });
+    }
+});
+
+function createLinuxInstallation(options = {}) {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'stata-setup-linux-'));
+    const directory = path.join(root, 'stata18');
+    fs.mkdirSync(directory);
+    const files = { mp: ['libstata-mp.so', 'stata-mp'], se: ['libstata-se.so', 'stata-se'], be: ['libstata.so', 'stata'] };
+    for (const edition of options.editions || ['mp', 'se', 'be']) {
+        const [library, executable] = files[edition];
+        if (options.withLibrary !== false) fs.writeFileSync(path.join(directory, library), 'test');
+        fs.writeFileSync(path.join(directory, executable), 'test');
+    }
+    if (options.withLicense !== false) fs.writeFileSync(path.join(directory, 'stata.lic'), 'test');
+    return { root, directory, cleanup: () => fs.rmSync(root, { recursive: true, force: true }) };
+}
+
+function escapeRegExp(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+test('Linux success reports the installation directory and offers no external switch', async () => {
+    const installation = createLinuxInstallation();
+    const { calls, manager, settings, setupOptions } = loadSetupManager({
+        platform: 'linux',
+        resolvedInstallation: {
+            platform: 'linux',
+            installationPath: installation.directory,
+            source: 'detected'
+        },
+        infoChoices: [BUTTONS.stataSetupConfirm]
+    });
+    const context = createContext();
+    try {
+        const result = await manager.ensureStataSetup(context, setupOptions);
+        assert.equal(result.consoleAvailable, true);
+        assert.equal(result.canProceed, true);
+        assert.equal(result.report.platform, 'linux');
+        assert.equal(result.report.libraryKind, 'so');
+        assert.equal(result.report.edition, 'mp');
+        assert.equal(result.report.installationPath, installation.directory);
+        assert.equal(result.report.libraryPath, path.join(installation.directory, 'libstata-mp.so'));
+        assert.equal(result.report.licensePath, path.join(installation.directory, 'stata.lic'));
+        assert.equal(result.report.licenseAvailable, true);
+        assert.equal(calls.console, 1);
+        assert.equal(calls.info.length, 1);
+        assert.equal(calls.info[0].message, SETUP_TITLE);
+        assert.match(calls.info[0].modalOptions.detail, new RegExp(`^Linux 成功：${escapeRegExp(installation.directory)}`));
+        assert.deepEqual(calls.info[0].items, [BUTTONS.stataSetupConfirm]);
+        assert.equal(settings.runMode, 'embeddedConsole');
+        assert.equal(context.values.get('stataConsoleLibraryPath'), path.join(installation.directory, 'libstata-mp.so'));
+        assert.equal(calls.capability.at(-1), 'console');
+    } finally {
+        installation.cleanup();
+    }
+});
+
+test('Linux licence failure keeps the Embedded Console run mode', async () => {
+    const installation = createLinuxInstallation({ withLicense: false });
+    const { calls, manager, settings } = loadSetupManager({
+        platform: 'linux',
+        resolvedInstallation: {
+            platform: 'linux',
+            installationPath: installation.directory,
+            source: 'configured'
+        },
+        infoChoices: [BUTTONS.stataSetupConfirm]
+    });
+    try {
+        const result = await manager.ensureStataSetup(createContext());
+        assert.equal(result.consoleAvailable, false);
+        assert.deepEqual(result.issueCodes, ['LICENSE_NOT_FOUND']);
+        assert.equal(calls.console, 0);
+        assert.equal(calls.info.length, 1);
+        const detail = calls.info[0].modalOptions.detail;
+        assert.match(detail, new RegExp(escapeRegExp(installation.directory)));
+        assert.match(detail, /请支持正版Stata软件/);
+        assert.match(detail, /Linux 上没有外部 Stata 软件模式/);
+        assert.doesNotMatch(detail, /仍可通过外部 Stata 软件运行代码/);
+        assert.deepEqual(calls.info[0].items, [BUTTONS.stataSetupConfirm, BUTTONS.stataSetupPurchaseGenuine]);
+        // No External App on Linux: the run mode must not be switched.
+        assert.equal(settings.runMode, 'embeddedConsole');
+        assert.equal(calls.capability.at(-1), 'external');
+    } finally {
+        installation.cleanup();
+    }
+});
+
+test('a Linux directory without a shared library reports the missing library', async () => {
+    const installation = createLinuxInstallation({ withLibrary: false });
+    const { calls, manager } = loadSetupManager({
+        platform: 'linux',
+        resolvedInstallation: {
+            platform: 'linux',
+            installationPath: installation.directory,
+            source: 'configured'
+        },
+        infoChoices: [BUTTONS.stataSetupConfirm]
+    });
+    try {
+        const result = await manager.ensureStataSetup(createContext());
+        assert.equal(result.installationAvailable, true);
+        assert.deepEqual(result.issueCodes, ['LIBRARY_NOT_FOUND']);
+        assert.match(calls.info[0].modalOptions.detail, /libstata-\*\.so/);
+        assert.doesNotMatch(calls.info[0].modalOptions.detail, /dylib|DLL/);
+    } finally {
+        installation.cleanup();
+    }
+});
+
+test('a Linux setting that names a library pins that edition in the report', async () => {
+    const installation = createLinuxInstallation();
+    const { manager } = loadSetupManager({ platform: 'linux' });
+    const context = createContext();
+    try {
+        const report = await manager.inspectInstallation(context, {
+            platform: 'linux',
+            installationPath: path.join(installation.directory, 'libstata-se.so'),
+            source: 'configured'
+        });
+        assert.equal(report.installationAvailable, true);
+        assert.equal(report.installationPath, installation.directory);
+        assert.equal(report.edition, 'se');
+        assert.equal(report.libraryPath, path.join(installation.directory, 'libstata-se.so'));
+        assert.equal(context.values.get('stataConsoleLibraryPath'), path.join(installation.directory, 'libstata-se.so'));
+
+        // A remembered library wins when the setting only names the directory.
+        const remembered = await manager.inspectInstallation(context, {
+            platform: 'linux',
+            installationPath: installation.directory,
+            source: 'configured'
+        });
+        assert.equal(remembered.edition, 'se');
+
+        const missing = await manager.inspectInstallation(createContext(), {
+            platform: 'linux',
+            installationPath: path.join(installation.root, 'stata19'),
+            source: 'configured'
+        });
+        assert.equal(missing.installationAvailable, false);
+        assert.equal(missing.libraryAvailable, false);
+        assert.equal(missing.installationPath, path.join(installation.root, 'stata19'));
+    } finally {
+        installation.cleanup();
     }
 });

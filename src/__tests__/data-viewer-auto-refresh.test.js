@@ -20,14 +20,15 @@ test('marks Console data stale without refreshing an inactive Data Viewer', () =
     );
 });
 
-test('invalidates Data Viewer data after editor execution on both platforms', () => {
+test('invalidates Data Viewer data after editor execution on every platform', () => {
     const runCurrentSectionSource = executeSource.slice(
         executeSource.indexOf('async function runCurrentSection'),
         executeSource.indexOf('async function ensurePlatformExecutionReady')
     );
+    // One Embedded Console branch per platform: Windows, macOS and Linux.
     assert.equal(
         (runCurrentSectionSource.match(/await invalidateConsoleDataViewer\(\);/g) || []).length,
-        2
+        3
     );
 });
 

@@ -224,12 +224,13 @@ test('Windows startup is excluded from playback duration and a hung decoder is b
     finish(f); f.advance(18000); assert.equal(f.children[1].killed, true);
 });
 
-function dispatcherFixture({ windows = false, result = { success: true }, failBrowse = false } = {}) {
+function dispatcherFixture({ windows = false, linux = false, result = { success: true }, failBrowse = false } = {}) {
     const fs = require('node:fs');
     const path = require('node:path');
     const vm = require('node:vm');
     const f = fixture();
     const calls = [];
+    const errors = [];
     const runners = async (code, temp, directory, context, options) => {
         calls.push(code);
         const task = options.completionSound || f.service.begin(options.completionSoundSettings);
@@ -242,8 +243,8 @@ function dispatcherFixture({ windows = false, result = { success: true }, failBr
     const imports = {
         vscode: { window: {}, workspace: {}, commands: { executeCommand: async () => {} } },
         '../../variableSuggestionService': { refreshMemoryVars: async () => ['x'] },
-        '../../../utils/common': { isWindows: () => windows, isMacOS: () => !windows,
-            msg: value => value, showWarn: async () => {}, showError() {}, showInfo() {}, showConsoleUnavailableToast() {} },
+        '../../../utils/common': { isWindows: () => windows, isMacOS: () => !windows && !linux, isLinux: () => linux,
+            msg: value => value, showWarn: async () => {}, showError: message => errors.push(message), showInfo() {}, showConsoleUnavailableToast() {} },
         '../../../utils/config': { RUN_MODES: { embeddedConsole: 'embeddedConsole', externalApp: 'externalApp' },
             getRunMode: () => 'embeddedConsole', getConsoleCompletionSound: () => ({ ...f.settings }) },
         '../embeddedConsole/completionSound': { getService: () => f.service },
@@ -252,6 +253,7 @@ function dispatcherFixture({ windows = false, result = { success: true }, failBr
         '../externalApp/windows': { runOnWindows: async () => calls.push('external') },
         '../embeddedConsole/mac': { runOnMacWebview: runners },
         '../embeddedConsole/windows': { runOnWindowsEmbeddedConsole: runners },
+        '../embeddedConsole/linux': { runOnLinuxEmbeddedConsole: runners },
         '../embeddedConsole/panel': { isWebviewTerminalRunning: () => false, getWebviewTerminalSink: () => ({ writeRunFooter() {} }) },
         '../embeddedConsole/dataViewer/panel': { activateDataViewerTab() {}, updateDataViewerData: async () => {} },
         '../browseCommand': { ...require('../modules/runCode/browseCommand'),
@@ -264,8 +266,30 @@ function dispatcherFixture({ windows = false, result = { success: true }, failBr
     vm.runInNewContext(fs.readFileSync(path.resolve(__dirname, '../modules/runCode/execute/index.js'), 'utf8'), {
         module, console, setTimeout, require: name => name === 'os' || name === 'path' ? require(name) : imports[name] || {}
     });
-    return { ...f, calls, run: (code, options = {}) => module.exports.runArbitraryCode({}, code, options) };
+    return { ...f, calls, errors, run: (code, options = {}) => module.exports.runArbitraryCode({}, code, options) };
 }
+
+test('the Linux dispatcher runs the Embedded Console and refuses External App mode', async () => {
+    const embedded = dispatcherFixture({ linux: true });
+    const result = await embedded.run('display 1\nbrowse\ndisplay 2');
+    assert.equal(result.success, true);
+    assert.deepEqual(embedded.calls, ['display 1', 'display 2']);
+    assert.equal(embedded.children.length, 1);
+
+    const external = dispatcherFixture({ linux: true });
+    const refused = await external.run('display 1', { outputMode: 'externalApp' });
+    assert.equal(refused.success, false);
+    assert.deepEqual(external.calls, []);
+    assert.deepEqual(external.errors, ['externalAppUnsupportedOnLinux']);
+    assert.equal(external.children.length, 0);
+
+    // A Console failure on Linux reports the problem and never launches an external app.
+    const failed = dispatcherFixture({ linux: true, result: { success: false, shouldOfferGuiFallback: true, failCode: 'SESSION_INIT_FAILED' } });
+    const failure = await failed.run('display 1');
+    assert.equal(failure.success, false);
+    assert.deepEqual(failed.calls, ['display 1']);
+    assert.equal(failed.children.length, 0);
+});
 
 test('both dispatchers share one reminder for a browse-split user submission', async () => {
     for (const windows of [false, true]) {

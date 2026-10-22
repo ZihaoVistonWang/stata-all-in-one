@@ -15,6 +15,7 @@ function loadServerModule() {
                 return {
                     getRunMode: () => 'embeddedConsole',
                     getStataPathOnWindows: () => '',
+                    getStataPathOnLinux: () => '',
                     getStataVersion: () => ''
                 };
             }
@@ -235,4 +236,83 @@ test('legacy Windows query bytes produce local-code-page path candidates', () =>
         'win32'
     );
     assert.ok(candidates.includes('C:\\中文\\Stata13\\'));
+});
+
+test('Stata for Linux is recognised while console Stata on macOS still maps to darwin', () => {
+    const { normalizeStataPlatform } = loadServerModule();
+    assert.equal(normalizeStataPlatform('Unix', 'PC (64-bit x86-64)'), 'linux');
+    assert.equal(normalizeStataPlatform('Unix', 'Mac (Apple Silicon)'), 'darwin');
+    assert.equal(normalizeStataPlatform('Unix', 'Mac (Intel)'), 'darwin');
+    assert.equal(normalizeStataPlatform('MacOSX', 'Mac (Apple Silicon)'), 'darwin');
+    assert.equal(normalizeStataPlatform('Windows', 'PC (64-bit x86-64)'), 'win32');
+});
+
+test('setup status on Linux reports the configured directory and remembered edition', async () => {
+    const { StataSetupServer } = loadServerModule();
+    const server = new StataSetupServer(createContext({
+        stataConsoleLibraryPath: '/usr/local/stata18/libstata-se.so'
+    }), async () => ({ resolvedPath: '/usr/local/stata18' }), {
+        platform: 'linux',
+        portStart: 28190,
+        portEnd: 28190,
+        extensionVersion: '0.3.15',
+        config: {
+            getRunMode: () => 'embeddedConsole',
+            getStataPathOnWindows: () => '',
+            getStataPathOnLinux: () => '/usr/local/stata18',
+            getStataVersion: () => ''
+        },
+        capability: { getCapabilityState: () => 'console' },
+        randomBytes: () => Buffer.from('123456789012345678901234')
+    });
+    try {
+        await server.start();
+        const status = await request(28190, '/status?format=stata');
+        assert.equal(status.statusCode, 200);
+        const fields = textFields(status.body);
+        assert.equal(fields.platform, 'linux');
+        assert.equal(fields.configured, '1');
+        assert.equal(fields.installationPath, '/usr/local/stata18');
+        assert.equal(fields.stataEdition, 'SE');
+
+        // A Linux Stata (c(os) = "Unix", PC machine) is accepted by a Linux host.
+        const query = new URLSearchParams({
+            protocolVersion: '1',
+            setupToken: fields.setupToken,
+            clientVersion: '1.0.0',
+            os: 'Unix',
+            stataVersion: '18.0',
+            flavor: 'MP',
+            machineType: 'PC (64-bit x86-64)',
+            sysdirStata: '/usr/local/stata18/'
+        });
+        const setup = await request(28190, `/setup?${query}`);
+        assert.equal(setup.statusCode, 200);
+        assert.equal(textFields(setup.body).resolvedPath, '/usr/local/stata18');
+    } finally {
+        await server.stop();
+    }
+});
+
+test('setup status on Linux without configuration and without a config getter stays unconfigured', async () => {
+    const { StataSetupServer } = loadServerModule();
+    const server = new StataSetupServer(createContext(), async () => ({ resolvedPath: '' }), {
+        platform: 'linux',
+        portStart: 28191,
+        portEnd: 28191,
+        config: {
+            getRunMode: () => 'embeddedConsole',
+            getStataPathOnWindows: () => '',
+            getStataVersion: () => ''
+        }
+    });
+    try {
+        await server.start();
+        const fields = textFields((await request(28191, '/status?format=stata')).body);
+        assert.equal(fields.configured, '0');
+        assert.equal(fields.installationPath, '');
+        assert.equal(fields.stataEdition, '');
+    } finally {
+        await server.stop();
+    }
 });
