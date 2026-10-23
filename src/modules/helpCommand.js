@@ -8,7 +8,7 @@ const vscode = require('vscode');
 const fs = require('fs');
 const path = require('path');
 const { getTempFilePath } = require('./runCode/execute/tempfile');
-const { isWindows, isMacOS, showError, msg } = require('../utils/common');
+const { isWindows, isMacOS, isLinux, showError, msg } = require('../utils/common');
 const config = require('../utils/config');
 const { runOnMac } = require('./runCode/externalApp/mac');
 const { runOnWindows } = require('./runCode/externalApp/windows');
@@ -78,8 +78,9 @@ async function runHelpCommand(context) {
     // Platform check
     const onWindows = isWindows();
     const onMac = isMacOS();
+    const onLinux = isLinux();
 
-    if (!onWindows && !onMac) {
+    if (!onWindows && !onMac && !onLinux) {
         showError(msg('unsupportedPlatform'));
         return;
     }
@@ -99,6 +100,11 @@ async function runHelpCommand(context) {
     }
 
     // === External App 模式：通过临时文件执行 ===
+
+    if (onLinux) {
+        showError(msg('externalAppUnsupportedOnLinux'));
+        return;
+    }
 
     // Windows platform specific validation
     let stataPathOnWindows = null;

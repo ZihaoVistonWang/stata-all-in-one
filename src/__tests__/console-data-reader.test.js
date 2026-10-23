@@ -11,7 +11,8 @@ Module._load = function(request, parent, isMain) {
 };
 const {
     parseCapture,
-    parseMetadataOutput
+    parseMetadataOutput,
+    pluginFileName
 } = require('../modules/runCode/embeddedConsole/dataViewer/consoleDataReader');
 const {
     getSnapshotFromData,
@@ -167,4 +168,12 @@ test('finds the widest full-column value beyond the currently loaded page', () =
         getColumnAutoFitValueFromData(data, 'name', ''),
         '尚未加载但属于整列的最长中文内容'
     );
+});
+
+test('the data plugin file is chosen per platform with the macOS build as fallback', () => {
+    assert.equal(pluginFileName('darwin'), 'stata_data_bridge-darwin.plugin');
+    assert.equal(pluginFileName('win32'), 'stata_data_bridge-win32.plugin');
+    assert.equal(pluginFileName('linux'), 'stata_data_bridge-linux.plugin');
+    assert.equal(pluginFileName('freebsd'), 'stata_data_bridge-darwin.plugin');
+    assert.equal(pluginFileName(), pluginFileName(process.platform));
 });

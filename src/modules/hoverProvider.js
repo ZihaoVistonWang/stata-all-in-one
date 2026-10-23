@@ -6,6 +6,11 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const {
+    getLinuxSearchRoots,
+    resolveLinuxInstallationPath,
+    scanLinuxInstallations
+} = require('./runCode/stataDiscovery');
 
 let vscode;
 let config;
@@ -1675,6 +1680,18 @@ async function buildHelpIndex(customBasePath = null, additionalPaths = null) {
             if (exePath && fs.existsSync(exePath)) {
                 stataRoot = path.dirname(exePath);
             }
+        } else if (platform === 'linux') {
+            // Prefer the configured installation directory (stataPathOnLinux);
+            // otherwise the newest installation under /usr/local, /opt or $HOME.
+            const configured = resolveLinuxInstallationPath(
+                config && config.getStataPathOnLinux ? config.getStataPathOnLinux() : ''
+            );
+            if (configured) {
+                stataRoot = configured.installDirectory;
+            } else {
+                const [newest] = scanLinuxInstallations(getLinuxSearchRoots());
+                if (newest) stataRoot = newest.installDirectory;
+            }
         }
 
         if (stataRoot && fs.existsSync(stataRoot)) {
@@ -1686,7 +1703,7 @@ async function buildHelpIndex(customBasePath = null, additionalPaths = null) {
     let personalPath;
     if (platform === 'darwin') {
         personalPath = path.join(homeDir, 'Library', 'Application Support', 'Stata', 'ado');
-    } else if (platform === 'win32') {
+    } else if (platform === 'win32' || platform === 'linux') {
         personalPath = path.join(homeDir, 'ado');
     }
     // Scan the whole personal ado tree (plus/, personal/, etc.)

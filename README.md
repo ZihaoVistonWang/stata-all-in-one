@@ -65,7 +65,7 @@ Stata All in One
 
 ### 2. Code Execution (Interacting with Stata)
 
-- **Platform Support**: This extension natively supports seamless integration with Stata on both **macOS** and **Windows**.
+- **Platform Support**: This extension natively supports seamless integration with Stata on **macOS** and **Windows**, and the Embedded Console and Data Viewer on **Linux** (for example on a remote server through VS Code Remote-SSH).
 - **Two Run Modes**:
   - **Embedded Console** (default) 🛠️: Run and display Stata output directly within VS Code, including *command results*, *error messages*, *command window output*, and *graph output*, for a true one-stop experience. Click any file path shown in the Console output to open it.
   - **External App**: Continue using the traditional approach of sending code to the Stata GUI, for users who prefer Stata's native interface. Windows now uses [Stata COM Automation](https://www.stata.com/automation/), delivering significantly better performance than the previous PowerShell-based implementation.
@@ -236,23 +236,26 @@ If automatic discovery cannot find Stata, choose `Stata not found? Configure it 
 3. **Stata Path on Windows** (`stata-all-in-one.stataPathOnWindows`)
 
    - Path to Stata executable file (e.g., `C:\Program Files\Stata17\StataMP-64.exe`). When empty, the extension runs the bundled `scripts/discover_stata_windows.bat` registry probe at startup for up to 5 seconds. The same BAT can be run independently to generate `stata-discovery-report.json` for troubleshooting. If detection fails, configure directly from the running Stata instance. The initializer then verifies the EXE, Console DLL, and `stata.lic`, initializes the Embedded Console when possible, and reports the result once in a central dialog.
-4. **Close Stata Other Windows Before Sending Code (Windows)** (`stata-all-in-one.closeStataOtherWindowsBeforeSendingCode`)
+4. **Stata Path on Linux** (`stata-all-in-one.stataPathOnLinux`)
+
+   - Stata installation directory (e.g., `/usr/local/stata18`). When empty, the extension scans `/usr/local`, `/opt`, and your home directory for Stata installations at startup, preferring the highest numeric version and then MP, SE, and BE. If detection fails, configure directly from the running Stata instance (`saio setup`). The initializer then verifies the console executable, the Console shared library (`libstata-*.so`), and `stata.lic`, initializes the Embedded Console when possible, and reports the result once in a central dialog. A path to a specific library or executable (e.g., `/usr/local/stata18/libstata-se.so`) selects that edition. External App mode is not available on Linux.
+5. **Close Stata Other Windows Before Sending Code (Windows)** (`stata-all-in-one.closeStataOtherWindowsBeforeSendingCode`)
 
    - `true`: Close Stata helper windows (such as Viewer/Data Editor) before sending run commands.
    - `false` (default): Keep those windows open and send code directly.
-5. **Auto cd to Do File Directory** (`stata-all-in-one.cdToDoFileDir`)
+6. **Auto cd to Do File Directory** (`stata-all-in-one.cdToDoFileDir`)
 
    - `true` (default): Automatically set Stata's working directory to the do file's location on first launch.
    - `false`: Stata's working directory is not changed on startup.
-6. **Show Action Buttons** (`stata-all-in-one.showActionButtons`)
+7. **Show Action Buttons** (`stata-all-in-one.showActionButtons`)
 
    - `true` (default): Show the "Bug Report" and "Stata AI Skill" buttons in the editor title bar.
    - `false`: Hide both buttons.
-7. **Show Sponsor Button** (`stata-all-in-one.showSponsorButton`)
+8. **Show Sponsor Button** (`stata-all-in-one.showSponsorButton`)
 
    - `true`: Show the "Sponsor" button in the Stata editor title bar.
    - `false` (default): Hide the button.
-8. **Enable Ctrl+Shift+D for Run Shortcut** (`stata-all-in-one.enableCtrlShiftD`)
+9. **Enable Ctrl+Shift+D for Run Shortcut** (`stata-all-in-one.enableCtrlShiftD`)
 
    - `true`: Use `Ctrl / ⌘ + Shift + D` as the run code shortcut.
    - `false` (default): Use the default `Ctrl / ⌘ + D` shortcut.

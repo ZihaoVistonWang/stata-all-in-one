@@ -9,6 +9,22 @@ const {
 } = require('./fileLinks');
 const { defaultApplicationName } = require('./externalApplication');
 
+/**
+ * Files on a remote Linux host (VS Code Remote-SSH, Tunnels) cannot be handed
+ * to the local desktop: `openExternal` would look for the path on the client
+ * machine and xdg-open has no display on a headless server. VS Code's own
+ * editors are used instead. A local Linux desktop keeps the system default.
+ */
+function shouldOpenInVsCode(platform, vscode, options = {}) {
+    if (platform !== 'linux') return false;
+    if (options.remote !== undefined) return Boolean(options.remote);
+    try {
+        return Boolean(vscode && vscode.env && vscode.env.remoteName);
+    } catch (_error) {
+        return false;
+    }
+}
+
 function openWithSystemDefault(filePath, uri, vscode, options = {}) {
     const platform = options.platform || process.platform;
     const spawn = options.spawn || childProcess.spawn;
@@ -76,11 +92,13 @@ async function openConsoleFile(options) {
         stat = fs.promises.stat,
         openDtaFile,
         platform = process.platform,
+        remote,
         spawn = childProcess.spawn,
         execFile = childProcess.execFile,
         comSpec,
         resolveExternalApplicationName = defaultApplicationName
     } = options;
+    const openInVsCode = shouldOpenInVsCode(platform, vscode, { remote });
     const targetPath = String(filePath || '').trim();
     if (!targetPath || !isAbsoluteFilePath(targetPath, platform)) {
         showWarn(message('consoleFileNotFound', { filePath: targetPath }));
@@ -101,7 +119,7 @@ async function openConsoleFile(options) {
             await openData(context, uri);
             return 'data-viewer';
         }
-        if (isStataFilePath(targetPath)) {
+        if (isStataFilePath(targetPath) && !openInVsCode) {
             await showExternalOpenNotice(targetPath, {
                 platform,
                 execFile,
@@ -129,6 +147,13 @@ async function openConsoleFile(options) {
         if (isTextFilePath(targetPath)) {
             const document = await vscode.workspace.openTextDocument(uri);
             await vscode.window.showTextDocument(document, {
+                viewColumn: vscode.ViewColumn.Active,
+                preview: false
+            });
+            return 'editor';
+        }
+        if (openInVsCode) {
+            await vscode.commands.executeCommand('vscode.open', uri, {
                 viewColumn: vscode.ViewColumn.Active,
                 preview: false
             });
@@ -183,6 +208,10 @@ async function openConsoleLink(options) {
                 options.showWarn(options.message('consoleFileNotFound', { filePath: target }));
                 return 'missing';
             }
+            if (shouldOpenInVsCode(options.platform || process.platform, options.vscode, { remote: options.remote })) {
+                await options.vscode.commands.executeCommand('revealInExplorer', options.vscode.Uri.file(target));
+                return 'directory';
+            }
             const opened = await openWithSystemDefault(
                 target,
                 options.vscode.Uri.file(target),
@@ -216,5 +245,6 @@ module.exports = {
     openConsoleLink,
     openConsoleFile,
     openWithSystemDefault,
+    shouldOpenInVsCode,
     showExternalOpenNotice
 };

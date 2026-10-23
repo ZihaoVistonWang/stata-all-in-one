@@ -162,7 +162,10 @@ let _fontSize = 14;
 const VIEW_WINDOW_SIZE = 700;
 const VIEW_WINDOW_LEAD = 100;
 
-const CODICON_RESOURCE_ROOT = vscode.Uri.joinPath(vscode.Uri.file(vscode.env.appRoot), 'out', 'media');
+// VS Code's own codicon font when present, the bundled copy on VS Code Server.
+const CODICON_RESOURCE_ROOT = vscode.Uri.file(
+    require('../codiconFont').resolveCodiconFontDirectory(vscode.env.appRoot)
+);
 
 /**
  * Last-resort cell formatter, used only if the store does not export one.
@@ -215,7 +218,7 @@ function escHtml(s) {
 }
 
 function getCodiconFontUri(webview) {
-    return webview.asWebviewUri(vscode.Uri.joinPath(vscode.Uri.file(vscode.env.appRoot), 'out', 'media', 'codicon.ttf'));
+    return webview.asWebviewUri(vscode.Uri.joinPath(CODICON_RESOURCE_ROOT, 'codicon.ttf'));
 }
 
 function highlightFilterText(text) {

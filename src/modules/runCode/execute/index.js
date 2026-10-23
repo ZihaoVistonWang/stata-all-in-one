@@ -11,7 +11,7 @@ const path = require('path');
 const variableSuggestions = require('../../variableSuggestionService');
 
 // 工具函数导入
-const { isWindows, isMacOS, showInfo, showWarn, showError, showConsoleUnavailableToast, stripSurroundingQuotes, msg } = require('../../../utils/common');
+const { isWindows, isMacOS, isLinux, showInfo, showWarn, showError, showConsoleUnavailableToast, stripSurroundingQuotes, msg } = require('../../../utils/common');
 const capability = require('../../capability');
 const config = require('../../../utils/config');
 const completionSound = require('../embeddedConsole/completionSound');
@@ -24,6 +24,7 @@ const { runOnWindows } = require('../externalApp/windows');
 // Embedded Console 执行函数导入
 const { runOnMacWebview } = require('../embeddedConsole/mac');
 const { runOnWindowsEmbeddedConsole } = require('../embeddedConsole/windows');
+const { runOnLinuxEmbeddedConsole } = require('../embeddedConsole/linux');
 const { routeBrowseCommand, shouldRouteBrowseCommand, splitBrowseCommandSegments } = require('../browseCommand');
 const { routeConsoleUnsupportedCommand } = require('../consoleCompatibility');
 const { containsSaioCommand } = require('../saioCommandGuard');
@@ -125,8 +126,9 @@ async function runCurrentSection(context, editor = null) {
     // 平台检查
     const onWindows = isWindows();
     const onMac = isMacOS();
+    const onLinux = isLinux();
 
-    if (!onWindows && !onMac) {
+    if (!onWindows && !onMac && !onLinux) {
         showError(msg('unsupportedPlatform'));
         return;
     }
@@ -172,7 +174,7 @@ async function runCurrentSection(context, editor = null) {
         }
     }
 
-    const stataPathOnWindows = await ensurePlatformExecutionReady(context, { onWindows, onMac });
+    const stataPathOnWindows = await ensurePlatformExecutionReady(context, { onWindows, onMac, onLinux });
     if (onWindows && !stataPathOnWindows) {
         return;
     }
@@ -240,6 +242,26 @@ async function runCurrentSection(context, editor = null) {
                     vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
                 }
             }
+        } else if (onLinux) {
+            if (runMode === config.RUN_MODES.externalApp) {
+                // There is no Stata GUI to send code to on a (headless) Linux host.
+                showError(msg('externalAppUnsupportedOnLinux'));
+                vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', false);
+            } else {
+                vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
+                const consoleResult = await runOnLinuxEmbeddedConsole(codeToRun, tmpFilePath, docDir, context, { completionSoundSettings });
+                if (consoleResult.success) {
+                    vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
+                    capability.setCapabilityState(context, 'console');
+                    await refreshMemoryVarsAfterRun(context, consoleResult);
+                    await invalidateConsoleDataViewer();
+                } else if (consoleResult.shouldOfferGuiFallback) {
+                    await reportLinuxConsoleFailure(context, consoleResult);
+                    vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', false);
+                } else {
+                    vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
+                }
+            }
         }
 
     } catch (error) {
@@ -249,12 +271,25 @@ async function runCurrentSection(context, editor = null) {
     }
 }
 
-async function ensurePlatformExecutionReady(context, { onWindows, onMac }) {
+async function ensurePlatformExecutionReady(context, { onWindows, onMac, onLinux }) {
     const resolved = await ensureStataConfigured(context, { promptOnFailure: true });
     if (!resolved) return null;
     if (onWindows) return resolved.executablePath || null;
-    if (onMac) return '';
+    if (onMac || onLinux) return '';
     return null;
+}
+
+/**
+ * Linux has no external Stata application to fall back to: report the Console
+ * failure (and the licence dialog when that is the cause) and stop there.
+ */
+async function reportLinuxConsoleFailure(context, consoleResult) {
+    showConsoleUnavailableToast(consoleResult);
+    capability.setCapabilityState(context, 'external');
+    if (consoleResult.noLicense) {
+        const { showConsoleLicenseDialog } = require('../embeddedConsole/linux');
+        await showConsoleLicenseDialog(context);
+    }
 }
 
 function resolveExecutionDirectory() {
@@ -293,7 +328,8 @@ async function runArbitraryCode(context, code, options = {}) {
 
     const onWindows = isWindows();
     const onMac = isMacOS();
-    if (!onWindows && !onMac) {
+    const onLinux = isLinux();
+    if (!onWindows && !onMac && !onLinux) {
         showError(msg('unsupportedPlatform'));
         return { success: false };
     }
@@ -316,7 +352,7 @@ async function runArbitraryCode(context, code, options = {}) {
         }
     }
 
-    const stataPathOnWindows = await ensurePlatformExecutionReady(context, { onWindows, onMac });
+    const stataPathOnWindows = await ensurePlatformExecutionReady(context, { onWindows, onMac, onLinux });
     if (onWindows && !stataPathOnWindows) {
         return { success: false };
     }
@@ -358,6 +394,33 @@ async function runArbitraryCode(context, code, options = {}) {
                 } else {
                     await maybeOfferGuiFallback(normalizedCode, tmpFilePath, docDir, context, consoleResult.message || 'Embedded Console 执行失败');
                 }
+                await vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', false);
+            }
+            return consoleResult;
+        }
+
+        if (onLinux) {
+            if (runMode === config.RUN_MODES.externalApp) {
+                showError(msg('externalAppUnsupportedOnLinux'));
+                await vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', false);
+                return { success: false };
+            }
+
+            await vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
+            const consoleResult = await runOnLinuxEmbeddedConsole(normalizedCode, tmpFilePath, docDir, context, {
+                completionSound: options.completionSound,
+                completionSoundSettings: options.completionSoundSettings,
+                suppressRunFooter: Boolean(options.suppressRunFooter)
+            });
+            if (consoleResult.success) {
+                await vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
+                capability.setCapabilityState(context, 'console');
+                await refreshMemoryVarsAfterRun(context, consoleResult);
+                await invalidateConsoleDataViewer();
+                return consoleResult;
+            }
+            if (consoleResult.shouldOfferGuiFallback) {
+                await reportLinuxConsoleFailure(context, consoleResult);
                 await vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', false);
             }
             return consoleResult;

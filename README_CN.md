@@ -65,7 +65,7 @@ Stata All in One
 
 ### 2. 代码运行 (与Stata 交互)
 
-- **平台支持**：本拓展原生支持与 **macOS** 和 **Windows** 上的 Stata 无缝集成。
+- **平台支持**：本拓展原生支持与 **macOS** 和 **Windows** 上的 Stata 无缝集成，并在 **Linux** 上支持内置控制台和数据查看器（例如通过 VS Code Remote-SSH 连接的远程服务器）。
 - **两种运行模式**：
   - **嵌入式控制台**（默认模式）🛠️：现在可以在 VS Code 内直接运行并展示Stata输出啦！包括*命令结果*、*错误信息*、*命令行窗口*和*图形输出*，真正实现一站式体验。控制台运行结果中的文件路径，点击即可打开。
   - **外部应用**：继续支持传统的通过 Stata 窗口运行代码的方式，适合喜欢使用 Stata 原生界面的用户。Windows端现在使用[Stata COM自动化](https://www.stata.com/automation/)，性能相比之前基于 PowerShell 的实现有显著提升。
@@ -236,23 +236,26 @@ Stata All in One
 3. **Stata 路径（Windows）** (`stata-all-in-one.stataPathOnWindows`)
 
    - Stata 执行文件路径（例如 `C:\Program Files\Stata17\StataMP-64.exe`）。配置为空时，扩展会在启动时优先自动运行内置的 `scripts/discover_stata_windows.bat` 注册表探测脚本，最长等待 5 秒。该 BAT 脚本也可独立运行并生成 `stata-discovery-report.json`，用于问题排查。未找到时可直接从当前运行的 Stata 完成配置。初始化随后检查 EXE、控制台 DLL 和 `stata.lic`，尽可能初始化内置控制台，并通过中心弹窗只汇报一次结果。
-4. **发送代码前关闭 Stata 其他窗口（Windows）** (`stata-all-in-one.closeStataOtherWindowsBeforeSendingCode`)
+4. **Stata 路径（Linux）** (`stata-all-in-one.stataPathOnLinux`)
+
+   - Stata 安装目录（例如 `/usr/local/stata18`）。配置为空时，扩展会在启动时扫描 `/usr/local`、`/opt` 和用户主目录，优先数字版本最高的安装，同版本按 MP、SE、BE 排序。未找到时可直接从当前运行的 Stata 完成配置（`saio setup`）。初始化随后检查控制台可执行文件、控制台共享库（`libstata-*.so`）和 `stata.lic`，尽可能初始化内置控制台，并通过中心弹窗只汇报一次结果。填写具体的库或可执行文件路径（例如 `/usr/local/stata18/libstata-se.so`）可指定 Stata 类型（MP/SE/BE）。Linux 上不支持外部 Stata 软件模式。
+5. **发送代码前关闭 Stata 其他窗口（Windows）** (`stata-all-in-one.closeStataOtherWindowsBeforeSendingCode`)
 
    - `true`：发送运行命令前先关闭 Stata 辅助窗口（如 Viewer、Data Editor）。
    - `false`（默认）：保留这些窗口，直接发送代码。
-5. **自动 cd 到 do 文件目录** (`stata-all-in-one.cdToDoFileDir`)
+6. **自动 cd 到 do 文件目录** (`stata-all-in-one.cdToDoFileDir`)
 
    - `true`（默认）：Stata 首次启动时自动将工作目录切换到当前 do 文件所在位置。
    - `false`：Stata 启动后不更改工作目录。
-6. **显示操作按钮** (`stata-all-in-one.showActionButtons`)
+7. **显示操作按钮** (`stata-all-in-one.showActionButtons`)
 
    - `true`（默认）：在编辑器标题栏显示“Bug 反馈”和“Stata AI Skill”按钮。
    - `false`：隐藏这两个按钮。
-7. **显示打赏支持按钮** (`stata-all-in-one.showSponsorButton`)
+8. **显示打赏支持按钮** (`stata-all-in-one.showSponsorButton`)
 
    - `true`：在 Stata 编辑器标题栏显示“打赏支持”按钮。
    - `false`（默认）：隐藏该按钮。
-8. **启用 Ctrl+Shift+D 作为运行快捷键** (`stata-all-in-one.enableCtrlShiftD`)
+9. **启用 Ctrl+Shift+D 作为运行快捷键** (`stata-all-in-one.enableCtrlShiftD`)
 
 - `true`：使用 `Ctrl / ⌘+Shift+D` 作为运行代码的快捷键。
 - `false`（默认）：使用默认的 `Ctrl / ⌘+D` 快捷键。

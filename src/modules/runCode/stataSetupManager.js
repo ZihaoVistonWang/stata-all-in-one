@@ -4,8 +4,15 @@ const vscode = require('vscode');
 
 const capability = require('../capability');
 const config = require('../../utils/config');
-const { isWindows, isMacOS, msg, stripSurroundingQuotes } = require('../../utils/common');
-const { discoverStataInstallations, getInstallationSignals } = require('./stataDiscovery');
+const { isWindows, isMacOS, isLinux, msg, stripSurroundingQuotes } = require('../../utils/common');
+const {
+    discoverStataInstallations,
+    findLinuxExecutable,
+    getInstallationSignals,
+    inspectLinuxInstallation,
+    resolveLinuxInstallationPath,
+    selectLinuxCandidate
+} = require('./stataDiscovery');
 const { version: extensionVersion } = require('../../../package.json');
 const {
     MAC_DISCOVERY_TIMEOUT_MS,
@@ -106,6 +113,71 @@ async function findConfiguredMacCandidate(context, resolvedInstallation) {
     return candidate ? buildMacCandidate(candidate.appPath, edition) : null;
 }
 
+/**
+ * Candidate for a configured / detected Linux installation.
+ * Re-inspects the directory so the report reflects the current disk state.
+ */
+function findConfiguredLinuxCandidate(context, resolvedInstallation) {
+    const resolvedCandidate = resolvedInstallation.candidate;
+    if (resolvedCandidate && resolvedCandidate.installDirectory) {
+        const refreshed = selectLinuxCandidate(
+            inspectLinuxInstallation(resolvedCandidate.installDirectory),
+            { preferredLibraryPath: resolvedCandidate.libraryPath }
+        );
+        if (refreshed) return refreshed;
+    }
+    const target = resolveLinuxInstallationPath(resolvedInstallation.installationPath);
+    if (!target) return null;
+    const cachedLibraryPath = context ? context.globalState.get('stataConsoleLibraryPath') : null;
+    return selectLinuxCandidate(inspectLinuxInstallation(target.installDirectory), {
+        edition: target.edition,
+        preferredLibraryPath: target.edition ? null : cachedLibraryPath
+    });
+}
+
+async function inspectLinuxInstallationReport(context, resolvedInstallation) {
+    const candidate = findConfiguredLinuxCandidate(context, resolvedInstallation);
+    if (!candidate) {
+        const target = resolveLinuxInstallationPath(resolvedInstallation.installationPath);
+        const installationPath = target
+            ? target.installDirectory
+            : stripSurroundingQuotes(String(resolvedInstallation.installationPath || '').trim());
+        return {
+            platform: 'linux',
+            resolvedInstallation,
+            // A directory with a Stata executable but no shared library is an
+            // installation whose library is missing, not a missing installation.
+            installationAvailable: Boolean(target && findLinuxExecutable(target.installDirectory)),
+            installationPath,
+            edition: target ? target.edition : null,
+            libraryKind: 'so',
+            libraryAvailable: false,
+            licenseAvailable: Boolean(target && isFile(path.join(target.installDirectory, 'stata.lic'))),
+            licensePath: target ? path.join(target.installDirectory, 'stata.lic') : undefined
+        };
+    }
+
+    if (context) {
+        await context.globalState.update('stataConsoleLibraryPath', candidate.libraryPath);
+    }
+
+    return {
+        platform: 'linux',
+        resolvedInstallation: {
+            ...resolvedInstallation,
+            candidate
+        },
+        installationAvailable: isDirectory(candidate.installDirectory),
+        installationPath: candidate.installDirectory,
+        edition: candidate.edition,
+        libraryKind: 'so',
+        libraryAvailable: candidate.hasLibrary,
+        libraryPath: candidate.libraryPath,
+        licenseAvailable: candidate.hasLicense,
+        licensePath: candidate.licensePath
+    };
+}
+
 async function inspectInstallation(context, resolvedInstallation) {
     if (!resolvedInstallation) {
         return {
@@ -139,6 +211,10 @@ async function inspectInstallation(context, resolvedInstallation) {
             licenseAvailable: signals.hasLicense,
             licensePath: path.join(path.dirname(executablePath), 'stata.lic')
         };
+    }
+
+    if (resolvedInstallation.platform === 'linux' || isLinux()) {
+        return inspectLinuxInstallationReport(context, resolvedInstallation);
     }
 
     const candidate = await findConfiguredMacCandidate(context, resolvedInstallation);
@@ -248,7 +324,9 @@ function failureIssueMessages(report, issueCodes, consoleResult) {
     if (issueCodes.includes('LIBRARY_NOT_FOUND')) {
         messages.push(report.platform === 'darwin'
             ? msg('stataSetupMissingDylib')
-            : msg('stataSetupMissingDll'));
+            : report.platform === 'linux'
+                ? msg('stataSetupMissingSharedLibrary')
+                : msg('stataSetupMissingDll'));
     }
     if (issueCodes.includes('LICENSE_NOT_FOUND')) {
         messages.push(msg('stataSetupMissingLicense'));
@@ -329,18 +407,20 @@ async function showSuccessDialog(context, report, signature, forceNotice, signal
 
     const confirm = msg('stataSetupConfirm');
     const switchExternal = msg('stataSetupSwitchExternal');
+    // There is no external Stata application to switch to on Linux.
+    const onLinux = report.platform === 'linux';
+    const actions = onLinux ? [confirm] : [confirm, switchExternal];
     while (true) {
         const choice = await vscode.window.showInformationMessage(
             SETUP_DIALOG_TITLE,
             {
                 modal: true,
                 detail: withStataSignalPrefix(
-                    msg('stataSetupSuccess', { stataPath: report.installationPath }),
+                    msg(onLinux ? 'stataSetupSuccessLinux' : 'stataSetupSuccess', { stataPath: report.installationPath }),
                     signalReceived
                 )
             },
-            confirm,
-            switchExternal
+            ...actions
         );
         if (choice === switchExternal) {
             await updateRunMode(config.RUN_MODES.externalApp);
@@ -371,12 +451,13 @@ async function showGenuineStataDialog() {
 async function promptFailureDialog(report, issueCodes, consoleResult, signalReceived = false) {
     const issueMessages = failureIssueMessages(report, issueCodes, consoleResult);
     const bulletList = issueMessages.map(message => `• ${message}`).join('\n');
+    const onLinux = report.platform === 'linux';
     const message = [
         msg('stataSetupConsoleFailure', { stataPath: report.installationPath }),
         bulletList,
-        msg('stataSetupExternalAvailable')
+        msg(onLinux ? 'stataSetupExternalUnavailableOnLinux' : 'stataSetupExternalAvailable')
     ].filter(Boolean).join('\n\n');
-    const confirmSwitch = msg('stataSetupConfirmSwitchExternal');
+    const confirmSwitch = msg(onLinux ? 'stataSetupConfirm' : 'stataSetupConfirmSwitchExternal');
     const purchaseGenuine = msg('stataSetupPurchaseGenuine');
     const actions = issueCodes.includes('LICENSE_NOT_FOUND')
         ? [confirmSwitch, purchaseGenuine]
@@ -404,14 +485,16 @@ async function showFailureDialog(
     forceNotice,
     signalReceived = false
 ) {
+    // External App mode does not exist on Linux, so the run mode is left alone.
+    const switchToExternal = report.platform !== 'linux';
     if (!forceNotice && wasAcknowledged(context, signature)) {
-        await updateRunMode(config.RUN_MODES.externalApp);
+        if (switchToExternal) await updateRunMode(config.RUN_MODES.externalApp);
         return { acknowledged: true, action: 'external' };
     }
 
     await promptFailureDialog(report, issueCodes, consoleResult, signalReceived);
 
-    await updateRunMode(config.RUN_MODES.externalApp);
+    if (switchToExternal) await updateRunMode(config.RUN_MODES.externalApp);
     await saveAcknowledgement(context, signature, 'failure');
     return { acknowledged: true, action: 'external' };
 }
@@ -419,9 +502,9 @@ async function showFailureDialog(
 async function showDebugLicenseFailureDialog() {
     const installationPath = isWindows()
         ? 'C:\\Program Files\\Stata19\\StataMP-64.exe'
-        : '/Applications/StataMP.app';
+        : (isLinux() ? '/usr/local/stata19' : '/Applications/StataMP.app');
     await promptFailureDialog({
-        platform: isWindows() ? 'win32' : 'darwin',
+        platform: isWindows() ? 'win32' : (isLinux() ? 'linux' : 'darwin'),
         installationPath
     }, ['LICENSE_NOT_FOUND'], { success: false, failCode: 'STATIC_REQUIREMENTS_MISSING' });
     await updateRunMode(config.RUN_MODES.externalApp);
@@ -429,7 +512,9 @@ async function showDebugLicenseFailureDialog() {
 
 async function clearConfiguredInstallation(context) {
     const extensionConfig = vscode.workspace.getConfiguration('stata-all-in-one');
-    const key = isWindows() ? 'stataPathOnWindows' : 'stataVersionOnMacOS';
+    const key = isWindows()
+        ? 'stataPathOnWindows'
+        : (isLinux() ? 'stataPathOnLinux' : 'stataVersionOnMacOS');
     const inspected = extensionConfig.inspect(key);
     if (inspected && inspected.workspaceFolderValue !== undefined) {
         await extensionConfig.update(key, undefined, vscode.ConfigurationTarget.WorkspaceFolder);
@@ -441,6 +526,9 @@ async function clearConfiguredInstallation(context) {
     if (isMacOS() && context) {
         await context.globalState.update('stataGuiAppPath', undefined);
         await context.globalState.update('stataConsoleDylibPath', undefined);
+    }
+    if (isLinux() && context) {
+        await context.globalState.update('stataConsoleLibraryPath', undefined);
     }
 }
 
@@ -456,7 +544,9 @@ async function initializeConsole(context, report, consoleInitializer = null) {
         if (consoleInitializer) return await consoleInitializer(context, report);
         const platformModule = report.platform === 'win32'
             ? require('./embeddedConsole/windows')
-            : require('./embeddedConsole/mac');
+            : report.platform === 'linux'
+                ? require('./embeddedConsole/linux')
+                : require('./embeddedConsole/mac');
         return await platformModule.ensureConsoleSession(context);
     } catch (error) {
         return {
@@ -585,7 +675,7 @@ async function performSetup(context, options = {}) {
             await clearConfiguredInstallation(context);
             resolvedInstallation = null;
         }
-        resetStataDiscoveryState(isWindows() ? 'win32' : 'darwin');
+        resetStataDiscoveryState(isWindows() ? 'win32' : (isLinux() ? 'linux' : 'darwin'));
         resolvedInstallation = await ensureStataConfigured(context, { promptOnFailure: true });
     }
 }

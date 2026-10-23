@@ -2,13 +2,14 @@ const { performance } = require('perf_hooks');
 /**
  * Stata Embedded Console Session Manager
  * Manages the Stata Embedded Console session instance per VS Code window.
- * Supports both macOS (dylib) and Windows (DLL) via the same native bridge.
+ * Supports macOS (dylib), Windows (DLL) and Linux (.so) via the same native bridge.
  *
  * Provides singleton session management, wrapping the native module's async API.
  */
 
 const native = require('./native/stata_process');
 const { createOperationQueue } = require('./native/operationQueue');
+const { linuxExecutablePathForLibrary } = require('../stataDiscovery');
 const fs = require('fs');
 const nodePath = require('path');
 const os = require('os');
@@ -78,7 +79,9 @@ function normalizeNativeCommandWhitespace(code) {
 // Platform-aware globalState key for persisting library path
 const kLibraryPathKey = process.platform === 'win32'
     ? 'stataConsoleDllPath'
-    : 'stataConsoleDylibPath';
+    : process.platform === 'linux'
+        ? 'stataConsoleLibraryPath'
+        : 'stataConsoleDylibPath';
 
 /**
  * StataConsoleSession class
@@ -151,11 +154,16 @@ class StataConsoleSession {
      * Compute stHome (SYSDIR_STATA) from the library path.
      * macOS:  /Applications/StataMP.app/Contents/MacOS/libstata-mp.dylib → /Applications/StataMP
      * Windows: D:\Stata18\mp-64.dll → D:\Stata18
+     * Linux:   /usr/local/stata18/libstata-mp.so → /usr/local/stata18
      * @private
      */
     _deriveStHome(libraryPath) {
         if (process.platform === 'win32') {
             // Windows: the DLL is directly in the Stata install root (e.g. D:\Stata18\mp-64.dll)
+            return nodePath.dirname(libraryPath);
+        }
+        if (process.platform === 'linux') {
+            // Linux: the shared library sits in the install root (e.g. /usr/local/stata18/libstata-mp.so)
             return nodePath.dirname(libraryPath);
         }
 
@@ -178,6 +186,10 @@ class StataConsoleSession {
     _deriveStataExecutablePath(libraryPath) {
         if (process.platform === 'win32') {
             return '';
+        }
+        if (process.platform === 'linux') {
+            // Linux: libstata-mp.so → stata-mp, libstata-se.so → stata-se, libstata.so → stata
+            return linuxExecutablePathForLibrary(libraryPath);
         }
 
         const macosDir = nodePath.dirname(libraryPath);

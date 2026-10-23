@@ -11,7 +11,8 @@ const TEST_INSTALLATION_TEMP_PATH = fs.mkdtempSync(path.join(os.tmpdir(), 'stata
 function loadResolver(options = {}) {
     const settings = {
         stataPathOnWindows: options.windowsPath || '',
-        stataVersionOnMacOS: options.macVersion || ''
+        stataVersionOnMacOS: options.macVersion || '',
+        stataPathOnLinux: options.linuxPath || ''
     };
     const updates = [];
     const calls = {
@@ -19,6 +20,8 @@ function loadResolver(options = {}) {
         windowsTimeoutMs: null,
         macDiscovery: 0,
         macTimeoutMs: null,
+        linuxDiscovery: 0,
+        linuxTimeoutMs: null,
         input: 0,
         info: 0,
         clipboard: [],
@@ -109,18 +112,22 @@ function loadResolver(options = {}) {
     };
     const configMock = {
         getStataPathOnWindows: () => settings.stataPathOnWindows,
-        getStataVersion: () => settings.stataVersionOnMacOS
+        getStataVersion: () => settings.stataVersionOnMacOS,
+        getStataPathOnLinux: () => settings.stataPathOnLinux
     };
     const commonMock = {
-        isWindows: () => options.platform !== 'darwin',
+        isWindows: () => options.platform !== 'darwin' && options.platform !== 'linux',
         isMacOS: () => options.platform === 'darwin',
+        isLinux: () => options.platform === 'linux',
         msg: key => key,
         showInfo: () => {},
         showError: (...args) => vscodeMock.window.showErrorMessage(...args),
         stripSurroundingQuotes: value => String(value || '').replace(/^["']|["']$/g, '')
     };
     const stataDiscoveryMock = {
-        DISCOVERY_TIMEOUT_MS: { darwin: 3000, win32: 5000 },
+        // The Linux path helpers are pure filesystem code; keep the real ones.
+        ...require('../modules/runCode/stataDiscovery'),
+        DISCOVERY_TIMEOUT_MS: { darwin: 3000, win32: 5000, linux: 3000 },
         editionFromAppName(appName) {
             const match = String(appName || '').match(/^Stata(MP|SE|BE|IC)$/i);
             return match ? match[1].toLowerCase() : null;
@@ -130,6 +137,11 @@ function loadResolver(options = {}) {
                 calls.macDiscovery++;
                 calls.macTimeoutMs = discoveryOptions.timeoutMs;
                 return options.macDiscovery || { candidates: [] };
+            }
+            if (discoveryOptions.platform === 'linux') {
+                calls.linuxDiscovery++;
+                calls.linuxTimeoutMs = discoveryOptions.timeoutMs;
+                return options.linuxDiscovery || { candidates: [] };
             }
             calls.windowsDiscovery++;
             calls.windowsTimeoutMs = discoveryOptions.timeoutMs;
@@ -442,5 +454,156 @@ test('macOS Stata signal falls back to the installed edition when c(flavor) diff
         assert.equal(result.candidate.hasDylib, true);
     } finally {
         fs.rmSync(tempDirectory, { recursive: true, force: true });
+    }
+});
+
+function createLinuxInstallationDirectory(options = {}) {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'stata-resolver-linux-'));
+    const directory = path.join(root, 'stata18');
+    fs.mkdirSync(directory);
+    const files = { mp: ['libstata-mp.so', 'stata-mp'], se: ['libstata-se.so', 'stata-se'], be: ['libstata.so', 'stata'] };
+    for (const edition of options.editions || ['mp', 'se', 'be']) {
+        for (const name of files[edition]) fs.writeFileSync(path.join(directory, name), 'test');
+    }
+    if (options.license !== false) fs.writeFileSync(path.join(directory, 'stata.lic'), 'test');
+    return { root, directory, cleanup: () => fs.rmSync(root, { recursive: true, force: true }) };
+}
+
+test('a configured Linux installation path is used without discovery', async () => {
+    const { resolver, calls } = loadResolver({ platform: 'linux', linuxPath: ' "/usr/local/stata18" ' });
+    const result = await resolver.ensureStataConfigured(createContext(), { promptOnFailure: true });
+    assert.deepEqual(result, {
+        platform: 'linux',
+        installationPath: '/usr/local/stata18',
+        autoDetected: false,
+        source: 'configured'
+    });
+    assert.equal(calls.linuxDiscovery, 0);
+    assert.equal(calls.quickPick, 0);
+});
+
+test('Linux discovery success saves the installation directory and remembers the library', async () => {
+    const installation = createLinuxInstallationDirectory();
+    const { inspectLinuxInstallation } = require('../modules/runCode/stataDiscovery');
+    const { resolver, settings, calls } = loadResolver({
+        platform: 'linux',
+        linuxDiscovery: { candidates: inspectLinuxInstallation(installation.directory) },
+        quickPickValue: items => items[0]
+    });
+    const context = createContext();
+    try {
+        const result = await resolver.ensureStataConfigured(context, { promptOnFailure: true });
+        assert.equal(calls.linuxDiscovery, 1);
+        assert.equal(calls.linuxTimeoutMs, 3000);
+        assert.equal(calls.quickPick, 1);
+        assert.equal(calls.quickPickOptions.placeHolder, 'stataDiscoverySelectLinux');
+        assert.deepEqual(
+            calls.quickPickItems.map(item => item.label),
+            ['Stata 18 MP', 'Stata 18 SE', 'Stata 18 BE', 'stataDiscoveryUseStataSetup']
+        );
+        assert.equal(calls.quickPickItems[0].description, 'stataDiscoveryRecommended');
+        assert.equal(calls.quickPickItems[0].detail, installation.directory);
+        assert.equal(settings.stataPathOnLinux, installation.directory);
+        assert.equal(
+            context.values.get('stataConsoleLibraryPath'),
+            path.join(installation.directory, 'libstata-mp.so')
+        );
+        assert.equal(result.platform, 'linux');
+        assert.equal(result.installationPath, installation.directory);
+        assert.equal(result.autoDetected, true);
+        assert.equal(result.source, 'detected');
+        assert.equal(result.candidate.edition, 'mp');
+    } finally {
+        installation.cleanup();
+    }
+});
+
+test('choosing a non-default Linux edition pins its library in the setting', async () => {
+    const installation = createLinuxInstallationDirectory();
+    const { inspectLinuxInstallation } = require('../modules/runCode/stataDiscovery');
+    const { resolver, settings } = loadResolver({
+        platform: 'linux',
+        linuxDiscovery: { candidates: inspectLinuxInstallation(installation.directory) },
+        quickPickValue: items => items.find(item => item.label === 'Stata 18 SE')
+    });
+    const context = createContext();
+    try {
+        const result = await resolver.ensureStataConfigured(context, { promptOnFailure: true });
+        assert.equal(settings.stataPathOnLinux, path.join(installation.directory, 'libstata-se.so'));
+        assert.equal(context.values.get('stataConsoleLibraryPath'), path.join(installation.directory, 'libstata-se.so'));
+        assert.equal(result.candidate.edition, 'se');
+    } finally {
+        installation.cleanup();
+    }
+});
+
+test('Linux discovery failure opens the Stata command setup flow for the Linux host', async () => {
+    const { resolver, calls } = loadResolver({
+        platform: 'linux',
+        linuxDiscovery: { candidates: [] }
+    });
+    const result = await resolver.ensureStataConfigured(createContext(), { promptOnFailure: true });
+    assert.equal(calls.linuxDiscovery, 1);
+    assert.equal(calls.quickPick, 0);
+    assert.equal(calls.setupQuickPick, 1);
+    assert.equal(result.source, 'stata-command-pending');
+    assert.equal(result.platform, 'linux');
+});
+
+test('a Linux Stata signal resolves c(sysdir_stata) and the running edition', async () => {
+    const installation = createLinuxInstallationDirectory({ editions: ['mp', 'se'] });
+    const { resolver, settings } = loadResolver({ platform: 'linux' });
+    const context = createContext();
+    try {
+        const resolved = resolver.resolveLinuxSignalInstallation({
+            flavor: 'SE',
+            sysdirStata: `${installation.directory}/`
+        });
+        assert.equal(resolved.platform, 'linux');
+        assert.equal(resolved.edition, 'se');
+        assert.equal(resolved.source, 'stata-command');
+        assert.equal(resolved.installationPath, installation.directory);
+        assert.equal(resolved.candidate.libraryPath, path.join(installation.directory, 'libstata-se.so'));
+
+        // An edition that is not installed falls back to the best available one.
+        assert.equal(resolver.resolveLinuxSignalInstallation({
+            flavor: 'BE',
+            sysdirStata: installation.directory
+        }).edition, 'mp');
+        // Alternative decodings of the path are tried too.
+        assert.equal(resolver.resolveLinuxSignalInstallation({
+            flavor: 'MP',
+            sysdirStata: path.join(installation.root, 'nowhere'),
+            sysdirStataCandidates: [installation.directory]
+        }).edition, 'mp');
+        assert.equal(resolver.resolveLinuxSignalInstallation({
+            flavor: 'MP',
+            sysdirStata: path.join(installation.root, 'nowhere')
+        }), null);
+        assert.equal(resolver.resolveLinuxSignalInstallation({
+            flavor: 'Unknown',
+            sysdirStata: installation.directory
+        }), null);
+
+        const configured = await resolver.configureFromStataSignal(context, {
+            platform: 'linux',
+            flavor: 'SE',
+            sysdirStata: `${installation.directory}/`
+        });
+        assert.equal(configured.resolvedPath, installation.directory);
+        // SE is not the directory's best edition, so the library path is pinned.
+        assert.equal(settings.stataPathOnLinux, path.join(installation.directory, 'libstata-se.so'));
+        assert.equal(context.values.get('stataConsoleLibraryPath'), path.join(installation.directory, 'libstata-se.so'));
+
+        await assert.rejects(
+            resolver.configureFromStataSignal(context, {
+                platform: 'linux',
+                flavor: 'MP',
+                sysdirStata: path.join(installation.root, 'nowhere')
+            }),
+            error => error.code === 'STATA_INSTALLATION_NOT_RESOLVED' && error.statusCode === 422
+        );
+    } finally {
+        installation.cleanup();
     }
 });

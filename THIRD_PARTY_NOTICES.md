@@ -1,6 +1,6 @@
 # Third-Party Notices
 
-This project includes code and assets from the following third-party project:
+This project includes code and assets from the following third-party projects:
 
 - **Stata Enhanced** (v1.6.1) by Kyle Barron — MIT License. Files incorporated: `grammars/language_config.json` and the contents of the `grammars/` directory, originally from the Stata Enhanced VS Code extension.
 
@@ -27,3 +27,5 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
+- **Codicons** (`@vscode/codicons` 0.0.46-24) by Microsoft Corporation — Creative Commons Attribution 4.0 International (CC BY 4.0), https://creativecommons.org/licenses/by/4.0/. File incorporated: `node_modules/@vscode/codicons/dist/codicon.ttf`, used unmodified as the icon font of the Console and Data Viewer when VS Code does not provide its own copy (for example on VS Code Server). The full licence text ships as `node_modules/@vscode/codicons/LICENSE`. Source: https://github.com/microsoft/vscode-codicons

@@ -16,6 +16,9 @@ scripts/*.backup*
 node_modules/node-gyp/**
 node_modules/node-addon-api/**
 node_modules/@types/**
+node_modules/@vscode/codicons/**
+!node_modules/@vscode/codicons/dist/codicon.ttf
+!node_modules/@vscode/codicons/LICENSE
 node_modules/pinyin-pro/dist/index.mjs
 node_modules/pinyin-pro/types/**
 node_modules/pinyin-pro/README.md

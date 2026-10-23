@@ -6,7 +6,8 @@ const EventEmitter = require('node:events');
 const {
     isAbsoluteFilePath,
     openConsoleLink,
-    openConsoleFile
+    openConsoleFile,
+    shouldOpenInVsCode
 } = require('../modules/runCode/embeddedConsole/fileOpener');
 
 function harness(overrides = {}) {
@@ -262,4 +263,56 @@ test('rejects unsupported URL schemes', async () => {
         'warn',
         'consoleFileNotFound:stata://summarize:'
     ]]);
+});
+
+test('a remote Linux host opens Stata and other files inside VS Code', async () => {
+    for (const fileName of ['analysis output.smcl', 'result.pdf', 'result.xlsx']) {
+        const { calls, options } = harness({ remote: true });
+        const filePath = path.resolve(`/tmp/${fileName}`);
+        assert.equal(await openConsoleFile({ ...options, filePath }), 'editor');
+        assert.deepEqual(calls, [[
+            'executeCommand',
+            'vscode.open',
+            filePath,
+            { viewColumn: 1, preview: false }
+        ]], `${fileName} must not be handed to the (absent) desktop`);
+    }
+
+    // Editor, image and Data Viewer targets are unchanged.
+    const text = harness({ remote: true });
+    assert.equal(await openConsoleFile({ ...text.options, filePath: path.resolve('/tmp/results.md') }), 'editor');
+    assert.equal(text.calls[0][0], 'openTextDocument');
+    const data = harness({ remote: true });
+    assert.equal(await openConsoleFile({ ...data.options, filePath: path.resolve('/tmp/auto.dta') }), 'data-viewer');
+});
+
+test('a remote Linux host reveals directories in the VS Code Explorer', async () => {
+    const { calls, options } = harness({
+        remote: true,
+        stat: async () => ({
+            isFile: () => false,
+            isDirectory: () => true
+        })
+    });
+    const directoryPath = path.resolve('/tmp/results');
+    assert.equal(await openConsoleLink({
+        ...options,
+        link: { kind: 'directory', target: directoryPath }
+    }), 'directory');
+    assert.deepEqual(calls, [['executeCommand', 'revealInExplorer', directoryPath, undefined]]);
+});
+
+test('the remote decision follows vscode.env.remoteName and only applies to Linux', async () => {
+    assert.equal(shouldOpenInVsCode('linux', { env: { remoteName: 'ssh-remote' } }), true);
+    assert.equal(shouldOpenInVsCode('linux', { env: { remoteName: undefined } }), false);
+    assert.equal(shouldOpenInVsCode('linux', { env: {} }, { remote: true }), true);
+    assert.equal(shouldOpenInVsCode('darwin', { env: { remoteName: 'ssh-remote' } }), false);
+    assert.equal(shouldOpenInVsCode('win32', { env: { remoteName: 'wsl' } }), false);
+    assert.equal(shouldOpenInVsCode('linux', null), false);
+
+    const { calls, options } = harness();
+    options.vscode.env.remoteName = 'ssh-remote';
+    const filePath = path.resolve('/tmp/result.pdf');
+    assert.equal(await openConsoleFile({ ...options, filePath }), 'editor');
+    assert.equal(calls[0][1], 'vscode.open');
 });

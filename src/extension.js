@@ -28,7 +28,7 @@ const { prewarmConsoleTextmateTokenizer } = require('./modules/runCode/embeddedC
 const { closeRestoredDataViewerTabs, registerDtaDataViewer } = require('./modules/runCode/embeddedConsole/dataViewer/dtaEditor');
 const { setDataViewerFontSize } = require('./modules/runCode/embeddedConsole/dataViewer/panel');
 const { registerHoverProvider, buildHelpIndex, createHoverProvider, DocumentCache } = require('./modules/hoverProvider');
-const { isWindows, isMacOS, showError, showInfo, showWarn, showConsoleUnavailableToast, msg } = require('./utils/common');
+const { isWindows, isMacOS, isLinux, showError, showInfo, showWarn, showConsoleUnavailableToast, msg } = require('./utils/common');
 
 const { ensureConsoleFontCache, getConsoleFontWebviewOptions } = require('./utils/consoleFonts');
 const capability = require('./modules/capability');
@@ -122,7 +122,9 @@ async function restartEmbeddedConsoleSession(context) {
     } else {
         const platformModule = isWindows()
             ? require('./modules/runCode/embeddedConsole/windows')
-            : require('./modules/runCode/embeddedConsole/mac');
+            : isLinux()
+                ? require('./modules/runCode/embeddedConsole/linux')
+                : require('./modules/runCode/embeddedConsole/mac');
         const result = await platformModule.ensureConsoleSession(context);
         if (!result || !result.success) {
             throw new Error((result && result.reason) || 'Stata session initialization failed.');
@@ -813,10 +815,14 @@ async function activate(context) {
                 await context.globalState.update('stataGuiAppPath', undefined);
                 await context.globalState.update('stataConsoleDylibPath', undefined);
                 resetStataDiscoveryState('darwin');
+            } else if (isLinux()) {
+                await replaceConfigurationAtGlobalScope(extensionConfig, 'stataPathOnLinux', '');
+                await context.globalState.update('stataConsoleLibraryPath', undefined);
+                resetStataDiscoveryState('linux');
             } else {
                 showWarn(getUserLanguage() === 'zh'
-                    ? 'Stata 自动探测仅支持 Windows 和 macOS。'
-                    : 'Stata auto-discovery is available on Windows and macOS only.');
+                    ? 'Stata 自动探测仅支持 Windows、macOS 和 Linux。'
+                    : 'Stata auto-discovery is available on Windows, macOS and Linux only.');
                 return;
             }
 
@@ -858,6 +864,10 @@ async function activate(context) {
                     const resolved = await ensureStataConfigured(context, { promptOnFailure: true });
                     if (!resolved) return;
                     ensureConsoleSessionFn = require('./modules/runCode/embeddedConsole/mac').ensureConsoleSession;
+                } else if (isLinux()) {
+                    const resolved = await ensureStataConfigured(context, { promptOnFailure: true });
+                    if (!resolved) return;
+                    ensureConsoleSessionFn = require('./modules/runCode/embeddedConsole/linux').ensureConsoleSession;
                 } else {
                     showInfo(msg('unsupportedPlatform'));
                     return;
