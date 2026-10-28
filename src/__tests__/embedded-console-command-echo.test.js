@@ -5,8 +5,7 @@ const path = require('path');
 
 test('separates submitted input from direct and temporary do-file command echoes', () => {
     const platformSources = [
-        '../modules/runCode/embeddedConsole/mac.js',
-        '../modules/runCode/embeddedConsole/windows.js'
+        '../modules/runCode/embeddedConsole/runner.js'
     ].map(relativePath => fs.readFileSync(path.join(__dirname, relativePath), 'utf8'));
 
     for (const source of platformSources) {
@@ -18,7 +17,7 @@ test('separates submitted input from direct and temporary do-file command echoes
             source.includes("outputSink.beginTemporaryDoFileOutput(executionPlan.tempFilePath)"),
             true
         );
-        assert.match(source, /for \(const command of executionPlan\.commands\)|for \(let ci = 0; ci < executionPlan\.commands\.length; ci\+\+\)/);
+        assert.match(source, /for \(const \[commandIndex, command\] of executionPlan\.commands\.entries\(\)\)/);
         assert.match(source, /outputSink\.writeCommand\(command\)/);
         assert.equal(
             source.includes("Temporary do-files rely on Stata's native echo for their internal commands."),
@@ -42,17 +41,12 @@ test('routes primary echoes through comment-aware run grouping', () => {
     assert.match(panelSource, /flushOutput\(\) \{[\s\S]*this\._primaryEchoGrouper\.flush\(\)/);
 });
 
-test('both platforms keep source comments and blank lines in a temporary do-file for native echo', () => {
-    const macSource = fs.readFileSync(
-        path.join(__dirname, '../modules/runCode/embeddedConsole/mac.js'),
+test('the shared runner keeps source comments and blank lines in a temporary do-file for native echo', () => {
+    const runnerSource = fs.readFileSync(
+        path.join(__dirname, '../modules/runCode/embeddedConsole/runner.js'),
         'utf8'
     );
-    const windowsSource = fs.readFileSync(
-        path.join(__dirname, '../modules/runCode/embeddedConsole/windows.js'),
-        'utf8'
-    );
-
-    for (const source of [macSource, windowsSource]) {
+    for (const source of [runnerSource]) {
         assert.match(source, /const lines = splitExecutionSourceLines\(codeToRun\)/);
         assert.match(
             source,

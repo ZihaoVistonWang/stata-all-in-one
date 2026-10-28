@@ -69,13 +69,13 @@ test('Linux discovery prefers the newest version, then MP over SE over BE', asyn
         );
         const [newest, mp] = result.candidates;
         assert.equal(newest.displayName, 'Stata 18 SE');
-        assert.equal(newest.installDirectory, path.join(root, 'stata18'));
-        assert.equal(newest.libraryPath, path.join(root, 'stata18', 'libstata-se.so'));
-        assert.equal(newest.executablePath, path.join(root, 'stata18', 'stata-se'));
+        assert.equal(newest.installDirectory, fs.realpathSync(path.join(root, 'stata18')));
+        assert.equal(newest.libraryPath, fs.realpathSync(path.join(root, 'stata18', 'libstata-se.so')));
+        assert.equal(newest.executablePath, fs.realpathSync(path.join(root, 'stata18', 'stata-se')));
         assert.equal(newest.hasExecutable, true);
         assert.equal(newest.hasLicense, false);
         assert.equal(mp.hasLicense, true);
-        assert.equal(mp.licensePath, path.join(root, 'stata17', 'stata.lic'));
+        assert.equal(mp.licensePath, fs.realpathSync(path.join(root, 'stata17', 'stata.lic')));
     });
 });
 

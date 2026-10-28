@@ -12,12 +12,8 @@ test('keeps Stop and Escape active while Stata is stopping without rewriting use
         path.join(__dirname, '../extension.js'),
         'utf8'
     );
-    const macSource = fs.readFileSync(
-        path.join(__dirname, '../modules/runCode/embeddedConsole/mac.js'),
-        'utf8'
-    );
-    const windowsSource = fs.readFileSync(
-        path.join(__dirname, '../modules/runCode/embeddedConsole/windows.js'),
+    const runnerSource = fs.readFileSync(
+        path.join(__dirname, '../modules/runCode/embeddedConsole/runner.js'),
         'utf8'
     );
     const sessionSource = fs.readFileSync(
@@ -42,10 +38,8 @@ test('keeps Stop and Escape active while Stata is stopping without rewriting use
     assert.equal(panelSource.includes("jumpBottomButton.style.right = rightOffset + 'px';"), true);
     assert.equal(panelSource.includes('requestHistoryTail(true);'), true);
     assert.equal(extensionSource.includes("setWebviewTerminalStatus('stopping')"), true);
-    assert.equal(macSource.includes('instrumentStataLoops'), false);
-    assert.equal(windowsSource.includes('instrumentStataLoops'), false);
-    assert.equal(macSource.includes("fs.writeFileSync(tempFilePath, lines.join('\\n'), 'utf8')"), true);
-    assert.equal(windowsSource.includes("fs.writeFileSync(tempFilePath, lines.join('\\n'), 'utf8')"), true);
+    assert.equal(runnerSource.includes('instrumentStataLoops'), false);
+    assert.equal(runnerSource.includes("fs.writeFileSync(tempFilePath, lines.join('\\n'), 'utf8')"), true);
     assert.equal(sessionSource.includes("require('./native/stata_process')"), true);
     assert.equal(processSource.includes('childProcess.fork('), true);
     assert.equal(processSource.includes("child.kill('SIGKILL')"), true);

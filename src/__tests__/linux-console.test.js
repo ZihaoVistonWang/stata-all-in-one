@@ -35,10 +35,14 @@ function loadLinuxConsole(options = {}) {
             return options.resolved === undefined ? null : options.resolved;
         }
     };
-    const macMock = {
-        async runOnMacWebview(code, tmpFilePath, docDir, context, runOptions) {
-            calls.runner.push({ code, tmpFilePath, docDir, context, runOptions });
-            return { success: true };
+    const runnerMock = {
+        createConsoleRunner({ platform, ensureConsoleSession }) {
+            calls.platform = platform;
+            calls.ensureConsoleSession = ensureConsoleSession;
+            return async (code, tmpFilePath, docDir, context, runOptions) => {
+                calls.runner.push({ code, tmpFilePath, docDir, context, runOptions });
+                return { success: true };
+            };
         },
         async showConsoleLicenseDialog() {},
         stopConsoleExecution: () => true,
@@ -54,7 +58,7 @@ function loadLinuxConsole(options = {}) {
             if (request === '../../../utils/config') return configMock;
             if (request === '../../../utils/common') return commonMock;
             if (request === '../stataInstallationResolver') return resolverMock;
-            if (request === './mac') return macMock;
+            if (request === './runner') return runnerMock;
         }
         return originalLoad.call(this, request, parent, isMain);
     };
@@ -245,7 +249,8 @@ test('code execution reuses the shared runner with the Linux session bootstrap i
     assert.equal(call.code, 'sysuse auto');
     assert.equal(call.docDir, '/work');
     assert.equal(call.context, context);
-    assert.equal(call.runOptions.ensureConsoleSession, linux.ensureConsoleSession);
+    assert.equal(calls.platform, 'linux');
+    assert.equal(calls.ensureConsoleSession, linux.ensureConsoleSession);
     assert.equal(call.runOptions.suppressRunFooter, true);
     assert.deepEqual(call.runOptions.completionSoundSettings, { enabled: false });
 });

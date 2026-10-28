@@ -198,6 +198,12 @@ Stata All in One
 
 ## 安装
 
+### Linux 本机或通过 Remote-SSH 使用
+
+内置控制台和数据查看器支持直接在 Linux 上运行的 VS Code。也可以从 macOS 或 Windows 使用 VS Code Remote-SSH 连接 Linux：在 Linux 远端安装 Stata 和本扩展（在扩展面板选择 **安装到 SSH: <主机>**）。在该远程窗口中打开 do 文件后，即可正常使用。Stata 实际在 Linux 上执行，客户端电脑无需安装 Stata。自动探测失败时，在远程窗口配置 `stata-all-in-one.stataPathOnLinux`，运行模式使用 `embeddedConsole`。
+
+macOS 和 Windows 的本地窗口仍使用各自本机安装的 Stata。随包提供的 Linux 二进制为 x86_64；Linux 不支持外部应用运行模式。
+
 ### 从扩展市场安装
 
 - **VS Code**: 在扩展中搜索 "Stata All in One" 并安装。

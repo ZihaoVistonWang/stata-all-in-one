@@ -4,8 +4,8 @@
  * Owns everything that is specific to Stata for Linux: locating the shared
  * library (libstata-mp.so / libstata-se.so / libstata.so), checking stata.lic
  * and initialising the native session. Executing code is identical on every
- * platform, so it is delegated to the runner in mac.js with this module's
- * session bootstrap injected (see `runOnLinuxEmbeddedConsole`).
+ * platform, so it is delegated to the shared runner with this module's
+ * session bootstrap (see `runOnLinuxEmbeddedConsole`).
  *
  * External App mode does not exist on Linux: Stata for Linux is typically used
  * on headless servers (for example through VS Code Remote-SSH).
@@ -23,7 +23,13 @@ const {
     resolveLinuxInstallationPath,
     selectLinuxCandidate
 } = require('../stataDiscovery');
-const macRunner = require('./mac');
+const {
+    createConsoleRunner,
+    showConsoleLicenseDialog,
+    stopConsoleExecution,
+    getConsoleSession,
+    forceShutdownConsoleSession
+} = require('./runner');
 
 const LIBRARY_PATH_KEY = 'stataConsoleLibraryPath';
 const LICENSE_DIALOG_SUPPRESSED_KEY = 'stata-all-in-one.consoleLicenseDialogSuppressed';
@@ -170,12 +176,7 @@ async function ensureConsoleSession(context) {
  * @param {object} [options]
  * @returns {Promise<object>} - { success, shouldOfferGuiFallback, errorType?, message? }
  */
-async function runOnLinuxEmbeddedConsole(codeToRun, tmpFilePath, docDir = null, context = null, options = {}) {
-    return macRunner.runOnMacWebview(codeToRun, tmpFilePath, docDir, context, {
-        ...options,
-        ensureConsoleSession
-    });
-}
+const runOnLinuxEmbeddedConsole = createConsoleRunner({ platform: 'linux', ensureConsoleSession });
 
 /**
  * Initialize Stata session
@@ -205,10 +206,10 @@ async function initConsoleSession(context) {
 module.exports = {
     findStataLibrary,
     ensureConsoleSession,
-    showConsoleLicenseDialog: macRunner.showConsoleLicenseDialog,
+    showConsoleLicenseDialog,
     runOnLinuxEmbeddedConsole,
     initConsoleSession,
-    stopConsoleExecution: macRunner.stopConsoleExecution,
-    getConsoleSession: macRunner.getConsoleSession,
-    forceShutdownConsoleSession: macRunner.forceShutdownConsoleSession
+    stopConsoleExecution,
+    getConsoleSession,
+    forceShutdownConsoleSession
 };

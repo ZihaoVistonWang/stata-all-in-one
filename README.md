@@ -198,6 +198,12 @@ Click [here](https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/SHORT
 
 ## Installation
 
+### Linux locally or through Remote-SSH
+
+The Embedded Console and Data Viewer support VS Code running directly on Linux. You can also connect from macOS or Windows using VS Code Remote-SSH: install Stata and this extension on the Linux remote host (choose **Install in SSH: <host>** in the Extensions view). Open your do-files in that remote window and use the extension normally. Stata executes on Linux; the client computer does not need a local Stata installation. Configure `stata-all-in-one.stataPathOnLinux` in the remote window if automatic discovery fails, and use `embeddedConsole` mode.
+
+Local macOS and Windows windows continue to use their own Stata installations. The bundled Linux binaries are x86_64; Linux External App mode is not supported.
+
 ### Install from Extension Marketplace
 
 - **VS Code**: Search for "Stata All in One" in extensions and install.
