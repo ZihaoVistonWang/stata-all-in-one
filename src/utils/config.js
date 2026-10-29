@@ -45,6 +45,11 @@ const getnumberingAdd = () => getConfigValue('numberingAdd', false);
 const getStataVersion = () => getConfigValue('stataVersionOnMacOS', 'StataMP');
 
 /**
+ * Get runUsingInclude setting
+ */
+const getRunUsingInclude = () => getConfigValue('runUsingInclude', false);
+
+/**
  * Get commentStyle setting
  */
 const getCommentStyle = () => getConfigValue('commentStyle', '// ');
@@ -230,6 +235,7 @@ module.exports = {
     getnumberingShow,
     getnumberingAdd,
     getStataVersion,
+    getRunUsingInclude,
     getCommentStyle,
     getSeparatorLength,
     getStataPathOnWindows: getStataPathOnWindows,

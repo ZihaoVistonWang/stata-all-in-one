@@ -242,6 +242,11 @@
           },
           "default": [],
           "markdownDescription": "%config.additionalAdoPaths.description%"
+        },
+        "stata-all-in-one.runUsingInclude": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "%config.runUsingInclude.description%"
         }
       }
     },

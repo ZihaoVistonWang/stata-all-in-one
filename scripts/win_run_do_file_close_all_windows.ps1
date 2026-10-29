@@ -1,6 +1,7 @@
 param (
     [string]$stataPath,
     [string]$doFilePath,
+    [bool]$runUsingInclude = $false,
     [int]$sleepDelay = 100
 )
 
@@ -249,7 +250,8 @@ if ($activated) {
     Start-Sleep -Milliseconds $sleepDelay
     $cleanPath = $doFilePath -replace '\\', '/'
     $quote = [char]34
-    $runCommand = 'do ' + $quote + $cleanPath + $quote
+    $command = if ($runUsingInclude) { 'include' } else { 'do' }
+    $runCommand = $command + ' ' + $quote + $cleanPath + $quote
 
     Set-Clipboard -Value $runCommand
     Start-Sleep -Milliseconds ($sleepDelay + 50)
