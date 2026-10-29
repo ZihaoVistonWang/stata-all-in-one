@@ -31,6 +31,7 @@
   "config.showSponsorButton.description": "Whether to show the Sponsor button in the Stata editor title bar. Shown by default.",
   "config.enableHoverDocs.description": "Enable hover documentation for Stata commands. When enabled, hovering over a Stata command will show help information from the official Stata help files.",
   "config.additionalAdoPaths.description": "Additional Stata ado paths to scan for community-contributed command help files. Paths are scanned in order, after the default Stata installation path. Example: [\"/Users/username/ado/personal\", \"C:\\Users\\username\\ado\\personal\"]",
+  "config.runUsingInclude.description": "Uses 'include' rather than 'do' to execute Stata commands. Treats commands as if entered from the keyboard, thereby maintaining local macros.",
   "command.diagnoseConsole.title": "Stata All in One: Diagnose Console Status",
   "command.showAISkillDialog.title": "Stata All in One: Stata AI Skill",
   "command.showAISkillDialog.short": "Stata AI Skill",

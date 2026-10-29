@@ -31,6 +31,7 @@
   "config.showSponsorButton.description": "是否在 Stata 编辑器标题栏显示打赏支持按钮。默认显示。",
   "config.enableHoverDocs.description": "启用 Stata 命令的悬停文档功能。启用后，鼠标悬停在 Stata 命令上会显示官方 Stata 帮助文件中的帮助信息。",
   "config.additionalAdoPaths.description": "额外的 Stata ado 路径，用于扫描社区贡献命令的帮助文件。路径按顺序扫描，在默认 Stata 安装路径之后。示例：[\"/Users/username/ado/personal\", \"C:\\Users\\username\\ado\\personal\"]",
+  "config.runUsingInclude.description": "使用 'include' 而非 'do' 来执行 Stata 命令。将命令视为从键盘输入，从而保持本地宏。",
   "command.diagnoseConsole.title": "Stata All in One：诊断控制台状态",
   "command.showAISkillDialog.title": "Stata All in One：Stata AI Skill",
   "command.showAISkillDialog.short": "Stata AI Skill",
