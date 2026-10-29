@@ -89,7 +89,7 @@ test('preserves intentional source blank lines but ignores the final line ending
     assert.equal(hasDisplayableBlankLine(['describe', '', 'summarize']), true);
 });
 
-function loadMacRunner(childProcess, errors) {
+function loadMacRunner(childProcess, errors, runUsingInclude = false) {
     const modulePath = require.resolve('../modules/runCode/externalApp/mac');
     delete require.cache[modulePath];
     const originalLoad = Module._load;
@@ -100,7 +100,8 @@ function loadMacRunner(childProcess, errors) {
             if (request === '../../../utils/config') {
                 return {
                     getStataVersion: () => 'StataMP',
-                    getCdToDoFileDir: () => false
+                    getCdToDoFileDir: () => false,
+                    getRunUsingInclude: () => runUsingInclude
                 };
             }
             if (request === '../../../utils/common') {
