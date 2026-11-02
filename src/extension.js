@@ -11,7 +11,7 @@ const { registerExecuteCommand } = require('./modules/runCode/execute');
 const { runArbitraryCode } = require('./modules/runCode/execute');
 const { forceShutdownConsoleSession } = require('./modules/runCode/embeddedConsole/runner');
 const embeddedConsoleSession = require('./modules/runCode/embeddedConsole/session');
-const { setWebviewCommandHandler, setWebviewActionHandler, setOverflowNoticeSuppressed, registerWebviewPanelSerializer, clearWebviewTerminalPanel, setWebviewTerminalStatus, setConsoleFontOptions } = require('./modules/runCode/embeddedConsole/panel');
+const { refreshConsoleClientTheme, setWebviewCommandHandler, setWebviewActionHandler, setOverflowNoticeSuppressed, registerWebviewPanelSerializer, clearWebviewTerminalPanel, setWebviewTerminalStatus, setConsoleFontOptions } = require('./modules/runCode/embeddedConsole/panel');
 const { registerCustomCommandHighlight } = require('./modules/customCommandHighlight');
 const { registerCompletionProvider } = require('./modules/completionProvider');
 const { registerVariableSuggestionService } = require('./modules/variableSuggestionService');
@@ -23,10 +23,11 @@ const {
     EDITOR_TITLE_ACTIONS_STAGE_KEY,
     createEditorTitleBrandController
 } = require('./modules/editorTitleBrand');
-const { syncConsoleTerminalTheme } = require('./modules/runCode/embeddedConsole/renderer');
+const { invalidateClientTheme } = require('./modules/runCode/embeddedConsole/themeSync');
+const { REFRESH_THEME_COMMAND } = require('./modules/runCode/embeddedConsole/themeProtocol');
 const { prewarmConsoleTextmateTokenizer } = require('./modules/runCode/embeddedConsole/textmateTokenizer');
 const { closeRestoredDataViewerTabs, registerDtaDataViewer } = require('./modules/runCode/embeddedConsole/dataViewer/dtaEditor');
-const { setDataViewerFontSize } = require('./modules/runCode/embeddedConsole/dataViewer/panel');
+const { setDataViewerFontSize, refreshDataViewerClientTheme } = require('./modules/runCode/embeddedConsole/dataViewer/panel');
 const { registerHoverProvider, buildHelpIndex, createHoverProvider, DocumentCache } = require('./modules/hoverProvider');
 const { isWindows, isMacOS, isLinux, showError, showInfo, showWarn, showConsoleUnavailableToast, msg } = require('./utils/common');
 
@@ -342,9 +343,16 @@ async function showAISkillDialog() {
 async function activate(context) {
     require('./modules/runCode/embeddedConsole/completionSound').getService().register(context);
     console.log('Stata All in One: Extension activated');
-    syncConsoleTerminalTheme();
-    context.subscriptions.push(vscode.window.onDidChangeActiveColorTheme(() => {
-        syncConsoleTerminalTheme();
+    const refreshClientTheme = () => {
+        invalidateClientTheme();
+        refreshConsoleClientTheme();
+        refreshDataViewerClientTheme();
+    };
+    context.subscriptions.push(vscode.commands.registerCommand(REFRESH_THEME_COMMAND, refreshClientTheme));
+    context.subscriptions.push(vscode.window.onDidChangeActiveColorTheme(refreshClientTheme));
+    context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(event => {
+        if (['workbench.colorTheme', 'workbench.colorCustomizations', 'editor.tokenColorCustomizations']
+            .some(key => event.affectsConfiguration(key))) refreshClientTheme();
     }));
 
     const refreshConsoleFontOptions = () => {

@@ -204,6 +204,8 @@ The Embedded Console and Data Viewer support VS Code running directly on Linux. 
 
 Local macOS and Windows windows continue to use their own Stata installations. The bundled Linux binaries are x86_64; Linux External App mode is not supported.
 
+When using Remote-SSH, Console and Data Viewer obtain the client theme through VS Code’s built-in theme export and cache the syntax rules in memory. No companion extension is installed. Theme synchronization can briefly show a temporary editor; the extension clears and closes its own export without a save prompt and restores the calling view. Switching themes or changing token colors invalidates the cache; reloading the window obtains a fresh snapshot. If synchronization fails, views use readable UI text colors and Stata execution remains available.
+
 ### Install from Extension Marketplace
 
 - **VS Code**: Search for "Stata All in One" in extensions and install.

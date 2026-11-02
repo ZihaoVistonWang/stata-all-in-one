@@ -1,7 +1,4 @@
-const vscode = require('vscode');
-const fs = require('fs');
-const path = require('path');
-const { tokenizeStataLineWithTheme, setConsoleTextmateTheme } = require('./textmateTokenizer');
+const { tokenizeStataLine } = require('./textmateTokenizer');
 
 const ANSI = {
     reset: '\x1b[0m',
@@ -126,9 +123,7 @@ const PLAIN_PUNCTUATION_SCOPE_CANDIDATES = [
     'punctuation.definition.variable.begin.stata'
 ];
 
-let CURRENT_THEME_SLOT_MAP = { ...DEFAULT_SLOT_MAP };
-let CURRENT_THEME_DATA = null;
-let CURRENT_THEME_DEFAULT_FOREGROUND = null;
+const CURRENT_THEME_SLOT_MAP = { ...DEFAULT_SLOT_MAP };
 
 const VALUE_NUMBER_REGEX = /(?<![%A-Za-z_])[-+]?\d+(?:,\d{3})*(?:\.\d+)?(?:e[+-]?\d+)?(?![A-Za-z])/gi;
 const NOTE_PATH_REGEX = /(?:[A-Za-z]:[\\/]|\\\\[^\\\s]+\\|\/[^/\s)"']*[\\/]|(?:\.{1,2}|[A-Za-z_.-][A-Za-z0-9_.-]*)[\\/])[^\s)"']+/g;
@@ -234,216 +229,26 @@ function findClosestAnsiSlot(hexColor, terminalPalette) {
     return bestSlot;
 }
 
-function toScopeList(scope) {
-    if (!scope) {
-        return [];
-    }
-    if (Array.isArray(scope)) {
-        return scope.flatMap(item => toScopeList(item));
-    }
-    return String(scope)
-        .split(',')
-        .map(item => item.trim())
-        .filter(Boolean);
-}
-
 function scopeMatches(scopeValue, candidate) {
     return scopeValue === candidate || scopeValue.startsWith(`${candidate}.`) || candidate.startsWith(`${scopeValue}.`);
 }
 
-function findThemeTokenColor(themeData, candidates) {
-    const tokenColors = Array.isArray(themeData.tokenColors) ? themeData.tokenColors : [];
-    for (const candidate of candidates) {
-        for (let index = tokenColors.length - 1; index >= 0; index--) {
-            const rule = tokenColors[index];
-            const scopes = toScopeList(rule.scope);
-            if (!scopes.length) {
-                continue;
-            }
-            if (!scopes.some(scope => scopeMatches(scope, candidate))) {
-                continue;
-            }
-            const foreground = rule.settings && rule.settings.foreground;
-            if (foreground) {
-                return foreground;
-            }
-        }
-    }
-    return null;
-}
-
 function hasSpecificGrammarScope(scopes) {
-    return Array.isArray(scopes) && scopes.some((scope) => {
-        if (!scope || typeof scope !== 'string') {
-            return false;
-        }
-        return scope !== 'source' && scope !== 'source.stata';
-    });
-}
-
-function findThemeColorForScopes(themeData, scopes) {
-    if (!themeData || !Array.isArray(scopes) || !scopes.length) {
-        return null;
-    }
-
-    const tokenColors = Array.isArray(themeData.tokenColors) ? themeData.tokenColors : [];
-    for (let index = tokenColors.length - 1; index >= 0; index--) {
-        const rule = tokenColors[index];
-        const ruleScopes = toScopeList(rule.scope);
-        if (!ruleScopes.length) {
-            continue;
-        }
-        if (!ruleScopes.some((ruleScope) => scopes.some((scope) => scopeMatches(scope, ruleScope)))) {
-            continue;
-        }
-        const foreground = rule.settings && rule.settings.foreground;
-        if (foreground) {
-            return foreground;
-        }
-    }
-
-    return null;
-}
-
-function findCurrentThemeDefinition() {
-    const themeName = vscode.workspace.getConfiguration('workbench').get('colorTheme');
-    if (!themeName) {
-        return null;
-    }
-
-    for (const extension of vscode.extensions.all) {
-        const themes = extension.packageJSON
-            && extension.packageJSON.contributes
-            && Array.isArray(extension.packageJSON.contributes.themes)
-            ? extension.packageJSON.contributes.themes
-            : [];
-
-        const theme = themes.find(item => {
-            const label = item.label;
-            const id = item.id;
-            return label === themeName
-                || id === themeName
-                || `Default ${id}` === themeName
-                || `Default ${label}` === themeName;
-        });
-        if (theme && theme.path) {
-            return {
-                extensionPath: extension.extensionPath,
-                themePath: path.join(extension.extensionPath, theme.path)
-            };
-        }
-    }
-
-    return null;
-}
-
-function loadThemeData(themePath, visited = new Set()) {
-    if (!themePath || visited.has(themePath) || !fs.existsSync(themePath)) {
-        return {};
-    }
-
-    visited.add(themePath);
-    const themeDir = path.dirname(themePath);
-    const rawTheme = fs.readFileSync(themePath, 'utf8');
-    const themeData = JSON.parse(rawTheme);
-
-    let baseTheme = {};
-    if (themeData.include) {
-        const includePath = path.resolve(themeDir, themeData.include);
-        baseTheme = loadThemeData(includePath, visited);
-    }
-
-    let localTokenColors = [];
-    if (Array.isArray(themeData.tokenColors)) {
-        localTokenColors = themeData.tokenColors;
-    } else if (typeof themeData.tokenColors === 'string') {
-        const tokenColorsPath = path.resolve(themeDir, themeData.tokenColors);
-        const tokenColorTheme = loadThemeData(tokenColorsPath, visited);
-        localTokenColors = Array.isArray(tokenColorTheme.tokenColors) ? tokenColorTheme.tokenColors : [];
-    } else if (Array.isArray(themeData.settings)) {
-        localTokenColors = themeData.settings;
-    }
-
-    return {
-        ...baseTheme,
-        ...themeData,
-        colors: {
-            ...(baseTheme.colors || {}),
-            ...(themeData.colors || {})
-        },
-        tokenColors: [
-            ...((baseTheme.tokenColors && Array.isArray(baseTheme.tokenColors)) ? baseTheme.tokenColors : []),
-            ...localTokenColors
-        ]
-    };
-}
-
-function resolveThemeSlotMap(themeData) {
-    const colors = themeData.colors || {};
-    const slotMap = { ...DEFAULT_SLOT_MAP };
-
-    for (const [tokenType, candidates] of Object.entries(TOKEN_SCOPE_CANDIDATES)) {
-        const themeColor = findThemeTokenColor(themeData, candidates);
-        if (themeColor) {
-            slotMap[tokenType] = themeColor;
-        }
-    }
-
-    slotMap.default = colors['editor.foreground'] || colors['terminal.foreground'] || colors.foreground || null;
-    slotMap.prompt = colors['editorLineNumber.foreground'] || colors['descriptionForeground'] || null;
-    slotMap.error = colors['editorError.foreground'] || colors['errorForeground'] || DEFAULT_SLOT_MAP.error;
-    slotMap.header = colors['textLink.foreground'] || slotMap.keyword || null;
-    slotMap.separator = colors['panel.border'] || colors['editorIndentGuide.background'] || null;
-    slotMap.time = colors['terminal.foreground'] || colors.foreground || null;
-    slotMap.timeValue = slotMap.number || null;
-
-    return slotMap;
-}
-
-function syncConsoleTerminalTheme() {
-    try {
-        const themeDefinition = findCurrentThemeDefinition();
-        if (!themeDefinition || !fs.existsSync(themeDefinition.themePath)) {
-            CURRENT_THEME_SLOT_MAP = {};
-            CURRENT_THEME_DATA = null;
-            CURRENT_THEME_DEFAULT_FOREGROUND = null;
-            return;
-        }
-
-        const themeData = loadThemeData(themeDefinition.themePath);
-        CURRENT_THEME_DATA = themeData;
-        CURRENT_THEME_SLOT_MAP = resolveThemeSlotMap(themeData);
-        CURRENT_THEME_DEFAULT_FOREGROUND = CURRENT_THEME_SLOT_MAP.default || null;
-        setConsoleTextmateTheme(themeData);
-    } catch (error) {
-        console.error('Stata All in One: Failed to sync console terminal theme:', error.message);
-        CURRENT_THEME_SLOT_MAP = {};
-        CURRENT_THEME_DATA = null;
-        CURRENT_THEME_DEFAULT_FOREGROUND = null;
-    }
+    return Array.isArray(scopes) && scopes.some(scope => scope && scope !== 'source' && scope !== 'source.stata');
 }
 
 function getWebviewThemeVariables() {
+    // Initial placeholders only. The UI-side resolver fills them from the
+    // displaying machine's editor theme; engine-host themes and ANSI are ignored.
+    const foreground = 'var(--vscode-editor-foreground)';
     return {
-        prompt: CURRENT_THEME_SLOT_MAP.prompt || DEFAULT_SLOT_MAP.prompt,
-        command: CURRENT_THEME_SLOT_MAP.command || null,
-        keyword: CURRENT_THEME_SLOT_MAP.keyword || null,
-        string: CURRENT_THEME_SLOT_MAP.string || null,
-        path: CURRENT_THEME_SLOT_MAP.path || null,
-        number: CURRENT_THEME_SLOT_MAP.number || null,
-        comment: CURRENT_THEME_SLOT_MAP.comment || null,
-        function: CURRENT_THEME_SLOT_MAP.function || null,
-        option: CURRENT_THEME_SLOT_MAP.option || null,
-        variable: CURRENT_THEME_SLOT_MAP.variable || null,
-        macro: CURRENT_THEME_SLOT_MAP.macro || null,
-        operator: CURRENT_THEME_SLOT_MAP.operator || null,
-        plain: CURRENT_THEME_SLOT_MAP.default || null,
-        default: CURRENT_THEME_SLOT_MAP.default || null,
-        error: CURRENT_THEME_SLOT_MAP.error || DEFAULT_SLOT_MAP.error,
-        header: CURRENT_THEME_SLOT_MAP.header || null,
-        separator: CURRENT_THEME_SLOT_MAP.separator || DEFAULT_SLOT_MAP.separator,
-        time: CURRENT_THEME_SLOT_MAP.time || null,
-        timeValue: CURRENT_THEME_SLOT_MAP.timeValue || null
+        prompt: 'var(--vscode-descriptionForeground)',
+        command: foreground, keyword: foreground, string: foreground, path: foreground,
+        number: foreground, comment: 'var(--vscode-descriptionForeground)',
+        function: foreground, option: foreground, variable: foreground, macro: foreground,
+        operator: foreground, plain: foreground, default: foreground,
+        error: 'var(--vscode-errorForeground)', header: foreground,
+        separator: 'var(--vscode-panel-border)', time: foreground, timeValue: foreground
     };
 }
 
@@ -1570,7 +1375,7 @@ class StataTerminalRenderer {
     }
 
     _tokenizeCommandLineWithGrammar(line) {
-        const tmTokens = tokenizeStataLineWithTheme(line);
+        const tmTokens = tokenizeStataLine(line);
         if (!tmTokens || !tmTokens.length) {
             return null;
         }
@@ -1666,7 +1471,7 @@ class StataTerminalRenderer {
 
         while ((match = pattern.exec(value)) !== null) {
             if (match.index > lastIndex) {
-                tokens.push({ type: 'plain', value: value.slice(lastIndex, match.index), foreground, fontStyle });
+                tokens.push({ type: 'plain', value: value.slice(lastIndex, match.index), scopes, foreground, fontStyle });
             }
 
             const segment = match[0];
@@ -1688,12 +1493,12 @@ class StataTerminalRenderer {
                 }
             }
 
-            tokens.push({ type: segmentType, value: segment, foreground, fontStyle });
+            tokens.push({ type: segmentType, value: segment, scopes, foreground, fontStyle });
             lastIndex = pattern.lastIndex;
         }
 
         if (lastIndex < value.length) {
-            tokens.push({ type: 'plain', value: value.slice(lastIndex), foreground, fontStyle });
+            tokens.push({ type: 'plain', value: value.slice(lastIndex), scopes, foreground, fontStyle });
         }
 
         return tokens.length ? tokens : [{ type: 'plain', value, foreground, fontStyle }];
@@ -1792,8 +1597,7 @@ class StataTerminalRenderer {
             segments.push(this._segment(token.value, this._styleForTokenType(
                 type,
                 {
-                    fg: this._foregroundForCommandToken(token.type, token.scopes, token.foreground),
-                    forceForeground: hasSpecificGrammarScope(token.scopes),
+                    scopes: token.scopes,
                     bold: token.type === 'prompt' || token.type === 'command' || token.type === 'keyword',
                     italic: token.type === 'comment' || token.type === 'variable',
                     dim: false
@@ -1893,7 +1697,7 @@ class StataTerminalRenderer {
             return tokenForeground;
         }
 
-        return CURRENT_THEME_DEFAULT_FOREGROUND || CURRENT_THEME_SLOT_MAP.default;
+        return CURRENT_THEME_SLOT_MAP.default;
     }
 
     _tokenizeCommandLine(line) {
@@ -2110,16 +1914,13 @@ class StataTerminalRenderer {
 
     _segment(text, style = {}) {
         const tokenType = style.tokenType || 'plain';
-        const defaultColor = CURRENT_THEME_SLOT_MAP[tokenType] || CURRENT_THEME_SLOT_MAP.default || null;
-        const explicitColor = style.forceForeground
-            ? (style.fg || CURRENT_THEME_DEFAULT_FOREGROUND || CURRENT_THEME_SLOT_MAP.default || null)
-            : (style.fg && style.fg !== defaultColor ? style.fg : null);
         return {
             text,
             tokenType,
+            ...(Array.isArray(style.scopes) ? { scopes: style.scopes } : {}),
             className: this._classNameForStyle(style),
             style: {
-                color: explicitColor,
+                color: null,
                 backgroundColor: style.bg || null,
                 bold: Boolean(style.bold),
                 italic: Boolean(style.italic),
@@ -2129,7 +1930,7 @@ class StataTerminalRenderer {
     }
 
     _styleForTokenType(type, overrides = {}) {
-        const style = { tokenType: type || 'plain' };
+        const style = { tokenType: type || 'plain', scopes: overrides.scopes };
         const foreground = overrides.fg || CURRENT_THEME_SLOT_MAP[type];
         if (foreground) {
             style.fg = foreground;
@@ -2170,6 +1971,5 @@ class StataTerminalRenderer {
 module.exports = {
     StataTerminalRenderer,
     formatDuration,
-    syncConsoleTerminalTheme,
     getWebviewThemeVariables
 };

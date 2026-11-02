@@ -18,6 +18,8 @@ const {
 } = require('./viewerRequestTracker');
 const { msg, showInfo, showError } = require('../../../../utils/common');
 const { StataTerminalRenderer, getWebviewThemeVariables } = require('../renderer');
+const { clientThemeScript } = require('../clientTheme');
+const { handleThemeRequest } = require('../themeSync');
 const variableSuggestions = require('../../../variableSuggestionService');
 const {
     mergeVariableCandidates: mergeAutocompleteVariableCandidates,
@@ -30,6 +32,7 @@ const PANEL_VIEW_TYPE = 'stata-all-in-one.dataViewer';
 
 // Two independent panels: 'console' (from console data button) and 'file' (from .dta click)
 const _panels = { console: null, file: null };
+const themePanels = new Set();
 const _ready = { console: false, file: false };
 // Per-panel readiness: `_ready` only tracks the most recently attached panel of
 // each mode, but several .dta custom editors can be open at the same time.
@@ -1292,20 +1295,21 @@ function getDataViewerHtml(webview) {
             var text = String(seg.text || '');
             var className = String(seg.className || '').trim();
             if (/\btok-(string|comment|macro)\b/.test(className)) {
-                appendFilterSpan(text, className, seg.style || {});
+                appendFilterSpan(text, className, seg.style || {}, seg.scopes);
                 return;
             }
             var parts = text.split(/([\\p{L}_][\\p{L}\\p{M}\\p{N}_]*)/gu);
             for (var i = 0; i < parts.length; i++) {
                 var part = parts[i];
                 if (!part) continue;
-                appendFilterSpan(part, isFilterVariable(part) ? 'tok tok-variable' : className, seg.style || {});
+                appendFilterSpan(part, isFilterVariable(part) ? 'tok tok-variable' : className, seg.style || {}, isFilterVariable(part) ? null : seg.scopes);
             }
         }
 
-        function appendFilterSpan(text, className, style) {
+        function appendFilterSpan(text, className, style, scopes) {
             var span = document.createElement('span');
             if (className) span.className = className;
+            if (Array.isArray(scopes)) span.dataset.stataScopes = JSON.stringify(scopes);
             if (style.color) span.style.color = style.color;
             if (style.backgroundColor) span.style.backgroundColor = style.backgroundColor;
             if (style.bold) span.style.fontWeight = 'bold';
@@ -2591,6 +2595,7 @@ function getDataViewerHtml(webview) {
             }
         });
 
+        ${clientThemeScript()}
         setTimeout(function () {
             switchTab(webviewState.currentTab === 'data' ? 'data' : 'vars');
             syncFilterUi();
@@ -2620,6 +2625,7 @@ function attachPanel(panel, mode) {
     }
 
     _panels[mode] = panel;
+    themePanels.add(panel);
     _ready[mode] = false;
     panel.title = getPanelTitle();
     panel.iconPath = getPanelIconPath();
@@ -2638,6 +2644,7 @@ function attachPanel(panel, mode) {
     });
 
     panel.onDidDispose(() => {
+        themePanels.delete(panel);
         _readyForSet.delete(panel);
         // Stop any read this panel still has in flight.
         cancelPanelWork(panel);
@@ -2693,6 +2700,8 @@ function attachPanel(panel, mode) {
                 viewport: restoreViewport ? _lastViewport[mode] : null
             });
             _nextActivationPreserve[mode] = true;
+        } else if (message.type === 'resolveClientTheme') {
+            await handleThemeRequest(message, panel);
         } else if (message.type === 'refresh') {
             if (mode === 'console' && !_consoleSnapshot.pinned && isConsoleRunning()) {
                 showInfo(msg('consoleBusyAction'));
@@ -3432,7 +3441,12 @@ async function openDtaFile(context, uri, panel) {
 }
 
 // ── exports ────────────────────────────────────────────────────────────────────
+function refreshDataViewerClientTheme() {
+    for (const panel of themePanels) panel.webview.postMessage({ type: 'invalidateClientTheme' });
+}
+
 module.exports = {
+    refreshDataViewerClientTheme,
     revealDataViewer: reveal,
     activateDataViewerTab,
     getLastRevealResult,

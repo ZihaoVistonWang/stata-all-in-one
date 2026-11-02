@@ -13,16 +13,6 @@ let onigurumaReadyPromise = null;
 let grammarLoadPromise = null;
 let loadedVersionKey = null;
 let loadedGrammar = null;
-let loadedRegistry = null;
-let loadedColorMap = [];
-let pendingThemeData = null;
-
-const FONT_STYLE_ITALIC = 1;
-const FONT_STYLE_BOLD = 2;
-const FOREGROUND_MASK = 0x00ff8000;
-const FOREGROUND_OFFSET = 15;
-const FONT_STYLE_MASK = 0x00007800;
-const FONT_STYLE_OFFSET = 11;
 
 function getVersionKey() {
     const files = [MAIN_GRAMMAR_PATH, CUSTOM_GRAMMAR_PATH];
@@ -94,13 +84,6 @@ async function loadGrammar(versionKey) {
     });
 
     const grammar = await registry.loadGrammar(ROOT_SCOPE);
-    loadedRegistry = registry;
-    if (pendingThemeData) {
-        loadedRegistry.setTheme({
-            settings: Array.isArray(pendingThemeData.tokenColors) ? pendingThemeData.tokenColors : []
-        });
-    }
-    loadedColorMap = registry.getColorMap() || [];
     loadedGrammar = grammar;
     loadedVersionKey = versionKey;
     return grammar;
@@ -146,84 +129,6 @@ function tokenizeStataLine(line) {
     return result && Array.isArray(result.tokens) ? result.tokens : null;
 }
 
-function setConsoleTextmateTheme(themeData) {
-    pendingThemeData = themeData || null;
-    if (!loadedRegistry || !themeData) {
-        return;
-    }
-
-    const rawTheme = {
-        settings: Array.isArray(themeData.tokenColors) ? themeData.tokenColors : []
-    };
-    loadedRegistry.setTheme(rawTheme);
-    loadedColorMap = loadedRegistry.getColorMap() || [];
-}
-
-function decodeForeground(metadata) {
-    return (metadata & FOREGROUND_MASK) >>> FOREGROUND_OFFSET;
-}
-
-function decodeFontStyle(metadata) {
-    return (metadata & FONT_STYLE_MASK) >>> FONT_STYLE_OFFSET;
-}
-
-function hasSpecificScope(scopes) {
-    return Array.isArray(scopes) && scopes.some((scope) => scope && scope !== 'source' && scope !== 'source.stata');
-}
-
-function tokenizeStataLineWithTheme(line) {
-    if (!loadedGrammar) {
-        ensureGrammarLoadStarted().catch((error) => {
-            console.error('Stata All in One: Failed to load Stata grammar:', error.message);
-        });
-        return null;
-    }
-
-    const text = String(line || '');
-    const scopeTokens = loadedGrammar.tokenizeLine(text, null);
-    const binaryTokens = loadedGrammar.tokenizeLine2(text, null);
-    const scopeEntries = scopeTokens && Array.isArray(scopeTokens.tokens) ? scopeTokens.tokens : [];
-    const binaryEntries = binaryTokens && binaryTokens.tokens ? Array.from(binaryTokens.tokens) : [];
-    if (!scopeEntries.length) {
-        return null;
-    }
-
-    const themedTokens = [];
-    let binaryIndex = 0;
-
-    for (let i = 0; i < scopeEntries.length; i++) {
-        const scopeToken = scopeEntries[i];
-        const startIndex = scopeToken.startIndex;
-        const endIndex = scopeToken.endIndex;
-
-        while (binaryIndex + 2 < binaryEntries.length && binaryEntries[binaryIndex] < startIndex) {
-            binaryIndex += 2;
-        }
-
-        let metadata = 0;
-        if (binaryIndex + 1 < binaryEntries.length && binaryEntries[binaryIndex] === startIndex) {
-            metadata = binaryEntries[binaryIndex + 1];
-        }
-
-        const scopes = Array.isArray(scopeToken.scopes) ? scopeToken.scopes : [];
-        const specificScope = hasSpecificScope(scopes);
-        const foregroundId = decodeForeground(metadata);
-        const fontStyle = decodeFontStyle(metadata);
-        themedTokens.push({
-            startIndex,
-            endIndex,
-            scopes,
-            foreground: specificScope && foregroundId > 0 ? loadedColorMap[foregroundId] || null : null,
-            fontStyle: specificScope ? {
-                italic: (fontStyle & FONT_STYLE_ITALIC) !== 0,
-                bold: (fontStyle & FONT_STYLE_BOLD) !== 0
-            } : null
-        });
-    }
-
-    return themedTokens;
-}
-
 async function prewarmConsoleTextmateTokenizer() {
     try {
         await ensureGrammarLoadStarted();
@@ -234,7 +139,5 @@ async function prewarmConsoleTextmateTokenizer() {
 
 module.exports = {
     prewarmConsoleTextmateTokenizer,
-    setConsoleTextmateTheme,
-    tokenizeStataLine,
-    tokenizeStataLineWithTheme
+    tokenizeStataLine
 };

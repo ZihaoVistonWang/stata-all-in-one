@@ -29,3 +29,5 @@ SOFTWARE.
 ```
 
 - **Codicons** (`@vscode/codicons` 0.0.46-24) by Microsoft Corporation — Creative Commons Attribution 4.0 International (CC BY 4.0), https://creativecommons.org/licenses/by/4.0/. File incorporated: `node_modules/@vscode/codicons/dist/codicon.ttf`, used unmodified as the icon font of the Console and Data Viewer when VS Code does not provide its own copy (for example on VS Code Server). The full licence text ships as `node_modules/@vscode/codicons/LICENSE`. Source: https://github.com/microsoft/vscode-codicons
+
+- **JSONC Parser** (`jsonc-parser` 3.3.1) by Microsoft Corporation — MIT License. Used to read editor theme JSON with comments and trailing commas. The licence is included in `node_modules/jsonc-parser/LICENSE.md` in the extension package. Source: https://github.com/microsoft/node-jsonc-parser

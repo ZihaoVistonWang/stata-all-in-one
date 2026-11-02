@@ -2,6 +2,8 @@ const vscode = require('vscode');
 const fs = require('fs');
 const path = require('path');
 const { StataTerminalRenderer, getWebviewThemeVariables } = require('./renderer');
+const { clientThemeScript } = require('./clientTheme');
+const { handleThemeRequest } = require('./themeSync');
 const { msg, showInfo, showWarn, showError } = require('../../../utils/common');
 const {
     applySmclLinksToEntries,
@@ -256,6 +258,8 @@ function attachPanel(panel) {
             postState();
             postVariables();
             postResultPreviewCapability(panel);
+        } else if (message && message.type === 'resolveClientTheme') {
+            await handleThemeRequest(message, panel);
         } else if (message && message.type === 'historyBatchRendered') {
             acknowledgeWebviewHistoryBatch(message);
         } else if (message && message.type === 'requestHistoryPage') {
@@ -3023,6 +3027,7 @@ function getWebviewHtml(webview) {
                 if (className) {
                     span.className = className;
                 }
+                if (Array.isArray(seg.scopes)) span.dataset.stataScopes = JSON.stringify(seg.scopes);
                 var style = seg.style || {};
                 if (style.color) {
                     span.style.color = style.color;
@@ -3917,6 +3922,7 @@ function getWebviewHtml(webview) {
                     if (className) {
                         span.classList.add(...className.split(/\\s+/).filter(Boolean));
                     }
+                    if (Array.isArray(segment && segment.scopes)) span.dataset.stataScopes = JSON.stringify(segment.scopes);
                     const style = segment && segment.style || {};
                     if (style.color) span.style.color = style.color;
                     if (style.backgroundColor) span.style.backgroundColor = style.backgroundColor;
@@ -4026,6 +4032,7 @@ function getWebviewHtml(webview) {
                 if (className) {
                     span.classList.add(...className.split(/\\s+/).filter(Boolean));
                 }
+                if (Array.isArray(segment && segment.scopes)) span.dataset.stataScopes = JSON.stringify(segment.scopes);
                 const style = segment && segment.style || {};
                 if (style.color) {
                     span.style.color = style.color;
@@ -5006,6 +5013,7 @@ function getWebviewHtml(webview) {
             }
         });
 
+        ${clientThemeScript()}
         bootstrapConsoleFont().finally(() => {
             vscode.postMessage({ type: 'ready' });
             vscode.postMessage({ type: 'requestVariables' });
@@ -5024,7 +5032,12 @@ function escapeHtml(text) {
         .replace(/'/g, '&#39;');
 }
 
+function refreshConsoleClientTheme() {
+    if (_panel) _panel.webview.postMessage({ type: 'invalidateClientTheme' });
+}
+
 module.exports = {
+    refreshConsoleClientTheme,
     revealWebviewTerminalPanel: revealPanel,
     getWebviewTerminalViewColumn,
     getWebviewTerminalSink,
