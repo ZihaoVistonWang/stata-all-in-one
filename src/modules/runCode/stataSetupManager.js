@@ -507,7 +507,7 @@ async function showDebugLicenseFailureDialog() {
         platform: isWindows() ? 'win32' : (isLinux() ? 'linux' : 'darwin'),
         installationPath
     }, ['LICENSE_NOT_FOUND'], { success: false, failCode: 'STATIC_REQUIREMENTS_MISSING' });
-    await updateRunMode(config.RUN_MODES.externalApp);
+    if (!isLinux()) await updateRunMode(config.RUN_MODES.externalApp);
 }
 
 async function clearConfiguredInstallation(context) {

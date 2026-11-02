@@ -12,5 +12,4 @@ const ROLE_SCOPES = Object.freeze({
     macro: ['source.stata', 'entity.name.type.class.stata'],
     operator: ['source.stata', 'keyword.operator.assignment.stata']
 });
-const REFRESH_THEME_COMMAND = 'stata-all-in-one.refreshClientTheme';
-module.exports = { ROLE_SCOPES, REFRESH_THEME_COMMAND };
+module.exports = { ROLE_SCOPES };

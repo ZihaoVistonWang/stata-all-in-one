@@ -14,6 +14,7 @@ const { execFile } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { Worker, isMainThread, parentPort, workerData } = require('worker_threads');
 
 const EDITION_ORDER = Object.freeze({ mp: 0, se: 1, be: 2, ic: 3 });
 const DISCOVERY_TIMEOUT_MS = Object.freeze({ darwin: 3000, win32: 5000, linux: 3000 });
@@ -532,15 +533,32 @@ async function discoverOnLinux(options, timeoutMs) {
     const roots = Array.isArray(options.baseDirs) && options.baseDirs.length
         ? options.baseDirs
         : getLinuxSearchRoots();
-    let timeoutId;
-    const timeoutResult = new Promise(resolve => {
-        timeoutId = setTimeout(() => resolve({ timedOut: true, candidates: [] }), timeoutMs);
+    // Keep synchronous filesystem work off the Extension Host's event loop so
+    // the deadline can fire, and terminate the isolated scan when it expires.
+    const result = await new Promise(resolve => {
+        let worker;
+        let settled = false;
+        const finish = result => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timeoutId);
+            if (worker) {
+                worker.terminate().catch(() => {});
+                worker.unref();
+            }
+            resolve(result);
+        };
+        const timeoutId = setTimeout(() => finish({ timedOut: true, candidates: [] }), timeoutMs);
+        try {
+            worker = new Worker(__filename, { workerData: { task: 'scanLinuxStata', roots } });
+            worker.once('message', message => finish({ timedOut: false, candidates: message.candidates }));
+            worker.once('error', error => finish({ timedOut: false, candidates: [], error }));
+            worker.once('exit', code => finish({ timedOut: false, candidates: [],
+                error: new Error(`Linux Stata discovery worker exited without a result (code ${code}).`) }));
+        } catch (error) {
+            finish({ timedOut: false, candidates: [], error });
+        }
     });
-    const scanResult = Promise.resolve()
-        .then(() => ({ timedOut: false, candidates: scanLinuxInstallations(roots) }))
-        .catch(error => ({ timedOut: false, candidates: [], error }));
-    const result = await Promise.race([scanResult, timeoutResult]);
-    clearTimeout(timeoutId);
     return {
         supported: true,
         candidates: result.candidates,
@@ -606,3 +624,7 @@ module.exports = {
     selectLinuxCandidate,
     sortStataCandidates
 };
+
+if (!isMainThread && parentPort && workerData && workerData.task === 'scanLinuxStata') {
+    parentPort.postMessage({ candidates: scanLinuxInstallations(workerData.roots) });
+}

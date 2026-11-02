@@ -355,6 +355,31 @@ test('debug license failure dialog opens genuine Stata guidance and dealer URL',
     assert.equal(settings.runMode, 'externalApp');
 });
 
+test('Linux debug license failure dialog keeps the Embedded Console mode', async () => {
+    const { calls, manager, settings } = loadSetupManager({
+        platform: 'linux',
+        runMode: 'embeddedConsole',
+        infoChoices: [BUTTONS.stataSetupConfirm]
+    });
+
+    await manager.showDebugLicenseFailureDialog();
+
+    assert.deepEqual(calls.info[0].items, [BUTTONS.stataSetupConfirm, BUTTONS.stataSetupPurchaseGenuine]);
+    assert.equal(settings.runMode, 'embeddedConsole');
+    assert.equal(calls.updates.length, 0);
+});
+
+test('macOS debug license failure retains its existing external-mode fallback', async () => {
+    const { manager, settings } = loadSetupManager({
+        platform: 'darwin',
+        infoChoices: [BUTTONS.stataSetupConfirmSwitchExternal]
+    });
+
+    await manager.showDebugLicenseFailureDialog();
+
+    assert.equal(settings.runMode, 'externalApp');
+});
+
 test('macOS license failure displays the exact app path and support sentence', async () => {
     const installation = createMacInstallation({ withDylib: true, withLicense: false });
     const { calls, manager, setupOptions } = loadSetupManager({

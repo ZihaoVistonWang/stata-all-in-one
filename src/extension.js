@@ -24,7 +24,6 @@ const {
     createEditorTitleBrandController
 } = require('./modules/editorTitleBrand');
 const { invalidateClientTheme } = require('./modules/runCode/embeddedConsole/themeSync');
-const { REFRESH_THEME_COMMAND } = require('./modules/runCode/embeddedConsole/themeProtocol');
 const { prewarmConsoleTextmateTokenizer } = require('./modules/runCode/embeddedConsole/textmateTokenizer');
 const { closeRestoredDataViewerTabs, registerDtaDataViewer } = require('./modules/runCode/embeddedConsole/dataViewer/dtaEditor');
 const { setDataViewerFontSize, refreshDataViewerClientTheme } = require('./modules/runCode/embeddedConsole/dataViewer/panel');
@@ -348,7 +347,6 @@ async function activate(context) {
         refreshConsoleClientTheme();
         refreshDataViewerClientTheme();
     };
-    context.subscriptions.push(vscode.commands.registerCommand(REFRESH_THEME_COMMAND, refreshClientTheme));
     context.subscriptions.push(vscode.window.onDidChangeActiveColorTheme(refreshClientTheme));
     context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(event => {
         if (['workbench.colorTheme', 'workbench.colorCustomizations', 'editor.tokenColorCustomizations']
