@@ -13,7 +13,7 @@ Stata All in One
 </p>
 
 <p align="center">
-   | <b>Version:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.3.15</a> | <b>Author:</b> <a href="https://zihaowang.cn">Zihao Viston Wang</a> | <b>Translate:</b>
+   | <b>Version:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.3.16 Preview</a> | <b>Author:</b> <a href="https://zihaowang.cn">Zihao Viston Wang</a> | <b>Translate:</b>
   <a href="https://gitee.com/ZihaoVistonWang/stata-all-in-one">中文版本</a> |
 </p>
 
@@ -36,6 +36,36 @@ Stata All in One
 <p align="center">This README provides technical documentation and installation/configuration instructions for Stata All in One. For a more accessible feature overview, visit my <a href="https://zihaowang.cn/en/post/stata-all-in-one-news/">blog</a> to learn more.</p>
 
 ---
+
+<table style="border-collapse: separate; border-spacing: 0; border-radius: 10px; overflow: hidden; display: block;">
+<tr>
+<td style="
+  background: linear-gradient(135deg, #ff6b6b10, #ffd93d10);
+  border: 3px solid #ff6b6b;
+  border-radius: 10px;
+  padding: 18px 22px;
+">
+<p style="margin:0 0 12px 0; font-size:1.25em; text-align:center;">
+  🚨 <strong>Preview Release Notice</strong> 🚨
+</p>
+<p style="margin:0 0 8px 0; padding-left: 1.6em; text-indent: -1.6em;">
+  ⚠️ <strong>v0.3.16 is a preview release (pre-release)</strong> for Linux/Remote-SSH support and client-theme synchronization, and may contain bugs. It is not recommended for production use. Thank you to everyone willing to try it out and provide feedback!
+</p>
+<p style="margin:0 0 8px 0; padding-left: 1.6em; text-indent: -1.6em;">
+  📧 Please send the affected platform, reproduction steps, and screenshots to <a href="mailto:hi@zihaowang.cn"><strong>hi@zihaowang.cn</strong></a>, or <a href="https://github.com/ZihaoVistonWang/stata-all-in-one/issues">report an issue</a>.
+</p>
+<p style="margin:0 0 8px 0; padding-left: 1.6em; text-indent: -1.6em;">
+  ↩️ If this preview affects your workflow, switch back to the release version in VS Code, or use <strong>Install Another Version…</strong> to select <strong>v0.3.15</strong>.
+</p>
+<p style="margin:0 0 8px 0; padding-left: 1.6em; text-indent: -1.6em;">
+  🧪 Local Windows/macOS and Windows/macOS-to-Linux Remote-SSH have been tested. Linux desktop VS Code still needs validation; bundled Linux binaries are <strong>x86_64</strong>, and Linux supports Embedded Console mode only.
+</p>
+<p style="margin:0 0 8px 0; padding-left: 1.6em; text-indent: -1.6em;">
+  📌 <mark>Highlighted text</mark> marks additions in this preview. See the <a href="https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0316-2026-11-03">full preview changelog</a>.
+</p>
+</td>
+</tr>
+</table>
 
 ## Acknowledgments
 
@@ -65,7 +95,7 @@ Stata All in One
 
 ### 2. Code Execution (Interacting with Stata)
 
-- **Platform Support**: This extension natively supports seamless integration with Stata on **macOS** and **Windows**, and the Embedded Console and Data Viewer on **Linux** (for example on a remote server through VS Code Remote-SSH).
+- **Platform Support**: This extension natively supports seamless integration with Stata on **macOS** and **Windows**, and <mark>the Embedded Console and Data Viewer on **Linux** (preview), including remote servers through VS Code Remote-SSH</mark>.
 - **Two Run Modes**:
   - **Embedded Console** (default) 🛠️: Run and display Stata output directly within VS Code, including *command results*, *error messages*, *command window output*, and *graph output*, for a true one-stop experience. Click any file path shown in the Console output to open it.
   - **External App**: Continue using the traditional approach of sending code to the Stata GUI, for users who prefer Stata's native interface. Windows now uses [Stata COM Automation](https://www.stata.com/automation/), delivering significantly better performance than the previous PowerShell-based implementation.
@@ -198,17 +228,10 @@ Click [here](https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/SHORT
 
 ## Installation
 
-### Linux locally or through Remote-SSH
-
-The Embedded Console and Data Viewer support VS Code running directly on Linux. You can also connect from macOS or Windows using VS Code Remote-SSH: install Stata and this extension on the Linux remote host (choose **Install in SSH: <host>** in the Extensions view). Open your do-files in that remote window and use the extension normally. Stata executes on Linux; the client computer does not need a local Stata installation. Configure `stata-all-in-one.stataPathOnLinux` in the remote window if automatic discovery fails, and use `embeddedConsole` mode.
-
-Local macOS and Windows windows continue to use their own Stata installations. The bundled Linux binaries are x86_64; Linux External App mode is not supported.
-
-When using Remote-SSH, Console and Data Viewer obtain the client theme through VS Code’s built-in theme export and cache the syntax rules in memory. No companion extension is installed. Theme synchronization can briefly show a temporary editor; the extension clears and closes its own export without a save prompt and restores the calling view. Switching themes or changing token colors invalidates the cache; reloading the window obtains a fresh snapshot. If synchronization fails, views use readable UI text colors and Stata execution remains available.
-
 ### Install from Extension Marketplace
 
 - **VS Code**: Search for "Stata All in One" in extensions and install.
+- **Try the preview**: Choose **Switch to Pre-Release Version** on the extension details page. To return to stable, choose **Switch to Release Version**, or use **Install Another Version…** to select `0.3.15`.
 
 ### Download and Install (for Cursor, Trae and other VSCode-based IDEs)
 
@@ -217,6 +240,10 @@ When using Remote-SSH, Console and Data Viewer obtain the client theme through V
    - [GitHub Releases Page](https://github.com/ZihaoVistonWang/stata-all-in-one/releases)
 2. Open Extensions panel in your editor → `...` → `Install from VSIX...`.
 3. Select the downloaded `.vsix` file to complete installation.
+
+### Remote Linux Server
+
+<mark>Connect to a remote Linux server with VS Code Remote-SSH and install Stata and this extension on the server (choose **Install in SSH**).</mark> Open a `do` or `dta` file and run it in `embeddedConsole` mode; Stata is not required on the client. If discovery fails, set `stata-all-in-one.stataPathOnLinux` in the remote settings.
 
 ---
 
@@ -237,16 +264,16 @@ If automatic discovery cannot find Stata, choose `Stata not found? Configure it 
 1. **Run Mode** (`stata-all-in-one.runMode`)
 
    - `embeddedConsole` (default): Run code in the built-in **Console | Stata All in One** panel within VS Code, with direct output viewing and interaction.
-   - `externalApp`: Send code to the system-installed Stata application for execution.
+   - `externalApp`: Send code to the external Stata application on macOS/Windows only; use `embeddedConsole` on Linux.
 2. **Stata Version on macOS** (`stata-all-in-one.stataVersionOnMacOS`)
 
    - Stata runtime version. When empty, the extension detects installed versions at startup for up to 3 seconds, preferring the highest numeric version and then `StataMP`, `StataSE`, `StataBE`, and `StataIC`. If detection fails, configure directly from the running Stata instance. The initializer then verifies the exact `.app`, Console dylib, and `stata.lic`, initializes the Embedded Console when possible, and reports the result once in a central dialog.
 3. **Stata Path on Windows** (`stata-all-in-one.stataPathOnWindows`)
 
    - Path to Stata executable file (e.g., `C:\Program Files\Stata17\StataMP-64.exe`). When empty, the extension runs the bundled `scripts/discover_stata_windows.bat` registry probe at startup for up to 5 seconds. The same BAT can be run independently to generate `stata-discovery-report.json` for troubleshooting. If detection fails, configure directly from the running Stata instance. The initializer then verifies the EXE, Console DLL, and `stata.lic`, initializes the Embedded Console when possible, and reports the result once in a central dialog.
-4. **Stata Path on Linux** (`stata-all-in-one.stataPathOnLinux`)
+4. **Stata Path on Linux (Preview)** (`stata-all-in-one.stataPathOnLinux`)
 
-   - Stata installation directory (e.g., `/usr/local/stata18`). When empty, the extension scans `/usr/local`, `/opt`, and your home directory for Stata installations at startup, preferring the highest numeric version and then MP, SE, and BE. If detection fails, configure directly from the running Stata instance (`saio setup`). The initializer then verifies the console executable, the Console shared library (`libstata-*.so`), and `stata.lic`, initializes the Embedded Console when possible, and reports the result once in a central dialog. A path to a specific library or executable (e.g., `/usr/local/stata18/libstata-se.so`) selects that edition. External App mode is not available on Linux.
+   - Stata installation directory (e.g., `/usr/local/stata18`). Empty by default; the extension scans `/usr/local`, `/opt`, and your home directory for up to 3 seconds at startup, preferring the highest numeric version and then MP, SE, and BE. If detection fails, configure directly from the running Stata instance (`saio setup`). The initializer then verifies the console executable, the Console shared library (`libstata-*.so`), and `stata.lic`, initializes the Embedded Console when possible, and reports the result once in a central dialog. A path to a specific library or executable (e.g., `/usr/local/stata18/libstata-se.so`) selects that edition. External App mode is not available on Linux.
 5. **Close Stata Other Windows Before Sending Code (Windows)** (`stata-all-in-one.closeStataOtherWindowsBeforeSendingCode`)
 
    - `true`: Close Stata helper windows (such as Viewer/Data Editor) before sending run commands.
@@ -257,12 +284,12 @@ If automatic discovery cannot find Stata, choose `Stata not found? Configure it 
    - `false`: Stata's working directory is not changed on startup.
 7. **Show Action Buttons** (`stata-all-in-one.showActionButtons`)
 
-   - `true` (default): Show the "Bug Report" and "Stata AI Skill" buttons in the editor title bar.
-   - `false`: Hide both buttons.
+   - `true` (default): Show the Stata All in One brand, "Bug Report", and "Stata AI Skill" buttons in the editor title bar.
+   - `false`: Hide those buttons.
 8. **Show Sponsor Button** (`stata-all-in-one.showSponsorButton`)
 
-   - `true`: Show the "Sponsor" button in the Stata editor title bar.
-   - `false` (default): Hide the button.
+   - `true` (default): Show the "Sponsor" button in the Stata editor title bar.
+   - `false`: Hide the button.
 9. **Enable Ctrl+Shift+D for Run Shortcut** (`stata-all-in-one.enableCtrlShiftD`)
 
    - `true`: Use `Ctrl / ⌘ + Shift + D` as the run code shortcut.
@@ -270,7 +297,7 @@ If automatic discovery cannot find Stata, choose `Stata not found? Configure it 
 
 ### Embedded Console
 
-11. **Console Font Mode** (`stata-all-in-one.consoleFontMode`)
+10. **Console Font Mode** (`stata-all-in-one.consoleFontMode`)
     - `online` (default): Load Maple Mono for Latin text and Maple Mono NF CN for Chinese text.[^3]
     - `editor`: Follow the editor font, falling back to the system monospace font.
     - `system`: Use the system monospace font directly.
@@ -278,23 +305,23 @@ If automatic discovery cannot find Stata, choose `Stata not found? Configure it 
 
 [^3]: Font credits: [subframe7536/maple-font](https://github.com/subframe7536/maple-font), [fontsource](https://fontsource.org/fonts/maple-mono), and ZeoSeven Fonts ([443](https://fonts.zeoseven.com/items/443/), [442](https://fonts.zeoseven.com/items/442/)).
     
-12. **Console Custom Font Family** (`stata-all-in-one.consoleCustomFontFamily`)
+11. **Console Custom Font Family** (`stata-all-in-one.consoleCustomFontFamily`)
 
     - When font mode is set to `custom`, the CSS `font-family` list used by the console.
     - Example: `"Maple Mono NF CN", Menlo, Monaco, monospace`
-13. **Console and Data Viewer Font Size** (`stata-all-in-one.consoleAndDataViewerFontSize`)
+12. **Console and Data Viewer Font Size** (`stata-all-in-one.consoleAndDataViewerFontSize`)
 
-    - Follows the VS Code editor font size when empty.
-14. **Graph Export DPI** (`stata-all-in-one.graphPngDpi`)
+    - Empty by default to follow the VS Code editor font size; an explicit value can range from 6 to 72.
+13. **Graph Export DPI** (`stata-all-in-one.graphPngDpi`)
 
-    - DPI value for saving embedded console graphs as PNG. Default `600`, range 72–1200.
-15. **Data Viewer Memory Limit** (`stata-all-in-one.dataViewerMemoryLimitMB`)
+    - DPI value for saving Embedded Console graphs as PNG/JPG/JPEG. Default `600`, range 72–1200.
+14. **Data Viewer Memory Limit** (`stata-all-in-one.dataViewerMemoryLimitMB`)
 
-    - Memory budget for one read, default 1024 MB; lower it on memory-constrained machines.
+    - Memory budget for one read, default 1024 MB, range 16–16384 MB. Multiple data copies can make actual memory use exceed this budget; lower it on memory-constrained machines.
 
-16. **Long-task Completion Sound** (`stata-all-in-one.consoleCompletionSound.*`)
+15. **Long-task Completion Sound** (`stata-all-in-one.consoleCompletionSound.*`)
 
-    - `consoleCompletionSound.enabled`: off by default; applies only to Embedded Console user submissions.
+    - `consoleCompletionSound.enabled`: off by default; supports local macOS/Windows Embedded Console user submissions only. Linux, including execution over Remote-SSH, does not currently support completion sounds.
     - `consoleCompletionSound.thresholdMinutes`: default `5`; accepts fractions or `0` for every task. Counts actual execution, excluding initialization and queue waiting.
     - `consoleCompletionSound.ringtone`: `notification` (default), `information`, `warning`, or `custom` (MP3). System sounds differ by OS.
     - `consoleCompletionSound.customPath`: absolute local MP3 path for `custom`, with or without matching single or double quotes. Invalid files fall back to the system notification sound.
@@ -305,50 +332,50 @@ If automatic discovery cannot find Stata, choose `Stata not found? Configure it 
 
 ### Syntax Highlighting and Code Completion
 
-17. **Custom Command Highlighting** (`stata-all-in-one.customCommands`)
+16. **Custom Command Highlighting** (`stata-all-in-one.customCommands`)
     - User-defined Stata commands to highlight as keywords (array of strings). Default: `reghdfe`.
     - Example: `["reghdfe", "ivreghdfe", "gtools", "winsor2", "outreg2"]`
     - **Requires reloading window** after configuration.
-18. **Pinyin Variable Matching** (`stata-all-in-one.enablePinyinVariableMatching`)
+17. **Pinyin Variable Matching** (`stata-all-in-one.enablePinyinVariableMatching`)
 
     - `true` (default): Enable pinyin fuzzy matching for variable names and labels.
 
 ### Hover Help
 
-19. **Enable Hover Docs** (`stata-all-in-one.enableHoverDocs`)
+18. **Enable Hover Docs** (`stata-all-in-one.enableHoverDocs`)
 
     - `true` (default): Show official Stata help information when hovering over Stata commands.
     - `false`: Disable hover help.
-20. **Additional ADO Paths** (`stata-all-in-one.additionalAdoPaths`)
+19. **Additional ADO Paths** (`stata-all-in-one.additionalAdoPaths`)
 
     - Extra Stata ADO paths for scanning help files of community-contributed commands.
-    - Example: `["/Users/username/ado/personal", "C:\\Users\\username\\ado\\personal"]`
+    - Example: `["/Users/username/ado/personal", "C:/Users/username/ado/personal"]`
 
 ### Outline & Navigation
 
-21. **Display Multi-level Numbering** (`stata-all-in-one.numberingShow`)
+20. **Display Multi-level Numbering** (`stata-all-in-one.numberingShow`)
 
     - `true`: Outline displays `1.1`, `1.2.1` style numbering.
     - `false` (default): Displays original headings.
-22. **Auto-update Heading Numbering** (`stata-all-in-one.numberingAdd`)
+21. **Auto-update Heading Numbering** (`stata-all-in-one.numberingAdd`)
 
     - `true`: **When numbering is enabled**, automatically update section titles in `.do` files to include numbers.
-    - `false` (default): Only displays numbering in outline, doesn't modify file.
+    - `false` (default): Do not write heading numbers into the file; outline numbering is controlled by `numberingShow`.
 
-> **Note**: Changes to `numberingShow`, `numberingAdd`, and `customCommands` require reopening `.do` files to take effect. When `numberingAdd` is disabled, existing numbering in `.do` files will be automatically removed.
+> **Note**: Reopen the `.do` file to refresh the outline after changing `numberingShow` or `numberingAdd`; changes to `customCommands` require reloading the window. With `numberingAdd` disabled, existing heading numbers are removed when the current file outline is parsed.
 
 ### Code Style
 
-23. **Comment Style** (`stata-all-in-one.commentStyle`)
+22. **Comment Style** (`stata-all-in-one.commentStyle`)
 
     - `// ` (default): Comment style used for toggling comments. Options include `//`, `*`, or `/* ... */`
-24. **Separator Length** (`stata-all-in-one.separatorLength`)
+23. **Separator Length** (`stata-all-in-one.separatorLength`)
 
     - Total character length of the separator line (including the `** #` prefix and separators). Default: `60`
 
 <a id="separatorSymmetric"></a>
 
-25. **Separator Symmetric** (`stata-all-in-one.separatorSymmetric`)
+24. **Separator Symmetric** (`stata-all-in-one.separatorSymmetric`)
     - `true`: Add ` **` at the end of separator lines to ensure visual symmetry (e.g., `** === Title === **`).
     - `false` (default): Separator lines without the suffix.
 
@@ -380,6 +407,7 @@ If this extension has been helpful to you, feel free to scan the **Alipay** (lef
 
 | Version | Changes                                                                                                                                                                                               | Release Date |
 | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| 0.3.16 | [Preview] added Linux/Remote-SSH support and client-theme colors for Console and Data Viewer. | 2026-11-03 |
 | 0.3.15  | Added per-run Console copying and long-task completion sounds; fixed Data Viewer pagination and section separators.                                                                                    | 2026-10-19   |
 | 0.3.14  | Data Viewer now reads data in bounded windows, with fixes for filtering, paging, numeric and `strL` values, and refresh.                                                                              | 2026-09-29   |
 | 0.3.13  | Fixed configuring Stata All in One from Stata when temporary directories differ.                                                                                                                      | 2026-08-20   |

@@ -3,6 +3,21 @@
 All notable changes to the Stata All in One extension will be documented in this file.
 本文件记录 Stata All in One 扩展的所有重要更改。
 
+## 0.3.16 (2026-11-03)
+
+> **Preview release**: Linux/Remote-SSH support and client-theme synchronization are available for testing. If this preview disrupts your workflow, report the issue and return to stable v0.3.15. Local Windows/macOS and Windows/macOS-to-Linux Remote-SSH have been tested; Linux desktop VS Code still needs validation.
+>
+> **预览版本**：本次开放 Linux／Remote-SSH 支持与客户端主题同步供测试。如遇影响正常使用的问题，请反馈并回退到稳定版 v0.3.15。Windows/macOS 本地及两者远程连接 Linux 已完成测试；Linux 桌面版 VS Code 仍待验证。
+
+- **Feat (Preview)**: Added Linux x86_64 Embedded Console and Data Viewer support, including Stata shared-library discovery, license checks, help lookup, and the `stata-all-in-one.stataPathOnLinux` setting.
+- **Feat (Preview)**: Run Stata on a Linux host from macOS or Windows through VS Code Remote-SSH; install Stata and this extension on the remote host, without requiring Stata on the client. Local macOS/Windows execution remains available.
+- **Improved**: Console and Data Viewer follow the client's editor theme and token customizations without installing a companion extension. Remote theme rules are cached and refreshed when the theme changes or the window reloads; synchronization may briefly open a temporary theme editor that is automatically cleaned up.
+- **Fixed**: Bundled a fallback icon font for VS Code Server, opened remote Linux output files through VS Code, made Linux discovery timeouts terminate isolated scans, and prevented Linux license diagnostics from selecting unsupported External App mode.
+- **新增（预览）**：支持 Linux x86_64 内置控制台与数据查看器，提供 Stata 共享库自动探测、许可证检查、帮助索引及 `stata-all-in-one.stataPathOnLinux` 配置。
+- **新增（预览）**：支持 macOS 或 Windows 通过 VS Code Remote-SSH 调用 Linux 上的 Stata；在远端安装 Stata 和本扩展，客户端无需安装 Stata，同时保留 macOS/Windows 本地运行。
+- **优化**：控制台与数据查看器跟随客户端编辑器主题及自定义语法配色，无需额外扩展；远程配色规则在内存中缓存，切换主题或重载窗口后更新，同步时可能短暂打开随后自动清理的主题标签。
+- **修复**：为 VS Code Server 补充图标字体，通过 VS Code 打开 Linux 远程输出文件，使 Linux 探测超时能终止独立扫描，并避免 Linux 许可证诊断误切到不支持的外部运行模式。
+
 ## 0.3.15 (2026-10-19)
 
 - **Feat**: Added optional completion sounds for long Embedded Console tasks, with a configurable threshold, system sounds or custom MP3, and a Stop Sound action; quoted MP3 paths are supported.

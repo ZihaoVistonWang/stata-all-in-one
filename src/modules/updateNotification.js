@@ -10,6 +10,10 @@ const { getUserLanguage } = require('../utils/common');
 // Update changelog: version -> changelog text
 const CHANGELOG = {
     en: {
+        '0.3.16': {
+            ver_info: '✨ Stata All in One (0.3.16): [Preview] added Linux/Remote-SSH support and client-theme colors for Console and Data Viewer.',
+            more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0316-2026-11-03'
+        },
         '0.3.15': {
             ver_info: '✨ Stata All in One (0.3.15): Added per-run Console copying and long-task completion sounds; fixed Data Viewer pagination and section separators.',
             more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0315-2026-10-19'
@@ -140,6 +144,10 @@ const CHANGELOG = {
         }
     },
     zh: {
+        '0.3.16': {
+            ver_info: '✨ Stata All in One (0.3.16)：[预览版] 新增 Linux／Remote-SSH 支持，并同步控制台与数据查看器的客户端主题配色。',
+            more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0316-2026-11-03'
+        },
         '0.3.15': {
             ver_info: '✨ Stata All in One (0.3.15)：新增控制台逐次运行复制与长任务完成提醒；修复数据查看器翻页和章节分隔线。',
             more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0315-2026-10-19'

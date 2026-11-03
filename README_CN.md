@@ -13,7 +13,7 @@ Stata All in One
 </p>
 
 <p align="center">
-   | <b>版本:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.3.15</a> | <b>作者:</b> <a href="https://zihaowang.cn">王梓豪</a> | <b>Translate:</b>
+   | <b>版本:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.3.16 预览版</a> | <b>作者:</b> <a href="https://zihaowang.cn">王梓豪</a> | <b>Translate:</b>
   <a href="https://github.com/ZihaoVistonWang/stata-all-in-one">English Version</a> |
 </p>
 
@@ -36,6 +36,36 @@ Stata All in One
 <p align="center">以下为 Stata All in One 的技术文档和安装配置说明；如需更直观易读的功能介绍，请访问我的【<a href="https://zihaowang.cn/zh/post/stata-all-in-one-news/">博客</a>】了解更多。</p>
 
 ---
+
+<table style="border-collapse: separate; border-spacing: 0; border-radius: 10px; overflow: hidden; display: block;">
+<tr>
+<td style="
+  background: linear-gradient(135deg, #ff6b6b10, #ffd93d10);
+  border: 3px solid #ff6b6b;
+  border-radius: 10px;
+  padding: 18px 22px;
+">
+<p style="margin:0 0 12px 0; font-size:1.25em; text-align:center;">
+  🚨 <strong>预览版提醒</strong> 🚨
+</p>
+<p style="margin:0 0 8px 0; padding-left: 1.6em; text-indent: -1.6em;">
+  ⚠️ <strong>v0.3.16 为预览版本（pre-release）</strong>，新增 Linux／Remote-SSH 支持与客户端主题同步，可能存在 bug，不建议在生产环境中使用。感谢每一位愿意尝鲜并反馈问题的用户！
+</p>
+<p style="margin:0 0 8px 0; padding-left: 1.6em; text-indent: -1.6em;">
+  📧 如遇问题，请将使用平台、复现步骤和截图发送至 <a href="mailto:hi@zihaowang.cn"><strong>hi@zihaowang.cn</strong></a>，或<a href="https://github.com/ZihaoVistonWang/stata-all-in-one/issues">提交问题反馈</a>。
+</p>
+<p style="margin:0 0 8px 0; padding-left: 1.6em; text-indent: -1.6em;">
+  ↩️ 如影响正常使用，可在 VS Code 中切换为发布版本，或通过<strong>安装其他版本…</strong>选择稳定版 <strong>v0.3.15</strong>。
+</p>
+<p style="margin:0 0 8px 0; padding-left: 1.6em; text-indent: -1.6em;">
+  🧪 Windows/macOS 本地及两者通过 Remote-SSH 连接 Linux 远程服务器已完成测试；Linux 桌面版 VS Code 仍待验证。随包 Linux 二进制为 <strong>x86_64</strong>，Linux 仅支持内置控制台运行模式。
+</p>
+<p style="margin:0 0 8px 0; padding-left: 1.6em; text-indent: -1.6em;">
+  📌 本文档的<mark>高亮部分</mark>代表本次预览版新增内容，详见<a href="https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0316-2026-11-03">完整预览版更新记录</a>。
+</p>
+</td>
+</tr>
+</table>
 
 ## 致谢
 
@@ -65,7 +95,7 @@ Stata All in One
 
 ### 2. 代码运行 (与Stata 交互)
 
-- **平台支持**：本拓展原生支持与 **macOS** 和 **Windows** 上的 Stata 无缝集成，并在 **Linux** 上支持内置控制台和数据查看器（例如通过 VS Code Remote-SSH 连接的远程服务器）。
+- **平台支持**：本拓展原生支持与 **macOS** 和 **Windows** 上的 Stata 无缝集成，并<mark>在 **Linux** 上支持内置控制台和数据查看器，包括通过 VS Code Remote-SSH 连接的远程服务器</mark>。
 - **两种运行模式**：
   - **嵌入式控制台**（默认模式）🛠️：现在可以在 VS Code 内直接运行并展示Stata输出啦！包括*命令结果*、*错误信息*、*命令行窗口*和*图形输出*，真正实现一站式体验。控制台运行结果中的文件路径，点击即可打开。
   - **外部应用**：继续支持传统的通过 Stata 窗口运行代码的方式，适合喜欢使用 Stata 原生界面的用户。Windows端现在使用[Stata COM自动化](https://www.stata.com/automation/)，性能相比之前基于 PowerShell 的实现有显著提升。
@@ -198,17 +228,10 @@ Stata All in One
 
 ## 安装
 
-### Linux 本机或通过 Remote-SSH 使用
-
-内置控制台和数据查看器支持直接在 Linux 上运行的 VS Code。也可以从 macOS 或 Windows 使用 VS Code Remote-SSH 连接 Linux：在 Linux 远端安装 Stata 和本扩展（在扩展面板选择 **安装到 SSH: <主机>**）。在该远程窗口中打开 do 文件后，即可正常使用。Stata 实际在 Linux 上执行，客户端电脑无需安装 Stata。自动探测失败时，在远程窗口配置 `stata-all-in-one.stataPathOnLinux`，运行模式使用 `embeddedConsole`。
-
-macOS 和 Windows 的本地窗口仍使用各自本机安装的 Stata。随包提供的 Linux 二进制为 x86_64；Linux 不支持外部应用运行模式。
-
-通过 Remote-SSH 使用时，控制台和数据查看器通过 VS Code 内置的主题导出功能获取客户端配色，并在内存中缓存语法规则，不安装额外扩展。同步时可能短暂显示临时编辑器；插件会清空并关闭自己生成的主题文档，无需保存确认，然后恢复原视图。切换主题或修改语法配色时缓存失效，重载窗口后重新获取。同步失败时回退到可读的界面文字颜色，不影响 Stata 执行。
-
 ### 从扩展市场安装
 
 - **VS Code**: 在扩展中搜索 "Stata All in One" 并安装。
+- **试用预览版**：在扩展详情页选择“切换到预发布版本”；如需恢复稳定版，选择“切换为发布版本”，或通过“安装其他版本…”选择 `0.3.15`。
 
 ### 下载安装（适用于 Cursor、Trae 等基于 VSCode 的 IDE）
 
@@ -217,6 +240,10 @@ macOS 和 Windows 的本地窗口仍使用各自本机安装的 Stata。随包�
    - [GitHub 发布页面](https://github.com/ZihaoVistonWang/stata-all-in-one/releases)
 2. 在编辑器中打开扩展面板 → `...` → `从 VSIX 安装...`。
 3. 选择下载的 `.vsix` 文件完成安装。
+
+### Linux 远程服务器
+
+<mark>使用 VS Code Remote-SSH 连接 Linux 远程服务器，在服务器上安装 Stata 和本扩展（选择“安装到 SSH”）。</mark>打开 `do` 或 `dta` 文件，以 `embeddedConsole` 模式运行，客户端无需安装 Stata。自动探测失败时，在远端设置 `stata-all-in-one.stataPathOnLinux`。
 
 ---
 
@@ -237,16 +264,16 @@ macOS 和 Windows 的本地窗口仍使用各自本机安装的 Stata。随包�
 1. **运行模式** (`stata-all-in-one.runMode`)
 
    - `embeddedConsole`（默认）：在 VS Code 内置的 `控制台 | Stata All in One` 面板中运行代码，直接查看输出并交互。
-   - `externalApp`：将代码发送到系统安装的外部 Stata 应用执行。
+   - `externalApp`：将代码发送到外部 Stata 应用执行，仅支持 macOS/Windows；Linux 使用 `embeddedConsole`。
 2. **Stata 版本（macOS）** (`stata-all-in-one.stataVersionOnMacOS`)
 
    - Stata 运行版本。配置为空时，扩展会在启动时优先自动探测，最长等待 3 秒；优先数字版本最高的安装，同版本按 `StataMP`、`StataSE`、`StataBE`、`StataIC` 排序。未找到时可直接从当前运行的 Stata 完成配置。初始化随后检查准确的 `.app` 路径、控制台 dylib 和 `stata.lic`，尽可能初始化内置控制台，并通过中心弹窗只汇报一次结果。
 3. **Stata 路径（Windows）** (`stata-all-in-one.stataPathOnWindows`)
 
    - Stata 执行文件路径（例如 `C:\Program Files\Stata17\StataMP-64.exe`）。配置为空时，扩展会在启动时优先自动运行内置的 `scripts/discover_stata_windows.bat` 注册表探测脚本，最长等待 5 秒。该 BAT 脚本也可独立运行并生成 `stata-discovery-report.json`，用于问题排查。未找到时可直接从当前运行的 Stata 完成配置。初始化随后检查 EXE、控制台 DLL 和 `stata.lic`，尽可能初始化内置控制台，并通过中心弹窗只汇报一次结果。
-4. **Stata 路径（Linux）** (`stata-all-in-one.stataPathOnLinux`)
+4. **Stata 路径（Linux，预览）** (`stata-all-in-one.stataPathOnLinux`)
 
-   - Stata 安装目录（例如 `/usr/local/stata18`）。配置为空时，扩展会在启动时扫描 `/usr/local`、`/opt` 和用户主目录，优先数字版本最高的安装，同版本按 MP、SE、BE 排序。未找到时可直接从当前运行的 Stata 完成配置（`saio setup`）。初始化随后检查控制台可执行文件、控制台共享库（`libstata-*.so`）和 `stata.lic`，尽可能初始化内置控制台，并通过中心弹窗只汇报一次结果。填写具体的库或可执行文件路径（例如 `/usr/local/stata18/libstata-se.so`）可指定 Stata 类型（MP/SE/BE）。Linux 上不支持外部 Stata 软件模式。
+   - Stata 安装目录（例如 `/usr/local/stata18`）。默认留空，扩展会在启动时扫描 `/usr/local`、`/opt` 和用户主目录，最长等待 3 秒；优先数字版本最高的安装，同版本按 MP、SE、BE 排序。未找到时可直接从当前运行的 Stata 完成配置（`saio setup`）。初始化随后检查控制台可执行文件、控制台共享库（`libstata-*.so`）和 `stata.lic`，尽可能初始化内置控制台，并通过中心弹窗只汇报一次结果。填写具体的库或可执行文件路径（例如 `/usr/local/stata18/libstata-se.so`）可指定 Stata 类型（MP/SE/BE）。Linux 上不支持外部 Stata 软件模式。
 5. **发送代码前关闭 Stata 其他窗口（Windows）** (`stata-all-in-one.closeStataOtherWindowsBeforeSendingCode`)
 
    - `true`：发送运行命令前先关闭 Stata 辅助窗口（如 Viewer、Data Editor）。
@@ -257,41 +284,41 @@ macOS 和 Windows 的本地窗口仍使用各自本机安装的 Stata。随包�
    - `false`：Stata 启动后不更改工作目录。
 7. **显示操作按钮** (`stata-all-in-one.showActionButtons`)
 
-   - `true`（默认）：在编辑器标题栏显示“Bug 反馈”和“Stata AI Skill”按钮。
-   - `false`：隐藏这两个按钮。
+   - `true`（默认）：在编辑器标题栏显示 Stata All in One 标识、“Bug 反馈”和“Stata AI Skill”按钮。
+   - `false`：隐藏上述按钮。
 8. **显示打赏支持按钮** (`stata-all-in-one.showSponsorButton`)
 
-   - `true`：在 Stata 编辑器标题栏显示“打赏支持”按钮。
-   - `false`（默认）：隐藏该按钮。
+   - `true`（默认）：在 Stata 编辑器标题栏显示“打赏支持”按钮。
+   - `false`：隐藏该按钮。
 9. **启用 Ctrl+Shift+D 作为运行快捷键** (`stata-all-in-one.enableCtrlShiftD`)
 
-- `true`：使用 `Ctrl / ⌘+Shift+D` 作为运行代码的快捷键。
-- `false`（默认）：使用默认的 `Ctrl / ⌘+D` 快捷键。
+    - `true`：使用 `Ctrl / ⌘+Shift+D` 作为运行代码的快捷键。
+    - `false`（默认）：使用默认的 `Ctrl / ⌘+D` 快捷键。
 
 ### 嵌入式控制台
 
-11. **控制台字体模式** (`stata-all-in-one.consoleFontMode`)
+10. **控制台字体模式** (`stata-all-in-one.consoleFontMode`)
 
-- `online`（默认）：为西文加载 Maple Mono，为 CJK 文本加载 Maple Mono NF CN。[^3]
-- `editor`：跟随编辑器字体，降级到系统等宽字体。
-- `system`：直接使用系统等宽字体。
-- `custom`：使用下方自定义字体设置。
+    - `online`（默认）：为西文加载 Maple Mono，为 CJK 文本加载 Maple Mono NF CN。[^3]
+    - `editor`：跟随编辑器字体，降级到系统等宽字体。
+    - `system`：直接使用系统等宽字体。
+    - `custom`：使用下方自定义字体设置。
 
 [^3]: 字体致谢：[subframe7536/maple-font](https://github.com/subframe7536/maple-font)、[fontsource](https://fontsource.org/fonts/maple-mono) 和 ZeoSeven Fonts（[443](https://fonts.zeoseven.com/items/443/)、[442](https://fonts.zeoseven.com/items/442/)）。
 
-12. **控制台自定义字体** (`stata-all-in-one.consoleCustomFontFamily`)
+11. **控制台自定义字体** (`stata-all-in-one.consoleCustomFontFamily`)
     - 当字体模式设为 `custom` 时，控制台使用的 CSS `font-family` 列表。
     - 示例：`"Maple Mono NF CN", Menlo, Monaco, monospace`
-13. **控制台与数据查看器字号** (`stata-all-in-one.consoleAndDataViewerFontSize`)
-    - 留空时跟随 VS Code 编辑器字号。
-14. **图形导出 DPI** (`stata-all-in-one.graphPngDpi`)
-    - 嵌入式控制台图形保存为 PNG 时的 DPI 值。默认 `600`，范围 72–1200。
-15. **数据查看器内存上限** (`stata-all-in-one.dataViewerMemoryLimitMB`)
-    - 单次读取的内存预算，默认 1024 MB；内存紧张时可调低。
+12. **控制台与数据查看器字号** (`stata-all-in-one.consoleAndDataViewerFontSize`)
+    - 留空（默认）时跟随 VS Code 编辑器字号，也可设置 6–72 的数值。
+13. **图形导出 DPI** (`stata-all-in-one.graphPngDpi`)
+    - 嵌入式控制台图形保存为 PNG/JPG/JPEG 时的 DPI 值。默认 `600`，范围 72–1200。
+14. **数据查看器内存上限** (`stata-all-in-one.dataViewerMemoryLimitMB`)
+    - 单次读取的内存预算，默认 1024 MB，范围 16–16384 MB；实际占用包含多个数据副本，可能高于该预算。内存紧张时可调低。
 
-16. **长任务完成声音提醒** (`stata-all-in-one.consoleCompletionSound.*`)
+15. **长任务完成声音提醒** (`stata-all-in-one.consoleCompletionSound.*`)
 
-    - `consoleCompletionSound.enabled`：默认关闭，仅适用于嵌入式控制台中用户提交的任务。
+    - `consoleCompletionSound.enabled`：默认关闭，仅支持 macOS/Windows 本地嵌入式控制台中用户提交的任务；Linux（包括 Remote-SSH 远程执行）暂不支持声音提醒。
     - `consoleCompletionSound.thresholdMinutes`：默认 `5` 分钟，可填小数；设为 `0` 时每次任务均提醒。仅累计实际执行时间，不含初始化和排队等待。
     - `consoleCompletionSound.ringtone`：`notification`（默认系统通知音）、`information`（系统信息音）、`warning`（系统警告音）或 `custom`（自定义 MP3）。系统铃声因操作系统而异。
     - `consoleCompletionSound.customPath`：选择 `custom` 时使用的本机 MP3 文件绝对路径，可带或不带成对的单引号、双引号。无效文件回退到系统通知音。
@@ -302,49 +329,49 @@ macOS 和 Windows 的本地窗口仍使用各自本机安装的 Stata。随包�
 
 ### 语法高亮和代码提示
 
-17. **自定义命令高亮** (`stata-all-in-one.customCommands`)
+16. **自定义命令高亮** (`stata-all-in-one.customCommands`)
     - 自定义需要高亮的 Stata 命令（字符串数组），默认包含 `reghdfe`。
     - 示例：`["reghdfe", "ivreghdfe", "gtools", "winsor2", "outreg2"]`
     - **配置后需要重载窗口生效**。
-18. **拼音变量匹配** (`stata-all-in-one.enablePinyinVariableMatching`)
+17. **拼音变量匹配** (`stata-all-in-one.enablePinyinVariableMatching`)
     - `true`（默认）：启用变量名和标签的拼音模糊匹配。
 
 ### Hover 悬停帮助
 
-19. **启用悬停文档** (`stata-all-in-one.enableHoverDocs`)
+18. **启用悬停文档** (`stata-all-in-one.enableHoverDocs`)
 
     - `true`（默认）：鼠标悬停在 Stata 命令上时显示官方帮助信息。
     - `false`：关闭悬停帮助。
-20. **额外 ADO 路径** (`stata-all-in-one.additionalAdoPaths`)
+19. **额外 ADO 路径** (`stata-all-in-one.additionalAdoPaths`)
 
     - 用于扫描社区贡献命令帮助文件的额外 Stata ADO 路径。
-    - 示例：`["/Users/username/ado/personal", "C:\\Users\\username\\ado\\personal"]`
+    - 示例：`["/Users/username/ado/personal", "C:/Users/username/ado/personal"]`
 
 ### 大纲与导航
 
-21. **显示多级序号** (`stata-all-in-one.numberingShow`)
+20. **显示多级序号** (`stata-all-in-one.numberingShow`)
 
     - `true`：大纲显示 `1.1`、`1.2.1` 等序号。
     - `false`（默认）：显示原始标题。
-22. **自动添加标题序号** (`stata-all-in-one.numberingAdd`)
+21. **自动添加标题序号** (`stata-all-in-one.numberingAdd`)
 
     - `true`：**当启用序号时**，自动更新 `.do` 文件中的 section 标题以包含序号。
-    - `false`（默认）：仅大纲显示序号，不修改文件。
+    - `false`（默认）：不向文件写入标题序号；大纲是否显示序号由 `numberingShow` 控制。
 
-> **注意**：修改 `numberingShow`、`numberingAdd`、`customCommands` 设置后需重新打开 `.do` 文件生效。禁用 `numberingAdd` 时，文件中现有序号将被自动移除。
+> **注意**：修改 `numberingShow`、`numberingAdd` 后可重新打开 `.do` 文件刷新大纲；`customCommands` 需要重载窗口。禁用 `numberingAdd` 后，解析当前文件大纲时会移除已有标题序号。
 
 ### 代码风格
 
-23. **注释样式** (`stata-all-in-one.commentStyle`)
+22. **注释样式** (`stata-all-in-one.commentStyle`)
 
     - `// `（默认）：用于切换注释的样式。选项包括 `//`、`*` 或 `/* ... */`
-24. **分隔线长度** (`stata-all-in-one.separatorLength`)
+23. **分隔线长度** (`stata-all-in-one.separatorLength`)
 
     - 分割线所在行的字符总长度（包括前缀 `** #` 和分隔符）。默认值：`60`
 
 <a id="separatorSymmetric"></a>
 
-25. **分隔线对称性** (`stata-all-in-one.separatorSymmetric`)
+24. **分隔线对称性** (`stata-all-in-one.separatorSymmetric`)
     - `true`：在分割线末尾添加 ` **` 以保证视觉对称（例如 `** === 标题 === **`）。
     - `false`（默认）：分割线不添加末尾后缀。
 
@@ -376,6 +403,7 @@ macOS 和 Windows 的本地窗口仍使用各自本机安装的 Stata。随包�
 
 | 版本   | 更新内容                                                                                                                                | 发布日期   |
 | ------ | --------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| 0.3.16 | [预览版] 新增 Linux／Remote-SSH 支持，并同步控制台与数据查看器的客户端主题配色。 | 2026-11-03 |
 | 0.3.15 | 新增控制台逐次运行复制与长任务完成提醒；修复数据查看器翻页和章节分隔线。                                                                | 2026-10-19 |
 | 0.3.14 | 数据查看器改用有内存上限的分段读取，修复筛选、分页、数值与 `strL` 显示及刷新问题。                                                        | 2026-09-29 |
 | 0.3.13 | 修复临时目录不一致时无法从 Stata 配置 Stata All in One 的问题。                                                                         | 2026-08-20 |
