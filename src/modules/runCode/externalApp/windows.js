@@ -80,7 +80,8 @@ async function _tryComExecution(code, tmpFilePath, stataPath, docDir, context) {
         // Build do command with forward slashes
         const cleanPath = tmpFilePath.replace(/\\/g, '/');
         const quote = '"';
-        const runCommand = 'do ' + quote + cleanPath + quote;
+        const runType = config.getRunUsingInclude() ? 'include' : 'do';
+        const runCommand = runType + ' ' + quote + cleanPath + quote;
 
         // Send do command via COM (async, non-blocking)
         console.log('Stata All in One: COM sending: ' + runCommand);
@@ -141,12 +142,14 @@ function _fallbackKeystrokeExecution(code, tmpFilePath, stataPath, docDir) {
     const cleanDoFilePath = stripSurroundingQuotes(tmpFilePath);
 
     const sleepDelay = 100;
+    const runUsingInclude = config.getRunUsingInclude();
 
     const psCommand = [
         'powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass',
         '-File', `"${psScriptPath}"`,
         '-stataPath', `"${stataPath}"`,
         '-doFilePath', `"${cleanDoFilePath}"`,
+        '-runUsingInclude', runUsingInclude,
         '-sleepDelay', sleepDelay
     ].join(' ');
 

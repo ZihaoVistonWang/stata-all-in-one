@@ -181,7 +181,8 @@ function runOnMac(codeToRun, tmpFilePath, isHelpCommand = false, docDir = null, 
     fs.writeFileSync(tmpFilePath, finalCode, 'utf8');
 
     const appNameLiteral = escapeForAppleScript(appName);
-    const doCommandLiteral = escapeForAppleScript(`do "${tmpFilePath}"`);
+    const command = config.getRunUsingInclude && config.getRunUsingInclude() ? 'include' : 'do';
+    const doCommandLiteral = escapeForAppleScript(`${command} "${tmpFilePath}"`);
     const activateScript = `tell application "${appNameLiteral}" to activate`;
     const runScript = `tell application "${appNameLiteral}" to DoCommandAsync "${doCommandLiteral}"`;
 

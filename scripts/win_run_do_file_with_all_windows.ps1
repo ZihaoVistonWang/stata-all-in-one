@@ -1,6 +1,7 @@
 param (
     [string]$stataPath,
     [string]$doFilePath,
+    [bool]$runUsingInclude = $false,
     [int]$sleepDelay = 100
 )
 
@@ -217,7 +218,8 @@ if ($mainHandle -ne [IntPtr]::Zero) {
 Start-Sleep -Milliseconds $sleepDelay
 $cleanPath = $doFilePath -replace '\\', '/'
 $quote = [char]34
-$runCommand = 'do ' + $quote + $cleanPath + $quote
+$command = if ($runUsingInclude) { 'include' } else { 'do' }
+$runCommand = $command + ' ' + $quote + $cleanPath + $quote
 
 # Initialize WScript.Shell for sending keystrokes
 if (-not $global:wshell) {
