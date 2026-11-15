@@ -359,7 +359,7 @@ function createConsoleRunner({ platform, ensureConsoleSession }) {
             }
             if (executionPlan.tempFilePath
                 && typeof outputSink.beginTemporaryDoFileOutput === 'function') {
-                outputSink.beginTemporaryDoFileOutput(executionPlan.tempFilePath);
+                outputSink.beginTemporaryDoFileOutput(executionPlan.tempFilePath, executionPlan.fileCommand);
             }
             lastRealChunkAt = Date.now();
             runStartTime = lastRealChunkAt;
@@ -472,7 +472,7 @@ function createConsoleRunner({ platform, ensureConsoleSession }) {
             } else {
                 const commandStartedAt = Date.now();
                 if (platform === 'win32') {
-                    console.log(`Stata All in One: Executing single command via do-file: ${executionPlan.command.substring(0, 100)}`);
+                    console.log(`Stata All in One: Executing command: ${executionPlan.command.substring(0, 100)}`);
                 }
                 if (!executionPlan.tempFilePath && typeof outputSink.writeCommand === 'function') {
                     outputSink.writeCommand(executionPlan.displayCode || normalizedCode);
@@ -484,7 +484,7 @@ function createConsoleRunner({ platform, ensureConsoleSession }) {
                     outputSink.setWorkingDirectory(consoleSession.getWorkingDirectory());
                 }
                 if (platform === 'win32') {
-                    console.log(`Stata All in One: Do-file execution done in ${Date.now() - commandStartedAt}ms, success=${result.success}`);
+                    console.log(`Stata All in One: Command execution done in ${Date.now() - commandStartedAt}ms, success=${result.success}`);
                 }
             }
 
@@ -706,11 +706,13 @@ function createConsoleRunner({ platform, ensureConsoleSession }) {
         const tempFilePath = getTempFilePath(workingDirectory);
         fs.writeFileSync(tempFilePath, lines.join('\n'), 'utf8');
 
+        const fileCommand = config.getRunUsingInclude() ? 'include' : 'do';
         return {
-            command: `do "${tempFilePath.replace(/"/g, '""')}"`,
+            command: `${fileCommand} "${tempFilePath.replace(/"/g, '""')}"`,
             commands: null,
             displayCode: lines.join('\n'),
-            tempFilePath
+            tempFilePath,
+            fileCommand
         };
     }
 

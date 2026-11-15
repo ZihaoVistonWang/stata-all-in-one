@@ -60,7 +60,10 @@ function fixture(options = {}) {
         setWorkingDirectory() {},
         writeSubmission(code) { calls.submitted.push(code); },
         writeCommand(code) { calls.events.push(`echo:${code}`); },
-        beginTemporaryDoFileOutput(file) { calls.temporary = file; },
+        beginTemporaryDoFileOutput(file, command) {
+            calls.temporary = file;
+            calls.temporaryCommand = command;
+        },
         finishTemporaryDoFileOutput() { calls.temporaryFinished = true; },
         writeOutputChunk(chunk) { calls.output.push(chunk); },
         flushOutput() {},
@@ -83,7 +86,10 @@ function fixture(options = {}) {
             getTempFilePath: () => '/work/temporary.do',
             async cleanupTempFile(file) { calls.cleanup.push(file); }
         },
-        '../../../utils/config': { getCdToDoFileDir: () => true },
+        '../../../utils/config': {
+            getCdToDoFileDir: () => true,
+            getRunUsingInclude: () => Boolean(options.runUsingInclude)
+        },
         '../../../utils/common': { msg: key => key },
         './workingDirectory': {
             async ensureSessionWorkingDirectory(_session, docDir) { calls.initialDirectory = docDir; },
@@ -178,6 +184,19 @@ test('source comments and blank lines retain native do-file echo and the tempora
     assert.deepEqual(f.calls.commands, ['do "/work/temporary.do"']);
     assert.deepEqual(f.calls.cleanup, ['/work/temporary.do']);
     assert.equal(f.calls.temporary, '/work/temporary.do');
+    assert.equal(f.calls.temporaryFinished, true);
+});
+
+test('include mode runs temporary files in the embedded session and keeps direct commands direct', async () => {
+    const f = fixture({ runUsingInclude: true });
+    const run = f.runner.createConsoleRunner({ platform: 'darwin', ensureConsoleSession: async () => ({ success: true }) });
+    const source = 'forvalues i = 1/2 {\n    local saved 42\n}';
+    assert.equal((await run(source, null, '/work', {})).success, true);
+    assert.equal((await run("display `saved'", null, '/work', {})).success, true);
+    assert.deepEqual(f.calls.commands, ['include "/work/temporary.do"', "display `saved'"]);
+    assert.deepEqual(f.calls.writes, [{ file: '/work/temporary.do', contents: source }]);
+    assert.deepEqual(f.calls.cleanup, ['/work/temporary.do']);
+    assert.equal(f.calls.temporaryCommand, 'include');
     assert.equal(f.calls.temporaryFinished, true);
 });
 

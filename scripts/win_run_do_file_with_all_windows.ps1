@@ -1,8 +1,8 @@
 param (
     [string]$stataPath,
     [string]$doFilePath,
-    [bool]$runUsingInclude = $false,
-    [int]$sleepDelay = 100
+    [int]$sleepDelay = 100,
+    [switch]$runUsingInclude
 )
 
 $ErrorActionPreference = 'Stop'

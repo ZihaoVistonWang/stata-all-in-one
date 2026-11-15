@@ -11,7 +11,7 @@ const path = require('path');
 const variableSuggestions = require('../../variableSuggestionService');
 
 // 工具函数导入
-const { isWindows, isMacOS, isLinux, showInfo, showWarn, showError, showConsoleUnavailableToast, stripSurroundingQuotes, msg } = require('../../../utils/common');
+const { isWindows, isMacOS, isLinux, showWarn, showError, showConsoleUnavailableToast, msg } = require('../../../utils/common');
 const capability = require('../../capability');
 const config = require('../../../utils/config');
 const completionSound = require('../embeddedConsole/completionSound');
@@ -201,15 +201,7 @@ async function runCurrentSection(context, editor = null) {
                     await refreshMemoryVarsAfterRun(context, consoleResult);
                     await invalidateConsoleDataViewer();
                 } else if (consoleResult.shouldOfferGuiFallback) {
-                    showConsoleUnavailableToast(consoleResult);
-                    capability.setCapabilityState(context, 'external');
-                    if (consoleResult.noLicense) {
-                        const { showConsoleLicenseDialog } = require('../embeddedConsole/windows');
-                        await showConsoleLicenseDialog(context);
-                        await runOnWindows(codeToRun, tmpFilePath, stataPathOnWindows, docDir, context);
-                    } else {
-                        await maybeOfferGuiFallback(codeToRun, tmpFilePath, docDir, context, consoleResult.message || 'Embedded Console 执行失败');
-                    }
+                    await reportConsoleFailure(context, consoleResult);
                     vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', false);
                 } else {
                     vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
@@ -228,15 +220,7 @@ async function runCurrentSection(context, editor = null) {
                     await refreshMemoryVarsAfterRun(context, consoleResult);
                     await invalidateConsoleDataViewer();
                 } else if (consoleResult.shouldOfferGuiFallback) {
-                    showConsoleUnavailableToast(consoleResult);
-                    capability.setCapabilityState(context, 'external');
-                    if (consoleResult.noLicense) {
-                        const { showConsoleLicenseDialog } = require('../embeddedConsole/mac');
-                        await showConsoleLicenseDialog(context);
-                        runOnMac(codeToRun, tmpFilePath, false, docDir, context);
-                    } else {
-                        await maybeOfferGuiFallback(codeToRun, tmpFilePath, docDir, context, consoleResult.message || 'Embedded Console 执行失败');
-                    }
+                    await reportConsoleFailure(context, consoleResult);
                     vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', false);
                 } else {
                     vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
@@ -256,7 +240,7 @@ async function runCurrentSection(context, editor = null) {
                     await refreshMemoryVarsAfterRun(context, consoleResult);
                     await invalidateConsoleDataViewer();
                 } else if (consoleResult.shouldOfferGuiFallback) {
-                    await reportLinuxConsoleFailure(context, consoleResult);
+                    await reportConsoleFailure(context, consoleResult);
                     vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', false);
                 } else {
                     vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
@@ -279,15 +263,11 @@ async function ensurePlatformExecutionReady(context, { onWindows, onMac, onLinux
     return null;
 }
 
-/**
- * Linux has no external Stata application to fall back to: report the Console
- * failure (and the licence dialog when that is the cause) and stop there.
- */
-async function reportLinuxConsoleFailure(context, consoleResult) {
+async function reportConsoleFailure(context, consoleResult) {
     showConsoleUnavailableToast(consoleResult);
     capability.setCapabilityState(context, 'external');
     if (consoleResult.noLicense) {
-        const { showConsoleLicenseDialog } = require('../embeddedConsole/linux');
+        const { showConsoleLicenseDialog } = require('../embeddedConsole/runner');
         await showConsoleLicenseDialog(context);
     }
 }
@@ -385,15 +365,7 @@ async function runArbitraryCode(context, code, options = {}) {
                 return consoleResult;
             }
             if (consoleResult.shouldOfferGuiFallback) {
-                showConsoleUnavailableToast(consoleResult);
-                capability.setCapabilityState(context, 'external');
-                if (consoleResult.noLicense) {
-                    const { showConsoleLicenseDialog } = require('../embeddedConsole/windows');
-                    await showConsoleLicenseDialog(context);
-                    await runOnWindows(normalizedCode, tmpFilePath, stataPathOnWindows, docDir, context);
-                } else {
-                    await maybeOfferGuiFallback(normalizedCode, tmpFilePath, docDir, context, consoleResult.message || 'Embedded Console 执行失败');
-                }
+                await reportConsoleFailure(context, consoleResult);
                 await vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', false);
             }
             return consoleResult;
@@ -420,7 +392,7 @@ async function runArbitraryCode(context, code, options = {}) {
                 return consoleResult;
             }
             if (consoleResult.shouldOfferGuiFallback) {
-                await reportLinuxConsoleFailure(context, consoleResult);
+                await reportConsoleFailure(context, consoleResult);
                 await vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', false);
             }
             return consoleResult;
@@ -448,15 +420,7 @@ async function runArbitraryCode(context, code, options = {}) {
             return consoleResult;
         }
         if (consoleResult.shouldOfferGuiFallback) {
-            showConsoleUnavailableToast(consoleResult);
-            capability.setCapabilityState(context, 'external');
-            if (consoleResult.noLicense) {
-                const { showConsoleLicenseDialog } = require('../embeddedConsole/mac');
-                await showConsoleLicenseDialog(context);
-                runOnMac(normalizedCode, tmpFilePath, false, docDir, context);
-            } else {
-                await maybeOfferGuiFallback(normalizedCode, tmpFilePath, docDir, context, consoleResult.message || 'Embedded Console 执行失败');
-            }
+            await reportConsoleFailure(context, consoleResult);
             await vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', false);
         }
         return consoleResult;
@@ -538,38 +502,6 @@ async function refreshMemoryVarsAfterRun(context, result) {
             vars = await variableSuggestions.refreshMemoryVars(context);
         }
     } catch (_e) {}
-}
-
-async function maybeOfferGuiFallback(codeToRun, tmpFilePath, docDir, context, reason) {
-    // Auto-fallback: execute via external app immediately (no blocking modal)
-    if (isWindows()) {
-        const rawPath = config.getStataPathOnWindows();
-        const stataPath = stripSurroundingQuotes(rawPath.trim());
-        if (stataPath) {
-            await runOnWindows(codeToRun, tmpFilePath, stataPath, docDir, context);
-        }
-    } else {
-        runOnMac(codeToRun, tmpFilePath, false, docDir, context);
-    }
-
-    // Show non-blocking notification with action buttons
-    const switchLabel = msg('consoleFallbackSwitchPermanently');
-    const dismissLabel = msg('consoleFallbackDismiss');
-
-    const choice = await showWarn(
-        msg('consoleFallbackAutoSwitched', { reason }),
-        switchLabel,
-        dismissLabel
-    );
-
-    if (choice === switchLabel) {
-        await vscode.workspace.getConfiguration('stata-all-in-one').update(
-            'runMode',
-            'externalApp',
-            vscode.ConfigurationTarget.Global
-        );
-        showInfo(msg('consoleFallbackPermanentlySet'));
-    }
 }
 
 /**

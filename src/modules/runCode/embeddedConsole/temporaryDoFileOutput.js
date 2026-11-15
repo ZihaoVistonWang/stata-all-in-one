@@ -7,12 +7,13 @@ function normalizeComparablePath(value) {
 }
 
 function temporaryDoCommandPath(line) {
-    const match = String(line || '').match(/^\s*\.\s+(?:do|run)\s+"((?:[^"]|"")*)"\s*$/i);
+    const match = String(line || '').match(/^\s*\.\s+(?:do|run|include)\s+"((?:[^"]|"")*)"\s*$/i);
     return match ? normalizeComparablePath(match[1]) : '';
 }
 
 class TemporaryDoFileOutputFilter {
-    constructor(tempFilePath) {
+    constructor(tempFilePath, fileCommand = 'do') {
+        this._hasWrapperFooter = fileCommand !== 'include';
         this._tempFilePath = normalizeComparablePath(tempFilePath);
         this._buffer = '';
         this._wrapperSeen = false;
@@ -56,6 +57,11 @@ class TemporaryDoFileOutputFilter {
             && temporaryDoCommandPath(line) === this._tempFilePath) {
             this._wrapperSeen = true;
             return '';
+        }
+
+        // include emits no outer footer, so any do-file marker belongs to user code.
+        if (!this._hasWrapperFooter) {
+            return lineWithSuffix;
         }
 
         // The native bridge executes the generated wrapper with echo=false, so

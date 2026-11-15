@@ -14,7 +14,7 @@ test('separates submitted input from direct and temporary do-file command echoes
             true
         );
         assert.equal(
-            source.includes("outputSink.beginTemporaryDoFileOutput(executionPlan.tempFilePath)"),
+            source.includes("outputSink.beginTemporaryDoFileOutput(executionPlan.tempFilePath, executionPlan.fileCommand)"),
             true
         );
         assert.match(source, /for \(const \[commandIndex, command\] of executionPlan\.commands\.entries\(\)\)/);
@@ -23,8 +23,6 @@ test('separates submitted input from direct and temporary do-file command echoes
             source.includes("Temporary do-files rely on Stata's native echo for their internal commands."),
             true
         );
-        assert.match(source, /command: `do "\$\{tempFilePath\.replace/);
-        assert.doesNotMatch(source, /command: `run "\$\{tempFilePath\.replace/);
     }
 });
 

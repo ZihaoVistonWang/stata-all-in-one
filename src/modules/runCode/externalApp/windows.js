@@ -142,18 +142,19 @@ function _fallbackKeystrokeExecution(code, tmpFilePath, stataPath, docDir) {
     const cleanDoFilePath = stripSurroundingQuotes(tmpFilePath);
 
     const sleepDelay = 100;
-    const runUsingInclude = config.getRunUsingInclude();
 
-    const psCommand = [
+    const psArgs = [
         'powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass',
         '-File', `"${psScriptPath}"`,
         '-stataPath', `"${stataPath}"`,
         '-doFilePath', `"${cleanDoFilePath}"`,
-        '-runUsingInclude', runUsingInclude,
         '-sleepDelay', sleepDelay
-    ].join(' ');
+    ];
+    if (config.getRunUsingInclude()) {
+        psArgs.push('-runUsingInclude');
+    }
 
-    exec(psCommand, (error, stdout, stderr) => {
+    exec(psArgs.join(' '), (error, stdout, stderr) => {
         if (error) {
             const detail = stderr && stderr.trim() ? ` Details: ${stderr.trim()}` : '';
             showError(msg('winRunFailed', { message: error.message, detail }));

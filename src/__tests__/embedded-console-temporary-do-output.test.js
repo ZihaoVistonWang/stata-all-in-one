@@ -58,3 +58,10 @@ test('keeps a user do command while hiding the final marker', () => {
         'c:/temp/sd0001.do'
     );
 });
+
+test('hides the generated include wrapper while preserving a final nested do-file marker', () => {
+    const filter = new TemporaryDoFileOutputFilter('/tmp/generated.do', 'include');
+    const output = filter.push('. include "/tmp/generated.do"\n. do "/tmp/user.do"\nend of do-file\n') + filter.finish();
+
+    assert.equal(output, '. do "/tmp/user.do"\nend of do-file\n');
+});

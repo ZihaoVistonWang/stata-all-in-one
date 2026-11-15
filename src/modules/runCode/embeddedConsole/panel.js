@@ -999,9 +999,9 @@ class WebviewTerminalSink {
         }]);
     }
 
-    beginTemporaryDoFileOutput(tempFilePath) {
+    beginTemporaryDoFileOutput(tempFilePath, fileCommand) {
         this._temporaryDoFileOutputFilter = tempFilePath
-            ? new TemporaryDoFileOutputFilter(tempFilePath)
+            ? new TemporaryDoFileOutputFilter(tempFilePath, fileCommand)
             : null;
     }
 
