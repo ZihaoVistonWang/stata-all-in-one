@@ -78,7 +78,7 @@ test('setup server reports configuration and stays alive after repeated setup', 
         platform: 'darwin',
         portStart: 28186,
         portEnd: 28186,
-        extensionVersion: '0.3.15',
+        extensionVersion: require('../../package.json').version,
         config: {
             getRunMode: () => 'embeddedConsole',
             getStataPathOnWindows: () => '',
@@ -255,7 +255,7 @@ test('setup status on Linux reports the configured directory and remembered edit
         platform: 'linux',
         portStart: 28190,
         portEnd: 28190,
-        extensionVersion: '0.3.15',
+        extensionVersion: require('../../package.json').version,
         config: {
             getRunMode: () => 'embeddedConsole',
             getStataPathOnWindows: () => '',

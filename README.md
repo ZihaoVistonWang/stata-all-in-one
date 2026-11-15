@@ -13,7 +13,7 @@ Stata All in One
 </p>
 
 <p align="center">
-   | <b>Version:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.3.16 Preview</a> | <b>Author:</b> <a href="https://zihaowang.cn">Zihao Viston Wang</a> | <b>Translate:</b>
+   | <b>Version:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.3.17</a> | <b>Author:</b> <a href="https://zihaowang.cn">Zihao Viston Wang</a> | <b>Translate:</b>
   <a href="https://gitee.com/ZihaoVistonWang/stata-all-in-one">中文版本</a> |
 </p>
 
@@ -36,36 +36,6 @@ Stata All in One
 <p align="center">This README provides technical documentation and installation/configuration instructions for Stata All in One. For a more accessible feature overview, visit my <a href="https://zihaowang.cn/en/post/stata-all-in-one-news/">blog</a> to learn more.</p>
 
 ---
-
-<table style="border-collapse: separate; border-spacing: 0; border-radius: 10px; overflow: hidden; display: block;">
-<tr>
-<td style="
-  background: linear-gradient(135deg, #ff6b6b10, #ffd93d10);
-  border: 3px solid #ff6b6b;
-  border-radius: 10px;
-  padding: 18px 22px;
-">
-<p style="margin:0 0 12px 0; font-size:1.25em; text-align:center;">
-  🚨 <strong>Preview Release Notice</strong> 🚨
-</p>
-<p style="margin:0 0 8px 0; padding-left: 1.6em; text-indent: -1.6em;">
-  ⚠️ <strong>v0.3.16 is a preview release (pre-release)</strong> for Linux/Remote-SSH support and client-theme synchronization, and may contain bugs. It is not recommended for production use. Thank you to everyone willing to try it out and provide feedback!
-</p>
-<p style="margin:0 0 8px 0; padding-left: 1.6em; text-indent: -1.6em;">
-  📧 Please send the affected platform, reproduction steps, and screenshots to <a href="mailto:hi@zihaowang.cn"><strong>hi@zihaowang.cn</strong></a>, or <a href="https://github.com/ZihaoVistonWang/stata-all-in-one/issues">report an issue</a>.
-</p>
-<p style="margin:0 0 8px 0; padding-left: 1.6em; text-indent: -1.6em;">
-  ↩️ If this preview affects your workflow, switch back to the release version in VS Code, or use <strong>Install Another Version…</strong> to select <strong>v0.3.15</strong>.
-</p>
-<p style="margin:0 0 8px 0; padding-left: 1.6em; text-indent: -1.6em;">
-  🧪 Local Windows/macOS and Windows/macOS-to-Linux Remote-SSH have been tested. Linux desktop VS Code still needs validation; bundled Linux binaries are <strong>x86_64</strong>, and Linux supports Embedded Console mode only.
-</p>
-<p style="margin:0 0 8px 0; padding-left: 1.6em; text-indent: -1.6em;">
-  📌 <mark>Highlighted text</mark> marks additions in this preview. See the <a href="https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0316-2026-11-03">full preview changelog</a>.
-</p>
-</td>
-</tr>
-</table>
 
 ## Acknowledgments
 
@@ -95,7 +65,7 @@ Stata All in One
 
 ### 2. Code Execution (Interacting with Stata)
 
-- **Platform Support**: This extension natively supports seamless integration with Stata on **macOS** and **Windows**, and <mark>the Embedded Console and Data Viewer on **Linux** (preview), including remote servers through VS Code Remote-SSH</mark>.
+- **Platform Support**: This extension natively supports seamless integration with Stata on **macOS** and **Windows**, and the Embedded Console and Data Viewer on **Linux**, including remote servers through VS Code Remote-SSH.
 - **Two Run Modes**:
   - **Embedded Console** (default) 🛠️: Run and display Stata output directly within VS Code, including *command results*, *error messages*, *command window output*, and *graph output*, for a true one-stop experience. Click any file path shown in the Console output to open it.
   - **External App**: Continue using the traditional approach of sending code to the Stata GUI, for users who prefer Stata's native interface. Windows now uses [Stata COM Automation](https://www.stata.com/automation/), delivering significantly better performance than the previous PowerShell-based implementation.
@@ -103,6 +73,7 @@ Stata All in One
   - **Section Execution**: When the cursor is on a header line (e.g., `** # Title`), click the ▶️ button or press `Ctrl / ⌘ + D` to execute all code from that header to the next same-level or higher-level header (i.e., the entire section).
   - **Single Line Execution**: When the cursor is anywhere on a regular code line, click the ▶️ button or press `Ctrl / ⌘ + D` to execute only the current line.
   - **Selected Code Execution**: When one or multiple lines are selected, click the ▶️ button or press `Ctrl / ⌘ + D` to execute the selected lines. Supports **fuzzy selection** — no need to precisely select the *first* or *last* line of a code segment; the system automatically captures and runs all lines covered by the selection.
+- **Optional `include` Execution**: Enable `stata-all-in-one.runUsingInclude` to keep local macros available to subsequent commands in the same Stata session; `do` remains the default.
 
 ### 3. Enhanced Syntax Highlighting & Code Completion
 
@@ -231,7 +202,6 @@ Click [here](https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/SHORT
 ### Install from Extension Marketplace
 
 - **VS Code**: Search for "Stata All in One" in extensions and install.
-- **Try the preview**: Choose **Switch to Pre-Release Version** on the extension details page. To return to stable, choose **Switch to Release Version**, or use **Install Another Version…** to select `0.3.15`.
 
 ### Download and Install (for Cursor, Trae and other VSCode-based IDEs)
 
@@ -243,7 +213,9 @@ Click [here](https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/SHORT
 
 ### Remote Linux Server
 
-<mark>Connect to a remote Linux server with VS Code Remote-SSH and install Stata and this extension on the server (choose **Install in SSH**).</mark> Open a `do` or `dta` file and run it in `embeddedConsole` mode; Stata is not required on the client. If discovery fails, set `stata-all-in-one.stataPathOnLinux` in the remote settings.
+Connect to a remote Linux server with VS Code Remote-SSH and install Stata and this extension on the server (choose **Install in SSH**). Open a `do` or `dta` file and run it in `embeddedConsole` mode; Stata is not required on the client. If discovery fails, set `stata-all-in-one.stataPathOnLinux` in the remote settings.
+
+Bundled Linux binaries support x86_64 only, and Linux offers Embedded Console mode only. Windows/macOS-to-Linux Remote-SSH has been tested; Linux desktop VS Code has not yet been validated.
 
 ---
 
@@ -265,13 +237,14 @@ If automatic discovery cannot find Stata, choose `Stata not found? Configure it 
 
    - `embeddedConsole` (default): Run code in the built-in **Console | Stata All in One** panel within VS Code, with direct output viewing and interaction.
    - `externalApp`: Send code to the external Stata application on macOS/Windows only; use `embeddedConsole` on Linux.
+   - `stata-all-in-one.runUsingInclude` (off by default): Use `include` to execute files in Embedded Console and External App modes so later commands in the same Stata session can access local macros; when disabled, use `do`.
 2. **Stata Version on macOS** (`stata-all-in-one.stataVersionOnMacOS`)
 
    - Stata runtime version. When empty, the extension detects installed versions at startup for up to 3 seconds, preferring the highest numeric version and then `StataMP`, `StataSE`, `StataBE`, and `StataIC`. If detection fails, configure directly from the running Stata instance. The initializer then verifies the exact `.app`, Console dylib, and `stata.lic`, initializes the Embedded Console when possible, and reports the result once in a central dialog.
 3. **Stata Path on Windows** (`stata-all-in-one.stataPathOnWindows`)
 
    - Path to Stata executable file (e.g., `C:\Program Files\Stata17\StataMP-64.exe`). When empty, the extension runs the bundled `scripts/discover_stata_windows.bat` registry probe at startup for up to 5 seconds. The same BAT can be run independently to generate `stata-discovery-report.json` for troubleshooting. If detection fails, configure directly from the running Stata instance. The initializer then verifies the EXE, Console DLL, and `stata.lic`, initializes the Embedded Console when possible, and reports the result once in a central dialog.
-4. **Stata Path on Linux (Preview)** (`stata-all-in-one.stataPathOnLinux`)
+4. **Stata Path on Linux** (`stata-all-in-one.stataPathOnLinux`)
 
    - Stata installation directory (e.g., `/usr/local/stata18`). Empty by default; the extension scans `/usr/local`, `/opt`, and your home directory for up to 3 seconds at startup, preferring the highest numeric version and then MP, SE, and BE. If detection fails, configure directly from the running Stata instance (`saio setup`). The initializer then verifies the console executable, the Console shared library (`libstata-*.so`), and `stata.lic`, initializes the Embedded Console when possible, and reports the result once in a central dialog. A path to a specific library or executable (e.g., `/usr/local/stata18/libstata-se.so`) selects that edition. External App mode is not available on Linux.
 5. **Close Stata Other Windows Before Sending Code (Windows)** (`stata-all-in-one.closeStataOtherWindowsBeforeSendingCode`)
@@ -407,6 +380,7 @@ If this extension has been helpful to you, feel free to scan the **Alipay** (lef
 
 | Version | Changes                                                                                                                                                                                               | Release Date |
 | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| 0.3.17 | Added Linux/Remote-SSH support and optional include execution; Console and Data Viewer now follow the client theme. | 2026-11-15 |
 | 0.3.16 | [Preview] added Linux/Remote-SSH support and client-theme colors for Console and Data Viewer. | 2026-11-03 |
 | 0.3.15  | Added per-run Console copying and long-task completion sounds; fixed Data Viewer pagination and section separators.                                                                                    | 2026-10-19   |
 | 0.3.14  | Data Viewer now reads data in bounded windows, with fixes for filtering, paging, numeric and `strL` values, and refresh.                                                                              | 2026-09-29   |

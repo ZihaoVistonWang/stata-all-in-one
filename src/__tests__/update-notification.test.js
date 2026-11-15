@@ -61,6 +61,9 @@ test('current release summaries and changelog anchors agree across both READMEs 
         if (manifest.preview) {
             assert.match(summary, /Preview|预览版/);
             assert.match(readme, /Preview Release Notice|预览版提醒/);
+        } else {
+            assert.doesNotMatch(summary, /Preview|预览版/);
+            assert.doesNotMatch(readme, /Preview Release Notice|预览版提醒/);
         }
     }
 });

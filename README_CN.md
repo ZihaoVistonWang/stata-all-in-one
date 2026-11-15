@@ -13,7 +13,7 @@ Stata All in One
 </p>
 
 <p align="center">
-   | <b>版本:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.3.16 预览版</a> | <b>作者:</b> <a href="https://zihaowang.cn">王梓豪</a> | <b>Translate:</b>
+   | <b>版本:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.3.17</a> | <b>作者:</b> <a href="https://zihaowang.cn">王梓豪</a> | <b>Translate:</b>
   <a href="https://github.com/ZihaoVistonWang/stata-all-in-one">English Version</a> |
 </p>
 
@@ -36,36 +36,6 @@ Stata All in One
 <p align="center">以下为 Stata All in One 的技术文档和安装配置说明；如需更直观易读的功能介绍，请访问我的【<a href="https://zihaowang.cn/zh/post/stata-all-in-one-news/">博客</a>】了解更多。</p>
 
 ---
-
-<table style="border-collapse: separate; border-spacing: 0; border-radius: 10px; overflow: hidden; display: block;">
-<tr>
-<td style="
-  background: linear-gradient(135deg, #ff6b6b10, #ffd93d10);
-  border: 3px solid #ff6b6b;
-  border-radius: 10px;
-  padding: 18px 22px;
-">
-<p style="margin:0 0 12px 0; font-size:1.25em; text-align:center;">
-  🚨 <strong>预览版提醒</strong> 🚨
-</p>
-<p style="margin:0 0 8px 0; padding-left: 1.6em; text-indent: -1.6em;">
-  ⚠️ <strong>v0.3.16 为预览版本（pre-release）</strong>，新增 Linux／Remote-SSH 支持与客户端主题同步，可能存在 bug，不建议在生产环境中使用。感谢每一位愿意尝鲜并反馈问题的用户！
-</p>
-<p style="margin:0 0 8px 0; padding-left: 1.6em; text-indent: -1.6em;">
-  📧 如遇问题，请将使用平台、复现步骤和截图发送至 <a href="mailto:hi@zihaowang.cn"><strong>hi@zihaowang.cn</strong></a>，或<a href="https://github.com/ZihaoVistonWang/stata-all-in-one/issues">提交问题反馈</a>。
-</p>
-<p style="margin:0 0 8px 0; padding-left: 1.6em; text-indent: -1.6em;">
-  ↩️ 如影响正常使用，可在 VS Code 中切换为发布版本，或通过<strong>安装其他版本…</strong>选择稳定版 <strong>v0.3.15</strong>。
-</p>
-<p style="margin:0 0 8px 0; padding-left: 1.6em; text-indent: -1.6em;">
-  🧪 Windows/macOS 本地及两者通过 Remote-SSH 连接 Linux 远程服务器已完成测试；Linux 桌面版 VS Code 仍待验证。随包 Linux 二进制为 <strong>x86_64</strong>，Linux 仅支持内置控制台运行模式。
-</p>
-<p style="margin:0 0 8px 0; padding-left: 1.6em; text-indent: -1.6em;">
-  📌 本文档的<mark>高亮部分</mark>代表本次预览版新增内容，详见<a href="https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0316-2026-11-03">完整预览版更新记录</a>。
-</p>
-</td>
-</tr>
-</table>
 
 ## 致谢
 
@@ -95,7 +65,7 @@ Stata All in One
 
 ### 2. 代码运行 (与Stata 交互)
 
-- **平台支持**：本拓展原生支持与 **macOS** 和 **Windows** 上的 Stata 无缝集成，并<mark>在 **Linux** 上支持内置控制台和数据查看器，包括通过 VS Code Remote-SSH 连接的远程服务器</mark>。
+- **平台支持**：本拓展原生支持与 **macOS** 和 **Windows** 上的 Stata 无缝集成，并在 **Linux** 上支持内置控制台和数据查看器，包括通过 VS Code Remote-SSH 连接的远程服务器。
 - **两种运行模式**：
   - **嵌入式控制台**（默认模式）🛠️：现在可以在 VS Code 内直接运行并展示Stata输出啦！包括*命令结果*、*错误信息*、*命令行窗口*和*图形输出*，真正实现一站式体验。控制台运行结果中的文件路径，点击即可打开。
   - **外部应用**：继续支持传统的通过 Stata 窗口运行代码的方式，适合喜欢使用 Stata 原生界面的用户。Windows端现在使用[Stata COM自动化](https://www.stata.com/automation/)，性能相比之前基于 PowerShell 的实现有显著提升。
@@ -103,6 +73,7 @@ Stata All in One
   - **章节运行**：当光标在标题行（如 `** # 标题`）时，点击 ▶️ 按钮 或按 `Ctrl / ⌘ + D`，将执行从该标题起始至下一个同级或高级别标题前的所有代码（即整个章节）。
   - **单行运行**：当光标在普通代码行任意位置时，点击 ▶️ 按钮 或按 `Ctrl / ⌘ + D`，只执行当前行代码。
   - **选中运行**：当选中单行或多行代码时，点击 ▶️ 按钮 或按 `Ctrl / ⌘ + D`，执行选中行的代码。支持**模糊选中**——无需精确选中代码段的*首行*或*尾行*，系统会自动捕捉并运行选中内容涉及的全部行。
+- **可选 `include` 运行**：开启 `stata-all-in-one.runUsingInclude` 后，后续命令仍可访问同一 Stata 会话中的本地宏；默认使用 `do`。
 
 ### 3. 增强语法高亮与代码提示
 
@@ -231,7 +202,6 @@ Stata All in One
 ### 从扩展市场安装
 
 - **VS Code**: 在扩展中搜索 "Stata All in One" 并安装。
-- **试用预览版**：在扩展详情页选择“切换到预发布版本”；如需恢复稳定版，选择“切换为发布版本”，或通过“安装其他版本…”选择 `0.3.15`。
 
 ### 下载安装（适用于 Cursor、Trae 等基于 VSCode 的 IDE）
 
@@ -243,7 +213,9 @@ Stata All in One
 
 ### Linux 远程服务器
 
-<mark>使用 VS Code Remote-SSH 连接 Linux 远程服务器，在服务器上安装 Stata 和本扩展（选择“安装到 SSH”）。</mark>打开 `do` 或 `dta` 文件，以 `embeddedConsole` 模式运行，客户端无需安装 Stata。自动探测失败时，在远端设置 `stata-all-in-one.stataPathOnLinux`。
+使用 VS Code Remote-SSH 连接 Linux 远程服务器，在服务器上安装 Stata 和本扩展（选择“安装到 SSH”）。打开 `do` 或 `dta` 文件，以 `embeddedConsole` 模式运行，客户端无需安装 Stata。自动探测失败时，在远端设置 `stata-all-in-one.stataPathOnLinux`。
+
+Linux 随包二进制仅支持 x86_64，且仅提供嵌入式控制台模式。Windows/macOS 远程连接 Linux 已测试；Linux 桌面版 VS Code 尚未验证。
 
 ---
 
@@ -265,13 +237,14 @@ Stata All in One
 
    - `embeddedConsole`（默认）：在 VS Code 内置的 `控制台 | Stata All in One` 面板中运行代码，直接查看输出并交互。
    - `externalApp`：将代码发送到外部 Stata 应用执行，仅支持 macOS/Windows；Linux 使用 `embeddedConsole`。
+   - `stata-all-in-one.runUsingInclude`（默认关闭）：开启后在嵌入式控制台和外部应用模式下使用 `include` 执行文件，使同一 Stata 会话中的后续命令可以读取本地宏；关闭时使用 `do`。
 2. **Stata 版本（macOS）** (`stata-all-in-one.stataVersionOnMacOS`)
 
    - Stata 运行版本。配置为空时，扩展会在启动时优先自动探测，最长等待 3 秒；优先数字版本最高的安装，同版本按 `StataMP`、`StataSE`、`StataBE`、`StataIC` 排序。未找到时可直接从当前运行的 Stata 完成配置。初始化随后检查准确的 `.app` 路径、控制台 dylib 和 `stata.lic`，尽可能初始化内置控制台，并通过中心弹窗只汇报一次结果。
 3. **Stata 路径（Windows）** (`stata-all-in-one.stataPathOnWindows`)
 
    - Stata 执行文件路径（例如 `C:\Program Files\Stata17\StataMP-64.exe`）。配置为空时，扩展会在启动时优先自动运行内置的 `scripts/discover_stata_windows.bat` 注册表探测脚本，最长等待 5 秒。该 BAT 脚本也可独立运行并生成 `stata-discovery-report.json`，用于问题排查。未找到时可直接从当前运行的 Stata 完成配置。初始化随后检查 EXE、控制台 DLL 和 `stata.lic`，尽可能初始化内置控制台，并通过中心弹窗只汇报一次结果。
-4. **Stata 路径（Linux，预览）** (`stata-all-in-one.stataPathOnLinux`)
+4. **Stata 路径（Linux）** (`stata-all-in-one.stataPathOnLinux`)
 
    - Stata 安装目录（例如 `/usr/local/stata18`）。默认留空，扩展会在启动时扫描 `/usr/local`、`/opt` 和用户主目录，最长等待 3 秒；优先数字版本最高的安装，同版本按 MP、SE、BE 排序。未找到时可直接从当前运行的 Stata 完成配置（`saio setup`）。初始化随后检查控制台可执行文件、控制台共享库（`libstata-*.so`）和 `stata.lic`，尽可能初始化内置控制台，并通过中心弹窗只汇报一次结果。填写具体的库或可执行文件路径（例如 `/usr/local/stata18/libstata-se.so`）可指定 Stata 类型（MP/SE/BE）。Linux 上不支持外部 Stata 软件模式。
 5. **发送代码前关闭 Stata 其他窗口（Windows）** (`stata-all-in-one.closeStataOtherWindowsBeforeSendingCode`)
@@ -403,6 +376,7 @@ Stata All in One
 
 | 版本   | 更新内容                                                                                                                                | 发布日期   |
 | ------ | --------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| 0.3.17 | 新增 Linux／Remote-SSH 支持与可选的 include 运行，控制台和数据查看器同步客户端主题。 | 2026-11-15 |
 | 0.3.16 | [预览版] 新增 Linux／Remote-SSH 支持，并同步控制台与数据查看器的客户端主题配色。 | 2026-11-03 |
 | 0.3.15 | 新增控制台逐次运行复制与长任务完成提醒；修复数据查看器翻页和章节分隔线。                                                                | 2026-10-19 |
 | 0.3.14 | 数据查看器改用有内存上限的分段读取，修复筛选、分页、数值与 `strL` 显示及刷新问题。                                                        | 2026-09-29 |

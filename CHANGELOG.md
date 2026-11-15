@@ -3,6 +3,15 @@
 All notable changes to the Stata All in One extension will be documented in this file.
 本文件记录 Stata All in One 扩展的所有重要更改。
 
+## 0.3.17 (2026-11-15)
+
+- **Release**: Promoted the Linux x86_64 Embedded Console, Data Viewer, and macOS/Windows-to-Linux Remote-SSH support introduced in the 0.3.16 preview to a regular release. Linux desktop VS Code remains unverified; Linux supports Embedded Console mode only.
+- **Feat**: Added the optional `stata-all-in-one.runUsingInclude` setting to run submitted files with `include` instead of `do` in Embedded Console and External App modes, preserving local macros for later commands in the same Stata session. The default remains `do`.
+- **Improved**: Console and Data Viewer follow the client's editor theme and customized syntax colors, including over Remote-SSH.
+- **正式发布**：将 0.3.16 预览版的 Linux x86_64 嵌入式控制台、数据查看器及 macOS/Windows 到 Linux 的 Remote-SSH 支持纳入正式版。Linux 桌面版 VS Code 尚未验证，Linux 仅支持嵌入式控制台模式。
+- **新增**：可通过 `stata-all-in-one.runUsingInclude` 在嵌入式控制台和外部应用模式下用 `include` 代替 `do` 执行文件，使后续命令仍可访问同一 Stata 会话中的本地宏；默认仍使用 `do`。
+- **优化**：控制台和数据查看器跟随客户端编辑器主题与自定义语法配色，包括 Remote-SSH 场景。
+
 ## 0.3.16 (2026-11-03)
 
 > **Preview release**: Linux/Remote-SSH support and client-theme synchronization are available for testing. If this preview disrupts your workflow, report the issue and return to stable v0.3.15. Local Windows/macOS and Windows/macOS-to-Linux Remote-SSH have been tested; Linux desktop VS Code still needs validation.
