@@ -355,7 +355,8 @@ async function runArbitraryCode(context, code, options = {}) {
             const consoleResult = await runOnWindowsEmbeddedConsole(normalizedCode, tmpFilePath, docDir, context, {
                 completionSound: options.completionSound,
                 completionSoundSettings: options.completionSoundSettings,
-                suppressRunFooter: Boolean(options.suppressRunFooter)
+                suppressRunFooter: Boolean(options.suppressRunFooter),
+                standaloneConsoleDirectory: options.standaloneConsoleDirectory || null
             });
             if (consoleResult.success) {
                 await vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
@@ -382,7 +383,8 @@ async function runArbitraryCode(context, code, options = {}) {
             const consoleResult = await runOnLinuxEmbeddedConsole(normalizedCode, tmpFilePath, docDir, context, {
                 completionSound: options.completionSound,
                 completionSoundSettings: options.completionSoundSettings,
-                suppressRunFooter: Boolean(options.suppressRunFooter)
+                suppressRunFooter: Boolean(options.suppressRunFooter),
+                standaloneConsoleDirectory: options.standaloneConsoleDirectory || null
             });
             if (consoleResult.success) {
                 await vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);
@@ -410,7 +412,8 @@ async function runArbitraryCode(context, code, options = {}) {
         const consoleResult = await runOnMacWebview(normalizedCode, tmpFilePath, docDir, context, {
             completionSound: options.completionSound,
             completionSoundSettings: options.completionSoundSettings,
-            suppressRunFooter: Boolean(options.suppressRunFooter)
+            suppressRunFooter: Boolean(options.suppressRunFooter),
+            standaloneConsoleDirectory: options.standaloneConsoleDirectory || null
         });
         if (consoleResult.success) {
             await vscode.commands.executeCommand('setContext', 'stata-all-in-one.consoleSessionActive', true);

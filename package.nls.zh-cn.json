@@ -92,6 +92,7 @@
   "command.showSponsorIcon.dark": "img/sponsor-dark.svg",
   "command.showDataViewer.title": "显示 数据查看器 | Stata All in One",
   "customEditor.dtaViewer.displayName": "数据查看器 | Stata All in One",
+  "command.openConsole.title": "Stata All in One：打开控制台",
   "command.stopConsoleExecution.title": "Stata All in One：停止 Console 执行",
   "graph.copyImage": "复制图片",
   "graph.saveImage": "保存图片",

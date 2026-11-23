@@ -24,6 +24,7 @@ const variableSuggestions = require('../../variableSuggestionService');
 const config = require('../../../utils/config');
 const capability = require('../../capability');
 const { hasOpenStataSourceTab } = require('./editorRestorePolicy');
+const { getFocusEditorGroupCommand, shouldOpenConsoleInActiveGroup } = require('./standaloneConsole');
 const { createExportFilename, serializeConsoleExport } = require('./consoleExport');
 const { appendConsoleHistory, getConsoleRunText } = require('./consoleHistory');
 const {
@@ -46,6 +47,8 @@ const PANEL_VIEW_TYPE = 'stata-all-in-one.webviewTerminal';
 
 let _panel = null;
 let _lastViewColumn = null;
+let _webviewReady = false;
+let _focusInputWhenReady = false;
 let _history = [];
 let _status = 'idle';
 let _commandHandler = null;
@@ -208,6 +211,7 @@ function attachPanel(panel) {
         return;
     }
     _panel = panel;
+    _webviewReady = false;
     if (panel.viewColumn) _lastViewColumn = panel.viewColumn;
     _panel.title = getPanelTitle();
     _panel.iconPath = getPanelIconPath();
@@ -225,6 +229,8 @@ function attachPanel(panel) {
         if (_panel === panel) {
             _panel = null;
             _lastViewColumn = null;
+            _webviewReady = false;
+            _focusInputWhenReady = false;
             discardPendingWebviewAppends();
             // Clear all state — fresh console on next open
             _history = [];
@@ -255,9 +261,14 @@ function attachPanel(panel) {
     });
     _panel.webview.onDidReceiveMessage(async (message) => {
         if (message && message.type === 'ready') {
+            _webviewReady = true;
             postState();
             postVariables();
             postResultPreviewCapability(panel);
+            if (_focusInputWhenReady) {
+                _focusInputWhenReady = false;
+                panel.webview.postMessage({ type: 'focusInput' });
+            }
         } else if (message && message.type === 'resolveClientTheme') {
             await handleThemeRequest(message, panel);
         } else if (message && message.type === 'historyBatchRendered') {
@@ -485,7 +496,7 @@ async function exportConsoleHistory() {
     }
 }
 
-function ensurePanel() {
+function ensurePanel(options = {}) {
     if (_panel) {
         _panel.title = getPanelTitle();
         _panel.iconPath = getPanelIconPath();
@@ -496,8 +507,8 @@ function ensurePanel() {
         PANEL_VIEW_TYPE,
         getPanelTitle(),
         {
-            viewColumn: vscode.ViewColumn.Beside,
-            preserveFocus: true
+            viewColumn: options.viewColumn || vscode.ViewColumn.Beside,
+            preserveFocus: options.preserveFocus !== false
         },
         {
             enableScripts: true,
@@ -590,6 +601,41 @@ async function revealPanel(preserveFocus = true) {
         panel.reveal(getWebviewTerminalViewColumn() || vscode.ViewColumn.Beside, preserveFocus);
     }
     postState();
+    return panel;
+}
+
+/**
+ * Open the Console on its own, without running anything, and put the cursor
+ * in the input box. Stata itself starts with the first submitted command.
+ */
+async function openPanel() {
+    const existingPanel = _panel;
+    const panel = ensurePanel({
+        viewColumn: shouldOpenConsoleInActiveGroup(vscode.window.tabGroups.activeTabGroup)
+            ? vscode.ViewColumn.Active
+            : vscode.ViewColumn.Beside,
+        preserveFocus: false
+    });
+    if (existingPanel) {
+        panel.reveal(getWebviewTerminalViewColumn() || vscode.ViewColumn.Beside, false);
+        // reveal() leaves keyboard focus where it was when the Console is
+        // already visible in another editor group, so focus its group as well.
+        const focusGroupCommand = getFocusEditorGroupCommand(panel.viewColumn);
+        if (focusGroupCommand) {
+            try {
+                await vscode.commands.executeCommand(focusGroupCommand);
+            } catch (error) {
+                console.error('Stata All in One: Failed to focus the Console editor group:', error && error.message);
+            }
+        }
+    }
+    if (_webviewReady) {
+        panel.webview.postMessage({ type: 'focusInput' });
+    } else {
+        // A new webview has not attached its message listener yet; the
+        // 'ready' handler delivers the focus request once it has.
+        _focusInputWhenReady = true;
+    }
     return panel;
 }
 
@@ -4889,6 +4935,14 @@ function getWebviewHtml(webview) {
                 });
             } else if (message.type === 'status') {
                 setStatus(message.status, message.workingStartedAt);
+            } else if (message.type === 'focusInput') {
+                if (input.disabled) {
+                    // Busy: setStatus() focuses the input once the run ends.
+                    pendingFocus = true;
+                } else {
+                    window.focus();
+                    input.focus();
+                }
             } else if (message.type === 'clear') {
                 resetOutput([], 0, 0, message.historyRevision);
             } else if (message.type === 'reset') {
@@ -5039,6 +5093,7 @@ function refreshConsoleClientTheme() {
 module.exports = {
     refreshConsoleClientTheme,
     revealWebviewTerminalPanel: revealPanel,
+    openWebviewTerminalPanel: openPanel,
     getWebviewTerminalViewColumn,
     getWebviewTerminalSink,
     setWebviewCommandHandler,

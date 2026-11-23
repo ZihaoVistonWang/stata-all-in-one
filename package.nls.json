@@ -92,6 +92,7 @@
   "command.showSponsorIcon.dark": "img/buy-me-a-coffee-dark.svg",
   "command.showDataViewer.title": "Show Data Viewer | Stata All in One",
   "customEditor.dtaViewer.displayName": "Data Viewer | Stata All in One",
+  "command.openConsole.title": "Stata All in One: Open Console",
   "command.stopConsoleExecution.title": "Stata All in One: Stop Console Execution",
   "graph.copyImage": "Copy image",
   "graph.saveImage": "Save image",

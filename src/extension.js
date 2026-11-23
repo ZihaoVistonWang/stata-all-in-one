@@ -11,7 +11,8 @@ const { registerExecuteCommand } = require('./modules/runCode/execute');
 const { runArbitraryCode } = require('./modules/runCode/execute');
 const { forceShutdownConsoleSession } = require('./modules/runCode/embeddedConsole/runner');
 const embeddedConsoleSession = require('./modules/runCode/embeddedConsole/session');
-const { refreshConsoleClientTheme, setWebviewCommandHandler, setWebviewActionHandler, setOverflowNoticeSuppressed, registerWebviewPanelSerializer, clearWebviewTerminalPanel, setWebviewTerminalStatus, setConsoleFontOptions } = require('./modules/runCode/embeddedConsole/panel');
+const { refreshConsoleClientTheme, openWebviewTerminalPanel, setWebviewCommandHandler, setWebviewActionHandler, setOverflowNoticeSuppressed, registerWebviewPanelSerializer, clearWebviewTerminalPanel, setWebviewTerminalStatus, setConsoleFontOptions } = require('./modules/runCode/embeddedConsole/panel');
+const { resolveStandaloneConsoleDirectory } = require('./modules/runCode/embeddedConsole/standaloneConsole');
 const { registerCustomCommandHighlight } = require('./modules/customCommandHighlight');
 const { registerCompletionProvider } = require('./modules/completionProvider');
 const { registerVariableSuggestionService } = require('./modules/variableSuggestionService');
@@ -513,7 +514,13 @@ async function activate(context) {
     registerExecuteCommand(context);
     setWebviewCommandHandler(async (code) => {
         await runArbitraryCode(context, code, {
-            outputMode: config.RUN_MODES.embeddedConsole
+            outputMode: config.RUN_MODES.embeddedConsole,
+            // Only used when this command starts the session: with no do-file
+            // open, Stata starts in the workspace folder.
+            standaloneConsoleDirectory: resolveStandaloneConsoleDirectory(
+                vscode.window.tabGroups.all,
+                vscode.workspace.workspaceFolders
+            )
         });
     });
     currentWebviewFontSize = refreshConsoleFontOptions();
@@ -585,6 +592,21 @@ async function activate(context) {
         }
     );
     context.subscriptions.push(stopConsoleCommand);
+
+    // Open the Console without running a do-file; Stata starts with the
+    // first command typed into it.
+    const openConsoleCommand = vscode.commands.registerCommand(
+        'stata-all-in-one.openConsole',
+        async () => {
+            try {
+                await openWebviewTerminalPanel();
+            } catch (error) {
+                console.error('Stata All in One: Failed to open the Console:', error && error.message);
+                showError(`Stata All in One: ${error && error.message ? error.message : String(error)}`);
+            }
+        }
+    );
+    context.subscriptions.push(openConsoleCommand);
 
     // Register help command
     registerHelpCommand(context);

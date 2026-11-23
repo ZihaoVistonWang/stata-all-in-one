@@ -347,7 +347,7 @@ function createConsoleRunner({ platform, ensureConsoleSession }) {
                 : normalizedCode;
             const progressTotal = extractProgressTotalFromCode(execCode);
             await applyWebviewBootstrap(consoleSession);
-            await ensureInitialWorkingDirectory(consoleSession, docDir);
+            await ensureInitialWorkingDirectory(consoleSession, docDir, options);
             if (typeof outputSink.setWorkingDirectory === 'function') {
                 outputSink.setWorkingDirectory(consoleSession.getWorkingDirectory());
             }
@@ -642,11 +642,15 @@ function createConsoleRunner({ platform, ensureConsoleSession }) {
         outputSink.writeGraphEntries(exportedGraphs);
     }
 
-    async function ensureInitialWorkingDirectory(consoleSession, docDir) {
+    async function ensureInitialWorkingDirectory(consoleSession, docDir, options = {}) {
+        // A command typed into a Console that was opened without any do-file
+        // starts the session in the workspace folder, whatever cdToDoFileDir says:
+        // there is no do-file directory for that setting to refer to.
+        const standaloneDirectory = options && options.standaloneConsoleDirectory;
         await ensureSessionWorkingDirectory(
             consoleSession,
-            docDir,
-            config.getCdToDoFileDir()
+            standaloneDirectory || docDir,
+            standaloneDirectory ? true : config.getCdToDoFileDir()
         );
     }
 
