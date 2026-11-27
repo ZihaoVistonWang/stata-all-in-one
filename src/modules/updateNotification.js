@@ -10,6 +10,10 @@ const { getUserLanguage } = require('../utils/common');
 // Update changelog: version -> changelog text
 const CHANGELOG = {
     en: {
+        '0.3.18': {
+            ver_info: '✨ Stata All in One (0.3.18): Open the Embedded Console without a `.do` file; start Stata on the first command in the workspace folder when available.',
+            more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0318-2026-11-27'
+        },
         '0.3.17': {
             ver_info: '✨ Stata All in One (0.3.17): Added Linux/Remote-SSH support and optional include execution; Console and Data Viewer now follow the client theme.',
             more_url: 'https://github.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0317-2026-11-15'
@@ -148,6 +152,10 @@ const CHANGELOG = {
         }
     },
     zh: {
+        '0.3.18': {
+            ver_info: '✨ Stata All in One (0.3.18)：无需 `.do` 文件即可打开嵌入式控制台，提交首条命令时启动 Stata；有工作区时以其目录启动。',
+            more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0318-2026-11-27'
+        },
         '0.3.17': {
             ver_info: '✨ Stata All in One (0.3.17)：新增 Linux／Remote-SSH 支持与可选的 include 运行，控制台和数据查看器同步客户端主题。',
             more_url: 'https://gitee.com/ZihaoVistonWang/stata-all-in-one/blob/main/CHANGELOG.md#0317-2026-11-15'

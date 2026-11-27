@@ -13,7 +13,7 @@ Stata All in One
 </p>
 
 <p align="center">
-   | <b>Version:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.3.17</a> | <b>Author:</b> <a href="https://zihaowang.cn">Zihao Viston Wang</a> | <b>Translate:</b>
+   | <b>Version:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.3.18</a> | <b>Author:</b> <a href="https://zihaowang.cn">Zihao Viston Wang</a> | <b>Translate:</b>
   <a href="https://gitee.com/ZihaoVistonWang/stata-all-in-one">中文版本</a> |
 </p>
 
@@ -381,6 +381,7 @@ If this extension has been helpful to you, feel free to scan the **Alipay** (lef
 
 | Version | Changes                                                                                                                                                                                               | Release Date |
 | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| 0.3.18 | Open the Embedded Console without a `.do` file; start Stata on the first command in the workspace folder when available. | 2026-11-27 |
 | 0.3.17 | Added Linux/Remote-SSH support and optional include execution; Console and Data Viewer now follow the client theme. | 2026-11-15 |
 | 0.3.16 | [Preview] added Linux/Remote-SSH support and client-theme colors for Console and Data Viewer. | 2026-11-03 |
 | 0.3.15  | Added per-run Console copying and long-task completion sounds; fixed Data Viewer pagination and section separators.                                                                                    | 2026-10-19   |

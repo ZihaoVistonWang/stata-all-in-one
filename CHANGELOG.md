@@ -3,6 +3,13 @@
 All notable changes to the Stata All in One extension will be documented in this file.
 本文件记录 Stata All in One 扩展的所有重要更改。
 
+## 0.3.18 (2026-11-27)
+
+- **Feat**: Open the Embedded Console from the Command Palette without a `.do` file. Focus the input when opened, start Stata on the first submitted command, and use the workspace folder as the initial working directory when one is available and no Stata source file is open.
+- **Docs**: Fixed the Marketplace badges in both READMEs.
+- **新增**：无需打开 `.do` 文件即可从命令面板独立打开嵌入式控制台；打开后聚焦输入框，提交首条命令时启动 Stata，未打开 Stata 源文件且有工作区时以工作区目录为初始工作目录。
+- **文档**：修复中英文 README 的 Marketplace 徽章。
+
 ## 0.3.17 (2026-11-15)
 
 - **Release**: Promoted the Linux x86_64 Embedded Console, Data Viewer, and macOS/Windows-to-Linux Remote-SSH support introduced in the 0.3.16 preview to a regular release. Linux desktop VS Code remains unverified; Linux supports Embedded Console mode only.

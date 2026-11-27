@@ -13,7 +13,7 @@ Stata All in One
 </p>
 
 <p align="center">
-   | <b>版本:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.3.17</a> | <b>作者:</b> <a href="https://zihaowang.cn">王梓豪</a> | <b>Translate:</b>
+   | <b>版本:</b><a href="https://github.com/ZihaoVistonWang/stata-all-in-one/releases"> 0.3.18</a> | <b>作者:</b> <a href="https://zihaowang.cn">王梓豪</a> | <b>Translate:</b>
   <a href="https://github.com/ZihaoVistonWang/stata-all-in-one">English Version</a> |
 </p>
 
@@ -377,6 +377,7 @@ Linux 随包二进制仅支持 x86_64，且仅提供嵌入式控制台模式。W
 
 | 版本   | 更新内容                                                                                                                                | 发布日期   |
 | ------ | --------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| 0.3.18 | 无需 `.do` 文件即可打开嵌入式控制台，提交首条命令时启动 Stata；有工作区时以其目录启动。 | 2026-11-27 |
 | 0.3.17 | 新增 Linux／Remote-SSH 支持与可选的 include 运行，控制台和数据查看器同步客户端主题。 | 2026-11-15 |
 | 0.3.16 | [预览版] 新增 Linux／Remote-SSH 支持，并同步控制台与数据查看器的客户端主题配色。 | 2026-11-03 |
 | 0.3.15 | 新增控制台逐次运行复制与长任务完成提醒；修复数据查看器翻页和章节分隔线。                                                                | 2026-10-19 |
