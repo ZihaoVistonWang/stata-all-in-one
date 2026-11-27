@@ -24,8 +24,8 @@ Stata All in One
 <h3 align="center"><b>开箱即用！</b></br>所有功能均原生集成于 VS Code，无需额外配置 Python、Node.js 等任何第三方环境。</h3>
 
 <p align="center">
-   <a href="https://marketplace.visualstudio.com/items?itemName=ZihaoVistonWang.stata-all-in-one"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fapi.zihaowang.cn%2Fvscode-install&style=for-the-badge&labelColor=363a4f&color=ff6b81&label=VS Code安装" alt="VS Code 安装次数"></a>
-   <a href="https://open-vsx.org/extension/ZihaoVistonWang/stata-all-in-one"><img src="https://img.shields.io/endpoint?url=https://api.zihaowang.cn/openvsx-install&style=for-the-badge&labelColor=363a4f&color=f5a97f&label=Open VSX下载" alt="Open VSX下载次数"></a>
+   <a href="https://marketplace.visualstudio.com/items?itemName=ZihaoVistonWang.stata-all-in-one"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fapi.zihaowang.cn%2Fvscode-install&style=for-the-badge&labelColor=363a4f&color=ff6b81&label=VS%20Code%E5%AE%89%E8%A3%85" alt="VS Code 安装次数"></a>
+   <a href="https://open-vsx.org/extension/ZihaoVistonWang/stata-all-in-one"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fapi.zihaowang.cn%2Fopenvsx-install&style=for-the-badge&labelColor=363a4f&color=f5a97f&label=Open%20VSX%E4%B8%8B%E8%BD%BD" alt="Open VSX下载次数"></a>
    <a href="https://xhslink.com/o/4Zs0aSfJSK"><img src="https://img.shields.io/endpoint?url=https://api.zihaowang.cn/rednote-noteinfo&label=Rednote互动数据&labelColor=363a4f&color=ffeaa7&style=for-the-badge" alt="Rednote互动数据 ~500"></a>
    <img src="https://img.shields.io/github/commit-activity/t/ZihaoVistonWang/stata-all-in-one?colorA=363a4f&colorB=7bed9f&style=for-the-badge&label=修订次数" alt="修订次数">
    <a href="https://gitee.com/ZihaoVistonWang/stata-all-in-one#项目支持"><img src="https://img.shields.io/badge/点击 - 项目支持-brightgreen?colorA=363a4f&colorB=e971b7&style=for-the-badge" alt="项目支持"></a>

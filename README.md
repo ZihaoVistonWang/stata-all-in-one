@@ -24,8 +24,8 @@ Stata All in One
 <h3 align="center"><b>Ready out of the box!</b><br>Natively integrated into VS Code—no need to configure external environments like Python or Node.js.</h3>
 
 <p align="center">
-   <a href="https://marketplace.visualstudio.com/items?itemName=ZihaoVistonWang.stata-all-in-one"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fapi.zihaowang.cn%2Fvscode-install&style=for-the-badge&labelColor=363a4f&color=ff6b81&label=VS Code" alt="VS Code Installations"></a>
-   <a href="https://open-vsx.org/extension/ZihaoVistonWang/stata-all-in-one"><img src="https://img.shields.io/endpoint?url=https://api.zihaowang.cn/openvsx-install&style=for-the-badge&labelColor=363a4f&color=f5a97f&label=Open VSX" alt="Open VSX Downloads"></a>
+   <a href="https://marketplace.visualstudio.com/items?itemName=ZihaoVistonWang.stata-all-in-one"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fapi.zihaowang.cn%2Fvscode-install&style=for-the-badge&labelColor=363a4f&color=ff6b81&label=VS%20Code" alt="VS Code Installations"></a>
+   <a href="https://open-vsx.org/extension/ZihaoVistonWang/stata-all-in-one"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fapi.zihaowang.cn%2Fopenvsx-install&style=for-the-badge&labelColor=363a4f&color=f5a97f&label=Open%20VSX" alt="Open VSX Downloads"></a>
    <a href="https://xhslink.com/o/4Zs0aSfJSK"><img src="https://img.shields.io/endpoint?url=https://api.zihaowang.cn/rednote-noteinfo&label=Likes%20and%20collection&labelColor=363a4f&color=ffeaa7&style=for-the-badge" alt="Rednote Interactions ~500"></a>
    <img src="https://img.shields.io/github/commit-activity/t/ZihaoVistonWang/stata-all-in-one?colorA=363a4f&colorB=7bed9f&style=for-the-badge&label=Commits" alt="Commits">
    <a href="https://github.com/ZihaoVistonWang/stata-all-in-one#buy-me-a-coffee"><img src="https://img.shields.io/badge/BUY%20ME-A%20COFFEE-brightgreen?colorA=363a4f&colorB=e971b7&style=for-the-badge" alt="Buy Me A Coffee"></a>
