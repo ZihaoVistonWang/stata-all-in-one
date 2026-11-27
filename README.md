@@ -125,6 +125,7 @@ Stata All in One
 
 1. Enhanced Embedded Console 🛠️
 
+   - **Open Without a Do-file**: Run `Stata All in One: Open Console` from the Command Palette to open the Console on its own and type commands straight away, e.g. `sysuse auto`. Stata starts with the first command; when no do-file is open, it starts in the workspace folder.
    - **Graph Output**
 
      - **Direct Display**: Render Stata graph output directly in the embedded console.

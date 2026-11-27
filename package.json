@@ -476,6 +476,11 @@
         "title": "%command.rename.title%"
       },
       {
+        "command": "stata-all-in-one.openConsole",
+        "title": "%command.openConsole.title%",
+        "icon": "$(terminal)"
+      },
+      {
         "command": "stata-all-in-one.stopConsoleExecution",
         "title": "%command.stopConsoleExecution.title%",
         "icon": "$(stop-circle)"

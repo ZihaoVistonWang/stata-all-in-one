@@ -87,12 +87,15 @@ function fixture(options = {}) {
             async cleanupTempFile(file) { calls.cleanup.push(file); }
         },
         '../../../utils/config': {
-            getCdToDoFileDir: () => true,
+            getCdToDoFileDir: () => options.cdToDoFileDir !== false,
             getRunUsingInclude: () => Boolean(options.runUsingInclude)
         },
         '../../../utils/common': { msg: key => key },
         './workingDirectory': {
-            async ensureSessionWorkingDirectory(_session, docDir) { calls.initialDirectory = docDir; },
+            async ensureSessionWorkingDirectory(_session, docDir, changeDirectory) {
+                calls.initialDirectory = docDir;
+                calls.changeDirectory = changeDirectory;
+            },
             async syncSessionWorkingDirectory() { calls.events.push('sync-directory'); }
         },
         './panel': { getWebviewTerminalSink: () => sink, setGraphResourceRoot() {}, convertGraphSvgToBitmap() {} },
@@ -124,6 +127,30 @@ const platforms = [
     ['windows', 'win32', 'runOnWindowsEmbeddedConsole'],
     ['linux', 'linux', 'runOnLinuxEmbeddedConsole']
 ];
+
+for (const [name, , entry] of platforms) {
+    test(`${name} starts a standalone Console session in the workspace folder even with cdToDoFileDir off`, async () => {
+        const f = fixture({ cdToDoFileDir: false });
+        const api = loadModule(name, f.platformImports);
+        const result = await api[entry]('sysuse auto', null, '/tmp', {}, {
+            standaloneConsoleDirectory: '/workspace'
+        });
+        assert.equal(result.success, true);
+        assert.equal(f.calls.initialDirectory, '/workspace');
+        assert.equal(f.calls.changeDirectory, true);
+    });
+
+    test(`${name} leaves the working directory to cdToDoFileDir when a do-file is open`, async () => {
+        const f = fixture({ cdToDoFileDir: false });
+        const api = loadModule(name, f.platformImports);
+        const result = await api[entry]('sysuse auto', null, '/project', {}, {
+            standaloneConsoleDirectory: null
+        });
+        assert.equal(result.success, true);
+        assert.equal(f.calls.initialDirectory, '/project');
+        assert.equal(f.calls.changeDirectory, false);
+    });
+}
 
 for (const [name, platform, entry] of platforms) {
     test(`${name} entry executes through the shared runner and preserves output, graphs and cleanup`, async () => {
